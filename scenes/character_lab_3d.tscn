@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/character_lab_3d.gd" id="1_lab"]
+[ext_resource type="PackedScene" path="res://assets/characters/lembah_asri_protagonist_3d.glb" id="2_model"]
+
+[node name="Character3DLab" type="Node3D"]
+script = ExtResource("1_lab")
+
+[node name="ProtagonistModel" parent="." instance=ExtResource("2_model")]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(0.843391, -0.2513, 0.4758, 0, 0.884, 0.467, -0.537, -0.393, 0.745, 4.4, 4.4, 7.9)
+current = true
+fov = 44.0

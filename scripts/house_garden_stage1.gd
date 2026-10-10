@@ -154,6 +154,13 @@ func _make_ui() -> void:
     dialogue_label.size = Vector2(680,62)
     dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     dialogue_panel.visible = false
+    var model_btn := Button.new()
+    model_btn.name = "Open3DCharacterLab"
+    model_btn.text = "UJI MODEL 3D"
+    model_btn.position = Vector2(1052, 18)
+    model_btn.size = Vector2(186, 43)
+    model_btn.pressed.connect(_open_model_lab)
+    hud.add_child(model_btn)
 
 func _process(delta: float) -> void:
     if interaction_timer > 0.0:
@@ -168,7 +175,13 @@ func _process(delta: float) -> void:
     else:
         hint_label.text = "WASD / Panah: jalan  |  E: interaksi"
 
+func _open_model_lab() -> void:
+    get_tree().change_scene_to_file("res://scenes/character_lab_3d.tscn")
+
 func _unhandled_input(event: InputEvent) -> void:
+    if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F6:
+        _open_model_lab()
+        return
     if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
         if player.position.distance_to(npc.position) <= 112.0:
             dialogue_label.text = "Bu Sari: Selamat pulang, Nak! Rumah ini sudah lama menunggumu."
