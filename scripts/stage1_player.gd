@@ -19,14 +19,23 @@ const DIRECTION_TEXTURES = {
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const STATES := ["idle", "walk", "run"]
 const FPS := 12.0
-const GAIT_SHADER = preload("res://shaders/hero_gait.gdshader")
+const FOOT_CLEANUP_SHADER = preload("res://shaders/hero_floor_cleanup.gdshader")
+const WALK_ATLASES = {
+    "up": preload("res://assets/characters/player_hd/walk_atlases/up.png"),
+    "up_right": preload("res://assets/characters/player_hd/walk_atlases/up_right.png"),
+    "right": preload("res://assets/characters/player_hd/walk_atlases/right.png"),
+    "down_right": preload("res://assets/characters/player_hd/walk_atlases/down_right.png"),
+    "down": preload("res://assets/characters/player_hd/walk_atlases/down.png")
+}
+const WALK_FRAMES: int = 6
+const FRAME_W: float = 512.0
+const FRAME_H: float = 640.0
+const WALK_FPS: float = 8.5
+const RUN_FPS: float = 12.0
 
 var facing: Vector2 = Vector2(1.0, 1.0).normalized()
 var facing_name: String = "down_right"
 var animation_state: String = "idle"
-var gait_phase: float = 0.0
-var gait_strength: float = 0.0
-var gait_material: ShaderMaterial
 
 # Valid FOOT positions in the approved illustrated concept.
 var walk_polygon: PackedVector2Array = PackedVector2Array([
@@ -49,9 +58,20 @@ func _ready() -> void:
     if not InputMap.action_has_event("run", shift):
         InputMap.action_add_event("run", shift)
     _setup_animations()
-    _setup_gait_material()
+    _setup_floor_cleanup_material()
     $Avatar.visible = false
     $AnimatedSprite2D.play("idle_" + facing_name)
+
+func _atlas_direction(direction: String) -> String:
+    match direction:
+        "up_left":
+            return "up_right"
+        "left":
+            return "right"
+        "down_left":
+            return "down_right"
+        _:
+            return direction
 
 func _setup_animations() -> void:
     var frames := SpriteFrames.new()
@@ -61,12 +81,20 @@ func _setup_animations() -> void:
         for direction in DIRECTIONS:
             var name: String = state + "_" + direction
             frames.add_animation(name)
-            frames.set_animation_speed(name, FPS)
             frames.set_animation_loop(name, true)
-            # Walk/run intentionally retain the SAME approved HD silhouette
-            # until true rigged animation is produced from a single master.
-            # Never mix HD idle art with the old low-resolution chibi atlas.
-            frames.add_frame(name, DIRECTION_TEXTURES[direction])
+            frames.set_animation_speed(name, 1.0 if state == "idle" else (RUN_FPS if state == "run" else WALK_FPS))
+            if state == "idle":
+                # Keep each original locked HD 512x640 idle illustration.
+                frames.add_frame(name, DIRECTION_TEXTURES[direction])
+            else:
+                # True six-pose walk sequence, no procedural gait deformation.
+                # Three left directions mirror the approved right-side source.
+                var atlas: Texture2D = WALK_ATLASES[_atlas_direction(direction)]
+                for i in range(WALK_FRAMES):
+                    var f := AtlasTexture.new()
+                    f.atlas = atlas
+                    f.region = Rect2(float(i) * FRAME_W, 0.0, FRAME_W, FRAME_H)
+                    frames.add_frame(name, f)
     $AnimatedSprite2D.sprite_frames = frames
 
 func _nearest_eight_direction(v: Vector2) -> String:
@@ -110,32 +138,20 @@ func _physics_process(_delta: float) -> void:
     animation_state = ("run" if running else "walk") if (wants_to_move and really_moved) else "idle"
     var key := animation_state + "_" + facing_name
     var actor: AnimatedSprite2D = $AnimatedSprite2D
-    if actor.animation != key or not actor.is_playing():
+    actor.flip_h = animation_state != "idle" and (facing_name == "left" or facing_name == "up_left" or facing_name == "down_left")
+    if actor.animation != key:
+        var old_name: String = actor.animation
+        var old_frame: int = actor.frame
         actor.play(key)
-    # Foot motion is tied to *actual* travelled distance, not elapsed time.
-    # Colliding with a fence/wall cannot cause feet to run in place.
-    _advance_gait(_delta, moved_px if wants_to_move else 0.0, running)
+        # Keep the stride phase when switching directions while moving.
+        if animation_state != "idle" and (old_name.begins_with("walk_") or old_name.begins_with("run_")):
+            actor.set_frame_and_progress(old_frame % WALK_FRAMES, 0.0)
+    elif not actor.is_playing():
+        actor.play(key)
 
-func _setup_gait_material() -> void:
-    gait_material = ShaderMaterial.new()
-    gait_material.shader = GAIT_SHADER
-    $AnimatedSprite2D.material = gait_material
-    gait_material.set_shader_parameter("strength", 0.0)
-
-func _advance_gait(delta: float, moved_px: float, running: bool) -> void:
-    var moving: bool = moved_px > 0.001
-    var target_strength: float = 0.0
-    if moving:
-        # Cycle is driven by ground distance: consistent foot placement
-        # across 8 directions, variable FPS and collisions.
-        # Running has a longer stride and stronger, faster deformation.
-        var stride_px: float = 112.0 if running else 90.0
-        target_strength = 0.82 if running else 0.52
-        gait_phase = wrapf(gait_phase + TAU * moved_px / stride_px, 0.0, TAU)
-    # Blend in/out smoothly; idle settles to the original unchanged pose.
-    gait_strength = move_toward(gait_strength, target_strength, delta * 6.0)
-    gait_material.set_shader_parameter("phase", gait_phase)
-    gait_material.set_shader_parameter("strength", gait_strength)
-    gait_material.set_shader_parameter("profile", absf(facing.x))
-    gait_material.set_shader_parameter("direction_sign", -1.0 if facing.x < -0.001 else 1.0)
-
+func _setup_floor_cleanup_material() -> void:
+    # Only removes the baked white floor stroke from the original idle art.
+    # It does not deform the walking poses.
+    var cleanup := ShaderMaterial.new()
+    cleanup.shader = FOOT_CLEANUP_SHADER
+    $AnimatedSprite2D.material = cleanup
