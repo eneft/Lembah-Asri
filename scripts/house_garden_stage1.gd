@@ -156,11 +156,27 @@ func _make_ui() -> void:
     dialogue_panel.visible = false
     var model_btn := Button.new()
     model_btn.name = "Open3DCharacterLab"
-    model_btn.text = "UJI MODEL 3D"
-    model_btn.position = Vector2(1052, 18)
-    model_btn.size = Vector2(186, 43)
+    model_btn.text = "LIHAT KARAKTER 3D  ▶"
+    model_btn.tooltip_text = "Buka model 3D terpisah; karakter gameplay 2D tidak berubah (F6)"
+    model_btn.position = Vector2(500, 12)
+    model_btn.size = Vector2(280, 54)
+    model_btn.add_theme_font_size_override("font_size", 18)
+    model_btn.add_theme_color_override("font_color", Color("#FFF7DF"))
+    var button_style := StyleBoxFlat.new()
+    button_style.bg_color = Color("#284936")
+    button_style.border_color = Color("#F2D68B")
+    button_style.set_border_width_all(2)
+    button_style.set_corner_radius_all(12)
+    model_btn.add_theme_stylebox_override("normal", button_style)
+    var hover_style := button_style.duplicate() as StyleBoxFlat
+    hover_style.bg_color = Color("#376F4D")
+    model_btn.add_theme_stylebox_override("hover", hover_style)
     model_btn.pressed.connect(_open_model_lab)
     hud.add_child(model_btn)
+    # In Web, an explicit #model3d deep-link opens the lab once.
+    if OS.has_feature("web") and str(JavaScriptBridge.eval("window.location.hash", true)) == "#model3d":
+        JavaScriptBridge.eval("window.history.replaceState(null, '', window.location.pathname + window.location.search)", true)
+        call_deferred("_open_model_lab")
 
 func _process(delta: float) -> void:
     if interaction_timer > 0.0:

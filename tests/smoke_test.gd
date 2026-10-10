@@ -20,6 +20,16 @@ func _check() -> void:
         if world.get_node_or_null(name) == null:
             push_error("STAGE1 FAIL: missing " + name)
             failures = true
+    var lab_btn: Button = world.get_node_or_null("HUD/Open3DCharacterLab") as Button
+    if lab_btn == null:
+        push_error("STAGE1 FAIL: 3D character testing control not visible")
+        failures = true
+    elif lab_btn.position.x < 350.0 or lab_btn.position.x > 780.0 or lab_btn.position.y > 100.0:
+        push_error("STAGE1 FAIL: 3D model button overlaps concept HUD")
+        failures = true
+    if not ResourceLoader.exists("res://scenes/character_lab_3d.tscn"):
+        push_error("STAGE1 FAIL: 3D lab destination missing")
+        failures = true
     var player = world.get_node_or_null("Player")
     if player != null and player is CharacterBody2D:
         var camera = player.get_node_or_null("Camera2D")
