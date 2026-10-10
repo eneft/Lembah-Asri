@@ -49,6 +49,22 @@ func _check() -> void:
                 if idle == null or idle.region.size != Vector2(512, 640):
                     push_error("ANIMATION FAIL: idle and walk must share canonical 512x640 atlas frames: " + d)
                     failures = true
+                # Image quality regression: an over-aggressive red-background
+                # mask previously cut holes through hair and trousers even
+                # while the game script tests passed.
+                if d in ["up", "up_right", "right", "down_right", "down"]:
+                    var visual_tex: AtlasTexture = actor.sprite_frames.get_frame_texture("walk_" + d, 0) as AtlasTexture
+                    if visual_tex == null:
+                        push_error("ANIMATION FAIL: missing visual source " + d)
+                        failures = true
+                    else:
+                        var canvas_image: Image = visual_tex.atlas.get_image()
+                        if canvas_image == null or canvas_image.get_width() != 2048 or canvas_image.get_height() != 2560:
+                            push_error("ANIMATION FAIL: cannot inspect HD sprite image " + d)
+                            failures = true
+                        elif canvas_image.get_pixel(256, 125).a < 0.65 or canvas_image.get_pixel(256, 280).a < 0.65:
+                            push_error("ANIMATION FAIL: color mask eroded hair or body in " + d)
+                            failures = true
                 for state in ["walk","run"]:
                     var key: String = state + "_" + d
                     if actor.sprite_frames.get_frame_count(key) != 16:
