@@ -21,10 +21,10 @@ const STATES := ["idle", "walk", "run"]
 const FPS := 12.0
 const WALK_ATLASES = {
     "up": preload("res://assets/characters/player_hd/walk16/up.png"),
-    "up_right": preload("res://assets/characters/player_hd/walk_atlases/up_right.png"),
-    "right": preload("res://assets/characters/player_hd/walk_atlases/right.png"),
-    "down_right": preload("res://assets/characters/player_hd/walk_atlases/down_right.png"),
-    "down": preload("res://assets/characters/player_hd/walk_atlases/down.png")
+    "up_right": preload("res://assets/characters/player_hd/walk16/up_right.png"),
+    "right": preload("res://assets/characters/player_hd/walk16/right.png"),
+    "down_right": preload("res://assets/characters/player_hd/walk16/down_right.png"),
+    "down": preload("res://assets/characters/player_hd/walk16/down.png")
 }
 const WALK_FRAMES: int = 16
 const FRAME_W: float = 512.0
