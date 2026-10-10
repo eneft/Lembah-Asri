@@ -34,7 +34,9 @@ jobs:
       - name: Export single-threaded Web build
         run: |
           mkdir -p build/web
-          godot --headless --path . --export-release "Web" build/web/index.html
+          echo "Godot templates available:"
+          find "$HOME/.local/share/godot/export_templates" -maxdepth 2 -type f \( -iname '*web*' -o -name version.txt \) | head -35 || true
+          godot --headless --verbose --path . --export-release "Web" build/web/index.html
           test -s build/web/index.html
           test -s build/web/index.wasm
           test -s build/web/index.pck
