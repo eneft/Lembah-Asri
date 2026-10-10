@@ -11,16 +11,17 @@ Seorang pemuda kembali dari kota ke rumah masa kecilnya di desa. Rumah itu lama 
 - **Kamera gameplay:** 3/4 dari atas (elevated three-quarter), melihat area cukup luas; karakter relatif kecil dibanding lingkungan, terutama di pasar.
 - **Karakter utama:** rambut cokelat agak berantakan, outer hijau zaitun, kaos krem, celana cokelat, boots cokelat, ransel kecil. Jangan desain ulang tanpa persetujuan.
 - **Desa Indonesia:** rumah genteng, sawah dan irigasi, pasar desa, kelapa, pisang, pepaya, bambu, sungai, musim hujan/kemarau.
-- **Gaya:** cozy semi-chibi, hybrid 2D/3D diperbolehkan bila skala dan pencahayaan konsisten; NPC dan hewan gemoy.
+- **Gaya:** cozy illustrated **2D**, dengan karakter utama proporsi tubuh SD yang disetujui (bukan chibi), ukuran konsisten terhadap lingkungan dan NPC. Lab karakter 3D terpisah bukan gameplay utama.
 - **Gameplay wajib:** kebun, sawah, ternak, pets, interaksi NPC; dikembangkan bertahap.
 
 ## Status
-Starter Godot: geometri placeholder, kamera 3/4, kontrol WASD/panah, dan interaksi 3 NPC memakai tombol **E**. **Belum** termasuk sistem bercocok tanam yang fungsional, animasi, NPC AI, inventory, renovasi, atau aset visual final. Belum diuji di editor Godot.
+Stage 1 `house_garden_stage1.tscn`: lingkungan desa dari layer PNG 2D, Camera2D, collision, interaksi Bu Sari memakai **E**, dan karakter utama 2D HD delapan arah (PNG RGBA lossless `512 × 640`). **Walk/run saat ini menggunakan gait deformasi shader yang mengikuti jarak tempuh; belum animasi frame-by-frame final.** Sistem bercocok tanam, inventory, NPC AI, dan renovasi belum fungsional. Smoke test dan ekspor Godot Web dijalankan lewat GitHub Actions.
 
 ## Menjalankan
 1. Gunakan Godot 4.3 atau lebih baru.
 2. Buka `project.godot` dan jalankan proyek (F5).
-3. Gerakkan pemain dengan WASD/panah; tekan E dekat NPC.
+3. Gerakkan pemain dengan WASD/panah, tahan **Shift** untuk berlari, dan tekan **E** dekat Bu Sari atau kebun.
+4. Demo Web terbaru: https://eneft.github.io/Lembah-Asri/
 
 Dokumen acuan: `docs/ART_DIRECTION.md`, `docs/GAME_DESIGN.md`, `docs/ROADMAP.md`.
 
