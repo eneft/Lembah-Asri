@@ -138,14 +138,11 @@ func _make_ui() -> void:
     var hud := CanvasLayer.new()
     hud.name = "HUD"
     add_child(hud)
-    _panel(hud,Color(0.12,0.23,0.16,0.94),Vector2(12,12),Vector2(355,90))
-    _label(hud,"LEMBAH ASRI",Vector2(27,17),24,Color("#fff7d9"))
-    _label(hud,"Rumah & Kebun  |  Tahap 1",Vector2(27,56),16,Color("#d8eac6"))
-    _panel(hud,Color(0.15,0.24,0.19,0.94),Vector2(960,12),Vector2(306,90))
-    _label(hud,"Kamis, 16 Juli     Cerah",Vector2(977,20),17,Color("#fff7d9"))
-    _label(hud,"07:20  |  12.340 koin",Vector2(977,56),18,Color("#fff7d9"))
-    _panel(hud,Color(0.17,0.23,0.17,0.92),Vector2(16,643),Vector2(520,60))
-    hint_label = _label(hud,"WASD / Panah: jalan  |  E: interaksi",Vector2(30,658),18,Color("#fff6e3"))
+    # Artwork already has the approved in-image HUD; don't obscure it
+    # with large prototype dark boxes. Native dynamic UI will replace it
+    # only when the HUD is extracted as real transparent assets.
+    _panel(hud,Color(0.10,0.18,0.13,0.70),Vector2(809,660),Vector2(445,43))
+    hint_label = _label(hud,"WASD / Panah: jalan  |  E: interaksi",Vector2(820,665),16,Color("#fff6e3"))
     dialogue_panel = _panel(hud,Color(0.13,0.20,0.16,0.95),Vector2(273,548),Vector2(740,86))
     dialogue_label = _label(dialogue_panel,"",Vector2(23,16),20,Color("#fff5e4"))
     dialogue_label.size = Vector2(680,62)
