@@ -60,15 +60,27 @@ func _check() -> void:
                     elif abs(actor.sprite_frames.get_animation_speed(key) - 12.0) > 0.01:
                         push_error("ANIMATION FAIL: 12 FPS mismatch " + key)
                         failures = true
-            # No artistically inconsistent low-resolution source may remain.
-            var hd: Texture2D = actor.sprite_frames.get_frame_texture("idle_down_right", 0)
-            if hd == null or hd.get_width() != 512 or hd.get_height() != 640:
-                push_error("ANIMATION FAIL: protagonist must use full-size 512x640 PNG HD")
+            # All eight directions must keep original full-size art.
+            # No mixed older chibi source or resolution reduction.
+            for dir_name in ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]:
+                var hd: Texture2D = actor.sprite_frames.get_frame_texture("idle_" + dir_name, 0)
+                if hd == null or hd.get_width() != 512 or hd.get_height() != 640:
+                    push_error("ANIMATION FAIL: full-resolution HD PNG for " + dir_name)
+                    failures = true
+                else:
+                    for state in ["walk", "run"]:
+                        var animated: Texture2D = actor.sprite_frames.get_frame_texture(state + "_" + dir_name, 0)
+                        if animated != hd:
+                            push_error("ANIMATION FAIL: walk/run may not change approved hero artwork: " + dir_name)
+                            failures = true
+            if not is_equal_approx(actor.scale.x, 0.36) or not is_equal_approx(actor.scale.y, 0.36):
+                push_error("ANIMATION FAIL: player scale/SD proportions modified")
                 failures = true
             if actor.animation != "idle_down_right":
                 push_error("ANIMATION FAIL: default facing should be down_right")
                 failures = true
         var phase_before: float = player.gait_phase
+        var run_start: Vector2 = player.global_position
         Input.action_press("ui_right")
         Input.action_press("run")
         for i in range(4):
@@ -78,6 +90,11 @@ func _check() -> void:
             failures = true
         if is_equal_approx(player.gait_phase, phase_before) or player.gait_strength <= 0.0:
             push_error("ANIMATION FAIL: run must drive a visible procedural gait cycle")
+            failures = true
+        var run_distance: float = player.global_position.distance_to(run_start)
+        var run_phase_expected: float = wrapf(phase_before + TAU * run_distance / 112.0, 0.0, TAU)
+        if absf(wrapf(player.gait_phase - run_phase_expected + PI, 0.0, TAU) - PI) > 0.02:
+            push_error("ANIMATION FAIL: run gait is not synchronized to actual ground distance")
             failures = true
         if actor != null and actor.material is ShaderMaterial:
             var gait_mat: ShaderMaterial = actor.material as ShaderMaterial
@@ -96,12 +113,27 @@ func _check() -> void:
             push_error("ANIMATION FAIL: procedural gait persists while idle")
             failures = true
         var start_x: float = player.global_position.x
+        var walk_phase_before: float = player.gait_phase
         Input.action_press("ui_right")
         for i in range(5):
             await physics_frame
         Input.action_release("ui_right")
         if player.global_position.x <= start_x + 0.01:
             push_error("STAGE1 FAIL: character did not move")
+            failures = true
+        if player.animation_state != "walk":
+            push_error("ANIMATION FAIL: walking input must enter walk state")
+            failures = true
+        var walk_distance: float = player.global_position.x - start_x
+        var walk_phase_expected: float = wrapf(walk_phase_before + TAU * walk_distance / 90.0, 0.0, TAU)
+        if absf(wrapf(player.gait_phase - walk_phase_expected + PI, 0.0, TAU) - PI) > 0.02:
+            push_error("ANIMATION FAIL: walking gait is not synchronized to actual ground distance")
+            failures = true
+        # Blocked movement must not continue cycling the shader.
+        var phase_at_stop: float = player.gait_phase
+        player._advance_gait(0.05, 0.0, true)
+        if not is_equal_approx(player.gait_phase, phase_at_stop):
+            push_error("ANIMATION FAIL: feet animate despite no travelled distance")
             failures = true
         # Regression: long movement must never take the player into the sky.
         Input.action_press("ui_up")
@@ -145,5 +177,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: Stage 1 art layers, collision, movement, Camera2D, Bu Sari dialogue")
+        print("SMOKE PASS: Stage 1 HD 8-dir hero, distance-synced gait, walk/run/idle, collisions, camera, Bu Sari dialogue")
         quit(0)
