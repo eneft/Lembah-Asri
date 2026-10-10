@@ -45,7 +45,7 @@ func _check() -> void:
                 push_error("ANIMATION FAIL: expected 24 animations (3 states x 8 directions)")
                 failures = true
             for state in ["idle", "walk", "run"]:
-                var count := 4 if state == "idle" else 6
+                var count := 1 # One approved HD pose per direction until full motion frames exist
                 for dir_name in ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]:
                     var key: String = state + "_" + dir_name
                     if not actor.sprite_frames.has_animation(key) or actor.sprite_frames.get_frame_count(key) != count:
@@ -54,6 +54,11 @@ func _check() -> void:
                     elif abs(actor.sprite_frames.get_animation_speed(key) - 12.0) > 0.01:
                         push_error("ANIMATION FAIL: 12 FPS mismatch " + key)
                         failures = true
+            # No artistically inconsistent low-resolution source may remain.
+            var hd: Texture2D = actor.sprite_frames.get_frame_texture("idle_down_right", 0)
+            if hd == null or hd.get_width() != 512 or hd.get_height() != 640:
+                push_error("ANIMATION FAIL: protagonist must use full-size 512x640 PNG HD")
+                failures = true
             if actor.animation != "idle_down_right":
                 push_error("ANIMATION FAIL: default facing should be down_right")
                 failures = true

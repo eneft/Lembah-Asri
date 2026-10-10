@@ -99,8 +99,10 @@ func _make_player() -> void:
     sprite.z_index = 0
     var actor := AnimatedSprite2D.new()
     actor.name = "AnimatedSprite2D"
-    actor.position = Vector2(0, -80)
-    actor.scale = Vector2(1.95, 1.95)
+    # 512x640 lossless HD images: artwork feet are anchored at pixel Y=592
+    # with the canvas center at Y=320; place that origin at ground level.
+    actor.position = Vector2(0, -97.92)
+    actor.scale = Vector2(0.36, 0.36)
     actor.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
     player.add_child(actor)
     var collision := CollisionShape2D.new()

@@ -4,11 +4,20 @@ extends CharacterBody2D
 @export var walk_speed: float = 160.0
 @export var run_speed: float = 255.0
 
-const ATLAS: Texture2D = preload("res://assets/characters/player_8dir/atlas.webp")
+## Pixel dimensions unchanged from 2D HD turnaround source; Godot uses lossless PNG.
+## One fixed full-body art source per direction. No mix with prior AI motion frames.
+const DIRECTION_TEXTURES = {
+    "right": preload("res://assets/characters/player_hd/right.png"),
+    "down_right": preload("res://assets/characters/player_hd/down_right.png"),
+    "down": preload("res://assets/characters/player_hd/down.png"),
+    "down_left": preload("res://assets/characters/player_hd/down_left.png"),
+    "left": preload("res://assets/characters/player_hd/left.png"),
+    "up_left": preload("res://assets/characters/player_hd/up_left.png"),
+    "up": preload("res://assets/characters/player_hd/up.png"),
+    "up_right": preload("res://assets/characters/player_hd/up_right.png")
+}
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const STATES := ["idle", "walk", "run"]
-const TILE_WIDTH := 72
-const TILE_HEIGHT := 84
 const FPS := 12.0
 
 var facing: Vector2 = Vector2(1.0, 1.0).normalized()
@@ -45,19 +54,15 @@ func _setup_animations() -> void:
     if frames.has_animation("default"):
         frames.remove_animation("default")
     for state in STATES:
-        var frame_count := 4 if state == "idle" else 6
-        var row_base := 0 if state == "idle" else (4 if state == "walk" else 10)
-        for col in range(DIRECTIONS.size()):
-            var direction: String = DIRECTIONS[col]
-            var name: String = str(state) + "_" + direction
+        for direction in DIRECTIONS:
+            var name: String = state + "_" + direction
             frames.add_animation(name)
             frames.set_animation_speed(name, FPS)
             frames.set_animation_loop(name, true)
-            for frame in range(frame_count):
-                var texture := AtlasTexture.new()
-                texture.atlas = ATLAS
-                texture.region = Rect2(col * TILE_WIDTH, (row_base + frame) * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT)
-                frames.add_frame(name, texture)
+            # Walk/run intentionally retain the SAME approved HD silhouette
+            # until true rigged animation is produced from a single master.
+            # Never mix HD idle art with the old low-resolution chibi atlas.
+            frames.add_frame(name, DIRECTION_TEXTURES[direction])
     $AnimatedSprite2D.sprite_frames = frames
 
 func _nearest_eight_direction(v: Vector2) -> String:
