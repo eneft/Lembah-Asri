@@ -51,5 +51,16 @@ void fragment() {
     target_px.y += (0.5 - 0.5 * cos(2.0 * phase))
         * body * strength * 2.0;
 
-    COLOR = texture(TEXTURE, clamp(target_px * TEXTURE_PIXEL_SIZE, vec2(0.0), vec2(1.0)));
+    vec4 texel = texture(TEXTURE, clamp(target_px * TEXTURE_PIXEL_SIZE, vec2(0.0), vec2(1.0)));
+    // Canonical turnaround includes a painted, near-white floor stroke below
+    // the boots. It is not part of the protagonist; reject that stroke at
+    // render time, retaining the original PNGs bit-for-bit.
+    // Restrict to the footwear baseline, never the shirt/skin/hair.
+    float neutral = 1.0 - smoothstep(0.10, 0.25,
+        max(texel.r, max(texel.g, texel.b)) - min(texel.r, min(texel.g, texel.b)));
+    float near_white = smoothstep(0.72, 0.91, min(texel.r, min(texel.g, texel.b)));
+    float floor_band = smoothstep(572.0, 594.0, source_px.y);
+    float unwanted_floor = floor_band * near_white * neutral;
+    texel.a *= 1.0 - unwanted_floor;
+    COLOR = texel;
 }
