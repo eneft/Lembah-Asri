@@ -1,5 +1,5 @@
 extends SceneTree
-## Gameplay acceptance test against source textures, 2D layer nodes, collisions and live interactions.
+## Gameplay acceptance test: HD textures, shader-driven gait, collisions and interactions.
 var failures := false
 
 func _initialize() -> void:
@@ -41,6 +41,12 @@ func _check() -> void:
             push_error("ANIMATION FAIL: missing player sprite")
             failures = true
         else:
+            if not (actor.material is ShaderMaterial):
+                push_error("ANIMATION FAIL: lossless walk/run gait shader is missing")
+                failures = true
+            elif (actor.material as ShaderMaterial).shader == null:
+                push_error("ANIMATION FAIL: walk/run shader resource is missing")
+                failures = true
             if actor.sprite_frames.get_animation_names().size() != 24:
                 push_error("ANIMATION FAIL: expected 24 animations (3 states x 8 directions)")
                 failures = true
@@ -62,6 +68,7 @@ func _check() -> void:
             if actor.animation != "idle_down_right":
                 push_error("ANIMATION FAIL: default facing should be down_right")
                 failures = true
+        var phase_before: float = player.gait_phase
         Input.action_press("ui_right")
         Input.action_press("run")
         for i in range(4):
@@ -69,11 +76,24 @@ func _check() -> void:
         if player.animation_state != "run" or player.facing_name != "right":
             push_error("ANIMATION FAIL: right + run transition")
             failures = true
+        if is_equal_approx(player.gait_phase, phase_before) or player.gait_strength <= 0.0:
+            push_error("ANIMATION FAIL: run must drive a visible procedural gait cycle")
+            failures = true
+        if actor != null and actor.material is ShaderMaterial:
+            var gait_mat: ShaderMaterial = actor.material as ShaderMaterial
+            if float(gait_mat.get_shader_parameter("strength")) <= 0.0:
+                push_error("ANIMATION FAIL: shader not receiving gait motion")
+                failures = true
         Input.action_release("run")
         Input.action_release("ui_right")
         await physics_frame
         if player.animation_state != "idle":
             push_error("ANIMATION FAIL: idle transition")
+            failures = true
+        for i in range(20):
+            await physics_frame
+        if player.gait_strength > 0.01:
+            push_error("ANIMATION FAIL: procedural gait persists while idle")
             failures = true
         var start_x: float = player.global_position.x
         Input.action_press("ui_right")
