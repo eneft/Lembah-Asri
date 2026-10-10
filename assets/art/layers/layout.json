@@ -18,39 +18,39 @@
     },
     "house": {
       "x": 0,
-      "y": 34,
-      "w": 634,
-      "h": 448
+      "y": 37,
+      "w": 632,
+      "h": 442
     },
     "coop": {
-      "x": 665,
-      "y": 273,
-      "w": 391,
-      "h": 235
+      "x": 667,
+      "y": 276,
+      "w": 387,
+      "h": 229
     },
     "garden_tomato": {
-      "x": 90,
-      "y": 516,
-      "w": 579,
-      "h": 301
+      "x": 92,
+      "y": 519,
+      "w": 575,
+      "h": 295
     },
     "garden_eggplant": {
-      "x": 686,
-      "y": 508,
-      "w": 530,
-      "h": 297
+      "x": 688,
+      "y": 511,
+      "w": 526,
+      "h": 291
     },
     "garden_greens": {
-      "x": 131,
-      "y": 670,
-      "w": 882,
-      "h": 271
+      "x": 133,
+      "y": 673,
+      "w": 878,
+      "h": 268
     },
     "foliage_front": {
       "x": 0,
-      "y": 585,
-      "w": 305,
-      "h": 356
+      "y": 588,
+      "w": 303,
+      "h": 353
     },
     "background_base": {
       "x": 0,
@@ -58,5 +58,6 @@
       "w": 1672,
       "h": 941
     }
-  }
+  },
+  "limitations": "Scenery slices retain registered painted backing; only hero removal is reconstructed automatically. Manual layer cleanup pending."
 }
