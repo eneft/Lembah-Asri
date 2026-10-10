@@ -105,13 +105,16 @@ func _physics_process(_delta: float) -> void:
     if wants_to_move:
         facing = direction
         facing_name = _nearest_eight_direction(direction)
-    var really_moved := global_position.distance_squared_to(previous) > 0.001
+    var moved_px: float = global_position.distance_to(previous)
+    var really_moved := moved_px > 0.001
     animation_state = ("run" if running else "walk") if (wants_to_move and really_moved) else "idle"
     var key := animation_state + "_" + facing_name
     var actor: AnimatedSprite2D = $AnimatedSprite2D
     if actor.animation != key or not actor.is_playing():
         actor.play(key)
-    _advance_gait(_delta, wants_to_move and really_moved, running)
+    # Foot motion is tied to *actual* travelled distance, not elapsed time.
+    # Colliding with a fence/wall cannot cause feet to run in place.
+    _advance_gait(_delta, moved_px if wants_to_move else 0.0, running)
 
 func _setup_gait_material() -> void:
     gait_material = ShaderMaterial.new()
@@ -119,14 +122,18 @@ func _setup_gait_material() -> void:
     $AnimatedSprite2D.material = gait_material
     gait_material.set_shader_parameter("strength", 0.0)
 
-func _advance_gait(delta: float, moving: bool, running: bool) -> void:
+func _advance_gait(delta: float, moved_px: float, running: bool) -> void:
+    var moving: bool = moved_px > 0.001
     var target_strength: float = 0.0
     if moving:
-        # One step cycle per pair of steps, different cadence for walk/run.
-        target_strength = 1.0 if running else 0.68
-        var cadence: float = 3.15 if running else 1.75
-        gait_phase = wrapf(gait_phase + TAU * cadence * delta, 0.0, TAU)
-    gait_strength = move_toward(gait_strength, target_strength, delta * 7.0)
+        # Cycle is driven by ground distance: consistent foot placement
+        # across 8 directions, variable FPS and collisions.
+        # Running has a longer stride and stronger, faster deformation.
+        var stride_px: float = 112.0 if running else 90.0
+        target_strength = 0.82 if running else 0.52
+        gait_phase = wrapf(gait_phase + TAU * moved_px / stride_px, 0.0, TAU)
+    # Blend in/out smoothly; idle settles to the original unchanged pose.
+    gait_strength = move_toward(gait_strength, target_strength, delta * 6.0)
     gait_material.set_shader_parameter("phase", gait_phase)
     gait_material.set_shader_parameter("strength", gait_strength)
     gait_material.set_shader_parameter("profile", absf(facing.x))
