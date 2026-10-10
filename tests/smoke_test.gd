@@ -86,10 +86,10 @@ func _check() -> void:
                 if direction.ends_with("_left") or direction == "left":
                     var counterpart: String = "right" if direction == "left" else direction.replace("_left", "_right")
                     for i in range(6):
-                        var mirrored: Texture2D = actor.sprite_frames.get_frame_texture("walk_" + direction, i)
-                        var source: Texture2D = actor.sprite_frames.get_frame_texture("walk_" + counterpart, i)
-                        if mirrored != source:
-                            push_error("ANIMATION FAIL: left mirror does not reuse counterpart atlas: " + direction)
+                        var mirrored: AtlasTexture = actor.sprite_frames.get_frame_texture("walk_" + direction, i) as AtlasTexture
+                        var source: AtlasTexture = actor.sprite_frames.get_frame_texture("walk_" + counterpart, i) as AtlasTexture
+                        if mirrored == null or source == null or mirrored.atlas != source.atlas or mirrored.region != source.region:
+                            push_error("ANIMATION FAIL: left mirror does not reuse counterpart image and frame: " + direction)
                             failures = true
             if not is_equal_approx(actor.scale.x, 0.36) or not is_equal_approx(actor.scale.y, 0.36):
                 push_error("ANIMATION FAIL: locked playable character scale changed")
