@@ -37,22 +37,27 @@ player=mask([(697,440),(709,444),(719,449),(729,451),(735,463),(740,475),(734,48
 npc=mask([(782,459),(801,449),(821,460),(837,471),(846,484),(837,493),(830,507),(829,536),(841,551),(842,590),(784,593),(777,575),(778,547),(764,546),(757,526),(768,507),(772,486),(767,477)],0.75)
 save("player_idle",player,image)
 save("npc_bu_sari",npc,image)
-# Remove flatly-painted actors, speech bubble, and baked HUD before extracting scenery.
-erase=np.maximum(np.array(player,dtype=np.uint8),np.array(npc,dtype=np.uint8))
-cv2.ellipse(erase,(780,433),(49,44),0,0,360,255,-1)
-cv2.rectangle(erase,(708,567),(881,655),255,-1)
-cv2.rectangle(erase,(0,0),(368,100),255,-1)
-cv2.rectangle(erase,(1300,0),(W,154),255,-1)
-cv2.rectangle(erase,(0,811),(658,H),255,-1)
-erase=cv2.dilate(erase,np.ones((7,7),np.uint8),iterations=1)
-clean=cv2.inpaint(bgr,erase,7,cv2.INPAINT_TELEA)
-static_image=Image.fromarray(cv2.cvtColor(clean,cv2.COLOR_BGR2RGB))
+# Visual repair v2. Previous run destructively inpainted HOUSE, COOP and
+# entire FARM patch masks, which created a huge brown/green smear in the middle.
+# Do not destroy the original backdrop just to make foreground cutouts!
+#
+# For the current vertical slice: remove only the moving hero from the backdrop.
+# The static illustrated Bu Sari, painted interaction callout, and stylized HUD
+# are retained until their ground can be hand-cleaned; her interaction sprite is
+# still a separate game object, registered at precisely the same position.
+erase = np.array(player,dtype=np.uint8)
+erase = cv2.dilate(erase,np.ones((5,5),np.uint8),iterations=1)
+clean = cv2.inpaint(bgr,erase,3,cv2.INPAINT_TELEA)
+static_image = Image.fromarray(cv2.cvtColor(clean,cv2.COLOR_BGR2RGB))
 for name,polygon in polygons.items():
-    alpha=mask(polygon,2)
-    save(name,alpha,static_image)
-    opaque=cv2.threshold(np.array(alpha,dtype=np.uint8),170,255,cv2.THRESH_BINARY)[1]
-    clean=cv2.inpaint(clean,opaque,4,cv2.INPAINT_TELEA)
-Image.fromarray(cv2.cvtColor(clean,cv2.COLOR_BGR2RGB)).save(OUT/"background_base.png",optimize=True)
+    # These overlay sprites are fully separate PNGs. At this early stage
+    # they remain registered over the intact scenery beneath them.
+    save(name,mask(polygon,1.0),static_image)
+static_image.save(OUT/"background_base.png",optimize=True)
 manifest["background_base"]={"x":0,"y":0,"w":W,"h":H}
-(OUT/"layout.json").write_text(json.dumps({"reference_size":[W,H],"sprites":manifest},indent=2)+"\n",encoding="utf-8")
-print("Generated",len(manifest),"prototype 2D sprite layers")
+(OUT/"layout.json").write_text(json.dumps({
+    "reference_size":[W,H],
+    "sprites":manifest,
+    "limitations":"Scenery slices retain registered painted backing; only hero removal is reconstructed automatically. Manual layer cleanup pending."
+},indent=2)+"\n",encoding="utf-8")
+print("Generated",len(manifest),"art layers without destructive scenery inpainting")
