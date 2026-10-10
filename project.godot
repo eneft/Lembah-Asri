@@ -2,8 +2,8 @@
 config_version=5
 
 [application]
-config/name="Lembah Asri"
-run/main_scene="res://scenes/main.tscn"
+config/name="Lembah Asri — 2D Illustrated"
+run/main_scene="res://scenes/world_2d.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [display]
