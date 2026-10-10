@@ -19,19 +19,18 @@ const DIRECTION_TEXTURES = {
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const STATES := ["idle", "walk", "run"]
 const FPS := 12.0
-const FOOT_CLEANUP_SHADER = preload("res://shaders/hero_floor_cleanup.gdshader")
 const WALK_ATLASES = {
-    "up": preload("res://assets/characters/player_hd/walk_atlases/up.png"),
+    "up": preload("res://assets/characters/player_hd/walk16/up.png"),
     "up_right": preload("res://assets/characters/player_hd/walk_atlases/up_right.png"),
     "right": preload("res://assets/characters/player_hd/walk_atlases/right.png"),
     "down_right": preload("res://assets/characters/player_hd/walk_atlases/down_right.png"),
     "down": preload("res://assets/characters/player_hd/walk_atlases/down.png")
 }
-const WALK_FRAMES: int = 6
+const WALK_FRAMES: int = 16
 const FRAME_W: float = 512.0
 const FRAME_H: float = 640.0
-const WALK_FPS: float = 8.5
-const RUN_FPS: float = 12.0
+const WALK_FPS: float = 12.0
+const RUN_FPS: float = 16.0
 
 var facing: Vector2 = Vector2(1.0, 1.0).normalized()
 var facing_name: String = "down_right"
@@ -58,7 +57,6 @@ func _ready() -> void:
     if not InputMap.action_has_event("run", shift):
         InputMap.action_add_event("run", shift)
     _setup_animations()
-    _setup_floor_cleanup_material()
     $Avatar.visible = false
     $AnimatedSprite2D.play("idle_" + facing_name)
 
@@ -83,18 +81,16 @@ func _setup_animations() -> void:
             frames.add_animation(name)
             frames.set_animation_loop(name, true)
             frames.set_animation_speed(name, 1.0 if state == "idle" else (RUN_FPS if state == "run" else WALK_FPS))
-            if state == "idle":
-                # Keep each original locked HD 512x640 idle illustration.
-                frames.add_frame(name, DIRECTION_TEXTURES[direction])
-            else:
-                # True six-pose walk sequence, no procedural gait deformation.
-                # Three left directions mirror the approved right-side source.
-                var atlas: Texture2D = WALK_ATLASES[_atlas_direction(direction)]
-                for i in range(WALK_FRAMES):
-                    var f := AtlasTexture.new()
-                    f.atlas = atlas
-                    f.region = Rect2(float(i) * FRAME_W, 0.0, FRAME_W, FRAME_H)
-                    frames.add_frame(name, f)
+            # All three states share the same painted atlas source and anchor.
+            # This eliminates character design snapping on walk->idle.
+            var atlas: Texture2D = WALK_ATLASES[_atlas_direction(direction)]
+            var count: int = 1 if state == "idle" else WALK_FRAMES
+            for i in range(count):
+                var frame_index: int = 15 if state == "idle" else i
+                var f := AtlasTexture.new()
+                f.atlas = atlas
+                f.region = Rect2(float(frame_index % 4) * FRAME_W, float(int(frame_index / 4)) * FRAME_H, FRAME_W, FRAME_H)
+                frames.add_frame(name, f)
     $AnimatedSprite2D.sprite_frames = frames
 
 func _nearest_eight_direction(v: Vector2) -> String:
@@ -138,7 +134,7 @@ func _physics_process(_delta: float) -> void:
     animation_state = ("run" if running else "walk") if (wants_to_move and really_moved) else "idle"
     var key := animation_state + "_" + facing_name
     var actor: AnimatedSprite2D = $AnimatedSprite2D
-    actor.flip_h = animation_state != "idle" and (facing_name == "left" or facing_name == "up_left" or facing_name == "down_left")
+    actor.flip_h = (facing_name == "left" or facing_name == "up_left" or facing_name == "down_left")
     if actor.animation != key:
         var old_name: String = actor.animation
         var old_frame: int = actor.frame
@@ -149,9 +145,3 @@ func _physics_process(_delta: float) -> void:
     elif not actor.is_playing():
         actor.play(key)
 
-func _setup_floor_cleanup_material() -> void:
-    # Only removes the baked white floor stroke from the original idle art.
-    # It does not deform the walking poses.
-    var cleanup := ShaderMaterial.new()
-    cleanup.shader = FOOT_CLEANUP_SHADER
-    $AnimatedSprite2D.material = cleanup

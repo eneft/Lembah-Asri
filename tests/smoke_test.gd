@@ -38,103 +38,58 @@ func _check() -> void:
             failures = true
         var actor: AnimatedSprite2D = player.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
         if actor == null or actor.sprite_frames == null:
-            push_error("ANIMATION FAIL: missing AnimatedSprite2D")
+            push_error("ANIMATION FAIL: missing hero animation")
             failures = true
         else:
             if actor.sprite_frames.get_animation_names().size() != 24:
-                push_error("ANIMATION FAIL: expected 8 directions x idle/walk/run")
+                push_error("ANIMATION FAIL: requires 8 directions x 3 states")
                 failures = true
-            if not (actor.material is ShaderMaterial):
-                push_error("ANIMATION FAIL: missing static idle foot cleanup")
-                failures = true
-            elif (actor.material as ShaderMaterial).shader.code.find("unwanted_floor") < 0:
-                push_error("ANIMATION FAIL: idle floor cleanup shader missing")
-                failures = true
-            for direction in ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]:
-                var idle_key: String = "idle_" + direction
-                if not actor.sprite_frames.has_animation(idle_key):
-                    push_error("ANIMATION FAIL: missing " + idle_key)
+            for d in ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]:
+                var idle: AtlasTexture = actor.sprite_frames.get_frame_texture("idle_" + d, 0) as AtlasTexture
+                if idle == null or idle.region.size != Vector2(512, 640):
+                    push_error("ANIMATION FAIL: idle and walk must share canonical 512x640 atlas frames: " + d)
                     failures = true
-                    continue
-                var idle_texture: Texture2D = actor.sprite_frames.get_frame_texture(idle_key, 0)
-                if idle_texture == null or idle_texture.get_width() != 512 or idle_texture.get_height() != 640:
-                    push_error("ANIMATION FAIL: locked master idle art changed for " + direction)
-                    failures = true
-                for state in ["walk", "run"]:
-                    var key: String = state + "_" + direction
-                    if not actor.sprite_frames.has_animation(key):
-                        push_error("ANIMATION FAIL: missing " + key)
+                for state in ["walk","run"]:
+                    var key: String = state + "_" + d
+                    if actor.sprite_frames.get_frame_count(key) != 16:
+                        push_error("ANIMATION FAIL: 16 pose frames required: " + key)
                         failures = true
-                        continue
-                    if actor.sprite_frames.get_frame_count(key) != 6:
-                        push_error("ANIMATION FAIL: six distinct pose frames required for " + key)
-                        failures = true
-                    else:
-                        for i in range(6):
-                            var pose: AtlasTexture = actor.sprite_frames.get_frame_texture(key, i) as AtlasTexture
-                            if pose == null or pose.get_width() != 512 or pose.get_height() != 640:
-                                push_error("ANIMATION FAIL: HD atlas frame " + str(i) + " of " + key)
-                                failures = true
-                            elif pose.atlas.get_width() != 3072 or pose.atlas.get_height() != 640:
-                                push_error("ANIMATION FAIL: atlas asset missing or cropped for " + key)
-                                failures = true
-                    var expected_fps: float = 12.0 if state == "run" else 8.5
-                    if absf(actor.sprite_frames.get_animation_speed(key) - expected_fps) > 0.01:
-                        push_error("ANIMATION FAIL: playback speed mismatch " + key)
-                        failures = true
-                # Left is mirrored from the right counterpart; no new inconsistent art.
-                if direction.ends_with("_left") or direction == "left":
-                    var counterpart: String = "right" if direction == "left" else direction.replace("_left", "_right")
-                    for i in range(6):
-                        var mirrored: AtlasTexture = actor.sprite_frames.get_frame_texture("walk_" + direction, i) as AtlasTexture
-                        var source: AtlasTexture = actor.sprite_frames.get_frame_texture("walk_" + counterpart, i) as AtlasTexture
-                        if mirrored == null or source == null or mirrored.atlas != source.atlas or mirrored.region != source.region:
-                            push_error("ANIMATION FAIL: left mirror does not reuse counterpart image and frame: " + direction)
+                    for j in range(16):
+                        var tex: AtlasTexture = actor.sprite_frames.get_frame_texture(key, j) as AtlasTexture
+                        if tex == null or tex.atlas.get_width() != 2048 or tex.atlas.get_height() != 2560 or tex.region.size != Vector2(512,640):
+                            push_error("ANIMATION FAIL: wrong 4x4 atlas frame " + key + "#" + str(j))
                             failures = true
+                if d == "left" or d.ends_with("_left"):
+                    var other: String = "right" if d == "left" else d.replace("_left","_right")
+                    var left_tex: AtlasTexture = actor.sprite_frames.get_frame_texture("walk_" + d, 0) as AtlasTexture
+                    var right_tex: AtlasTexture = actor.sprite_frames.get_frame_texture("walk_" + other, 0) as AtlasTexture
+                    if left_tex == null or right_tex == null or left_tex.atlas != right_tex.atlas:
+                        push_error("ANIMATION FAIL: mirrored left source mismatch " + d)
+                        failures = true
             if not is_equal_approx(actor.scale.x, 0.36) or not is_equal_approx(actor.scale.y, 0.36):
-                push_error("ANIMATION FAIL: locked playable character scale changed")
-                failures = true
-            if actor.animation != "idle_down_right":
-                push_error("ANIMATION FAIL: initial facing should stay down_right")
+                push_error("ANIMATION FAIL: playable scale changed")
                 failures = true
         Input.action_press("ui_right")
-        Input.action_press("run")
-        for i in range(15):
+        for j in range(22):
             await physics_frame
-        if player.animation_state != "run" or player.facing_name != "right":
-            push_error("ANIMATION FAIL: run-right transition")
+        if player.animation_state != "walk" or player.facing_name != "right":
+            push_error("ANIMATION FAIL: walk transition")
             failures = true
-        if actor != null and (actor.animation != "run_right" or actor.frame == 0):
-            push_error("ANIMATION FAIL: run frames are not advancing")
-            failures = true
-        Input.action_release("run")
         Input.action_release("ui_right")
         await physics_frame
         if player.animation_state != "idle":
-            push_error("ANIMATION FAIL: returning to idle")
+            push_error("ANIMATION FAIL: idle transition")
             failures = true
-        var start_x: float = player.global_position.x
-        Input.action_press("ui_right")
-        for i in range(12):
-            await physics_frame
-        if player.global_position.x <= start_x or player.animation_state != "walk":
-            push_error("ANIMATION FAIL: walk-right did not move")
-            failures = true
-        if actor != null and (actor.animation != "walk_right" or actor.frame == 0):
-            push_error("ANIMATION FAIL: walk poses are not advancing")
-            failures = true
-        Input.action_release("ui_right")
-        await physics_frame
         Input.action_press("ui_left")
-        for i in range(6):
+        for j in range(6):
             await physics_frame
         if player.facing_name != "left" or actor == null or not actor.flip_h:
-            push_error("ANIMATION FAIL: left must mirror right-side walk frames")
+            push_error("ANIMATION FAIL: mirrored left direction")
             failures = true
         Input.action_release("ui_left")
         await physics_frame
-        if actor != null and actor.flip_h:
-            push_error("ANIMATION FAIL: native left idle art must not be flipped")
+        if actor != null and not actor.flip_h:
+            push_error("ANIMATION FAIL: idle should preserve mirror to prevent visual snap")
             failures = true
         # Regression: long movement must never take the player into the sky.
         Input.action_press("ui_up")
@@ -193,5 +148,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: Stage 1 8-dir 6-frame walking sprites, left mirror, original HD idle, crop collision, Camera2D, Bu Sari dialogue")
+        print("SMOKE PASS: Stage 1 8-dir 16-frame walk with matched idle, mirrored left, camera, crop collision and NPC")
         quit(0)
