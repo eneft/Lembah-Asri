@@ -1,0 +1,56 @@
+name: Generate Lembah Asri Art Layers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/split_art.py
+      - assets/art/concept_farm.png
+      - .github/workflows/art-layers.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: generate-lembah-art
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Install layer extraction dependencies
+        run: |
+          python -m pip install --disable-pip-version-check pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88
+      - name: Extract approved artwork
+        run: python tools/split_art.py
+      - name: Verify production PNGs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          root=Path("assets/art/layers")
+          names=["background_base","house","coop","garden_tomato","garden_eggplant","garden_greens","foliage_front","player_idle","npc_bu_sari"]
+          for name in names:
+              p=root/(name+".png")
+              assert p.exists() and p.stat().st_size>1000,str(p)
+              with Image.open(p) as im:
+                  im.verify()
+          print("ASSET PASS",len(names),"PNG files")
+          PY
+      - name: Commit generated real PNG files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/art/layers/
+          if git diff --cached --quiet; then
+            echo "Art assets already current"
+          else
+            git commit -m "assets: extract approved illustration into Godot 2D layers"
+            git push origin HEAD:main
+          fi
