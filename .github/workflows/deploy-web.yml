@@ -40,6 +40,16 @@ jobs:
           test -s build/web/index.html
           test -s build/web/index.wasm
           test -s build/web/index.pck
+          # Sanity-check the exported game pack, not just editor source.
+          mkdir -p /tmp/lembah-export-check
+          cd /tmp/lembah-export-check
+          godot --headless --audio-driver Dummy --main-pack "$GITHUB_WORKSPACE/build/web/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/web-export-check.log"
+          if grep -E 'SCRIPT ERROR|ERROR:|LEMBAH ASRI: approved concept texture is missing' "$GITHUB_WORKSPACE/build/web-export-check.log"; then
+            echo "Exported pack reported a runtime problem"
+            exit 1
+          fi
+          grep -q 'ART LOADED:' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          cd "$GITHUB_WORKSPACE"
           touch build/web/.nojekyll
           echo "Web export files:"
           ls -lh build/web/

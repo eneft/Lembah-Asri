@@ -15,6 +15,10 @@ func _run() -> void:
     root.add_child(world)
     await process_frame
     await process_frame
+    var scene_sprite = world.get_node_or_null("ConceptArtwork2D")
+    if scene_sprite == null or not scene_sprite is Sprite2D:
+        push_error("SMOKE FAIL: 2D scene lacks explicit texture-linked artwork node")
+        failed = true
     if not world.art_loaded or world.artwork == null or world.artwork.texture == null:
         push_error("SMOKE FAIL: approved concept artwork not loaded")
         failed = true

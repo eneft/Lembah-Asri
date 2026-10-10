@@ -22,35 +22,18 @@ var places: Array[Dictionary] = [
 ]
 
 func _ready() -> void:
-    artwork = Sprite2D.new()
-    artwork.name = "ConceptArtwork2D"
-    artwork.centered = false
-    artwork.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-    artwork.z_index = -20
-    add_child(artwork)
-    if ResourceLoader.exists(CONCEPT_FILE):
-        var tex := load(CONCEPT_FILE) as Texture2D
-        if tex != null:
-            artwork.texture = tex
-            artwork.scale = WORLD_SIZE / tex.get_size()
-            art_loaded = true
-    queue_redraw()
+    # Explicit scene texture dependency: guaranteed included in exported PCK.
+    artwork = get_node("ConceptArtwork2D") as Sprite2D
+    art_loaded = artwork != null and artwork.texture != null
+    if not art_loaded:
+        push_error("LEMBAH ASRI: approved concept texture is missing from scene export")
+    else:
+        artwork.scale = WORLD_SIZE / artwork.texture.get_size()
+        print("ART LOADED: %s (%d x %d)" % [CONCEPT_FILE, artwork.texture.get_width(), artwork.texture.get_height()])
     player = PLAYER_SCENE.instantiate()
     player.position = Vector2(698, 560)
     add_child(player)
     _make_ui()
-
-func _draw() -> void:
-    if art_loaded:
-        return
-    # Placeholder ONLY when the actual user-approved concept file is missing.
-    draw_rect(Rect2(Vector2.ZERO, WORLD_SIZE), Color("#6cae70"))
-    draw_rect(Rect2(Vector2(0, 210), WORLD_SIZE - Vector2(0, 210)), Color("#9dba7a"))
-    draw_rect(Rect2(180, 330, 430, 250), Color("#efddba"))
-    draw_rect(Rect2(145, 275, 500, 80), Color("#bb6b42"))
-    draw_rect(Rect2(200, 600, 750, 180), Color("#805c3c"))
-    draw_rect(Rect2(1280, 250, 210, 610), Color("#5bacc6"))
-    draw_rect(Rect2(50, 200, 1550, 40), Color("#7baf86"))
 
 func _process(delta: float) -> void:
     if interaction_timer > 0.0:
@@ -109,17 +92,3 @@ func _make_ui() -> void:
     dialogue_label.add_theme_font_size_override("font_size", 18)
     dialogue_label.add_theme_color_override("font_color", Color("#fff8e8"))
     dialogue_panel.add_child(dialogue_label)
-    if not art_loaded:
-        var missing_panel := ColorRect.new()
-        missing_panel.color = Color(0.17, 0.16, 0.12, 0.91)
-        missing_panel.position = Vector2(200, 220)
-        missing_panel.size = Vector2(880, 135)
-        hud.add_child(missing_panel)
-        var warning := Label.new()
-        warning.position = Vector2(22, 16)
-        warning.size = Vector2(830, 100)
-        warning.text = "MODE 2D SUDAH AKTIF — gambar konsep belum ada di repository.\nUpload assets/art/concept_farm.png untuk menampilkan visual aslinya.\nKamera, gerakan, dan interaksi NPC sudah disiapkan."
-        warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        warning.add_theme_font_size_override("font_size", 23)
-        warning.add_theme_color_override("font_color", Color("#ffeed1"))
-        missing_panel.add_child(warning)
