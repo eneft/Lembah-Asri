@@ -1,0 +1,73 @@
+name: Build and Deploy Lembah Asri Web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-lembah-asri
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Godot Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Godot 4.3 with Web export templates
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: true
+
+      - name: Import project
+        run: godot --headless --path . --editor --quit
+
+      - name: Export single-threaded Web build
+        run: |
+          mkdir -p build/web
+          godot --headless --path . --export-release "Web" build/web/index.html
+          test -s build/web/index.html
+          test -s build/web/index.wasm
+          test -s build/web/index.pck
+          touch build/web/.nojekyll
+          echo "Web export files:"
+          ls -lh build/web/
+
+      - name: Upload browser build
+        uses: actions/upload-artifact@v4
+        with:
+          name: lembah-asri-web
+          path: build/web
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload GitHub Pages package
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/web
+
+  deploy:
+    name: Deploy GitHub Pages
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy Godot game
+        id: deployment
+        uses: actions/deploy-pages@v4
