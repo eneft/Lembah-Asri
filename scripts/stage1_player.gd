@@ -19,11 +19,14 @@ const DIRECTION_TEXTURES = {
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const STATES := ["idle", "walk", "run"]
 const FPS := 12.0
+const GAIT_SHADER = preload("res://shaders/hero_gait.gdshader")
 
 var facing: Vector2 = Vector2(1.0, 1.0).normalized()
 var facing_name: String = "down_right"
 var animation_state: String = "idle"
-var walk_clock: float = 0.0
+var gait_phase: float = 0.0
+var gait_strength: float = 0.0
+var gait_material: ShaderMaterial
 
 # Valid FOOT positions in the approved illustrated concept.
 var walk_polygon: PackedVector2Array = PackedVector2Array([
@@ -46,6 +49,7 @@ func _ready() -> void:
     if not InputMap.action_has_event("run", shift):
         InputMap.action_add_event("run", shift)
     _setup_animations()
+    _setup_gait_material()
     $Avatar.visible = false
     $AnimatedSprite2D.play("idle_" + facing_name)
 
@@ -107,3 +111,24 @@ func _physics_process(_delta: float) -> void:
     var actor: AnimatedSprite2D = $AnimatedSprite2D
     if actor.animation != key or not actor.is_playing():
         actor.play(key)
+    _advance_gait(_delta, wants_to_move and really_moved, running)
+
+func _setup_gait_material() -> void:
+    gait_material = ShaderMaterial.new()
+    gait_material.shader = GAIT_SHADER
+    $AnimatedSprite2D.material = gait_material
+    gait_material.set_shader_parameter("strength", 0.0)
+
+func _advance_gait(delta: float, moving: bool, running: bool) -> void:
+    var target_strength: float = 0.0
+    if moving:
+        # One step cycle per pair of steps, different cadence for walk/run.
+        target_strength = 1.0 if running else 0.68
+        var cadence: float = 3.15 if running else 1.75
+        gait_phase = wrapf(gait_phase + TAU * cadence * delta, 0.0, TAU)
+    gait_strength = move_toward(gait_strength, target_strength, delta * 7.0)
+    gait_material.set_shader_parameter("phase", gait_phase)
+    gait_material.set_shader_parameter("strength", gait_strength)
+    gait_material.set_shader_parameter("profile", absf(facing.x))
+    gait_material.set_shader_parameter("direction_sign", -1.0 if facing.x < -0.001 else 1.0)
+
