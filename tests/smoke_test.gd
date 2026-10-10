@@ -57,7 +57,7 @@ func _check() -> void:
                     for j in range(16):
                         var tex: AtlasTexture = actor.sprite_frames.get_frame_texture(key, j) as AtlasTexture
                         if tex == null or tex.atlas.get_width() != 2048 or tex.atlas.get_height() != 2560 or tex.region.size != Vector2(512,640):
-                            push_error("ANIMATION FAIL: wrong 4x4 atlas frame " + key + "#" + str(j))
+                            push_error("ANIMATION FAIL: wrong 4x4 atlas frame " + key + "#" + str(j) + " atlas=" + (str(tex.atlas.get_size()) if tex != null else "NULL") + " region=" + (str(tex.region) if tex != null else "NULL"))
                             failures = true
                 if d == "left" or d.ends_with("_left"):
                     var other: String = "right" if d == "left" else d.replace("_left","_right")
