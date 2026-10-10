@@ -1,0 +1,14 @@
+# Godot engine cache and exports
+.godot/
+.import/
+.export/
+build/
+exports/
+*.tmp
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!/.env.example
+*.p12
+*.keystore
