@@ -67,6 +67,10 @@ func _make_obstacles() -> void:
     _solid("CoopCollision",Vector2(869,385),Vector2(183,97))
     # The garden fences are solid; harvestable plants themselves are not.
     _solid("TomatoFenceCollision",Vector2(377,683),Vector2(470,15))
+    # The illustrated tomato plot is not traversable dirt. Its interior
+    # previously overlapped the valid foot polygon, so the HD hero visibly
+    # walked on crop rows. Keep the central courtyard and NPC route free.
+    _solid("TomatoBedInteriorCollision",Vector2(377,594),Vector2(435,155))
     _solid("EggplantFenceCollision",Vector2(1006,733),Vector2(270,14))
     # River strip cannot be crossed except by a planned bridge transition.
     _solid("RiverBankCollision",Vector2(1490,693),Vector2(125,430))
