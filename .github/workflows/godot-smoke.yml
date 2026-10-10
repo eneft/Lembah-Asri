@@ -1,0 +1,29 @@
+name: Godot 4 Smoke Test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gameplay-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Godot 4.3
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: false
+      - name: Report Godot version
+        run: godot --version
+      - name: Import project
+        run: godot --headless --path . --editor --quit
+      - name: Load scene and validate runtime nodes
+        run: godot --headless --path . --script res://tests/smoke_test.gd
