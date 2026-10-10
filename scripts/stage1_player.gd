@@ -49,7 +49,7 @@ func _setup_animations() -> void:
         var row_base := 0 if state == "idle" else (4 if state == "walk" else 10)
         for col in range(DIRECTIONS.size()):
             var direction: String = DIRECTIONS[col]
-            var name := state + "_" + direction
+            var name: String = str(state) + "_" + direction
             frames.add_animation(name)
             frames.set_animation_speed(name, FPS)
             frames.set_animation_loop(name, true)
