@@ -28,7 +28,7 @@ jobs:
       - name: Gameplay smoke with graphics renderer
         run: |
           set -o pipefail
-          xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-method gl_compatibility --script res://tests/smoke_test.gd 2>&1 | tee godot-smoke.log
+          xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/smoke_test.gd 2>&1 | tee godot-smoke.log
           if grep -E 'SCRIPT ERROR|ERROR:|SMOKE FAIL' godot-smoke.log; then
             echo "Godot emitted a runtime error"; exit 1
           fi
