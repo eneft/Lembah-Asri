@@ -5,7 +5,7 @@ extends CharacterBody2D
 @export var run_speed: float = 255.0
 
 ## Pixel dimensions unchanged from 2D HD turnaround source; Godot uses lossless PNG.
-## One fixed full-body art source per direction. No mix with prior AI motion frames.
+## Eight approved HD direction masters are used for idle; walk uses available atlases.
 const DIRECTION_TEXTURES = {
     "right": preload("res://assets/characters/player_hd/right.png"),
     "down_right": preload("res://assets/characters/player_hd/down_right.png"),
@@ -81,16 +81,16 @@ func _setup_animations() -> void:
             frames.add_animation(name)
             frames.set_animation_loop(name, true)
             frames.set_animation_speed(name, 1.0 if state == "idle" else (RUN_FPS if state == "run" else WALK_FPS))
-            # All three states share the same painted atlas source and anchor.
-            # This eliminates character design snapping on walk->idle.
-            var atlas: Texture2D = WALK_ATLASES[_atlas_direction(direction)]
-            var count: int = 1 if state == "idle" else WALK_FRAMES
-            for i in range(count):
-                var frame_index: int = 15 if state == "idle" else i
-                var f := AtlasTexture.new()
-                f.atlas = atlas
-                f.region = Rect2(float(frame_index % 4) * FRAME_W, float(int(frame_index / 4)) * FRAME_H, FRAME_W, FRAME_H)
-                frames.add_frame(name, f)
+            if state == "idle":
+                # Use the approved still pose, not an arbitrary mid-stride atlas frame.
+                frames.add_frame(name, DIRECTION_TEXTURES[direction])
+            else:
+                var atlas: Texture2D = WALK_ATLASES[_atlas_direction(direction)]
+                for i in range(WALK_FRAMES):
+                    var f := AtlasTexture.new()
+                    f.atlas = atlas
+                    f.region = Rect2(float(i % 4) * FRAME_W, float(int(i / 4)) * FRAME_H, FRAME_W, FRAME_H)
+                    frames.add_frame(name, f)
     $AnimatedSprite2D.sprite_frames = frames
 
 func _nearest_eight_direction(v: Vector2) -> String:
@@ -134,7 +134,8 @@ func _physics_process(_delta: float) -> void:
     animation_state = ("run" if running else "walk") if (wants_to_move and really_moved) else "idle"
     var key := animation_state + "_" + facing_name
     var actor: AnimatedSprite2D = $AnimatedSprite2D
-    actor.flip_h = (facing_name == "left" or facing_name == "up_left" or facing_name == "down_left")
+    # Idle has a true image for every direction; only the missing walk atlases mirror.
+    actor.flip_h = animation_state != "idle" and (facing_name == "left" or facing_name == "up_left" or facing_name == "down_left")
     if actor.animation != key:
         var old_name: String = actor.animation
         var old_frame: int = actor.frame
