@@ -26,6 +26,40 @@ func _check() -> void:
         if camera == null or not camera is Camera2D:
             push_error("STAGE1 FAIL: no Camera2D")
             failures = true
+        var actor: AnimatedSprite2D = player.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+        if actor == null or actor.sprite_frames == null:
+            push_error("ANIMATION FAIL: missing player sprite")
+            failures = true
+        else:
+            if actor.sprite_frames.get_animation_names().size() != 24:
+                push_error("ANIMATION FAIL: expected 24 animations (3 states x 8 directions)")
+                failures = true
+            for state in ["idle", "walk", "run"]:
+                var count := 4 if state == "idle" else 6
+                for dir_name in ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]:
+                    var key: String = state + "_" + dir_name
+                    if not actor.sprite_frames.has_animation(key) or actor.sprite_frames.get_frame_count(key) != count:
+                        push_error("ANIMATION FAIL: frame count for " + key)
+                        failures = true
+                    elif abs(actor.sprite_frames.get_animation_speed(key) - 12.0) > 0.01:
+                        push_error("ANIMATION FAIL: 12 FPS mismatch " + key)
+                        failures = true
+            if actor.animation != "idle_down_right":
+                push_error("ANIMATION FAIL: default facing should be down_right")
+                failures = true
+        Input.action_press("ui_right")
+        Input.action_press("run")
+        for i in range(4):
+            await physics_frame
+        if player.animation_state != "run" or player.facing_name != "right":
+            push_error("ANIMATION FAIL: right + run transition")
+            failures = true
+        Input.action_release("run")
+        Input.action_release("ui_right")
+        await physics_frame
+        if player.animation_state != "idle":
+            push_error("ANIMATION FAIL: idle transition")
+            failures = true
         var start_x: float = player.global_position.x
         Input.action_press("ui_right")
         for i in range(5):

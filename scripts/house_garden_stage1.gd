@@ -97,6 +97,12 @@ func _make_player() -> void:
     player.z_index = 10
     var sprite := _sprite(player,"Avatar",HERO,Vector2(-45,-176),0)
     sprite.z_index = 0
+    var actor := AnimatedSprite2D.new()
+    actor.name = "AnimatedSprite2D"
+    actor.position = Vector2(0, -80)
+    actor.scale = Vector2(1.95, 1.95)
+    actor.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+    player.add_child(actor)
     var collision := CollisionShape2D.new()
     var shape := CircleShape2D.new()
     shape.radius = 11.0
