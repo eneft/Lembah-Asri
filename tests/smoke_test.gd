@@ -47,6 +47,9 @@ func _check() -> void:
             elif (actor.material as ShaderMaterial).shader == null:
                 push_error("ANIMATION FAIL: walk/run shader resource is missing")
                 failures = true
+            elif not (actor.material as ShaderMaterial).shader.code.contains("unwanted_floor"):
+                push_error("ANIMATION FAIL: baked white foot stroke must be masked in shader")
+                failures = true
             if actor.sprite_frames.get_animation_names().size() != 24:
                 push_error("ANIMATION FAIL: expected 24 animations (3 states x 8 directions)")
                 failures = true
@@ -151,6 +154,21 @@ func _check() -> void:
         if not player.is_walkable_foot(player.global_position):
             push_error("STAGE1 FAIL: hero crossed walkable boundary")
             failures = true
+        # Regression from real gameplay capture: protagonist crossed the
+        # tomato plot despite painted fence/crops. Prevent crop trampling.
+        var tomato_blocker = world.get_node_or_null("TomatoBedInteriorCollision")
+        if tomato_blocker == null or not (tomato_blocker is StaticBody2D):
+            push_error("STAGE1 FAIL: tomato plot has no interior collision")
+            failures = true
+        else:
+            player.global_position = Vector2(635, 590)
+            Input.action_press("ui_left")
+            for i in range(70):
+                await physics_frame
+            Input.action_release("ui_left")
+            if player.global_position.x < 601.0:
+                push_error("STAGE1 FAIL: protagonist stepped into the tomato bed")
+                failures = true
         player.global_position = world.npc.global_position + Vector2(-49,0)
         var event := InputEventKey.new()
         event.keycode = KEY_E
@@ -177,5 +195,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: Stage 1 HD 8-dir hero, distance-synced gait, walk/run/idle, collisions, camera, Bu Sari dialogue")
+        print("SMOKE PASS: Stage 1 8-dir HD gait, artifact mask, tomato crop collision, camera, Bu Sari dialogue")
         quit(0)
