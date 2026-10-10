@@ -15,6 +15,14 @@ func _run() -> void:
     root.add_child(world)
     await process_frame
     await process_frame
+    if not world.art_loaded or world.artwork == null or world.artwork.texture == null:
+        push_error("SMOKE FAIL: approved concept artwork not loaded")
+        failed = true
+    elif world.artwork.texture.get_width() < 1000 or world.artwork.texture.get_height() < 500:
+        push_error("SMOKE FAIL: concept image too small")
+        failed = true
+    else:
+        print("ART PASS: assets/art/concept_farm.png loaded (%d x %d)" % [world.artwork.texture.get_width(), world.artwork.texture.get_height()])
     var player = world.get_node_or_null("Player")
     if player == null or not player is CharacterBody2D:
         push_error("SMOKE FAIL: CharacterBody2D player missing")
@@ -46,5 +54,5 @@ func _run() -> void:
     if failed:
         quit(1)
     else:
-        print("SMOKE PASS: Godot 2D world, Camera2D, movement and NPC E interaction")
+        print("SMOKE PASS: Godot 2D scene, concept artwork, Camera2D, movement and NPC E interaction")
         quit(0)
