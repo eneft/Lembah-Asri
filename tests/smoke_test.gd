@@ -60,5 +60,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("STAGE1 PASS: 9 art layers, collision, movement, Camera2D, Bu Sari dialogue")
+        print("SMOKE PASS: Stage 1 art layers, collision, movement, Camera2D, Bu Sari dialogue")
         quit(0)
