@@ -23,7 +23,13 @@ jobs:
           include-templates: false
       - name: Report Godot version
         run: godot --version
-      - name: Import project
+      - name: Import project headlessly
         run: godot --headless --path . --editor --quit
-      - name: Load scene and validate runtime nodes
-        run: godot --headless --path . --script res://tests/smoke_test.gd
+      - name: Gameplay smoke with graphics renderer
+        run: |
+          set -o pipefail
+          xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-method gl_compatibility --script res://tests/smoke_test.gd 2>&1 | tee godot-smoke.log
+          if grep -E 'SCRIPT ERROR|ERROR:|SMOKE FAIL' godot-smoke.log; then
+            echo "Godot emitted a runtime error"; exit 1
+          fi
+          grep -q 'SMOKE PASS:' godot-smoke.log
