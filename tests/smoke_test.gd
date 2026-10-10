@@ -34,6 +34,22 @@ func _check() -> void:
         if player.global_position.x <= start_x + 0.01:
             push_error("STAGE1 FAIL: character did not move")
             failures = true
+        # Regression: long movement must never take the player into the sky.
+        Input.action_press("ui_up")
+        for i in range(240):
+            await physics_frame
+        Input.action_release("ui_up")
+        if player.global_position.y < 455.0 or not player.is_walkable_foot(player.global_position):
+            push_error("STAGE1 FAIL: hero escaped walkable courtyard into roof/sky")
+            failures = true
+        # Follow with a long crossing toward the right bank.
+        Input.action_press("ui_right")
+        for i in range(200):
+            await physics_frame
+        Input.action_release("ui_right")
+        if not player.is_walkable_foot(player.global_position):
+            push_error("STAGE1 FAIL: hero crossed walkable boundary")
+            failures = true
         player.global_position = world.npc.global_position + Vector2(-49,0)
         var event := InputEventKey.new()
         event.keycode = KEY_E
