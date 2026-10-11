@@ -81,8 +81,24 @@ func _check() -> void:
     else:
         var mat := bg_node.material as ShaderMaterial
         if mat == null or mat.shader == null or not mat.shader.code.contains("TEXTURE_PIXEL_SIZE") or float(mat.get_shader_parameter("softness")) <= 0.0:
-            push_error("LAYER FAIL: landscape softness lost")
+            push_error("LAYER FAIL: distant scenery softness lost")
             failed = true
+        else:
+            # Regression: past full-screen blur made terrain and trails mushy.
+            # The shader must blend with an explicit art-directed distance
+            # mask and return the original source below Y=0.48.
+            if not mat.shader.code.contains("far_mask") or not mat.shader.code.contains("mix(sharp, soft, far_mask)"):
+                push_error("LAYER FAIL: global blur returned; playable ground must stay crisp")
+                failed = true
+            if not mat.shader.code.contains("mix(1.0, saturation, far_mask)") or not mat.shader.code.contains("mix(1.0, contrast, far_mask)"):
+                push_error("LAYER FAIL: near-ground colour grading not neutral")
+                failed = true
+            if float(mat.get_shader_parameter("distant_end")) > 0.50:
+                push_error("LAYER FAIL: DOF extends into the gameplay area")
+                failed = true
+            if float(mat.get_shader_parameter("softness")) > 0.90:
+                push_error("LAYER FAIL: distant blur exceeds approved subtle setting")
+                failed = true
     for duplicate_name in ["HouseMain","SmallCoop","GardenTomato","ForegroundFoliage"]:
         if world.get_node_or_null(duplicate_name) != null:
             push_error("LAYER FAIL: obsolete overpaint still rendered: " + duplicate_name)
@@ -204,5 +220,5 @@ func _check() -> void:
     if failed:
         quit(1)
     else:
-        print("SMOKE PASS: transparent clean-plate cutouts, true Y-sort, masked animated water, traversable bridge, HUD/run/mobile")
+        print("SMOKE PASS: crisp playable terrain and subtle distant DOF, RGBA cutouts, Y-sort, river, bridge, HUD/run/mobile")
         quit(0)

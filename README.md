@@ -62,3 +62,9 @@ World kini memakai `assets/art/separated/terrain_clean.webp` sebagai ground. Ter
 `RiverWaterfallSurface` kini memakai cutout RGBA dengan area alfa air yang eksplisit dari `assets/art/separated/river_water.webp`, bukan chroma-key di shader. Arus bergerak halus; waterfall foam lebih lanjut masih dalam backlog. Jalur pijakan menuju jembatan sudah diperpanjang, tetapi kualitas collision/occlusion harus diperiksa visual saat dimainkan, terutama di railing dan tepi pagar.
 
 File manifest koordinat/pivot: `assets/art/separated/manifest.json`. Pemecahan aset adalah tracing masker konservatif + clean inpainting, jadi beberapa pinggiran foliage mungkin masih perlu dirapikan. Proyek tetap 2D, kontrol HP dan run 14-frame tidak berubah.
+
+## Koreksi softness area gameplay (11 Oktober 2026)
+
+**Bug visual diperbaiki:** efek blur sebelumnya menutupi seluruh `terrain_clean.webp` (termasuk halaman, jalan setapak, dan tepian sungai) sehingga objek sprite seperti rumah tetap tajam tetapi area sekitar karakter terlalu kabur. Kini `village_background_grade.gdshader` menggunakan *vertical distance mask* berbasis koordinat tekstur: paling atas diberi softening ringan, efeknya berkurang antara `distant_start=0.16` dan `distant_end=0.48`, dan **y>=0.48 (halaman/gameplay dekat) tidak diblur atau dikurangi kontrasnya sama sekali**. Pengaturan awal `softness=0.80`, lebih halus daripada versi global sebelumnya 1.35. Aset tekstur, rumah, pagar, karakter, run cycle, water effect dan HUD tidak diganti.
+
+Mask Y ini adalah pendekatan artistik untuk perspektif 3/4, bukan kalkulasi jarak 3D. Bila scene berikutnya memiliki objek jauh di bawah horizon, perlu depth mask buatan khusus atau layer background jauh tersendiri.

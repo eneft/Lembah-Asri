@@ -37,3 +37,7 @@ Godot 4 **Camera2D** perspektif elevated 3/4 (pseudo-isometric); bukan kamera 3D
 Sungai sekarang menggunakan tekstur `river_water.webp` RGBA yang mask-nya dibangun dari warna cyan/putih hanya pada koridor air. Shader menggunakan alpha yang diekstrak ini, bukan memilih warna objek dari background secara realtime; batu/jembatan tetap statis. Jembatan memiliki `bridge_rail` Y-sort di atas dek statis sehingga pemain tidak hilang ketika berjalan melewati deck.
 
 World masih Camera2D, run cycle asli ZIP/kecepatan, collision utama dan HUD/mobile tetap dipertahankan. Tidak membuat NPC atau ternak palsu.
+
+## Koreksi area background yang diblur
+
+Blur global pada clean-plate terbukti membuat halaman/jalan/pijakan sekitar pemain terlalu soft sedangkan sprite cutout justru tajam. Material lingkungan kini membatasi softening ke latar jauh menggunakan rentang UV vertikal `0.16 → 0.48`. Di bawah Y~=452 pada art 941px, sample kembali ke tekstur asli dan grade menjadi netral. Ini solusi transisi sebelum horizon/mountain/village menjadi layer terpisah dengan depth mask masing-masing.
