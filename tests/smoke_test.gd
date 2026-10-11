@@ -1,5 +1,5 @@
 extends SceneTree
-## Acceptance test: full 8-direction frame animation, locked idle art, 2D collision and NPC.
+## Acceptance test: 8 native HD base directions or legacy fallback, 2D collision and NPC.
 var failures := false
 
 func _initialize() -> void:
@@ -45,46 +45,54 @@ func _check() -> void:
                 push_error("ANIMATION FAIL: requires 8 directions x 3 states")
                 failures = true
             for d in ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]:
-                var idle: AtlasTexture = actor.sprite_frames.get_frame_texture("idle_" + d, 0) as AtlasTexture
-                if idle == null or idle.region.size != Vector2(512, 640):
-                    push_error("ANIMATION FAIL: idle and walk must share canonical 512x640 atlas frames: " + d)
-                    failures = true
-                # Image quality regression: an over-aggressive red-background
-                # mask previously cut holes through hair and trousers even
-                # while the game script tests passed.
-                if d in ["up", "up_right", "right", "down_right", "down"]:
-                    var visual_tex: AtlasTexture = actor.sprite_frames.get_frame_texture("walk_" + d, 0) as AtlasTexture
-                    if visual_tex == null:
-                        push_error("ANIMATION FAIL: missing visual source " + d)
-                        failures = true
-                    else:
-                        var canvas_image: Image = visual_tex.atlas.get_image()
-                        if canvas_image == null or canvas_image.get_width() != 2048 or canvas_image.get_height() != 2560:
-                            push_error("ANIMATION FAIL: cannot inspect HD sprite image " + d)
-                            failures = true
-                        elif canvas_image.get_pixel(256, 125).a < 0.65 or canvas_image.get_pixel(256, 280).a < 0.65:
-                            push_error("ANIMATION FAIL: color mask eroded hair or body in " + d)
-                            failures = true
-                for state in ["walk","run"]:
+                for state in ["idle", "walk", "run"]:
                     var key: String = state + "_" + d
-                    if actor.sprite_frames.get_frame_count(key) != 16:
-                        push_error("ANIMATION FAIL: 16 pose frames required: " + key)
+                    if not actor.sprite_frames.has_animation(key):
+                        push_error("ANIMATION FAIL: missing state/direction " + key)
                         failures = true
-                    for j in range(16):
-                        var tex: AtlasTexture = actor.sprite_frames.get_frame_texture(key, j) as AtlasTexture
-                        if tex == null or tex.atlas.get_width() != 2048 or tex.atlas.get_height() != 2560 or tex.region.size != Vector2(512,640):
-                            push_error("ANIMATION FAIL: wrong 4x4 atlas frame " + key + "#" + str(j) + " atlas=" + (str(tex.atlas.get_size()) if tex != null else "NULL") + " region=" + (str(tex.region) if tex != null else "NULL"))
+                        continue
+                    var count: int = actor.sprite_frames.get_frame_count(key)
+                    if player.using_base_form:
+                        # One real HD RGBA still pose for every direction and state.
+                        # Movement does not use fabricated frame cycling.
+                        var tex: Texture2D = actor.sprite_frames.get_frame_texture(key, 0)
+                        if count != 1 or tex == null or tex is AtlasTexture or tex.get_size() != Vector2(1152, 1632):
+                            push_error("BASE FORM FAIL: missing or wrong PNG: " + key)
                             failures = true
-                if d == "left" or d.ends_with("_left"):
-                    var other: String = "right" if d == "left" else d.replace("_left","_right")
+                    elif state == "idle":
+                        var still: Texture2D = actor.sprite_frames.get_frame_texture(key, 0)
+                        if count != 1 or still == null or still.get_size() != Vector2(512, 640):
+                            push_error("LEGACY IDLE FAIL: missing HD idle pose: " + key)
+                            failures = true
+                    else:
+                        if count != 16:
+                            push_error("LEGACY WALK FAIL: expected 16 atlas frames: " + key)
+                            failures = true
+                        for j in range(count):
+                            var frame: AtlasTexture = actor.sprite_frames.get_frame_texture(key, j) as AtlasTexture
+                            if frame == null or frame.atlas.get_size() != Vector2(2048, 2560) or frame.region.size != Vector2(512, 640):
+                                push_error("LEGACY ATLAS FAIL: wrong frame: " + key + "#" + str(j))
+                                failures = true
+                if not player.using_base_form and (d == "left" or d.ends_with("_left")):
+                    var other: String = "right" if d == "left" else d.replace("_left", "_right")
                     var left_tex: AtlasTexture = actor.sprite_frames.get_frame_texture("walk_" + d, 0) as AtlasTexture
                     var right_tex: AtlasTexture = actor.sprite_frames.get_frame_texture("walk_" + other, 0) as AtlasTexture
                     if left_tex == null or right_tex == null or left_tex.atlas != right_tex.atlas:
-                        push_error("ANIMATION FAIL: mirrored left source mismatch " + d)
+                        push_error("LEGACY MIRROR FAIL: left fallback mismatch " + d)
                         failures = true
-            if not is_equal_approx(actor.scale.x, 0.36) or not is_equal_approx(actor.scale.y, 0.36):
+            var expected_scale: float = 0.15 if player.using_base_form else 0.36
+            if not is_equal_approx(actor.scale.x, expected_scale) or not is_equal_approx(actor.scale.y, expected_scale):
                 push_error("ANIMATION FAIL: playable scale changed")
                 failures = true
+            if player.using_base_form:
+                if not actor.position.is_equal_approx(Vector2(0.0, -115.35)):
+                    push_error("BASE FORM FAIL: feet not aligned to collision origin")
+                    failures = true
+                var front: Texture2D = actor.sprite_frames.get_frame_texture("idle_down", 0)
+                var body_image: Image = front.get_image()
+                if body_image == null or body_image.get_pixel(0, 0).a > 0.01 or body_image.get_pixel(1151, 1631).a > 0.01:
+                    push_error("BASE FORM FAIL: PNG background is not transparent")
+                    failures = true
         Input.action_press("ui_right")
         for j in range(22):
             await physics_frame
@@ -99,13 +107,13 @@ func _check() -> void:
         Input.action_press("ui_left")
         for j in range(6):
             await physics_frame
-        if player.facing_name != "left" or actor == null or not actor.flip_h:
-            push_error("ANIMATION FAIL: mirrored left direction")
+        if player.facing_name != "left" or actor == null or (actor.flip_h == player.using_base_form):
+            push_error("ANIMATION FAIL: left orientation / unexpected flip")
             failures = true
         Input.action_release("ui_left")
         await physics_frame
-        if actor != null and not actor.flip_h:
-            push_error("ANIMATION FAIL: idle should preserve mirror to prevent visual snap")
+        if actor != null and actor.flip_h:
+            push_error("ANIMATION FAIL: unique left idle image must not be mirrored")
             failures = true
         # Regression: long movement must never take the player into the sky.
         Input.action_press("ui_up")
@@ -164,5 +172,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: Stage 1 8-dir 16-frame walk with matched idle, mirrored left, camera, crop collision and NPC")
+        print("SMOKE PASS: Stage 1, 8-direction base/legacy poses, stable feet, camera, crop collision and NPC")
         quit(0)

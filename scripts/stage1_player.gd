@@ -17,6 +17,14 @@ const DIRECTION_TEXTURES = {
     "up_right": preload("res://assets/characters/player_hd/up_right.png")
 }
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
+# Eight native, individually rendered RGBA masters (no horizontal mirroring).
+# All eight files must be present to activate the new base-form character.
+# If someone checks out this code before the large PNG assets have been added,
+# the existing animated 16-frame character remains intact as a safe fallback.
+const BASE_DIR := "res://assets/characters/player_base_8dir/"
+const BASE_CANVAS := Vector2i(1152, 1632)
+const BASE_SPRITE_SCALE := 0.15
+const BASE_SPRITE_POSITION := Vector2(0.0, -115.35) # (1585 - 816)*0.15
 const STATES := ["idle", "walk", "run"]
 const FPS := 12.0
 const WALK_ATLASES = {
@@ -35,6 +43,8 @@ const RUN_FPS: float = 16.0
 var facing: Vector2 = Vector2(1.0, 1.0).normalized()
 var facing_name: String = "down_right"
 var animation_state: String = "idle"
+var using_base_form: bool = false
+var base_textures: Dictionary = {}
 
 # Valid FOOT positions in the approved illustrated concept.
 var walk_polygon: PackedVector2Array = PackedVector2Array([
@@ -56,9 +66,29 @@ func _ready() -> void:
     shift.physical_keycode = KEY_SHIFT
     if not InputMap.action_has_event("run", shift):
         InputMap.action_add_event("run", shift)
+    using_base_form = _load_base_forms()
     _setup_animations()
+    if using_base_form:
+        # Foot baseline is world Y = 0, i.e. the CharacterBody2D collision origin.
+        $AnimatedSprite2D.scale = Vector2.ONE * BASE_SPRITE_SCALE
+        $AnimatedSprite2D.position = BASE_SPRITE_POSITION
     $Avatar.visible = false
     $AnimatedSprite2D.play("idle_" + facing_name)
+
+func _load_base_forms() -> bool:
+    var loaded: Dictionary = {}
+    for direction in DIRECTIONS:
+        var path: String = BASE_DIR + direction + ".png"
+        if not ResourceLoader.exists(path):
+            return false
+        var tex: Texture2D = load(path) as Texture2D
+        if tex == null or tex.get_width() != BASE_CANVAS.x or tex.get_height() != BASE_CANVAS.y:
+            push_warning("Lembah Asri: invalid HD base image " + path)
+            return false
+        loaded[direction] = tex
+    base_textures = loaded
+    print("LEMBAH ASRI: 8-direction RGBA base character active (static poses)")
+    return true
 
 func _atlas_direction(direction: String) -> String:
     match direction:
@@ -81,8 +111,12 @@ func _setup_animations() -> void:
             frames.add_animation(name)
             frames.set_animation_loop(name, true)
             frames.set_animation_speed(name, 1.0 if state == "idle" else (RUN_FPS if state == "run" else WALK_FPS))
-            if state == "idle":
-                # Use the approved still pose, not an arbitrary mid-stride atlas frame.
+            if using_base_form:
+                # These are authored direction bases, not fake walk/run frames.
+                # Preserve keyboard movement while artwork remains a still pose.
+                frames.add_frame(name, base_textures[direction])
+            elif state == "idle":
+                # Legacy master poses stay available until all new assets are added.
                 frames.add_frame(name, DIRECTION_TEXTURES[direction])
             else:
                 var atlas: Texture2D = WALK_ATLASES[_atlas_direction(direction)]
@@ -134,14 +168,15 @@ func _physics_process(_delta: float) -> void:
     animation_state = ("run" if running else "walk") if (wants_to_move and really_moved) else "idle"
     var key := animation_state + "_" + facing_name
     var actor: AnimatedSprite2D = $AnimatedSprite2D
-    # Idle has a true image for every direction; only the missing walk atlases mirror.
-    actor.flip_h = animation_state != "idle" and (facing_name == "left" or facing_name == "up_left" or facing_name == "down_left")
+    # New masters are eight unique hand-rendered directions; never flip hair/backpack.
+    # Legacy walk atlases still mirror missing left directions when fallback is active.
+    actor.flip_h = not using_base_form and animation_state != "idle" and (facing_name == "left" or facing_name == "up_left" or facing_name == "down_left")
     if actor.animation != key:
         var old_name: String = actor.animation
         var old_frame: int = actor.frame
         actor.play(key)
         # Keep the stride phase when switching directions while moving.
-        if animation_state != "idle" and (old_name.begins_with("walk_") or old_name.begins_with("run_")):
+        if not using_base_form and animation_state != "idle" and (old_name.begins_with("walk_") or old_name.begins_with("run_")):
             actor.set_frame_and_progress(old_frame % WALK_FRAMES, 0.0)
     elif not actor.is_playing():
         actor.play(key)
