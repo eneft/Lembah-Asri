@@ -63,6 +63,9 @@ func _bone(parent: Node2D, name: String, at: Vector2, parent_at: Vector2, length
     b.name = name
     b.position = _xy(at - parent_at)
     b.length = length_px * _source_scale.y
+    # Bone2D.rest defaults to a ZERO transform, which Skeleton2D cannot invert.
+    b.set_autocalculate_length_and_angle(false)
+    b.rest = b.transform
     parent.add_child(b)
     return b
 
