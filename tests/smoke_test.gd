@@ -67,7 +67,7 @@ func _check() -> void:
                 if not grade.shader.code.contains("original.a"):
                     push_error("GRADE FAIL: shader does not preserve original texture alpha")
                     failures = true
-                if not grade.shader.code.contains("walk_sample_uv") or not grade.shader.code.contains("left_lift"):
+                if not grade.shader.code.contains("walk_sample_uv") or not grade.shader.code.contains("clearance"):
                     push_error("WALK FAIL: shader lacks independent swing/lift deformation")
                     failures = true
                 if float(grade.get_shader_parameter("gait_strength")) > 0.001:
@@ -290,5 +290,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: 12-phase 8-way walk/run shader, RGBA hero grade, touch movement, clean empty yard")
+        print("SMOKE PASS: visible continuous 8-way stride, 12 phases, RGBA grade, touch movement")
         quit(0)

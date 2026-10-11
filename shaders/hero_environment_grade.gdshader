@@ -10,52 +10,58 @@ uniform float gait_strength : hint_range(0.0, 1.5) = 0.0;
 uniform float gait_profile : hint_range(0.0, 1.0) = 0.0;
 uniform float gait_sign = 1.0;
 
-vec2 walk_sample_uv(vec2 coord) {
-    // Original PNG canvas: 1152 x 1632. Hip is about Y=0.59;
-    // knees about 0.77, boots about 0.92. Smooth falloffs prevent seams.
-    float c = sin(gait_phase) * gait_sign;
-    float opposing = -c;
-    float left_side = 1.0 - smoothstep(0.465, 0.515, coord.x);
-    float right_side = smoothstep(0.485, 0.535, coord.x);
+vec2 walk_sample_uv(vec2 uv) {
+    // The original idle sprite has approximately two boots in the lower
+    // quarter. All positions are normalized on each 1152x1632 base image.
+    // At the game's 0.105 sprite scale, small UV shifts are invisible:
+    // here a full stride displaces shoes by about 7-10 screen pixels.
+    float stride = sin(gait_phase) * gait_sign;
+    float crossing = cos(gait_phase);
+    float left = 1.0 - smoothstep(0.465, 0.515, uv.x);
+    float right = smoothstep(0.485, 0.535, uv.x);
+    float opposite = left - right;
 
-    float thighs = smoothstep(0.585, 0.705, coord.y);
-    float shins = smoothstep(0.72, 0.905, coord.y);
-    float boot = smoothstep(0.84, 0.925, coord.y)
-        * (1.0 - smoothstep(0.965, 0.998, coord.y));
-    float leg = thighs * (1.0 - smoothstep(0.975, 0.998, coord.y));
+    // Pinned hips; the deformation increases gradually into the shins.
+    float leg = smoothstep(0.595, 0.69, uv.y);
+    float calf = smoothstep(0.725, 0.87, uv.y);
+    float boot = smoothstep(0.845, 0.925, uv.y)
+        * (1.0 - smoothstep(0.973, 0.998, uv.y));
+    float bottom_fade = 1.0 - smoothstep(0.972, 0.998, uv.y);
 
-    // Contact -> down -> passing -> up -> contact; legs alternate by PI.
-    // Sweep the shin/boot more than the thigh; keep pelvis fixed.
-    float left_swing = c * left_side;
-    float right_swing = opposing * right_side;
-    float swing = left_swing + right_swing;
-    float rearward = mix(0.022, 0.030, gait_profile);
-    coord.x -= swing * (0.012 * thighs + rearward * shins)
-        * leg * gait_strength;
+    // Opposing planted and passing legs. Wider forward-back excursion
+    // than the original shader, but torso/head and backpack are stable.
+    float swing_x = opposite * stride * gait_strength;
+    float lateral = mix(0.040, 0.070, gait_profile);
+    uv.x -= swing_x * (0.018 * leg + lateral * calf)
+        * bottom_fade;
 
-    // Swinging foot clears the floor. The stance foot stays at baseline.
-    float left_lift = max(0.0, c) * left_side;
-    float right_lift = max(0.0, opposing) * right_side;
-    float lift = left_lift + right_lift;
-    coord.y += (0.022 + gait_profile * 0.006) * lift * boot * gait_strength;
+    // Leg near camera swings forward; another trails. Swinging shoe
+    // rises during passing phase while the planted boot remains grounded.
+    float lift_left = max(0.0, stride) * left;
+    float lift_right = max(0.0, -stride) * right;
+    float clearance = (lift_left + lift_right) * gait_strength;
+    uv.y += clearance * (0.058 + gait_profile * 0.008) * boot;
 
-    // Modest knee bend in the passing phase, not whole-image bouncing.
-    coord.y -= 0.005 * abs(c) * shins * (1.0 - boot) * gait_strength;
+    // Front/back angles show the depth motion mainly as vertical steps.
+    uv.y -= swing_x * (1.0 - gait_profile) * calf
+        * boot * 0.022 * gait_strength;
+    uv.y += opposite * crossing * calf * 0.004 * gait_strength;
 
-    // Front/back and diagonal views: arms swing opposite their legs.
-    float arms_y = smoothstep(0.32, 0.43, coord.y)
-        * (1.0 - smoothstep(0.565, 0.66, coord.y));
-    float left_arm = 1.0 - smoothstep(0.265, 0.41, coord.x);
-    float right_arm = smoothstep(0.59, 0.725, coord.x);
-    float arm_shift = (-c * left_arm + c * right_arm) * arms_y;
-    coord.y += arm_shift * 0.008 * gait_strength;
-    coord.x += arm_shift * 0.006 * gait_profile * gait_strength;
+    // Opposite arm swing: masks avoid jacket torso and backpack.
+    float forearm = smoothstep(0.315, 0.39, uv.y)
+        * (1.0 - smoothstep(0.59, 0.66, uv.y));
+    float arm_l = 1.0 - smoothstep(0.265, 0.39, uv.x);
+    float arm_r = smoothstep(0.61, 0.75, uv.x);
+    float arm_swing = stride * (arm_r - arm_l) * forearm * gait_strength;
+    uv.y += arm_swing * 0.024;
+    uv.x += arm_swing * (0.004 + gait_profile * 0.014);
 
-    // Very subtle settling (under one pixel at in-game scale).
-    float torso = smoothstep(0.16, 0.33, coord.y)
-        * (1.0 - smoothstep(0.54, 0.70, coord.y));
-    coord.y += (1.0 - cos(2.0 * gait_phase)) * torso * 0.0015 * gait_strength;
-    return clamp(coord, vec2(0.0), vec2(1.0));
+    // Minimal elastic settling, not a bounce of the whole PNG.
+    float shirt = smoothstep(0.22, 0.34, uv.y)
+        * (1.0 - smoothstep(0.54, 0.67, uv.y));
+    uv.y += shirt * (1.0 - cos(2.0 * gait_phase)) * 0.0020
+        * gait_strength;
+    return clamp(uv, vec2(0.0), vec2(1.0));
 }
 
 uniform float saturation : hint_range(0.0, 1.4) = 0.87;

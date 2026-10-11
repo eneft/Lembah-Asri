@@ -31,8 +31,8 @@ const BASE_SPRITE_SCALE := 0.105 # 30% smaller; more appropriate to the painted 
 const BASE_SPRITE_POSITION := Vector2(0.0, -80.745) # (1585 - 816) * 0.105, feet remain at ground origin
 # 12 distinct time samples over one full left/right step cycle.
 const GAIT_POSES: int = 12
-const WALK_POSES_PER_SECOND: float = 12.0
-const RUN_POSES_PER_SECOND: float = 16.0
+const WALK_POSES_PER_SECOND: float = 14.0
+const RUN_POSES_PER_SECOND: float = 20.0
 const STATES := ["idle", "walk", "run"]
 const FPS := 12.0
 const WALK_ATLASES = {
@@ -59,6 +59,7 @@ var mobile_run_held: bool = false
 # Kept independently of AnimatedSprite2D's one-frame original direction art.
 var gait_frame_index: int = 0
 var gait_time_frames: float = 0.0
+var gait_phase: float = 0.0
 var gait_material: ShaderMaterial
 
 
@@ -148,7 +149,7 @@ func _setup_animations() -> void:
                     frames.add_frame(name, f)
     $AnimatedSprite2D.sprite_frames = frames
 
-# The 12 steps are temporal samples, not duplicates of the original PNG.
+# Twelve recognizable phases along a smoothly interpolated gait (not drawn PNGs).
 # Rear views must keep their own hair/backpack art and never be flipped.
 func _gait_profile() -> float:
     if facing_name == "left" or facing_name == "right":
@@ -169,7 +170,7 @@ func _update_gait_shader() -> void:
     # Original idle stays perfectly still; same eight image assets for all states.
     var playing_gait := using_base_form and animation_state != "idle"
     gait_material.set_shader_parameter("gait_strength", (1.25 if animation_state == "run" else 1.0) if playing_gait else 0.0)
-    gait_material.set_shader_parameter("gait_phase", TAU * float(gait_frame_index) / float(GAIT_POSES))
+    gait_material.set_shader_parameter("gait_phase", gait_phase)
     gait_material.set_shader_parameter("gait_profile", _gait_profile())
     gait_material.set_shader_parameter("gait_sign", _gait_sign())
 
@@ -221,12 +222,22 @@ func _physics_process(delta: float) -> void:
         if animation_state == "idle":
             gait_time_frames = 0.0
             gait_frame_index = 0
+            gait_phase = 0.0
+            $AnimatedSprite2D.position = BASE_SPRITE_POSITION
         else:
+            # Continuous phase prevents strobing and near-invisible single-frame stepping.
             gait_time_frames = fmod(
                 gait_time_frames + delta * (RUN_POSES_PER_SECOND if running else WALK_POSES_PER_SECOND),
                 float(GAIT_POSES)
             )
             gait_frame_index = int(floor(gait_time_frames)) % GAIT_POSES
+            gait_phase = TAU * gait_time_frames / float(GAIT_POSES)
+            # Clear but controlled weight transfer: feet are mostly animated by
+            # the per-limb shader, not by moving the whole character around.
+            $AnimatedSprite2D.position = BASE_SPRITE_POSITION + Vector2(
+                sin(gait_phase) * 0.7,
+                -absf(sin(gait_phase)) * (2.0 if running else 1.5)
+            )
         _update_gait_shader()
     var key := animation_state + "_" + facing_name
     var actor: AnimatedSprite2D = $AnimatedSprite2D

@@ -5,7 +5,7 @@ Sumber animasi adalah **delapan PNG RGBA 1152 × 1632 asli** pada `assets/charac
 ## Implementasi Godot
 
 - `scripts/stage1_player.gd` membuat 24 animasi (idle/walk/run × 8 arah), mengatur 12 indeks fase siklus jalan dan 12 sample per detik.
-- `shaders/hero_environment_grade.gdshader` menggeser sampel bagian paha, tulang kering, dan sepatu secara berlawanan dengan fungsi sinus, menambah foot clearance serta ayunan lengan berlawanan. Gait shader juga menjaga color grading yang sudah disetujui.
+- `shaders/hero_environment_grade.gdshader` menggeser sampel bagian paha, tulang kering, dan sepatu secara berlawanan dengan fungsi sinus, menambah foot clearance serta ayunan lengan berlawanan. Gerakan kaki sekarang diperbesar agar teramati di ukuran gameplay asli (bukan hanya di gambar HD), dengan fase halus di antara 12 pose. Gait shader juga menjaga color grading yang sudah disetujui.
 - `assets/materials/hero_environment_grade.tres` tetap dapat digunakan untuk mengubah pencahayaan dan saturasi.
 - Ketika pemain berhenti, `gait_strength = 0`, kembali persis ke pose idle sumber. Berlari memakai 16 sample/detik dan amplitudo sedikit lebih besar.
 - Pergantian arah saat bergerak mempertahankan siklus langkah; arah kiri memakai PNG kiri yang berbeda dan **tidak flip**.
@@ -18,3 +18,7 @@ Ini **walk prototipe procedural di GPU**, bukan 12 gambar baru yang digambar man
 ## Uji
 
 Jalankan `godot --path .` atau build Web. Tekan WASD/panah di semua delapan arah, berhenti mendadak, ganti arah saat melangkah, lalu tahan Shift. Evaluasi urutan bergantian left/right, foot sliding, dan apakah deformasi tangan/kaki terlalu kuat. `tests/smoke_test.gd` memverifikasi shader, transisi, pemetaan arah, dan reset saat idle.
+
+## Visual regression test
+
+`tests/gait_render_smoke.gd` membuat SubViewport untuk tiap PNG di **skala gameplay asli**, memotret output shader saat idle dan dua fase stride, lalu menghitung piksel berubah secara signifikan. CI akan gagal bila perubahan rendered gait terlalu kecil. Ini bukan validasi anatomi profesional; rekaman gameplay tetap diperlukan untuk menyetujui kualitasnya.
