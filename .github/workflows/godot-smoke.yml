@@ -41,3 +41,11 @@ jobs:
             echo "Run frame validation failed"; exit 1
           fi
           grep -q 'RUN FRAME PASS:' godot-gait-render.log
+      - name: Verify rendered water changes over time without moving shorelines
+        run: |
+          set -o pipefail
+          xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/water_motion_render_smoke.gd 2>&1 | tee godot-water-render.log
+          if grep -E 'SCRIPT ERROR|ERROR:|WATER RENDER FAIL' godot-water-render.log; then
+            echo "Water animation render validation failed"; exit 1
+          fi
+          grep -q 'WATER RENDER PASS:' godot-water-render.log

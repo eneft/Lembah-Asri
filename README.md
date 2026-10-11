@@ -68,3 +68,9 @@ File manifest koordinat/pivot: `assets/art/separated/manifest.json`. Pemecahan a
 **Bug visual diperbaiki:** efek blur sebelumnya menutupi seluruh `terrain_clean.webp` (termasuk halaman, jalan setapak, dan tepian sungai) sehingga objek sprite seperti rumah tetap tajam tetapi area sekitar karakter terlalu kabur. Kini `village_background_grade.gdshader` menggunakan *vertical distance mask* berbasis koordinat tekstur: paling atas diberi softening ringan, efeknya berkurang antara `distant_start=0.16` dan `distant_end=0.48`, dan **y>=0.48 (halaman/gameplay dekat) tidak diblur atau dikurangi kontrasnya sama sekali**. Pengaturan awal `softness=0.80`, lebih halus daripada versi global sebelumnya 1.35. Aset tekstur, rumah, pagar, karakter, run cycle, water effect dan HUD tidak diganti.
 
 Mask Y ini adalah pendekatan artistik untuk perspektif 3/4, bukan kalkulasi jarak 3D. Bila scene berikutnya memiliki objek jauh di bawah horizon, perlu depth mask buatan khusus atau layer background jauh tersendiri.
+
+## Animasi sungai v2: aliran dan air terjun (11 Oktober 2026)
+
+Efek sebelumnya hanya bergeser sekitar 0.002 UV dan terlalu tipis dibanding air statis di clean-plate. Sekarang `river_surface_motion.gdshader` memiliki *traveling directional ripples*, foam berfase turun di bagian cascade, serta opacity 0.90 agar overlay air lebih terbaca. Seluruhnya memakai `river_water.webp` RGBA, bukan menyentuh rumah, jembatan, dan bebatuan. Parameter di `assets/materials/river_surface_motion.tres`: `flow_speed=1.45`, `distortion=0.0035`, `ripple_strength=0.42`, `foam_strength=0.42`.
+
+Tes `tests/water_motion_render_smoke.gd` memotret dua fase render GPU sungai lalu memverifikasi perubahan piksel air dan kestabilan mask alpha. Ini bukan simulasi fluida dan waterfall foam masih perlu inspeksi visual langsung di ponsel.

@@ -113,7 +113,7 @@ func _check() -> void:
             push_error("WATER FAIL: source alpha extraction incorrect")
             failed = true
         var wm := river.material as ShaderMaterial
-        if wm == null or wm.shader == null or not wm.shader.code.contains("original.a") or float(wm.get_shader_parameter("flow_speed")) <= 0.0:
+        if wm == null or wm.shader == null or not wm.shader.code.contains("original.a") or not wm.shader.code.contains("waterfall_zone") or float(wm.get_shader_parameter("flow_speed")) <= 0.0 or float(wm.get_shader_parameter("ripple_strength")) < 0.20 or float(wm.get_shader_parameter("foam_strength")) < 0.20:
             push_error("WATER FAIL: real water surface shader absent")
             failed = true
     if not player.is_walkable_foot(Vector2(1430,470)):
