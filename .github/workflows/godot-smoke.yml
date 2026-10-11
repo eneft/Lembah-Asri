@@ -33,11 +33,11 @@ jobs:
             echo "Godot emitted a runtime error"; exit 1
           fi
           grep -q 'SMOKE PASS:' godot-smoke.log
-      - name: Render and measure 8-direction walk visibility at gameplay scale
+      - name: Render and verify imported real run frames
         run: |
           set -o pipefail
-          xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/gait_render_smoke.gd 2>&1 | tee godot-gait-render.log
-          if grep -E 'SCRIPT ERROR|ERROR:|GAIT RENDER FAIL' godot-gait-render.log; then
-            echo "Gait render validation failed"; exit 1
+          xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/run_cycle_render_smoke.gd 2>&1 | tee godot-gait-render.log
+          if grep -E 'SCRIPT ERROR|ERROR:|RUN FRAME FAIL' godot-gait-render.log; then
+            echo "Run frame validation failed"; exit 1
           fi
-          grep -q 'GAIT RENDER PASS:' godot-gait-render.log
+          grep -q 'RUN FRAME PASS:' godot-gait-render.log

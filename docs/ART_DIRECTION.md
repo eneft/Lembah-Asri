@@ -25,3 +25,6 @@ Warm morning sun, vibrant but matte greenery, gentle shadows, earthen colors. Us
 - Hero memakai delapan PNG RGBA lossless di `assets/characters/player_hd/`; jangan upscale dari atlas resolusi rendah, kompres ulang atau campur gaya chibi dari generasi lain.
 - Animasi saat ini deformasi shader dari 1 pose/arah untuk walk/run dan belum setara spritesheet gerak anatomi penuh. Tampilan gerak harus dievaluasi manual pada gameplay.
 - Pertahankan alpha foliage/props, skala antarobjek, area pijakan dan jalur collision; hindari props yang terlihat menutupi pemain tanpa logika depth.
+
+## Penggantian runner (11 Oktober 2026)
+Karakter Stage 1 resmi memakai gambar runner yang diunggah pengguna dalam ZIP Run_godot4. SpriteFrames 31-frame kanan asli, kiri mirrored sementara, gerak atas/bawah masih placeholder sampai tersedia aset otentik tiap arah. Base 8 arah sebelumnya hanya arsip, bukan karakter gameplay.

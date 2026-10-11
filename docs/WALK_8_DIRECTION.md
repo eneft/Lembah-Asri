@@ -1,24 +1,9 @@
-# Lembah Asri — Walk cycle prosedural 8 arah (prototype)
+# Run Cycle pengguna — implementasi asli
 
-Sumber animasi adalah **delapan PNG RGBA 1152 × 1632 asli** pada `assets/characters/player_base_8dir/`. Setiap arah memakai gambarnya sendiri, tanpa flip, desain ulang, crop tambahan, atau perubahan alpha asli.
+Aset sumber `Run_godot4 (1).zip` berisi sprite sheet PNG dan file Godot 4 `Run.tres` dengan 31 frame `row_1` dan satu frame diam `row_6`. `Run.tres` dipertahankan dan hanya jalur sumber teksturnya diarahkan ke `Run.webp` (resolusi **2444×3702**, alpha tetap, kualitas tinggi) untuk build Web. Tekstur PNG asli tetap tersedia di ZIP pengguna.
 
-## Implementasi Godot
+Shader deformasi walk lama dicabut. Animasi sekarang mengganti tekstur setiap frame secara nyata lewat `AnimatedSprite2D`, diatur oleh `stage1_player.gd`.
 
-- `scripts/stage1_player.gd` membuat 24 animasi (idle/walk/run × 8 arah), mengatur 12 indeks fase siklus jalan dan 12 sample per detik.
-- `shaders/hero_environment_grade.gdshader` menggeser sampel bagian paha, tulang kering, dan sepatu secara berlawanan dengan fungsi sinus, menambah foot clearance serta ayunan lengan berlawanan. Gerakan kaki sekarang diperbesar agar teramati di ukuran gameplay asli (bukan hanya di gambar HD), dengan fase halus di antara 12 pose. Gait shader juga menjaga color grading yang sudah disetujui.
-- `assets/materials/hero_environment_grade.tres` tetap dapat digunakan untuk mengubah pencahayaan dan saturasi.
-- Ketika pemain berhenti, `gait_strength = 0`, kembali persis ke pose idle sumber. Berlari memakai 16 sample/detik dan amplitudo sedikit lebih besar.
-- Pergantian arah saat bergerak mempertahankan siklus langkah; arah kiri memakai PNG kiri yang berbeda dan **tidak flip**.
-- Scale karakter `0.105` dan titik pijakan `(0, -80.745)` tetap sama; collision, kamera, dan kontrol mobile tidak diubah.
+Keterbatasan: ZIP ini hanya mempunyai tampak **samping kanan**, bukan run cycle 8 arah. Kiri memakai flip horizontal sementara, dan gerak depan/belakang/diagonal memakai tampak samping sampai gambar arah tersebut tersedia. Mode berjalan menggunakan siklus run pada frame rate lebih pelan; belum ada walk cycle terpisah.
 
-## Batasan
-
-Ini **walk prototipe procedural di GPU**, bukan 12 gambar baru yang digambar manual untuk tiap arah (96 gambar). Karena PNG sumber adalah pose diam utuh, deformasi pixel tidak bisa menampilkan anatomi tersembunyi di samping. Pergerakan kaki, khususnya side-view, wajib dievaluasi visual di Godot sebelum dianggap walk final. Setelah disetujui, artwork walk frame-by-frame anatomis bisa menggantikan shader tanpa mengubah controller 8 arah.
-
-## Uji
-
-Jalankan `godot --path .` atau build Web. Tekan WASD/panah di semua delapan arah, berhenti mendadak, ganti arah saat melangkah, lalu tahan Shift. Evaluasi urutan bergantian left/right, foot sliding, dan apakah deformasi tangan/kaki terlalu kuat. `tests/smoke_test.gd` memverifikasi shader, transisi, pemetaan arah, dan reset saat idle.
-
-## Visual regression test
-
-`tests/gait_render_smoke.gd` membuat SubViewport untuk tiap PNG di **skala gameplay asli**, memotret output shader saat idle dan dua fase stride, lalu menghitung piksel berubah secara signifikan. CI akan gagal bila perubahan rendered gait terlalu kecil. Ini bukan validasi anatomi profesional; rekaman gameplay tetap diperlukan untuk menyetujui kualitasnya.
+Frame dan pijakan: atlas 512×778, skala game 0.182, offset (0,-70.798), collider tetap. Pengujian render dibandingkan pada ukuran gameplay oleh `tests/run_cycle_render_smoke.gd`.

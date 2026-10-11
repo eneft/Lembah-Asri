@@ -12,7 +12,6 @@ const TOMATO = preload("res://assets/art/layers/garden_tomato.png")
 const EGGPLANT = preload("res://assets/art/layers/garden_eggplant.png")
 const GREENS = preload("res://assets/art/layers/garden_greens.png")
 const FOLIAGE = preload("res://assets/art/layers/foliage_front.png")
-const HERO = preload("res://assets/art/layers/player_idle.png")
 const SIZE := Vector2(1672.0, 941.0)
 # The approved base is now a complete house/yard/shed/bridge illustration.
 # Keep legacy source art in repository for future true sprite-layer extraction.
@@ -83,14 +82,11 @@ func _make_player() -> void:
     player.collision_mask = 2
     player.position = Vector2(700,617)
     player.z_index = 10
-    var sprite := _sprite(player,"Avatar",HERO,Vector2(-45,-176),0)
-    sprite.z_index = 0
     var actor := AnimatedSprite2D.new()
     actor.name = "AnimatedSprite2D"
-    # 512x640 lossless HD images: artwork feet are anchored at pixel Y=592
-    # with the canvas center at Y=320; place that origin at ground level.
-    actor.position = Vector2(0, -97.92)
-    actor.scale = Vector2(0.36, 0.36)
+    # Imported 512x778 runner; anchored at feet by stage1_player.gd.
+    actor.position = Vector2(0, -70.798)
+    actor.scale = Vector2(0.182, 0.182)
     actor.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
     player.add_child(actor)
     var collision := CollisionShape2D.new()

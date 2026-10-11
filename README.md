@@ -9,13 +9,13 @@ Seorang pemuda kembali dari kota ke rumah masa kecilnya di desa. Rumah itu lama 
 
 ## Baseline yang dikunci
 - **Kamera gameplay:** 3/4 dari atas (elevated three-quarter), melihat area cukup luas; karakter relatif kecil dibanding lingkungan, terutama di pasar.
-- **Karakter utama:** rambut agak berantakan, outer hijau zaitun, kaos krem, celana cokelat, boots cokelat, ransel kecil. Jangan desain ulang tanpa persetujuan.
+- **Karakter utama:** sprite runner yang diunggah pengguna (jaket abu-abu, ransel cokelat), menggantikan karakter lama. Desain tak diubah.
 - **Desa Indonesia:** rumah genteng, sawah dan irigasi, pasar desa, kelapa, pisang, pepaya, bambu, sungai, musim hujan/kemarau.
 - **Gaya:** cozy illustrated **2D**, dengan karakter utama proporsi tubuh SD yang disetujui (bukan chibi), ukuran konsisten terhadap lingkungan. Gameplay hanya 2D, tanpa preview 3D.
 - **Gameplay wajib:** kebun, sawah, ternak, pets, interaksi NPC; dikembangkan bertahap.
 
 ## Status
-Stage 1 `house_garden_stage1.tscn`: lingkungan desa dari layer PNG 2D, Camera2D, collision, dan karakter utama base/idle 2D HD **delapan arah** terpisah (`1152 × 1632` PNG RGBA lossless). Karakter diperkecil 30% (skala 0.105, pijakan kaki tetap); posisi kaki, proporsi dan arah hadap diselaraskan; pose kiri bukan flip. **Walk/run sekarang memakai 12 fase deformasi prosedural per arah pada PNG yang sama; ini belum animasi tangan-digambar frame-by-frame.** Kontrol mobile dengan joystick sentuh dan LARI tersedia di browser HP, tanpa mengubah kendali desktop. Tombol AKSI disembunyikan sementara karena belum ada objek interaktif. Sistem bercocok tanam, inventory, NPC AI, dan renovasi belum fungsional. Smoke test dan ekspor Godot Web dijalankan lewat GitHub Actions.
+Stage 1 sekarang memakai karakter *runner* pengguna dari ZIP Run_godot4 (1).zip. Animasi dijalankan lewat sumber `Run.tres` dengan **31 frame asli** (bukan shader deformasi), dan 1 frame idle. Atlas penuh 2444×3702 disimpan sebagai WebP kualitas tinggi dengan alpha untuk Web. Kanan memakai gambar asli, kiri mirror sementara. Aset ZIP hanya menyediakan tampak kanan, jadi **belum ada run cycle asli untuk 8 arah**; arah lain sementara memakai profil runner agar karakter tidak berganti identitas. Gerakan biasa memakai clip sama lebih lambat; Shift mempercepat animasi dan karakter. Mobile joystick/LARI tetap aktif, NPC dan preview 3D tetap dihapus.
 
 ## Background Stage 1 (11 Oktober 2026)
 Ilustrasi dasar `assets/art/layers/background_base.png` sekarang adalah **rumah masa kecil yang ditinggalkan lebih dari 10 tahun**, halaman luas belum ditanami, jalan setapak menuju jembatan, sungai, serta langit dan desa di kejauhan. Ukuran 1672 × 941 dan piksel gambar sumber tetap sama. Aset layer rumah, kandang, tanaman, dan foliage lama disimpan tetapi disembunyikan untuk mencegah gambar rangkap. Collision kebun dan interaksi tomat lama tidak berlaku selama menggunakan full-scene background; kontrol gerak dan karakter tetap aktif. NPC Bu Sari, label dialog, HUD prototipe, dan preview 3D dihapus dari Stage 1.
@@ -37,4 +37,4 @@ Dokumen acuan: `docs/ART_DIRECTION.md`, `docs/GAME_DESIGN.md`, `docs/ROADMAP.md`
 
 Repo baru ini tidak memodifikasi `eneft/Lembah-sari` maupun `eneft/sidokter`.
 
-Walk animation details: `docs/WALK_8_DIRECTION.md`.
+Detail keterbatasan arah: `docs/WALK_8_DIRECTION.md`.
