@@ -17,6 +17,9 @@ Seorang pemuda kembali dari kota ke rumah masa kecilnya di desa. Rumah itu lama 
 ## Status
 Stage 1 `house_garden_stage1.tscn`: lingkungan desa dari layer PNG 2D, Camera2D, collision, interaksi Bu Sari memakai **E**, dan karakter utama base/idle 2D HD **delapan arah** terpisah (`1152 × 1632` PNG RGBA lossless). Posisi kaki, proporsi dan arah hadap diselaraskan; pose kiri bukan flip. **Walk/run saat ini masih menggunakan pose diam sesuai arah gerakan, bukan animasi frame-by-frame.** Kontrol mobile dengan joystick sentuh, LARI dan AKSI tersedia di browser HP, tanpa mengubah kendali desktop. Sistem bercocok tanam, inventory, NPC AI, dan renovasi belum fungsional. Smoke test dan ekspor Godot Web dijalankan lewat GitHub Actions.
 
+## Background Stage 1 (11 Oktober 2026)
+Ilustrasi dasar `assets/art/layers/background_base.png` sekarang adalah **rumah masa kecil yang ditinggalkan lebih dari 10 tahun**, halaman luas belum ditanami, jalan setapak menuju jembatan, sungai, serta langit dan desa di kejauhan. Ukuran 1672 × 941 dan piksel gambar sumber tetap sama. Aset layer rumah, kandang, tanaman, dan foliage lama disimpan tetapi disembunyikan untuk mencegah gambar rangkap. Collision kebun dan interaksi tomat lama tidak berlaku selama menggunakan full-scene background; kontrol, karakter, NPC, dan HUD tetap seperti sebelumnya.
+
 ## Menjalankan
 1. Gunakan Godot 4.3 atau lebih baru.
 2. Buka `project.godot` dan jalankan proyek (F5).
