@@ -1,0 +1,20 @@
+name: Audit Uploaded Character Directions
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-poses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PNG fingerprint dependencies
+        run: python -m pip install --disable-pip-version-check pillow numpy
+      - name: Match uploaded PNGs against approved eight pose masters
+        run: python tools/audit_uploaded_8dir.py
