@@ -1,0 +1,13 @@
+{
+  "source_resolution": [1672, 941],
+  "source_name": "tropical_isometric_village_homestead.png",
+  "notes": "Masks are conservative stage-2 extraction; verify edge occlusion and refine manually.",
+  "objects": {
+    "house": {"top_left":[0,20],"pivot_world_y":455,"size":[740,454]},
+    "coop": {"top_left":[729,236],"pivot_world_y":475,"size":[372,264]},
+    "banana": {"top_left":[0,160],"pivot_world_y":492,"size":[240,335]},
+    "bridge_rail": {"top_left":[1192,345],"pivot_world_y":512,"size":[418,159]},
+    "front_fence": {"top_left":[121,432],"pivot_world_y":735,"size":[831,322]}
+  },
+  "river_water": {"top_left":[1058,288],"size":[614,653],"mask":"RGBA per-pixel extracted alpha"}
+}

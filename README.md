@@ -54,3 +54,11 @@ Keputusan arsitektur: **tetap Godot 4 Camera2D elevated 3/4**, bukan Camera3D. W
 Latar belakang sekarang memakai blur 5-tap ringan + saturasi/kontras lebih soft hanya untuk gambar lingkungan; karakter dan UI tetap detail. `RiverWaterfallSurface` adalah **lapisan animasi air sementara**, memanfaatkan tekstur yang sama, dipotong ke pojok kanan-bawah dan dibatasi mask warna biru/cyan sehingga pagar tidak ikut bergerak. Ini belum mask sungai sempurna; akan diganti ketika potongan gambar sungai/air terjun benar-benar tersedia.
 
 Roadmap clean-plate, pemecahan rumah/pagar/pohon/kandang/jembatan, collision, dan mask air akurat: `docs/ENVIRONMENT_LAYERING_PLAN.md`. Semua bagian gameplay yang sudah bekerja tetap ada.
+
+## Stage 2: aset environment terpisah (implementasi)
+
+World kini memakai `assets/art/separated/terrain_clean.webp` sebagai ground. Tersedia lima **sprite alpha mandiri**: rumah, kandang, pohon pisang foreground, pagar depan, dan railing jembatan, masing-masing ditempatkan melalui `Node2D` pivot Y-sorting. Ini menggantikan objek identik yang sebelumnya tergambar permanen pada gambar latar. `assets/art/layers/background_base.png` asli tetap disimpan sebagai rollback (tidak ikut digambar). Sky, desa jauh, tebing, bebatuan, dek jembatan, dan detail vegetasi lain saat ini tetap baked pada ground.
+
+`RiverWaterfallSurface` kini memakai cutout RGBA dengan area alfa air yang eksplisit dari `assets/art/separated/river_water.webp`, bukan chroma-key di shader. Arus bergerak halus; waterfall foam lebih lanjut masih dalam backlog. Jalur pijakan menuju jembatan sudah diperpanjang, tetapi kualitas collision/occlusion harus diperiksa visual saat dimainkan, terutama di railing dan tepi pagar.
+
+File manifest koordinat/pivot: `assets/art/separated/manifest.json`. Pemecahan aset adalah tracing masker konservatif + clean inpainting, jadi beberapa pinggiran foliage mungkin masih perlu dirapikan. Proyek tetap 2D, kontrol HP dan run 14-frame tidak berubah.

@@ -29,7 +29,13 @@ var mobile_run_held: bool = false
 var walk_polygon: PackedVector2Array = PackedVector2Array([
     Vector2(245,545), Vector2(325,509), Vector2(435,480), Vector2(545,463),
     Vector2(620,473), Vector2(665,496), Vector2(733,495), Vector2(807,515),
-    Vector2(927,530), Vector2(1060,551), Vector2(1090,584), Vector2(1044,607),
+    Vector2(927,530), Vector2(1060,551),
+    # The bridge is now connected to the courtyard by the stone approach.
+    # This is the bridge deck only, not the open river below the railing.
+    Vector2(1190,493), Vector2(1330,459), Vector2(1520,420),
+    Vector2(1610,415), Vector2(1620,455), Vector2(1520,491),
+    Vector2(1395,513), Vector2(1230,550), Vector2(1090,584),
+    Vector2(1044,607),
     Vector2(936,598), Vector2(878,614), Vector2(800,630), Vector2(730,652),
     Vector2(652,648), Vector2(593,630), Vector2(511,622), Vector2(410,637),
     Vector2(312,623), Vector2(251,590)

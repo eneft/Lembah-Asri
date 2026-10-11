@@ -8,44 +8,33 @@ const GAMEPLAY_HUD_SCRIPT = preload("res://scripts/gameplay_hud.gd")
 const BG_GRADE = preload("res://assets/materials/village_background_grade.tres")
 const WATER_SURFACE_MATERIAL = preload("res://assets/materials/river_surface_motion.tres")
 const MOBILE_CONTROLS_SCRIPT = preload("res://scripts/mobile_touch_controls.gd")
-const GROUND = preload("res://assets/art/layers/background_base.png")
-const HOUSE = preload("res://assets/art/layers/house.png")
-const COOP = preload("res://assets/art/layers/coop.png")
-const TOMATO = preload("res://assets/art/layers/garden_tomato.png")
-const EGGPLANT = preload("res://assets/art/layers/garden_eggplant.png")
-const GREENS = preload("res://assets/art/layers/garden_greens.png")
-const FOLIAGE = preload("res://assets/art/layers/foliage_front.png")
+# The original full PNG is retained in git for fallback, but is NOT drawn.
+# True cleaned terrain and alpha cutouts are from the approved no-character art.
+const TERRAIN_CLEAN = preload("res://assets/art/separated/terrain_clean.webp")
+const CUT_HOUSE = preload("res://assets/art/separated/house.webp")
+const CUT_COOP = preload("res://assets/art/separated/coop.webp")
+const CUT_BANANA = preload("res://assets/art/separated/banana.webp")
+const CUT_FENCE = preload("res://assets/art/separated/front_fence.webp")
+const CUT_BRIDGE_RAIL = preload("res://assets/art/separated/bridge_rail.webp")
+const WATER_RGBA = preload("res://assets/art/separated/river_water.webp")
 const SIZE := Vector2(1672.0, 941.0)
-# The approved base is now a complete house/yard/shed/bridge illustration.
-# Keep legacy source art in repository for future true sprite-layer extraction.
-const BACKGROUND_IS_COMPLETE_ILLUSTRATION := true
 
 var player: CharacterBody2D
 var layer_count := 0
 
 func _ready() -> void:
-    # Camera2D and root Y-sort. Future cutout structures use z=0 and feet-pivots.
-    # The original complete image is still painted as one temporary base layer.
+    # World sort is based on each character or building's foot/pivot Y.
     y_sort_enabled = true
-    var background := _sprite(self,"BackgroundBase",GROUND,Vector2.ZERO,-20)
-    # Slightly subdue the very busy painting. A separate dynamic character and
-    # HUD now provide the contrast and focus seen in the visual reference.
+    var background := _sprite(self,"BackgroundBase",TERRAIN_CLEAN,Vector2.ZERO,-20)
     background.material = BG_GRADE
     _make_river_surface()
-    # Legacy overlays contain paintings of the former house/gardens. They would
-    # double-print objects already present in the new full-screen illustration.
-    # Keep nodes/resources for backwards compatibility, but hide them in this mode.
-    _sprite(self,"HouseMain",HOUSE,Vector2(0,34),3).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
-    _sprite(self,"SmallCoop",COOP,Vector2(665,273),4).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
-    _sprite(self,"GardenTomato",TOMATO,Vector2(90,516),5).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
-    _sprite(self,"GardenEggplant",EGGPLANT,Vector2(686,508),5).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
-    _sprite(self,"GardenGreens",GREENS,Vector2(131,670),5).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
-    _sprite(self,"ForegroundFoliage",FOLIAGE,Vector2(0,585),20).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
+    _make_depth_structures()
     _make_obstacles()
     _make_player()
     _make_hud()
     _make_mobile_controls()
-    print("STAGE1 ART LOADED: %d layer sprites; empty homestead, 2D protagonist" % layer_count)
+    print("STAGE1 ART LOADED: %d separated sprites; depth-sorted homestead, RGBA water" % layer_count)
+
 
 func _sprite(parent: Node, name: String, tex: Texture2D, at: Vector2, depth: int) -> Sprite2D:
     var result := Sprite2D.new()
@@ -60,19 +49,35 @@ func _sprite(parent: Node, name: String, tex: Texture2D, at: Vector2, depth: int
     return result
 
 func _make_river_surface() -> void:
-    # Interim moving water on the unmodified base art. Cropped to the river
-    # quadrant and chroma-masked. A real hand-painted water mask comes later.
-    var river := Sprite2D.new()
-    river.name = "RiverWaterfallSurface"
-    river.texture = GROUND
-    river.region_enabled = true
-    river.region_rect = Rect2(980.0, 350.0, 692.0, 591.0)
-    river.centered = false
-    river.position = Vector2(980.0, 350.0)
-    river.z_index = -19
-    river.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+    # Real alpha water mask extracted from the source illustration: no
+    # color-key guesses at runtime. The still river bed remains in clean terrain.
+    var river := _sprite(self,"RiverWaterfallSurface",WATER_RGBA,Vector2(1058,288),-19)
     river.material = WATER_SURFACE_MATERIAL
-    add_child(river)
+    river.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+
+func _cutout_anchor(name: String, tex: Texture2D, top_left: Vector2, foot_y: float) -> void:
+    # Parent's Y (rather than image top-left) is the sorting origin.
+    # Each artwork stays at its original global 1672x941 coordinates.
+    var pivot := Node2D.new()
+    pivot.name = name
+    pivot.position = Vector2(0.0, foot_y)
+    pivot.z_index = 0
+    add_child(pivot)
+    var visual := _sprite(pivot, "Visual", tex,
+        top_left - Vector2(0.0, foot_y), 0)
+    visual.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+
+func _make_depth_structures() -> void:
+    _cutout_anchor("HouseCutout", CUT_HOUSE, Vector2(0,20), 455.0)
+    _cutout_anchor("CoopCutout", CUT_COOP, Vector2(729,236), 475.0)
+    _cutout_anchor("BananaCutout", CUT_BANANA, Vector2(0,160), 492.0)
+    # The bridge deck/path and riverbanks are part of terrain; only its
+    # front railing is Y-sorted so players on the bridge stay visible.
+    _cutout_anchor("BridgeRailCutout", CUT_BRIDGE_RAIL,
+        Vector2(1192,345), 512.0)
+    _cutout_anchor("FrontFenceCutout", CUT_FENCE,
+        Vector2(121,432), 735.0)
+
 
 func _solid(name: String, at: Vector2, size: Vector2) -> void:
     var body := StaticBody2D.new()
@@ -91,12 +96,7 @@ func _make_obstacles() -> void:
     # Practical walk boundaries around walls, not the visual roof:
     _solid("HouseWallsCollision",Vector2(335,290),Vector2(372,166))
     _solid("CoopCollision",Vector2(869,385),Vector2(183,97))
-    # The garden fences are solid; harvestable plants themselves are not.
-    if not BACKGROUND_IS_COMPLETE_ILLUSTRATION:
-        # Historical planted fields only: new background is an open, untended yard.
-        _solid("TomatoFenceCollision",Vector2(377,683),Vector2(470,15))
-        _solid("TomatoBedInteriorCollision",Vector2(377,594),Vector2(435,155))
-        _solid("EggplantFenceCollision",Vector2(1006,733),Vector2(270,14))
+    # No old productive garden colliders: Stage 1 homestead is untended.
     # River strip cannot be crossed except by a planned bridge transition.
     _solid("RiverBankCollision",Vector2(1490,693),Vector2(125,430))
 
@@ -112,8 +112,8 @@ func _make_player() -> void:
     var actor := AnimatedSprite2D.new()
     actor.name = "AnimatedSprite2D"
     # Imported 512x778 runner; anchored at feet by stage1_player.gd.
-    actor.position = Vector2(0, -70.798)
-    actor.scale = Vector2(0.182, 0.182)
+    actor.position = Vector2(0, -86.358)
+    actor.scale = Vector2(0.222, 0.222)
     actor.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
     player.add_child(actor)
     var collision := CollisionShape2D.new()

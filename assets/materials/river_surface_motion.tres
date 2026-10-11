@@ -3,5 +3,5 @@
 [resource]
 shader = ExtResource("1_river")
 shader_parameter/flow_speed = 1.0
-shader_parameter/distortion = 0.00135
-shader_parameter/opacity = 0.64
+shader_parameter/distortion = 0.002
+shader_parameter/opacity = 0.76

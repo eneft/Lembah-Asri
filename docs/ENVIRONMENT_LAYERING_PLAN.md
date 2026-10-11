@@ -27,3 +27,13 @@ Godot 4 **Camera2D** perspektif elevated 3/4 (pseudo-isometric); bukan kamera 3D
 4. Implementasi interaksi nyata, kebun dan hewan, bukan dekorasi tampak interaktif.
 
 **Batasan:** Godot smoke test hanya menjamin proyek berjalan dan node/shader terpasang. Akurasi pinggiran air serta depth occlusion masih harus diuji visual dalam game.
+
+## Tahap 2 — sprite transparan dan clean-plate terpasang
+
+**Penerapan nyata:** texture `terrain_clean.webp` bukan lagi foto scene yang mengandung rumah. Potongan alpha mandiri tersedia untuk `house`, `coop`, `banana`, `bridge_rail`, dan `front_fence`. Setiap sprite memakai pivot global yang berbeda dan terdaftar pada `assets/art/separated/manifest.json`. Sumber cutout adalah **konsep environment bersih** 1672×941 yang disetujui, bukan gambar gameplay dengan UI/NPC. `background_base.png` lama tetap tersedia di Git sebagai rollback, namun tidak ikut ditampilkan.
+
+**Penting:** ini tahap cutout konservatif dengan polygon masking dan fill/inpainting, belum rotoscoping tingkat produksi. Tepi tanaman, detail pagar, dan tekstur yang sebelumnya tertutup bangunan dapat memiliki bekas masker saat karakter berjalan persis di balik tepinya. Perlu QA visual manual di ponsel dan refinement manual mask setelah itu.
+
+Sungai sekarang menggunakan tekstur `river_water.webp` RGBA yang mask-nya dibangun dari warna cyan/putih hanya pada koridor air. Shader menggunakan alpha yang diekstrak ini, bukan memilih warna objek dari background secara realtime; batu/jembatan tetap statis. Jembatan memiliki `bridge_rail` Y-sort di atas dek statis sehingga pemain tidak hilang ketika berjalan melewati deck.
+
+World masih Camera2D, run cycle asli ZIP/kecepatan, collision utama dan HUD/mobile tetap dipertahankan. Tidak membuat NPC atau ternak palsu.

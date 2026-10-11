@@ -44,29 +44,68 @@ func _check() -> void:
     if (actor.material as ShaderMaterial).shader.code.contains("walk_sample_uv"):
         push_error("RUN FAIL: obsolete fake gait still running")
         failed = true
-    # Render layering is real; original house/trees remain baked until
-    # separate art and clean-plate are available.
+    # The base MUST be a different clean image, not the old PNG with
+    # duplicated structures. Every extracted sprite has transparency.
     if not world.y_sort_enabled or player.z_index != 0:
-        push_error("LAYER FAIL: Y-sort root/player configuration incorrect")
+        push_error("LAYER FAIL: parent or player Y-sort disabled")
         failed = true
-    var water_node := world.get_node_or_null("RiverWaterfallSurface") as Sprite2D
-    if water_node == null or water_node.z_index != -19 or not water_node.region_enabled:
-        push_error("WATER FAIL: clipped water surface absent")
-        failed = true
-    else:
-        var water_mat := water_node.material as ShaderMaterial
-        if water_mat == null or water_mat.shader == null or not water_mat.shader.code.contains("blue_water"):
-            push_error("WATER FAIL: shader did not load")
+    var art_names := ["HouseCutout","CoopCutout","BananaCutout",
+        "BridgeRailCutout","FrontFenceCutout"]
+    var previous_count := 0
+    for name in art_names:
+        var anchor := world.get_node_or_null(name) as Node2D
+        if anchor == null or anchor.z_index != 0:
+            push_error("LAYER FAIL: missing Y-sort pivot for " + name)
             failed = true
+            continue
+        var visual := anchor.get_node_or_null("Visual") as Sprite2D
+        if visual == null or visual.texture == null:
+            push_error("LAYER FAIL: no independent transparent art for " + name)
+            failed = true
+            continue
+        var layer_image := visual.texture.get_image()
+        if layer_image.get_size().x < 32 or layer_image.get_size().y < 32 or not layer_image.detect_alpha():
+            push_error("LAYER FAIL: missing transparency on " + name)
+            failed = true
+        if not is_equal_approx(visual.global_position.y, visual.position.y + anchor.global_position.y):
+            push_error("LAYER FAIL: cutout art has incorrect global pivot")
+            failed = true
+        previous_count += 1
+    if previous_count != 5:
+        push_error("LAYER FAIL: not all cutouts survived instantiation")
+        failed = true
     var bg_node := world.get_node_or_null("BackgroundBase") as Sprite2D
-    if bg_node == null or bg_node.z_index != -20:
-        push_error("LAYER FAIL: background depth incorrect")
+    if bg_node == null or bg_node.texture == null or bg_node.z_index != -20 or bg_node.texture.get_size() != Vector2(1672,941):
+        push_error("LAYER FAIL: missing clean-plate terrain at original size")
         failed = true
     else:
-        var soft_mat := bg_node.material as ShaderMaterial
-        if soft_mat == null or soft_mat.shader == null or not soft_mat.shader.code.contains("TEXTURE_PIXEL_SIZE") or float(soft_mat.get_shader_parameter("softness")) <= 0.0:
-            push_error("LAYER FAIL: background should be softly filtered")
+        var mat := bg_node.material as ShaderMaterial
+        if mat == null or mat.shader == null or not mat.shader.code.contains("TEXTURE_PIXEL_SIZE") or float(mat.get_shader_parameter("softness")) <= 0.0:
+            push_error("LAYER FAIL: landscape softness lost")
             failed = true
+    for duplicate_name in ["HouseMain","SmallCoop","GardenTomato","ForegroundFoliage"]:
+        if world.get_node_or_null(duplicate_name) != null:
+            push_error("LAYER FAIL: obsolete overpaint still rendered: " + duplicate_name)
+            failed = true
+    var river := world.get_node_or_null("RiverWaterfallSurface") as Sprite2D
+    if river == null or river.texture == null or river.z_index != -19:
+        push_error("WATER FAIL: transparent water cutout missing")
+        failed = true
+    else:
+        var water_image := river.texture.get_image()
+        if not water_image.detect_alpha() or water_image.get_size() != Vector2i(614,653):
+            push_error("WATER FAIL: source alpha extraction incorrect")
+            failed = true
+        var wm := river.material as ShaderMaterial
+        if wm == null or wm.shader == null or not wm.shader.code.contains("original.a") or float(wm.get_shader_parameter("flow_speed")) <= 0.0:
+            push_error("WATER FAIL: real water surface shader absent")
+            failed = true
+    if not player.is_walkable_foot(Vector2(1430,470)):
+        push_error("BRIDGE FAIL: bridge walk polygon cannot traverse deck")
+        failed = true
+    if player.is_walkable_foot(Vector2(1450,700)):
+        push_error("BRIDGE FAIL: river incorrectly walkable")
+        failed = true
     if not is_equal_approx(player.run_speed, 325.0):
         push_error("RUN FAIL: sprint movement too slow")
         failed = true
@@ -165,5 +204,5 @@ func _check() -> void:
     if failed:
         quit(1)
     else:
-        print("SMOKE PASS: Y-sorted Camera2D world, soft landscape, river water effect, existing HUD/run/mobile")
+        print("SMOKE PASS: transparent clean-plate cutouts, true Y-sort, masked animated water, traversable bridge, HUD/run/mobile")
         quit(0)
