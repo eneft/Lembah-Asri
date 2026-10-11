@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/hero_environment_grade.gdshader" id="1_grade"]
+
+[resource]
+shader = ExtResource("1_grade")
+shader_parameter/saturation = 0.87
+shader_parameter/contrast = 0.88
+shader_parameter/shadow_fill = 0.05
+shader_parameter/sun_warmth = 0.075
+shader_parameter/green_bounce = 0.03

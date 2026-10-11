@@ -21,6 +21,9 @@ const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_lef
 # All eight files must be present to activate the new base-form character.
 # If someone checks out this code before the large PNG assets have been added,
 # the existing animated 16-frame character remains intact as a safe fallback.
+# Render-only treatment. Tune lighting and contrast through this material
+# in the Godot Inspector; do not alter source images for environmental grading.
+const HERO_ENVIRONMENT_GRADE = preload("res://assets/materials/hero_environment_grade.tres")
 const BASE_DIR := "res://assets/characters/player_base_8dir/"
 const BASE_CANVAS := Vector2i(1152, 1632)
 const BASE_SPRITE_SCALE := 0.105 # 30% smaller; more appropriate to the painted courtyard
@@ -71,6 +74,8 @@ func _ready() -> void:
         InputMap.action_add_event("run", shift)
     using_base_form = _load_base_forms()
     _setup_animations()
+    # One grade for idle/walk/run in all 8 directions, without touching alpha.
+    $AnimatedSprite2D.material = HERO_ENVIRONMENT_GRADE
     if using_base_form:
         # Foot baseline is world Y = 0, i.e. the CharacterBody2D collision origin.
         $AnimatedSprite2D.scale = Vector2.ONE * BASE_SPRITE_SCALE

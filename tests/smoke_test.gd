@@ -48,6 +48,25 @@ func _check() -> void:
             push_error("ANIMATION FAIL: missing hero animation")
             failures = true
         else:
+            # Environmental grading must be assigned to the actual visible hero,
+            # regardless of direction or movement state; original RGBA is retained.
+            var grade: ShaderMaterial = actor.material as ShaderMaterial
+            if grade == null or grade.shader == null or grade.shader.resource_path != "res://shaders/hero_environment_grade.gdshader":
+                push_error("GRADE FAIL: missing 2D hero lighting/color shader")
+                failures = true
+            else:
+                if absf(float(grade.get_shader_parameter("saturation")) - 0.87) > 0.001:
+                    push_error("GRADE FAIL: saturation does not match the warm background preset")
+                    failures = true
+                if absf(float(grade.get_shader_parameter("contrast")) - 0.88) > 0.001:
+                    push_error("GRADE FAIL: character outline contrast not softened")
+                    failures = true
+                if float(grade.get_shader_parameter("sun_warmth")) <= 0.0:
+                    push_error("GRADE FAIL: warm sunlight is disabled")
+                    failures = true
+                if not grade.shader.code.contains("original.a"):
+                    push_error("GRADE FAIL: shader does not preserve original texture alpha")
+                    failures = true
             if actor.sprite_frames.get_animation_names().size() != 24:
                 push_error("ANIMATION FAIL: requires 8 directions x 3 states")
                 failures = true
@@ -227,5 +246,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: smaller anchored 8-dir RGBA hero, clean empty yard, touch movement, no 3D preview")
+        print("SMOKE PASS: warm color-graded 8-dir RGBA hero, clean empty yard, touch movement, no 3D preview")
         quit(0)

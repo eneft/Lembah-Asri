@@ -20,6 +20,12 @@ Stage 1 `house_garden_stage1.tscn`: lingkungan desa dari layer PNG 2D, Camera2D,
 ## Background Stage 1 (11 Oktober 2026)
 Ilustrasi dasar `assets/art/layers/background_base.png` sekarang adalah **rumah masa kecil yang ditinggalkan lebih dari 10 tahun**, halaman luas belum ditanami, jalan setapak menuju jembatan, sungai, serta langit dan desa di kejauhan. Ukuran 1672 × 941 dan piksel gambar sumber tetap sama. Aset layer rumah, kandang, tanaman, dan foliage lama disimpan tetapi disembunyikan untuk mencegah gambar rangkap. Collision kebun dan interaksi tomat lama tidak berlaku selama menggunakan full-scene background; kontrol gerak dan karakter tetap aktif. NPC Bu Sari, label dialog, HUD prototipe, dan preview 3D dihapus dari Stage 1.
 
+## Penyesuaian pencahayaan karakter (Godot)
+
+Pencahayaan dan tone karakter sekarang menggunakan `ShaderMaterial` 2D pada sprite gameplay, **bukan mengganti atau mengompresi 8 PNG karakter**. Shader menjaga alpha asli dan berlaku pada semua arah, termasuk idle/walk/run. Preset awal mengurangi saturasi dan kontras, memberi bias sinar matahari kuning hangat, mengangkat bayangan gelap secara halus, dan memberi pantulan warna rumput tipis di tubuh bagian bawah.
+
+Untuk menyetel hasil visual langsung di Godot, buka `assets/materials/hero_environment_grade.tres`, lalu ubah `saturation`, `contrast`, `shadow_fill`, `sun_warmth`, atau `green_bounce`. Implementasi shader: `shaders/hero_environment_grade.gdshader`. Ini merupakan *render-only grade*, bukan lampu dinamis; tidak mengubah posisi, gerak, skala, collision, tekstur, atau background.
+
 ## Menjalankan
 1. Gunakan Godot 4.3 atau lebih baru.
 2. Buka `project.godot` dan jalankan proyek (F5).
