@@ -1,0 +1,211 @@
+{
+  "canvas": [
+    1152,
+    1632
+  ],
+  "foot_baseline_y": 1585,
+  "lossless": true,
+  "character_base": "Lembah Asri HD explorer - eight native views",
+  "poses": [
+    {
+      "direction": "down",
+      "original_uploaded_file": "B62B2141-D5A0-452B-AFB0-5AC41EB504DA.png",
+      "original_size": [
+        1024,
+        1536
+      ],
+      "original_alpha_bbox": [
+        33,
+        12,
+        1010,
+        1504
+      ],
+      "offset": [
+        54,
+        81
+      ],
+      "output_size": [
+        1152,
+        1632
+      ],
+      "foot_baseline_y": 1585,
+      "fingerprint": "bc932cb32d8c4bc3",
+      "sha256": "0dca6fede8c90581c61d35cf004bb061bef061a8ba3b49088881dbcb34819325"
+    },
+    {
+      "direction": "down_right",
+      "original_uploaded_file": "930DD055-773A-41CD-BE37-E52F0F970AA9.png",
+      "original_size": [
+        1024,
+        1536
+      ],
+      "original_alpha_bbox": [
+        49,
+        10,
+        988,
+        1508
+      ],
+      "offset": [
+        58,
+        77
+      ],
+      "output_size": [
+        1152,
+        1632
+      ],
+      "foot_baseline_y": 1585,
+      "fingerprint": "b1b368c62e9693c6",
+      "sha256": "301df7b4596d3fe65ca9ec19cc5de1ebbd7316a92d879dd468c49ffb01df1183"
+    },
+    {
+      "direction": "right",
+      "original_uploaded_file": "3F36210F-C967-4431-A901-D7AE2F96E376.png",
+      "original_size": [
+        1024,
+        1536
+      ],
+      "original_alpha_bbox": [
+        25,
+        0,
+        1008,
+        1507
+      ],
+      "offset": [
+        60,
+        78
+      ],
+      "output_size": [
+        1152,
+        1632
+      ],
+      "foot_baseline_y": 1585,
+      "fingerprint": "b33967ce2498c6c6",
+      "sha256": "5d1e90b1254b38b2cd8df2b43d99ac8f34ddffe7e5a1a1a4ef046af0b788f71f"
+    },
+    {
+      "direction": "up_right",
+      "original_uploaded_file": "6C31A35E-E5DD-4DED-A2E0-BEFDCE052ACB.png",
+      "original_size": [
+        1024,
+        1536
+      ],
+      "original_alpha_bbox": [
+        0,
+        10,
+        1010,
+        1502
+      ],
+      "offset": [
+        71,
+        83
+      ],
+      "output_size": [
+        1152,
+        1632
+      ],
+      "foot_baseline_y": 1585,
+      "fingerprint": "b136cd866c98cd93",
+      "sha256": "2fef4276b6f06036e1368348c2425cf773cdddcd74cfdf708bc7301433e12650"
+    },
+    {
+      "direction": "up",
+      "original_uploaded_file": "4ADC46B8-55F7-46C7-B870-8307F6AC6EA8.png",
+      "original_size": [
+        1024,
+        1536
+      ],
+      "original_alpha_bbox": [
+        155,
+        7,
+        998,
+        1536
+      ],
+      "offset": [
+        0,
+        49
+      ],
+      "output_size": [
+        1152,
+        1632
+      ],
+      "foot_baseline_y": 1585,
+      "fingerprint": "bc31cdd12ccec9c1",
+      "sha256": "ba277663944c7b57bf52d59e727fc1d6145aa3265d79092060f2f5e627066c73"
+    },
+    {
+      "direction": "up_left",
+      "original_uploaded_file": "858DCDAF-05AD-4DB6-825F-DCF20FAC207B.png",
+      "original_size": [
+        1024,
+        1536
+      ],
+      "original_alpha_bbox": [
+        0,
+        14,
+        1012,
+        1504
+      ],
+      "offset": [
+        70,
+        81
+      ],
+      "output_size": [
+        1152,
+        1632
+      ],
+      "foot_baseline_y": 1585,
+      "fingerprint": "e526999269c99b96",
+      "sha256": "50ba3be182175d47a3306b298d1905ecc5457e2bed23e2bb41b11952e25f0c0d"
+    },
+    {
+      "direction": "left",
+      "original_uploaded_file": "57EA7797-A856-4ABC-BF67-7248363D7DE7.png",
+      "original_size": [
+        1024,
+        1536
+      ],
+      "original_alpha_bbox": [
+        0,
+        5,
+        1010,
+        1520
+      ],
+      "offset": [
+        71,
+        65
+      ],
+      "output_size": [
+        1152,
+        1632
+      ],
+      "foot_baseline_y": 1585,
+      "fingerprint": "e74c329b39499393",
+      "sha256": "76dce255ce5c36726ace4a6e0c9515a52fccd26a65ae7dd3116979a86b636259"
+    },
+    {
+      "direction": "down_left",
+      "original_uploaded_file": "A500CB25-1ED7-4083-9B21-7A1D43F0A974.png",
+      "original_size": [
+        1024,
+        1536
+      ],
+      "original_alpha_bbox": [
+        0,
+        12,
+        1010,
+        1506
+      ],
+      "offset": [
+        71,
+        79
+      ],
+      "output_size": [
+        1152,
+        1632
+      ],
+      "foot_baseline_y": 1585,
+      "fingerprint": "e4e639b329c88793",
+      "sha256": "3836b5bea55905b8186df49eb38656f32d69b6e64cce60a79aba96d5bdee0601"
+    }
+  ]
+}
