@@ -199,7 +199,16 @@ func _check() -> void:
         # Regression from real gameplay capture: protagonist crossed the
         # tomato plot despite painted fence/crops. Prevent crop trampling.
         var tomato_blocker = world.get_node_or_null("TomatoBedInteriorCollision")
-        if tomato_blocker == null or not (tomato_blocker is StaticBody2D):
+        if world.BACKGROUND_IS_COMPLETE_ILLUSTRATION:
+            if tomato_blocker != null:
+                push_error("STAGE1 FAIL: obsolete crop collider blocks the new empty yard")
+                failures = true
+            for legacy_name in ["HouseMain","SmallCoop","GardenTomato","GardenEggplant","GardenGreens","ForegroundFoliage"]:
+                var legacy_sprite := world.get_node_or_null(legacy_name) as Sprite2D
+                if legacy_sprite == null or legacy_sprite.visible:
+                    push_error("STAGE1 FAIL: legacy art duplicates full base: " + legacy_name)
+                    failures = true
+        elif tomato_blocker == null or not (tomato_blocker is StaticBody2D):
             push_error("STAGE1 FAIL: tomato plot has no interior collision")
             failures = true
         else:
@@ -237,5 +246,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: native 8-dir RGBA protagonist and dual-touch joystick/run/action, camera, crop collision and NPC")
+        print("SMOKE PASS: native 8-dir RGBA protagonist, full-scene base overlay audit, touch controls and NPC")
         quit(0)

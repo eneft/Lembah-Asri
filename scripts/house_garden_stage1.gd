@@ -14,6 +14,9 @@ const FOLIAGE = preload("res://assets/art/layers/foliage_front.png")
 const HERO = preload("res://assets/art/layers/player_idle.png")
 const BU_SARI = preload("res://assets/art/layers/npc_bu_sari.png")
 const SIZE := Vector2(1672.0, 941.0)
+# The approved base is now a complete house/yard/shed/bridge illustration.
+# Keep legacy source art in repository for future true sprite-layer extraction.
+const BACKGROUND_IS_COMPLETE_ILLUSTRATION := true
 
 var player: CharacterBody2D
 var npc: StaticBody2D
@@ -25,12 +28,15 @@ var layer_count := 0
 
 func _ready() -> void:
     _sprite(self,"BackgroundBase",GROUND,Vector2.ZERO,-20)
-    _sprite(self,"HouseMain",HOUSE,Vector2(0,34),3)
-    _sprite(self,"SmallCoop",COOP,Vector2(665,273),4)
-    _sprite(self,"GardenTomato",TOMATO,Vector2(90,516),5)
-    _sprite(self,"GardenEggplant",EGGPLANT,Vector2(686,508),5)
-    _sprite(self,"GardenGreens",GREENS,Vector2(131,670),5)
-    _sprite(self,"ForegroundFoliage",FOLIAGE,Vector2(0,585),20)
+    # Legacy overlays contain paintings of the former house/gardens. They would
+    # double-print objects already present in the new full-screen illustration.
+    # Keep nodes/resources for backwards compatibility, but hide them in this mode.
+    _sprite(self,"HouseMain",HOUSE,Vector2(0,34),3).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
+    _sprite(self,"SmallCoop",COOP,Vector2(665,273),4).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
+    _sprite(self,"GardenTomato",TOMATO,Vector2(90,516),5).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
+    _sprite(self,"GardenEggplant",EGGPLANT,Vector2(686,508),5).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
+    _sprite(self,"GardenGreens",GREENS,Vector2(131,670),5).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
+    _sprite(self,"ForegroundFoliage",FOLIAGE,Vector2(0,585),20).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
     _make_obstacles()
     _make_bu_sari()
     _make_player()
@@ -68,12 +74,11 @@ func _make_obstacles() -> void:
     _solid("HouseWallsCollision",Vector2(335,290),Vector2(372,166))
     _solid("CoopCollision",Vector2(869,385),Vector2(183,97))
     # The garden fences are solid; harvestable plants themselves are not.
-    _solid("TomatoFenceCollision",Vector2(377,683),Vector2(470,15))
-    # The illustrated tomato plot is not traversable dirt. Its interior
-    # previously overlapped the valid foot polygon, so the HD hero visibly
-    # walked on crop rows. Keep the central courtyard and NPC route free.
-    _solid("TomatoBedInteriorCollision",Vector2(377,594),Vector2(435,155))
-    _solid("EggplantFenceCollision",Vector2(1006,733),Vector2(270,14))
+    if not BACKGROUND_IS_COMPLETE_ILLUSTRATION:
+        # Historical planted fields only: new background is an open, untended yard.
+        _solid("TomatoFenceCollision",Vector2(377,683),Vector2(470,15))
+        _solid("TomatoBedInteriorCollision",Vector2(377,594),Vector2(435,155))
+        _solid("EggplantFenceCollision",Vector2(1006,733),Vector2(270,14))
     # River strip cannot be crossed except by a planned bridge transition.
     _solid("RiverBankCollision",Vector2(1490,693),Vector2(125,430))
 
@@ -230,7 +235,7 @@ func _try_interact() -> void:
         dialogue_label.text = "Bu Sari: Selamat pulang, Nak! Rumah ini sudah lama menunggumu."
         interaction_timer = 5.0
         dialogue_panel.visible = true
-    elif player.position.distance_to(Vector2(475,690)) < 110.0:
+    elif not BACKGROUND_IS_COMPLETE_ILLUSTRATION and player.position.distance_to(Vector2(475,690)) < 110.0:
         dialogue_label.text = "Kebun tomat. Nanti kamu bisa mencangkul, menanam, menyiram, lalu panen."
         interaction_timer = 4.0
         dialogue_panel.visible = true
@@ -243,7 +248,7 @@ func _process(delta: float) -> void:
         dialogue_panel.visible = false
     if is_instance_valid(player) and is_instance_valid(npc) and player.position.distance_to(npc.position) <= 112.0:
         hint_label.text = "[E] Bicara dengan Bu Sari"
-    elif is_instance_valid(player) and player.position.distance_to(Vector2(475,690)) < 110.0:
+    elif not BACKGROUND_IS_COMPLETE_ILLUSTRATION and is_instance_valid(player) and player.position.distance_to(Vector2(475,690)) < 110.0:
         hint_label.text = "[E] Lihat kebun tomat"
     else:
         hint_label.text = "WASD / Panah: jalan  |  E: interaksi"
