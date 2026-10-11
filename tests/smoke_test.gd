@@ -32,6 +32,9 @@ func _check() -> void:
         failures = true
     var player = world.get_node_or_null("Player")
     if player != null and player is CharacterBody2D:
+        if not player.using_base_form:
+            push_error("BASE FORM FAIL: 8 approved master PNGs must be active; fallback is no longer acceptable")
+            failures = true
         var camera = player.get_node_or_null("Camera2D")
         if camera == null or not camera is Camera2D:
             push_error("STAGE1 FAIL: no Camera2D")
@@ -172,5 +175,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: Stage 1, 8-direction base/legacy poses, stable feet, camera, crop collision and NPC")
+        print("SMOKE PASS: eight native RGBA protagonist bases are ACTIVE; no mirroring; stable feet, camera, crop collision and NPC")
         quit(0)

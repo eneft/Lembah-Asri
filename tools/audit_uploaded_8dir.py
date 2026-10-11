@@ -42,8 +42,38 @@ def main():
     matches = []
     files = sorted(x for x in BASE.glob("*.png") if UUID_NAME.match(x.name))
     print(f"UPLOADED_FILES={len(files)}")
+    if len(files) == 0:
+        # Once successfully installed, UUID sources are intentionally replaced
+        # by 8 individually named, foot-aligned, lossless RGBA game assets.
+        for direction, digest in FINGERPRINTS.items():
+            p = BASE / (direction + ".png")
+            if not p.is_file():
+                raise FileNotFoundError("Missing canonical base pose: " + str(p))
+            with Image.open(p) as im:
+                box = im.convert("RGBA").getchannel("A").getbbox()
+                good = (
+                    im.mode == "RGBA"
+                    and im.size == (1152, 1632)
+                    and im.getpixel((0, 0))[3] == 0
+                    and im.getpixel((1151, 1631))[3] == 0
+                    and box is not None
+                    and box[3] == 1585
+                    and hash_image(im) == int(digest, 16)
+                )
+                print("CANONICAL_POSE " + json.dumps({
+                    "direction": direction,
+                    "size": list(im.size),
+                    "mode": im.mode,
+                    "bbox": box,
+                    "fingerprint_match": hash_image(im) == int(digest, 16),
+                    "valid": good
+                }, separators=(",", ":")))
+                if not good:
+                    raise ValueError("Canonical image quality/identity regression: " + direction)
+        print("MATCH_RESULT={\"confident\":true,\"installed\":true,\"count\":8}")
+        return 0
     if len(files) != 8:
-        print("NOT_READY: expected exactly eight UUID-named PNG images")
+        print("NOT_READY: expected either 8 raw uploaded PNGs or 8 canonical PNGs")
         return 1
     for f in files:
         with Image.open(f) as im:
