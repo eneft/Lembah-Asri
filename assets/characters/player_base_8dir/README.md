@@ -15,8 +15,8 @@ Required exact filenames:
 
 Each file must be a **1152 × 1632 RGBA transparent PNG**, generated from the approved olive-jacket explorer reference and aligned with the bottom-most opaque boot pixel at canvas Y=1585. Full color, no upsampling or lossy compression. Unique art per direction: no horizontal flips.
 
-These are *base / idle forms* only, **not** a finished walk cycle. WASD movement still works; the still base is shown during walking/running, until real frame-by-frame animations have been approved. Old 16-frame animation stays in the repo solely as an automatic fallback when any new base asset is absent.
+These are *base / idle forms* only, not hand-authored walk frames. The Godot gameplay controller now animates all eight real bases with 12-phase procedural leg/arm movement in its shader. This is a prototype, not a finished anatomical sprite sheet; see `docs/WALK_8_DIRECTION.md`. Legacy walk16 sources stay as a fallback.
 
 The eight native base poses were installed in `main` from the original user-uploaded transparent PNGs. Each direction was identified by exact matching to the approved visual fingerprint; images were padded to the canonical canvas without stretching/resizing/upscaling the original artwork. See `manifest.json` for per-direction origin and SHA-256. No manual ZIP installation is now needed. The original uploaded files remain recoverable from Git history.
 
-Godot 4.3+ project: `scenes/house_garden_stage1.tscn`, controller: `scripts/stage1_player.gd`. Ground-based registration uses scale 0.15 and Sprite2D position (0,-115.35), so Y=1585 becomes Y=0. Do not modify collision or walkable polygon while installing these assets.
+Godot 4.3+ project: `scenes/house_garden_stage1.tscn`, controller: `scripts/stage1_player.gd`. Ground-based registration uses scale 0.105 and Sprite2D position (0,-80.745), so Y=1585 becomes Y=0. Do not modify collision or walkable polygon while installing these assets.

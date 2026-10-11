@@ -67,6 +67,12 @@ func _check() -> void:
                 if not grade.shader.code.contains("original.a"):
                     push_error("GRADE FAIL: shader does not preserve original texture alpha")
                     failures = true
+                if not grade.shader.code.contains("walk_sample_uv") or not grade.shader.code.contains("left_lift"):
+                    push_error("WALK FAIL: shader lacks independent swing/lift deformation")
+                    failures = true
+                if float(grade.get_shader_parameter("gait_strength")) > 0.001:
+                    push_error("WALK FAIL: idle pose must not deform")
+                    failures = true
             if actor.sprite_frames.get_animation_names().size() != 24:
                 push_error("ANIMATION FAIL: requires 8 directions x 3 states")
                 failures = true
@@ -125,11 +131,46 @@ func _check() -> void:
         if player.animation_state != "walk" or player.facing_name != "right":
             push_error("ANIMATION FAIL: walk transition")
             failures = true
+        if player.using_base_form:
+            if player.gait_frame_index == 0 or actor == null or float((actor.material as ShaderMaterial).get_shader_parameter("gait_strength")) < 0.99:
+                push_error("WALK FAIL: 12-phase motion does not advance while walking right")
+                failures = true
+            if player.GAIT_POSES != 12:
+                push_error("WALK FAIL: wrong number of procedural gait phases")
+                failures = true
+            for heading in {
+                "right": Vector2.RIGHT,
+                "down_right": Vector2(1, 1),
+                "down": Vector2.DOWN,
+                "down_left": Vector2(-1, 1),
+                "left": Vector2.LEFT,
+                "up_left": Vector2(-1, -1),
+                "up": Vector2.UP,
+                "up_right": Vector2(1, -1)
+            }:
+                if player._nearest_eight_direction({
+                    "right": Vector2.RIGHT, "down_right": Vector2(1,1),
+                    "down": Vector2.DOWN, "down_left": Vector2(-1,1),
+                    "left": Vector2.LEFT, "up_left": Vector2(-1,-1),
+                    "up": Vector2.UP, "up_right": Vector2(1,-1)
+                }[heading]) != heading:
+                    push_error("WALK FAIL: octant mapping wrong for " + heading)
+                    failures = true
+                player.facing_name = heading
+                player._update_gait_shader()
+                var profile: float = (actor.material as ShaderMaterial).get_shader_parameter("gait_profile")
+                if profile < 0.0 or profile > 1.0:
+                    push_error("WALK FAIL: invalid deformation profile for " + heading)
+                    failures = true
         Input.action_release("ui_right")
         await physics_frame
         if player.animation_state != "idle":
             push_error("ANIMATION FAIL: idle transition")
             failures = true
+        if player.using_base_form:
+            if player.gait_frame_index != 0 or absf(float((actor.material as ShaderMaterial).get_shader_parameter("gait_strength"))) > 0.001:
+                push_error("WALK FAIL: stopping leaves gait deformation active")
+                failures = true
         Input.action_press("ui_left")
         for j in range(6):
             await physics_frame
@@ -170,6 +211,9 @@ func _check() -> void:
             await physics_frame
             if not player.mobile_run_held or player.animation_state != "run":
                 push_error("MOBILE FAIL: second finger cannot hold RUN")
+                failures = true
+            if player.using_base_form and float((actor.material as ShaderMaterial).get_shader_parameter("gait_strength")) < 1.2:
+                push_error("WALK FAIL: running did not increase gait amplitude")
                 failures = true
             # Stage 1 is intentionally empty: no active action target/button.
             if touch.action_enabled:
@@ -246,5 +290,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: warm color-graded 8-dir RGBA hero, clean empty yard, touch movement, no 3D preview")
+        print("SMOKE PASS: 12-phase 8-way walk/run shader, RGBA hero grade, touch movement, clean empty yard")
         quit(0)
