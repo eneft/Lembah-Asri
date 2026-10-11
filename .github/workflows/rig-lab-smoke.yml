@@ -1,0 +1,30 @@
+name: Lembah Asri 2D Rig Lab Smoke
+on:
+  push:
+    branches: [experiment/2d-bone-walkcycle]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rig-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: false
+      - name: Import scenes
+        run: godot --headless --path . --editor --quit
+      - name: Run bone lab smoke
+        run: |
+          set -o pipefail
+          godot --headless --path . --script res://tests/rig_lab_smoke.gd 2>&1 | tee rig-lab.log
+          if grep -E 'SCRIPT ERROR|ERROR:|RIG LAB FAIL' rig-lab.log; then
+            exit 1
+          fi
+          grep -q 'RIG LAB PASS:' rig-lab.log
