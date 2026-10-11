@@ -82,6 +82,7 @@ func _make_player() -> void:
     player.collision_mask = 2
     player.position = Vector2(700,617)
     player.z_index = 10
+    _make_contact_shadow()
     var actor := AnimatedSprite2D.new()
     actor.name = "AnimatedSprite2D"
     # Imported 512x778 runner; anchored at feet by stage1_player.gd.
@@ -108,6 +109,27 @@ func _make_player() -> void:
     camera.limit_bottom = 941
     player.add_child(camera)
     add_child(player)
+
+func _make_contact_shadow() -> void:
+    # A soft ground-contact shadow is important with a single painted map:
+    # the actor must read as standing ON the path, never pasted into it.
+    # Generate a tiny radial texture only once; it is not part of the PNG art.
+    var pixels := Image.create(128, 48, false, Image.FORMAT_RGBA8)
+    for y in range(48):
+        for x in range(128):
+            var dx: float = (float(x) - 63.5) / 63.5
+            var dy: float = (float(y) - 23.5) / 23.5
+            var falloff: float = maxf(0.0, 1.0 - dx * dx - dy * dy)
+            var alpha: float = 0.30 * falloff * falloff
+            pixels.set_pixel(x, y, Color(0.075, 0.073, 0.055, alpha))
+    var contact := Sprite2D.new()
+    contact.name = "FootContactShadow"
+    contact.texture = ImageTexture.create_from_image(pixels)
+    contact.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+    contact.scale = Vector2(0.65, 0.46)
+    contact.position = Vector2(0.0, -1.5)
+    contact.z_index = -1
+    player.add_child(contact)
 
 func _make_mobile_controls() -> void:
     var touch_layer := CanvasLayer.new()

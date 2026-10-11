@@ -1,8 +1,10 @@
 extends CharacterBody2D
 ## New source: user-provided Run_godot4 (1).zip, 31 genuine right-facing frames.
 ## Right authentic, left mirrored; up/down remain placeholders (no 8-way run asset).
+## Trimmed mid-stride cycle improves loop; walk still reuses run poses until
+## separately drawn walk frames exist. No procedural deformation.
 @export var walk_speed: float = 160.0
-@export var run_speed: float = 255.0
+@export var run_speed: float = 325.0
 
 const SOURCE_FRAMES: SpriteFrames = preload("res://assets/characters/run_cycle/Run.tres")
 const HERO_GRADE: ShaderMaterial = preload("res://assets/materials/hero_environment_grade.tres")
@@ -10,8 +12,12 @@ const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_lef
 const STATES := ["idle", "walk", "run"]
 const RUN_SCALE := 0.182
 const RUN_ORIGIN := Vector2(0.0, -70.798) # 778px frame, feet aligned with body collider
-const WALK_FPS := 5.0
-const RUN_FPS := 10.0
+# Run.tres frame durations are 0.5, therefore 6.0=12 visible fps
+# and 13.0=26 visible fps. Do not replay the startup/stop poses in loop.
+const WALK_FPS := 6.0
+const RUN_FPS := 13.0
+const LOOP_FIRST := 14 # zero-based frame 14
+const LOOP_AFTER_LAST := 28 # exclusive frame 28 (14 poses)
 var facing: Vector2 = Vector2(1.0, 1.0).normalized()
 var facing_name: String = "down_right"
 var animation_state: String = "idle"
@@ -48,7 +54,7 @@ func _ready() -> void:
     actor.material = HERO_GRADE.duplicate() as ShaderMaterial
     _setup_animations()
     actor.play("idle_" + facing_name)
-    print("LEMBAH ASRI: uploaded Run SpriteFrames active (31 frames, profile view)")
+    print("LEMBAH ASRI: imported runner looping source frames 14-27 (14 poses), walk 12fps, run 26fps")
 
 func _setup_animations() -> void:
     assert(SOURCE_FRAMES.has_animation("row_1"))
@@ -63,10 +69,19 @@ func _setup_animations() -> void:
             frames.add_animation(name)
             frames.set_animation_loop(name, state != "idle")
             frames.set_animation_speed(name, 1.0 if state == "idle" else (RUN_FPS if state == "run" else WALK_FPS))
-            var src_anim: String = "row_6" if state == "idle" else "row_1"
-            for idx in range(SOURCE_FRAMES.get_frame_count(src_anim)):
-                frames.add_frame(name, SOURCE_FRAMES.get_frame_texture(src_anim, idx),
-                    SOURCE_FRAMES.get_frame_duration(src_anim, idx))
+            if state == "idle":
+                frames.add_frame(name, SOURCE_FRAMES.get_frame_texture("row_6", 0), 1.0)
+            else:
+                # Original row_1 includes anticipation/acceleration frames 0-13
+                # and the braking pose at frame 30. Replaying those on every
+                # lap made the character appear to stop and restart.
+                # Frames 14..27 form a continuous mid-stride section whose
+                # closing pose closely resembles its first pose.
+                for idx in range(LOOP_FIRST, LOOP_AFTER_LAST):
+                    var duration: float = SOURCE_FRAMES.get_frame_duration("row_1", idx)
+                    if idx == LOOP_AFTER_LAST - 1:
+                        duration *= 0.78 # no extra hold at the loop seam
+                    frames.add_frame(name, SOURCE_FRAMES.get_frame_texture("row_1", idx), duration)
     $AnimatedSprite2D.sprite_frames = frames
 
 func _nearest_eight_direction(v: Vector2) -> String:

@@ -21,8 +21,10 @@ func _check() -> void:
     sprite.position = Vector2(128,128)
     sprite.scale = Vector2.ONE * (0.182 * 0.8)
     view.add_child(sprite)
+    # Test frames from the ACTUAL LOOP rather than only the original 31-frame
+    # source. The seamless transition is also checked below.
     var old: Image = null
-    for idx in [0,3,8,14,20]:
+    for idx in [14,16,20,24,27]:
         sprite.texture = frames.get_frame_texture("row_1",idx)
         await process_frame
         await RenderingServer.frame_post_draw
@@ -35,6 +37,18 @@ func _check() -> void:
                 quit(1)
                 return
         old = now
+    sprite.texture = frames.get_frame_texture("row_1",14)
+    await process_frame
+    await RenderingServer.frame_post_draw
+    var restarted: Image = view.get_texture().get_image()
+    var seam_diff: int = _changed(old,restarted)
+    # Last frame 27 and first frame 14 must be similar, not a snap
+    # back to the original anticipation/stop pose.
+    print("RUN LOOP SEAM: %d changed pixels" % seam_diff)
+    if seam_diff > 1800:
+        push_error("RUN FRAME FAIL: wrap-around is too discontinuous")
+        quit(1)
+        return
     view.queue_free()
-    print("RUN FRAME PASS: actual supplied animated frames visibly differ at game scale")
+    print("RUN FRAME PASS: original runner loops seamlessly and visibly at game scale")
     quit(0)
