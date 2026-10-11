@@ -6,6 +6,7 @@ extends Node2D
 const PLAYER_SCRIPT = preload("res://scripts/stage1_player.gd")
 const GAMEPLAY_HUD_SCRIPT = preload("res://scripts/gameplay_hud.gd")
 const BG_GRADE = preload("res://assets/materials/village_background_grade.tres")
+const WATER_SURFACE_MATERIAL = preload("res://assets/materials/river_surface_motion.tres")
 const MOBILE_CONTROLS_SCRIPT = preload("res://scripts/mobile_touch_controls.gd")
 const GROUND = preload("res://assets/art/layers/background_base.png")
 const HOUSE = preload("res://assets/art/layers/house.png")
@@ -23,10 +24,14 @@ var player: CharacterBody2D
 var layer_count := 0
 
 func _ready() -> void:
+    # Camera2D and root Y-sort. Future cutout structures use z=0 and feet-pivots.
+    # The original complete image is still painted as one temporary base layer.
+    y_sort_enabled = true
     var background := _sprite(self,"BackgroundBase",GROUND,Vector2.ZERO,-20)
     # Slightly subdue the very busy painting. A separate dynamic character and
     # HUD now provide the contrast and focus seen in the visual reference.
     background.material = BG_GRADE
+    _make_river_surface()
     # Legacy overlays contain paintings of the former house/gardens. They would
     # double-print objects already present in the new full-screen illustration.
     # Keep nodes/resources for backwards compatibility, but hide them in this mode.
@@ -53,6 +58,21 @@ func _sprite(parent: Node, name: String, tex: Texture2D, at: Vector2, depth: int
     parent.add_child(result)
     layer_count += 1
     return result
+
+func _make_river_surface() -> void:
+    # Interim moving water on the unmodified base art. Cropped to the river
+    # quadrant and chroma-masked. A real hand-painted water mask comes later.
+    var river := Sprite2D.new()
+    river.name = "RiverWaterfallSurface"
+    river.texture = GROUND
+    river.region_enabled = true
+    river.region_rect = Rect2(980.0, 350.0, 692.0, 591.0)
+    river.centered = false
+    river.position = Vector2(980.0, 350.0)
+    river.z_index = -19
+    river.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+    river.material = WATER_SURFACE_MATERIAL
+    add_child(river)
 
 func _solid(name: String, at: Vector2, size: Vector2) -> void:
     var body := StaticBody2D.new()
@@ -87,7 +107,7 @@ func _make_player() -> void:
     player.collision_layer = 1
     player.collision_mask = 2
     player.position = Vector2(700,617)
-    player.z_index = 10
+    player.z_index = 0 # Participate in world Y-sorting instead of always-over z=10
     _make_contact_shadow()
     var actor := AnimatedSprite2D.new()
     actor.name = "AnimatedSprite2D"

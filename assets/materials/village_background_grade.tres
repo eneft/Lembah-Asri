@@ -4,6 +4,7 @@
 
 [resource]
 shader = ExtResource("1_scene")
-shader_parameter/saturation = 0.96
-shader_parameter/contrast = 0.95
+shader_parameter/saturation = 0.92
+shader_parameter/contrast = 0.91
+shader_parameter/softness = 1.35
 shader_parameter/warmth = 0.035

@@ -46,3 +46,11 @@ Referensi tampilan rumah-kebun penuh diperlakukan sebagai **arah seni untuk ruma
 `scripts/gameplay_hud.gd` menggambar UI **secara runtime**: potret karakter, jam yang maju, koin riil awal 0, minimap dengan titik pemain yang mengikuti posisi, bar alat 1-8, panel inventori (masih kosong), peta, dan menu. Tidak ada hitungan hasil kebun, ternak atau kemampuan alat yang direkayasa. Tombol I, M, Esc, 1-8 dan sentuhan hotbar tersedia. Ikon alat sementara berbentuk label; sistem kebun/ternak/NPC serta UI final akan dibuat sebagai scene/gameplay berlapis pada fase berikutnya.
 
 Karakter sumber run cycle 31 frame tetap utuh; skala gameplay diperbesar dari 0.182 ke **0.222** dengan anchor kaki dihitung ulang, tanpa mengubah collision. Kontrol lari mobile, kamera, dan area jalan tidak dibangun ulang.
+
+## Scene layering — tahap pertama
+
+Keputusan arsitektur: **tetap Godot 4 Camera2D elevated 3/4**, bukan Camera3D. World mengaktifkan `y_sort_enabled`; Player sekarang `z_index=0` agar prop baru nanti dapat menutup/ditutup karakter secara natural berdasarkan pijakan Y. Ilustrasi dasar masih satu gambar (bukan aset bangunan/pohon yang sudah diekstrak).
+
+Latar belakang sekarang memakai blur 5-tap ringan + saturasi/kontras lebih soft hanya untuk gambar lingkungan; karakter dan UI tetap detail. `RiverWaterfallSurface` adalah **lapisan animasi air sementara**, memanfaatkan tekstur yang sama, dipotong ke pojok kanan-bawah dan dibatasi mask warna biru/cyan sehingga pagar tidak ikut bergerak. Ini belum mask sungai sempurna; akan diganti ketika potongan gambar sungai/air terjun benar-benar tersedia.
+
+Roadmap clean-plate, pemecahan rumah/pagar/pohon/kandang/jembatan, collision, dan mask air akurat: `docs/ENVIRONMENT_LAYERING_PLAN.md`. Semua bagian gameplay yang sudah bekerja tetap ada.

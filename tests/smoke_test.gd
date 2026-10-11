@@ -44,6 +44,29 @@ func _check() -> void:
     if (actor.material as ShaderMaterial).shader.code.contains("walk_sample_uv"):
         push_error("RUN FAIL: obsolete fake gait still running")
         failed = true
+    # Render layering is real; original house/trees remain baked until
+    # separate art and clean-plate are available.
+    if not world.y_sort_enabled or player.z_index != 0:
+        push_error("LAYER FAIL: Y-sort root/player configuration incorrect")
+        failed = true
+    var water_node := world.get_node_or_null("RiverWaterfallSurface") as Sprite2D
+    if water_node == null or water_node.z_index != -19 or not water_node.region_enabled:
+        push_error("WATER FAIL: clipped water surface absent")
+        failed = true
+    else:
+        var water_mat := water_node.material as ShaderMaterial
+        if water_mat == null or water_mat.shader == null or not water_mat.shader.code.contains("blue_water"):
+            push_error("WATER FAIL: shader did not load")
+            failed = true
+    var bg_node := world.get_node_or_null("BackgroundBase") as Sprite2D
+    if bg_node == null or bg_node.z_index != -20:
+        push_error("LAYER FAIL: background depth incorrect")
+        failed = true
+    else:
+        var soft_mat := bg_node.material as ShaderMaterial
+        if soft_mat == null or soft_mat.shader == null or not soft_mat.shader.code.contains("TEXTURE_PIXEL_SIZE") or float(soft_mat.get_shader_parameter("softness")) <= 0.0:
+            push_error("LAYER FAIL: background should be softly filtered")
+            failed = true
     if not is_equal_approx(player.run_speed, 325.0):
         push_error("RUN FAIL: sprint movement too slow")
         failed = true
@@ -142,5 +165,5 @@ func _check() -> void:
     if failed:
         quit(1)
     else:
-        print("SMOKE PASS: 14-pose run loop, larger anchored hero, runtime HUD, background grade and controls")
+        print("SMOKE PASS: Y-sorted Camera2D world, soft landscape, river water effect, existing HUD/run/mobile")
         quit(0)
