@@ -4,6 +4,8 @@ extends Node2D
 ## Every texture is preloaded so the Godot Web exporter includes real binary assets.
 
 const PLAYER_SCRIPT = preload("res://scripts/stage1_player.gd")
+const GAMEPLAY_HUD_SCRIPT = preload("res://scripts/gameplay_hud.gd")
+const BG_GRADE = preload("res://assets/materials/village_background_grade.tres")
 const MOBILE_CONTROLS_SCRIPT = preload("res://scripts/mobile_touch_controls.gd")
 const GROUND = preload("res://assets/art/layers/background_base.png")
 const HOUSE = preload("res://assets/art/layers/house.png")
@@ -21,7 +23,10 @@ var player: CharacterBody2D
 var layer_count := 0
 
 func _ready() -> void:
-    _sprite(self,"BackgroundBase",GROUND,Vector2.ZERO,-20)
+    var background := _sprite(self,"BackgroundBase",GROUND,Vector2.ZERO,-20)
+    # Slightly subdue the very busy painting. A separate dynamic character and
+    # HUD now provide the contrast and focus seen in the visual reference.
+    background.material = BG_GRADE
     # Legacy overlays contain paintings of the former house/gardens. They would
     # double-print objects already present in the new full-screen illustration.
     # Keep nodes/resources for backwards compatibility, but hide them in this mode.
@@ -33,6 +38,7 @@ func _ready() -> void:
     _sprite(self,"ForegroundFoliage",FOLIAGE,Vector2(0,585),20).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
     _make_obstacles()
     _make_player()
+    _make_hud()
     _make_mobile_controls()
     print("STAGE1 ART LOADED: %d layer sprites; empty homestead, 2D protagonist" % layer_count)
 
@@ -126,10 +132,22 @@ func _make_contact_shadow() -> void:
     contact.name = "FootContactShadow"
     contact.texture = ImageTexture.create_from_image(pixels)
     contact.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-    contact.scale = Vector2(0.65, 0.46)
+    contact.scale = Vector2(0.92, 0.67)
     contact.position = Vector2(0.0, -1.5)
     contact.z_index = -1
     player.add_child(contact)
+
+func _make_hud() -> void:
+    var overlay := CanvasLayer.new()
+    overlay.name = "GameplayHUDLayer"
+    overlay.layer = 15
+    add_child(overlay)
+    var hud := Control.new()
+    hud.set_script(GAMEPLAY_HUD_SCRIPT)
+    hud.name = "GameplayHUD"
+    overlay.add_child(hud)
+    hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    hud.bind_player(player)
 
 func _make_mobile_controls() -> void:
     var touch_layer := CanvasLayer.new()

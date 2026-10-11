@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://shaders/village_background_grade.gdshader" id="1_scene"]
+
+[resource]
+shader = ExtResource("1_scene")
+shader_parameter/saturation = 0.96
+shader_parameter/contrast = 0.95
+shader_parameter/warmth = 0.035

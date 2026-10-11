@@ -31,7 +31,7 @@ func _check() -> void:
         quit(1)
         return
     var actor: AnimatedSprite2D = player.get_node("AnimatedSprite2D")
-    if not is_equal_approx(actor.scale.x, 0.182) or not actor.position.is_equal_approx(Vector2(0.0,-70.798)):
+    if not is_equal_approx(actor.scale.x, 0.222) or not actor.position.is_equal_approx(Vector2(0.0,-86.358)):
         push_error("RUN FAIL: feet/size incorrect")
         failed = true
     var material := actor.material as ShaderMaterial
@@ -81,6 +81,34 @@ func _check() -> void:
     if world.get_node_or_null("MobileControlsLayer/TouchControls") == null:
         push_error("RUN FAIL: mobile controls lost")
         failed = true
+    # New UI must be a real, interactive Godot overlay, not painted into map.
+    var hud = world.get_node_or_null("GameplayHUDLayer/GameplayHUD")
+    var background = world.get_node_or_null("BackgroundBase")
+    if hud == null or background == null or background.material == null:
+        push_error("HUD FAIL: dynamic UI / background grade not installed")
+        failed = true
+    else:
+        if hud.player != player or hud.coin_count != 0:
+            push_error("HUD FAIL: scene binding or economy state invalid")
+            failed = true
+        hud._activate(5)
+        if hud.open_panel != "Inventori":
+            push_error("HUD FAIL: inventory cannot be opened")
+            failed = true
+        hud._toggle_modal("Inventori")
+        hud._activate(6)
+        if hud.open_panel != "Peta":
+            push_error("HUD FAIL: map cannot be opened")
+            failed = true
+        hud._toggle_modal("Peta")
+        hud._activate(7)
+        if hud.open_panel != "Menu":
+            push_error("HUD FAIL: menu cannot be opened")
+            failed = true
+        hud._toggle_modal("Menu")
+        if not player.is_physics_processing():
+            push_error("HUD FAIL: closing menu did not restore character input")
+            failed = true
     Input.action_press("ui_right")
     for n in range(15):
         await physics_frame
@@ -114,5 +142,5 @@ func _check() -> void:
     if failed:
         quit(1)
     else:
-        print("SMOKE PASS: corrected 14-pose continuous run/walk loops, faster sprint, grounded contrasting hero")
+        print("SMOKE PASS: 14-pose run loop, larger anchored hero, runtime HUD, background grade and controls")
         quit(0)

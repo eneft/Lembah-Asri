@@ -28,3 +28,8 @@ Warm morning sun, vibrant but matte greenery, gentle shadows, earthen colors. Us
 
 ## Penggantian runner (11 Oktober 2026)
 Karakter Stage 1 resmi memakai gambar runner yang diunggah pengguna dalam ZIP Run_godot4. SpriteFrames 31-frame kanan asli, kiri mirrored sementara, gerak atas/bawah masih placeholder sampai tersedia aset otentik tiap arah. Base 8 arah sebelumnya hanya arsip, bukan karakter gameplay.
+
+
+## Visual reference update
+
+Referensi farming-simulation dengan HUD modern menjadi acuan gaya UI, proporsi karakter, dan kontras, tetapi bukan background mentah karena di dalamnya ada karakter/NPC/HUD yang sudah dibakar menjadi piksel. Lakukan compositing lewat node Godot dan pisahkan gameplay kebun, ternak, dan interaksi pada tahap lanjutan. Aset art asli Stage 1 tetap menjadi rumah masa kecil yang terbengkalai.
