@@ -21,7 +21,7 @@ Clay tile roofs, bamboo and timber, kampung houses, sawah, irrigation, coconut, 
 Warm morning sun, vibrant but matte greenery, gentle shadows, earthen colors. Use **musim hujan / musim kemarau**; avoid snowy Euro-style four seasons or fantasy windmills as core art.
 
 ## Asset performance
-- Gameplay utama menggunakan layer ilustrasi PNG 2D di scene Godot 2D, dengan kedalaman `z_index`, collision objek yang benar dan Camera2D. Komponen 3D hanya sandbox/lab terpisah, bukan karakter utama.
+- Gameplay utama menggunakan layer ilustrasi PNG 2D di scene Godot 2D, dengan kedalaman `z_index`, collision objek yang benar dan Camera2D. Preview karakter 3D sudah dihentikan; Stage 1 hanya memuat aset 2D.
 - Hero memakai delapan PNG RGBA lossless di `assets/characters/player_hd/`; jangan upscale dari atlas resolusi rendah, kompres ulang atau campur gaya chibi dari generasi lain.
 - Animasi saat ini deformasi shader dari 1 pose/arah untuk walk/run dan belum setara spritesheet gerak anatomi penuh. Tampilan gerak harus dievaluasi manual pada gameplay.
 - Pertahankan alpha foliage/props, skala antarobjek, area pijakan dan jalur collision; hindari props yang terlihat menutupi pemain tanpa logika depth.

@@ -8,6 +8,7 @@ signal run_changed(is_running: bool)
 signal interact_requested
 
 @export var force_show_for_testing: bool = false
+@export var action_enabled: bool = false # No usable interactions in Stage 1; retain future support
 const JOY_RADIUS := 76.0
 const JOY_HIT_RADIUS := 103.0
 const STICK_TRAVEL := 53.0
@@ -79,7 +80,7 @@ func _input(event: InputEvent) -> void:
 
 func _touch_start(finger: int, at: Vector2) -> void:
     var scale_factor := _ui_scale()
-    if _action_finger == -1 and at.distance_to(get_interact_center()) <= ACTION_RADIUS * scale_factor:
+    if action_enabled and _action_finger == -1 and at.distance_to(get_interact_center()) <= ACTION_RADIUS * scale_factor:
         _action_finger = finger
         interact_requested.emit()
         queue_redraw()
@@ -147,7 +148,8 @@ func _draw() -> void:
     draw_circle(joy + move_vector * STICK_TRAVEL * scale_factor, 30.0 * scale_factor, Color(0.97, 0.88, 0.66, 0.76), true, -1.0, true)
     draw_arc(joy + move_vector * STICK_TRAVEL * scale_factor, 30.0 * scale_factor, 0.0, TAU, 40, Color(0.25, 0.33, 0.20, 0.70), 2.0 * scale_factor, true)
     _draw_button(get_run_center(), RUN_RADIUS * scale_factor, "LARI", accent, run_held)
-    _draw_button(get_interact_center(), ACTION_RADIUS * scale_factor, "AKSI", accent, _action_finger != -1)
+    if action_enabled:
+        _draw_button(get_interact_center(), ACTION_RADIUS * scale_factor, "AKSI", accent, _action_finger != -1)
 
 func _draw_button(at: Vector2, radius: float, caption: String, border_color: Color, active: bool) -> void:
     draw_circle(at, radius, Color(0.27, 0.40, 0.24, 0.81) if active else Color(0.10, 0.23, 0.17, 0.62), true, -1.0, true)

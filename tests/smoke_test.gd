@@ -1,5 +1,5 @@
 extends SceneTree
-## Acceptance test: 8 native HD base directions or legacy fallback, 2D collision and NPC.
+## Acceptance test: 8-direction player, adjusted scale, empty homestead and mobile controls.
 var failures := false
 
 func _initialize() -> void:
@@ -15,20 +15,17 @@ func _check() -> void:
     root.add_child(world)
     await process_frame
     await process_frame
-    var expected: Array[String] = ["BackgroundBase","HouseMain","SmallCoop","GardenTomato","GardenEggplant","GardenGreens","ForegroundFoliage","Player","BuSari","HouseWallsCollision","CoopCollision"]
+    var expected: Array[String] = ["BackgroundBase","HouseMain","SmallCoop","GardenTomato","GardenEggplant","GardenGreens","ForegroundFoliage","Player","HouseWallsCollision","CoopCollision"]
     for name in expected:
         if world.get_node_or_null(name) == null:
             push_error("STAGE1 FAIL: missing " + name)
             failures = true
-    var lab_btn: Button = world.get_node_or_null("HUD/Open3DCharacterLab") as Button
-    if lab_btn == null:
-        push_error("STAGE1 FAIL: 3D character testing control not visible")
-        failures = true
-    elif lab_btn.position.x < 350.0 or lab_btn.position.x > 780.0 or lab_btn.position.y > 100.0:
-        push_error("STAGE1 FAIL: 3D model button overlaps concept HUD")
-        failures = true
-    if not ResourceLoader.exists("res://scenes/character_lab_3d.tscn"):
-        push_error("STAGE1 FAIL: 3D lab destination missing")
+    for removed in ["BuSari", "HUD/Open3DCharacterLab", "HUD/DesktopHintBackground", "HUD"]:
+        if world.get_node_or_null(removed) != null:
+            push_error("STAGE1 FAIL: obsolete scene element still present: " + removed)
+            failures = true
+    if ResourceLoader.exists("res://scenes/character_lab_3d.tscn"):
+        push_error("STAGE1 FAIL: retired 3D preview scene is still installed")
         failures = true
     # Mobile UI node is present even on a desktop runner; visibility is
     # device-dependent and can be forced for a deterministic input test.
@@ -90,12 +87,12 @@ func _check() -> void:
                     if left_tex == null or right_tex == null or left_tex.atlas != right_tex.atlas:
                         push_error("LEGACY MIRROR FAIL: left fallback mismatch " + d)
                         failures = true
-            var expected_scale: float = 0.15 if player.using_base_form else 0.36
+            var expected_scale: float = 0.105 if player.using_base_form else 0.36
             if not is_equal_approx(actor.scale.x, expected_scale) or not is_equal_approx(actor.scale.y, expected_scale):
                 push_error("ANIMATION FAIL: playable scale changed")
                 failures = true
             if player.using_base_form:
-                if not actor.position.is_equal_approx(Vector2(0.0, -115.35)):
+                if not actor.position.is_equal_approx(Vector2(0.0, -80.745)):
                     push_error("BASE FORM FAIL: feet not aligned to collision origin")
                     failures = true
                 var front: Texture2D = actor.sprite_frames.get_frame_texture("idle_down", 0)
@@ -155,18 +152,10 @@ func _check() -> void:
             if not player.mobile_run_held or player.animation_state != "run":
                 push_error("MOBILE FAIL: second finger cannot hold RUN")
                 failures = true
-            player.global_position = world.npc.global_position + Vector2(-49,0)
-            var action_touch := InputEventScreenTouch.new()
-            action_touch.index = 12
-            action_touch.position = touch.get_interact_center()
-            action_touch.pressed = true
-            world.interaction_timer = 0.0
-            touch._input(action_touch)
-            if world.interaction_timer <= 0.0 or world.dialogue_label.text.find("Bu Sari") < 0:
-                push_error("MOBILE FAIL: action touch did not interact with Bu Sari")
+            # Stage 1 is intentionally empty: no active action target/button.
+            if touch.action_enabled:
+                push_error("MOBILE FAIL: unused AKSI control should be disabled")
                 failures = true
-            action_touch.pressed = false
-            touch._input(action_touch)
             run_touch.pressed = false
             touch._input(run_touch)
             first.pressed = false
@@ -220,14 +209,6 @@ func _check() -> void:
             if player.global_position.x < 601.0:
                 push_error("STAGE1 FAIL: protagonist stepped into the tomato bed")
                 failures = true
-        player.global_position = world.npc.global_position + Vector2(-49,0)
-        var event := InputEventKey.new()
-        event.keycode = KEY_E
-        event.pressed = true
-        world._unhandled_input(event)
-        if world.interaction_timer <= 0.0 or world.dialogue_label.text.find("Bu Sari") < 0:
-            push_error("STAGE1 FAIL: interaction did not work")
-            failures = true
     else:
         failures = true
         push_error("STAGE1 FAIL: player is not CharacterBody2D")
@@ -246,5 +227,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: native 8-dir RGBA protagonist, full-scene base overlay audit, touch controls and NPC")
+        print("SMOKE PASS: smaller anchored 8-dir RGBA hero, clean empty yard, touch movement, no 3D preview")
         quit(0)

@@ -23,8 +23,8 @@ const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_lef
 # the existing animated 16-frame character remains intact as a safe fallback.
 const BASE_DIR := "res://assets/characters/player_base_8dir/"
 const BASE_CANVAS := Vector2i(1152, 1632)
-const BASE_SPRITE_SCALE := 0.15
-const BASE_SPRITE_POSITION := Vector2(0.0, -115.35) # (1585 - 816)*0.15
+const BASE_SPRITE_SCALE := 0.105 # 30% smaller; more appropriate to the painted courtyard
+const BASE_SPRITE_POSITION := Vector2(0.0, -80.745) # (1585 - 816) * 0.105, feet remain at ground origin
 const STATES := ["idle", "walk", "run"]
 const FPS := 12.0
 const WALK_ATLASES = {

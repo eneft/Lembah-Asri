@@ -33,11 +33,3 @@ jobs:
             echo "Godot emitted a runtime error"; exit 1
           fi
           grep -q 'SMOKE PASS:' godot-smoke.log
-      - name: 3D protagonist model rig smoke test
-        run: |
-          set -o pipefail
-          xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/model3d_smoke.gd 2>&1 | tee godot-model3d.log
-          if grep -E 'SCRIPT ERROR|ERROR:|MODEL 3D SMOKE FAIL' godot-model3d.log; then
-            echo "3D Model Lab emitted a runtime error"; exit 1
-          fi
-          grep -q 'MODEL 3D SMOKE PASS' godot-model3d.log

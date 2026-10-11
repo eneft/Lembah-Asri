@@ -21,4 +21,4 @@ Ayam, bebek, kambing, domba, sapi, kerbau; kucing, anjing and optional other pet
 Rumah masa kecil, kebun sayur, sawah, kandang, pasar desa, tepi sungai memancing, hunian warga, dan interior rumah.
 
 ## Starter implementation
-Current Stage 1 is a layered 2D house-and-garden scene with Camera2D, obstacle collision, 8-direction HD protagonist and interaction with Bu Sari. Walk/run gait is shader-assisted from one canonical HD pose per facing direction, not a full authored animation set. Farming economy, real animals, crop lifecycle, NPC schedules, interiors, and complete animations remain future milestones.
+Current Stage 1 is a layered 2D house-and-garden scene with Camera2D, obstacle collision, 8-direction HD protagonist at 70% of the previous gameplay scale; NPCs and interaction overlays are disabled while the homestead is empty. Walk/run gait is shader-assisted from one canonical HD pose per facing direction, not a full authored animation set. Farming economy, real animals, crop lifecycle, NPC schedules, interiors, and complete animations remain future milestones.

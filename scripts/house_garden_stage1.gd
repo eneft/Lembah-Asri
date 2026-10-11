@@ -1,5 +1,6 @@
 extends Node2D
-## Lembah Asri / Tahap 1. Native Godot 2D scene with nine separate PNGs.
+## Lembah Asri / Tahap 1. Empty abandoned homestead; 2D player only.
+## No NPC, prototype HUD or 3D model preview in gameplay.
 ## Every texture is preloaded so the Godot Web exporter includes real binary assets.
 
 const PLAYER_SCRIPT = preload("res://scripts/stage1_player.gd")
@@ -12,18 +13,12 @@ const EGGPLANT = preload("res://assets/art/layers/garden_eggplant.png")
 const GREENS = preload("res://assets/art/layers/garden_greens.png")
 const FOLIAGE = preload("res://assets/art/layers/foliage_front.png")
 const HERO = preload("res://assets/art/layers/player_idle.png")
-const BU_SARI = preload("res://assets/art/layers/npc_bu_sari.png")
 const SIZE := Vector2(1672.0, 941.0)
 # The approved base is now a complete house/yard/shed/bridge illustration.
 # Keep legacy source art in repository for future true sprite-layer extraction.
 const BACKGROUND_IS_COMPLETE_ILLUSTRATION := true
 
 var player: CharacterBody2D
-var npc: StaticBody2D
-var hint_label: Label
-var dialogue_panel: ColorRect
-var dialogue_label: Label
-var interaction_timer := 0.0
 var layer_count := 0
 
 func _ready() -> void:
@@ -38,11 +33,9 @@ func _ready() -> void:
     _sprite(self,"GardenGreens",GREENS,Vector2(131,670),5).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
     _sprite(self,"ForegroundFoliage",FOLIAGE,Vector2(0,585),20).visible = not BACKGROUND_IS_COMPLETE_ILLUSTRATION
     _make_obstacles()
-    _make_bu_sari()
     _make_player()
-    _make_ui()
     _make_mobile_controls()
-    print("STAGE1 ART LOADED: %d layer sprites, player and Bu Sari separated" % layer_count)
+    print("STAGE1 ART LOADED: %d layer sprites; empty homestead, 2D protagonist" % layer_count)
 
 func _sprite(parent: Node, name: String, tex: Texture2D, at: Vector2, depth: int) -> Sprite2D:
     var result := Sprite2D.new()
@@ -82,22 +75,6 @@ func _make_obstacles() -> void:
     # River strip cannot be crossed except by a planned bridge transition.
     _solid("RiverBankCollision",Vector2(1490,693),Vector2(125,430))
 
-func _make_bu_sari() -> void:
-    npc = StaticBody2D.new()
-    npc.name = "BuSari"
-    npc.position = Vector2(802,596)
-    npc.collision_layer = 2
-    npc.collision_mask = 0
-    var sprite := _sprite(npc,"NPCArt",BU_SARI,Vector2(-47,-149),8)
-    sprite.z_index = 0
-    var collision := CollisionShape2D.new()
-    var shape := CircleShape2D.new()
-    shape.radius = 12.0
-    collision.shape = shape
-    collision.position = Vector2(0,-7)
-    npc.add_child(collision)
-    add_child(npc)
-
 func _make_player() -> void:
     player = CharacterBody2D.new()
     player.name = "Player"
@@ -136,62 +113,6 @@ func _make_player() -> void:
     player.add_child(camera)
     add_child(player)
 
-func _panel(parent: Node, color: Color, at: Vector2, size: Vector2) -> ColorRect:
-    var panel := ColorRect.new()
-    panel.position = at
-    panel.size = size
-    panel.color = color
-    parent.add_child(panel)
-    return panel
-
-func _label(parent: Node, caption: String, at: Vector2, font_size: int, color: Color = Color.WHITE) -> Label:
-    var label := Label.new()
-    label.position = at
-    label.text = caption
-    label.add_theme_font_size_override("font_size",font_size)
-    label.add_theme_color_override("font_color",color)
-    parent.add_child(label)
-    return label
-
-func _make_ui() -> void:
-    var hud := CanvasLayer.new()
-    hud.name = "HUD"
-    add_child(hud)
-    # Artwork already has the approved in-image HUD; don't obscure it
-    # with large prototype dark boxes. Native dynamic UI will replace it
-    # only when the HUD is extracted as real transparent assets.
-    var desktop_hint := _panel(hud,Color(0.10,0.18,0.13,0.70),Vector2(809,660),Vector2(445,43))
-    desktop_hint.name = "DesktopHintBackground"
-    hint_label = _label(hud,"WASD / Panah: jalan  |  E: interaksi",Vector2(820,665),16,Color("#fff6e3"))
-    dialogue_panel = _panel(hud,Color(0.13,0.20,0.16,0.95),Vector2(273,548),Vector2(740,86))
-    dialogue_label = _label(dialogue_panel,"",Vector2(23,16),20,Color("#fff5e4"))
-    dialogue_label.size = Vector2(680,62)
-    dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    dialogue_panel.visible = false
-    var model_btn := Button.new()
-    model_btn.name = "Open3DCharacterLab"
-    model_btn.text = "LIHAT KARAKTER 3D  ▶"
-    model_btn.tooltip_text = "Buka model 3D terpisah; karakter gameplay 2D tidak berubah (F6)"
-    model_btn.position = Vector2(500, 12)
-    model_btn.size = Vector2(280, 54)
-    model_btn.add_theme_font_size_override("font_size", 18)
-    model_btn.add_theme_color_override("font_color", Color("#FFF7DF"))
-    var button_style := StyleBoxFlat.new()
-    button_style.bg_color = Color("#284936")
-    button_style.border_color = Color("#F2D68B")
-    button_style.set_border_width_all(2)
-    button_style.set_corner_radius_all(12)
-    model_btn.add_theme_stylebox_override("normal", button_style)
-    var hover_style := button_style.duplicate() as StyleBoxFlat
-    hover_style.bg_color = Color("#376F4D")
-    model_btn.add_theme_stylebox_override("hover", hover_style)
-    model_btn.pressed.connect(_open_model_lab)
-    hud.add_child(model_btn)
-    # In Web, an explicit #model3d deep-link opens the lab once.
-    if OS.has_feature("web") and str(JavaScriptBridge.eval("window.location.hash", true)) == "#model3d":
-        JavaScriptBridge.eval("window.history.replaceState(null, '', window.location.pathname + window.location.search)", true)
-        call_deferred("_open_model_lab")
-
 func _make_mobile_controls() -> void:
     var touch_layer := CanvasLayer.new()
     touch_layer.name = "MobileControlsLayer"
@@ -200,25 +121,13 @@ func _make_mobile_controls() -> void:
     var controls := Control.new()
     controls.name = "TouchControls"
     controls.set_script(MOBILE_CONTROLS_SCRIPT)
-    # Set anchors after parenting so the control follows the live canvas.
     touch_layer.add_child(controls)
     controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     controls.move_changed.connect(_on_mobile_move)
     controls.run_changed.connect(_on_mobile_run)
-    controls.interact_requested.connect(_try_interact)
-    if controls.visible:
-        # Touch overlay replaces desktop-only HUD hints, avoiding obstruction.
-        hint_label.visible = false
-        var hint_panel := get_node_or_null("HUD/DesktopHintBackground") as ColorRect
-        if hint_panel != null:
-            hint_panel.visible = false
-        var lab_button := get_node_or_null("HUD/Open3DCharacterLab") as Button
-        if lab_button != null:
-            lab_button.visible = false
-        dialogue_panel.position = Vector2(240, 75)
-        dialogue_panel.size = Vector2(800, 95)
-        dialogue_label.size = Vector2(745, 72)
-    print("STAGE1 TOUCH HUD READY")
+    # No interactive NPC/object in this empty homestead scene yet.
+    # The touch joystick and run button stay active; unused AKSI stays hidden.
+    print("STAGE1 TOUCH MOVEMENT READY")
 
 func _on_mobile_move(direction: Vector2) -> void:
     if is_instance_valid(player):
@@ -227,38 +136,3 @@ func _on_mobile_move(direction: Vector2) -> void:
 func _on_mobile_run(holding: bool) -> void:
     if is_instance_valid(player):
         player.set("mobile_run_held", holding)
-
-func _try_interact() -> void:
-    if not is_instance_valid(player) or not is_instance_valid(npc):
-        return
-    if player.position.distance_to(npc.position) <= 112.0:
-        dialogue_label.text = "Bu Sari: Selamat pulang, Nak! Rumah ini sudah lama menunggumu."
-        interaction_timer = 5.0
-        dialogue_panel.visible = true
-    elif not BACKGROUND_IS_COMPLETE_ILLUSTRATION and player.position.distance_to(Vector2(475,690)) < 110.0:
-        dialogue_label.text = "Kebun tomat. Nanti kamu bisa mencangkul, menanam, menyiram, lalu panen."
-        interaction_timer = 4.0
-        dialogue_panel.visible = true
-
-func _process(delta: float) -> void:
-    if interaction_timer > 0.0:
-        interaction_timer -= delta
-        dialogue_panel.visible = true
-    else:
-        dialogue_panel.visible = false
-    if is_instance_valid(player) and is_instance_valid(npc) and player.position.distance_to(npc.position) <= 112.0:
-        hint_label.text = "[E] Bicara dengan Bu Sari"
-    elif not BACKGROUND_IS_COMPLETE_ILLUSTRATION and is_instance_valid(player) and player.position.distance_to(Vector2(475,690)) < 110.0:
-        hint_label.text = "[E] Lihat kebun tomat"
-    else:
-        hint_label.text = "WASD / Panah: jalan  |  E: interaksi"
-
-func _open_model_lab() -> void:
-    get_tree().change_scene_to_file("res://scenes/character_lab_3d.tscn")
-
-func _unhandled_input(event: InputEvent) -> void:
-    if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F6:
-        _open_model_lab()
-        return
-    if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
-        _try_interact()
