@@ -4,11 +4,11 @@ extends Node2D
 ## Hidden anatomy behind the original flattened limbs cannot be recovered.
 
 const SOURCE = preload("res://assets/characters/player_base_8dir/57EA7797-A856-4ABC-BF67-7248363D7DE7.png")
-const REF := Vector2(1024.0, 1536.0)
-const LEG_KEYS := [-0.29, -0.13, 0.07, 0.29, 0.13, -0.07]
-const KNEE_NEAR := [0.04, 0.11, 0.32, 0.03, 0.08, 0.26]
-const KNEE_FAR := [0.03, 0.08, 0.26, 0.04, 0.11, 0.32]
-const CYCLE_SECONDS := 0.90
+const REF = Vector2(1024.0, 1536.0)
+const LEG_KEYS = [-0.29, -0.13, 0.07, 0.29, 0.13, -0.07]
+const KNEE_NEAR = [0.04, 0.11, 0.32, 0.03, 0.08, 0.26]
+const KNEE_FAR = [0.03, 0.08, 0.26, 0.04, 0.11, 0.32]
+const CYCLE_SECONDS = 0.90
 
 var playing := true
 var phase := 0.0
