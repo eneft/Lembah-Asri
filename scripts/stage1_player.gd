@@ -45,6 +45,9 @@ var facing_name: String = "down_right"
 var animation_state: String = "idle"
 var using_base_form: bool = false
 var base_textures: Dictionary = {}
+# Independent touch input merges with WASD without simulating keyboard presses.
+var mobile_direction: Vector2 = Vector2.ZERO
+var mobile_run_held: bool = false
 
 # Valid FOOT positions in the approved illustrated concept.
 var walk_polygon: PackedVector2Array = PackedVector2Array([
@@ -141,10 +144,15 @@ func _physics_process(_delta: float) -> void:
         direction.y -= 1.0
     if Input.is_key_pressed(KEY_S) or Input.is_action_pressed("ui_down"):
         direction.y += 1.0
-    direction = direction.normalized()
+    # A joystick is analog and may be held while the second finger runs/acts.
+    # Real keyboard input takes priority if both input methods are used.
+    if direction.length_squared() < 0.001:
+        direction = mobile_direction.limit_length(1.0)
+    else:
+        direction = direction.normalized()
 
     var wants_to_move := direction.length_squared() > 0.001
-    var running := wants_to_move and (Input.is_key_pressed(KEY_SHIFT) or Input.is_action_pressed("run"))
+    var running := wants_to_move and (mobile_run_held or Input.is_key_pressed(KEY_SHIFT) or Input.is_action_pressed("run"))
     velocity = direction * (run_speed if running else walk_speed)
 
     var previous: Vector2 = global_position

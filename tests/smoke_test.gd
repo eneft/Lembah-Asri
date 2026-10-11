@@ -30,6 +30,13 @@ func _check() -> void:
     if not ResourceLoader.exists("res://scenes/character_lab_3d.tscn"):
         push_error("STAGE1 FAIL: 3D lab destination missing")
         failures = true
+    # Mobile UI node is present even on a desktop runner; visibility is
+    # device-dependent and can be forced for a deterministic input test.
+    var mobile_layer = world.get_node_or_null("MobileControlsLayer")
+    var touch = world.get_node_or_null("MobileControlsLayer/TouchControls")
+    if mobile_layer == null or touch == null:
+        push_error("MOBILE FAIL: missing native touchscreen overlay")
+        failures = true
     var player = world.get_node_or_null("Player")
     if player != null and player is CharacterBody2D:
         if not player.using_base_form:
@@ -118,6 +125,61 @@ func _check() -> void:
         if actor != null and actor.flip_h:
             push_error("ANIMATION FAIL: unique left idle image must not be mirrored")
             failures = true
+        # Simulated real multi-touch: joystick, run and action are independent.
+        if touch != null:
+            touch.set_test_visible(true)
+            var center: Vector2 = touch.get_joystick_center()
+            var first := InputEventScreenTouch.new()
+            first.index = 10
+            first.position = center
+            first.pressed = true
+            touch._input(first)
+            var drag := InputEventScreenDrag.new()
+            drag.index = 10
+            drag.position = center + Vector2(52.0, 0.0)
+            touch._input(drag)
+            if touch.move_vector.x < 0.70 or absf(touch.move_vector.y) > 0.01:
+                push_error("MOBILE FAIL: joystick drag cannot generate analog right motion")
+                failures = true
+            Input.action_release("ui_left")
+            await physics_frame
+            if player.mobile_direction.x < 0.70 or player.facing_name != "right":
+                push_error("MOBILE FAIL: joystick not connected to the player")
+                failures = true
+            var run_touch := InputEventScreenTouch.new()
+            run_touch.index = 11
+            run_touch.pressed = true
+            run_touch.position = touch.get_run_center()
+            touch._input(run_touch)
+            await physics_frame
+            if not player.mobile_run_held or player.animation_state != "run":
+                push_error("MOBILE FAIL: second finger cannot hold RUN")
+                failures = true
+            player.global_position = world.npc.global_position + Vector2(-49,0)
+            var action_touch := InputEventScreenTouch.new()
+            action_touch.index = 12
+            action_touch.position = touch.get_interact_center()
+            action_touch.pressed = true
+            world.interaction_timer = 0.0
+            touch._input(action_touch)
+            if world.interaction_timer <= 0.0 or world.dialogue_label.text.find("Bu Sari") < 0:
+                push_error("MOBILE FAIL: action touch did not interact with Bu Sari")
+                failures = true
+            action_touch.pressed = false
+            touch._input(action_touch)
+            run_touch.pressed = false
+            touch._input(run_touch)
+            first.pressed = false
+            touch._input(first)
+            await physics_frame
+            if player.mobile_direction.length_squared() > 0.001 or player.mobile_run_held:
+                push_error("MOBILE FAIL: touch release leaves ghost input")
+                failures = true
+            if actor != null and actor.flip_h:
+                push_error("MOBILE FAIL: base artwork unexpectedly flipped")
+                failures = true
+            touch.set_test_visible(false)
+            player.global_position = Vector2(700,617)
         # Regression: long movement must never take the player into the sky.
         Input.action_press("ui_up")
         for i in range(240):
@@ -175,5 +237,5 @@ func _check() -> void:
     if failures:
         quit(1)
     else:
-        print("SMOKE PASS: eight native RGBA protagonist bases are ACTIVE; no mirroring; stable feet, camera, crop collision and NPC")
+        print("SMOKE PASS: native 8-dir RGBA protagonist and dual-touch joystick/run/action, camera, crop collision and NPC")
         quit(0)

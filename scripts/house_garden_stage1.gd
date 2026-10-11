@@ -3,6 +3,7 @@ extends Node2D
 ## Every texture is preloaded so the Godot Web exporter includes real binary assets.
 
 const PLAYER_SCRIPT = preload("res://scripts/stage1_player.gd")
+const MOBILE_CONTROLS_SCRIPT = preload("res://scripts/mobile_touch_controls.gd")
 const GROUND = preload("res://assets/art/layers/background_base.png")
 const HOUSE = preload("res://assets/art/layers/house.png")
 const COOP = preload("res://assets/art/layers/coop.png")
@@ -34,6 +35,7 @@ func _ready() -> void:
     _make_bu_sari()
     _make_player()
     _make_ui()
+    _make_mobile_controls()
     print("STAGE1 ART LOADED: %d layer sprites, player and Bu Sari separated" % layer_count)
 
 func _sprite(parent: Node, name: String, tex: Texture2D, at: Vector2, depth: int) -> Sprite2D:
@@ -153,7 +155,8 @@ func _make_ui() -> void:
     # Artwork already has the approved in-image HUD; don't obscure it
     # with large prototype dark boxes. Native dynamic UI will replace it
     # only when the HUD is extracted as real transparent assets.
-    _panel(hud,Color(0.10,0.18,0.13,0.70),Vector2(809,660),Vector2(445,43))
+    var desktop_hint := _panel(hud,Color(0.10,0.18,0.13,0.70),Vector2(809,660),Vector2(445,43))
+    desktop_hint.name = "DesktopHintBackground"
     hint_label = _label(hud,"WASD / Panah: jalan  |  E: interaksi",Vector2(820,665),16,Color("#fff6e3"))
     dialogue_panel = _panel(hud,Color(0.13,0.20,0.16,0.95),Vector2(273,548),Vector2(740,86))
     dialogue_label = _label(dialogue_panel,"",Vector2(23,16),20,Color("#fff5e4"))
@@ -184,6 +187,54 @@ func _make_ui() -> void:
         JavaScriptBridge.eval("window.history.replaceState(null, '', window.location.pathname + window.location.search)", true)
         call_deferred("_open_model_lab")
 
+func _make_mobile_controls() -> void:
+    var touch_layer := CanvasLayer.new()
+    touch_layer.name = "MobileControlsLayer"
+    touch_layer.layer = 20
+    add_child(touch_layer)
+    var controls := Control.new()
+    controls.name = "TouchControls"
+    controls.set_script(MOBILE_CONTROLS_SCRIPT)
+    # Set anchors after parenting so the control follows the live canvas.
+    touch_layer.add_child(controls)
+    controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    controls.move_changed.connect(_on_mobile_move)
+    controls.run_changed.connect(_on_mobile_run)
+    controls.interact_requested.connect(_try_interact)
+    if controls.visible:
+        # Touch overlay replaces desktop-only HUD hints, avoiding obstruction.
+        hint_label.visible = false
+        var hint_panel := get_node_or_null("HUD/DesktopHintBackground") as ColorRect
+        if hint_panel != null:
+            hint_panel.visible = false
+        var lab_button := get_node_or_null("HUD/Open3DCharacterLab") as Button
+        if lab_button != null:
+            lab_button.visible = false
+        dialogue_panel.position = Vector2(240, 75)
+        dialogue_panel.size = Vector2(800, 95)
+        dialogue_label.size = Vector2(745, 72)
+    print("STAGE1 TOUCH HUD READY")
+
+func _on_mobile_move(direction: Vector2) -> void:
+    if is_instance_valid(player):
+        player.set("mobile_direction", direction)
+
+func _on_mobile_run(holding: bool) -> void:
+    if is_instance_valid(player):
+        player.set("mobile_run_held", holding)
+
+func _try_interact() -> void:
+    if not is_instance_valid(player) or not is_instance_valid(npc):
+        return
+    if player.position.distance_to(npc.position) <= 112.0:
+        dialogue_label.text = "Bu Sari: Selamat pulang, Nak! Rumah ini sudah lama menunggumu."
+        interaction_timer = 5.0
+        dialogue_panel.visible = true
+    elif player.position.distance_to(Vector2(475,690)) < 110.0:
+        dialogue_label.text = "Kebun tomat. Nanti kamu bisa mencangkul, menanam, menyiram, lalu panen."
+        interaction_timer = 4.0
+        dialogue_panel.visible = true
+
 func _process(delta: float) -> void:
     if interaction_timer > 0.0:
         interaction_timer -= delta
@@ -205,11 +256,4 @@ func _unhandled_input(event: InputEvent) -> void:
         _open_model_lab()
         return
     if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
-        if player.position.distance_to(npc.position) <= 112.0:
-            dialogue_label.text = "Bu Sari: Selamat pulang, Nak! Rumah ini sudah lama menunggumu."
-            interaction_timer = 5.0
-            dialogue_panel.visible = true
-        elif player.position.distance_to(Vector2(475,690)) < 110.0:
-            dialogue_label.text = "Kebun tomat. Nanti kamu bisa mencangkul, menanam, menyiram, lalu panen."
-            interaction_timer = 4.0
-            dialogue_panel.visible = true
+        _try_interact()
