@@ -16,8 +16,8 @@ const RUN_ORIGIN := Vector2(0.0, -70.798) # 778px frame, feet aligned with body 
 # and 13.0=26 visible fps. Do not replay the startup/stop poses in loop.
 const WALK_FPS := 6.0
 const RUN_FPS := 13.0
-const LOOP_FIRST := 14 # zero-based frame 14
-const LOOP_AFTER_LAST := 28 # exclusive frame 28 (14 poses)
+const LOOP_FIRST := 15 # zero-based frame 15
+const LOOP_AFTER_LAST := 29 # exclusive frame 29 (14 poses)
 var facing: Vector2 = Vector2(1.0, 1.0).normalized()
 var facing_name: String = "down_right"
 var animation_state: String = "idle"
@@ -54,7 +54,7 @@ func _ready() -> void:
     actor.material = HERO_GRADE.duplicate() as ShaderMaterial
     _setup_animations()
     actor.play("idle_" + facing_name)
-    print("LEMBAH ASRI: imported runner looping source frames 14-27 (14 poses), walk 12fps, run 26fps")
+    print("LEMBAH ASRI: imported runner looping source frames 15-28 (14 poses), walk 12fps, run 26fps")
 
 func _setup_animations() -> void:
     assert(SOURCE_FRAMES.has_animation("row_1"))
@@ -75,7 +75,7 @@ func _setup_animations() -> void:
                 # Original row_1 includes anticipation/acceleration frames 0-13
                 # and the braking pose at frame 30. Replaying those on every
                 # lap made the character appear to stop and restart.
-                # Frames 14..27 form a continuous mid-stride section whose
+                # Frames 15..28 form a continuous mid-stride section whose
                 # closing pose closely resembles its first pose.
                 for idx in range(LOOP_FIRST, LOOP_AFTER_LAST):
                     var duration: float = SOURCE_FRAMES.get_frame_duration("row_1", idx)

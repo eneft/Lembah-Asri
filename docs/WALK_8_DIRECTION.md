@@ -10,8 +10,8 @@ Frame dan pijakan: atlas 512×778, skala game 0.182, offset (0,-70.798), collide
 
 ## Penyempurnaan gameplay (audit 11 Oktober 2026)
 
-- Aset asli `Run.tres` masih memuat 31 frame, tapi siklus `walk_*` dan `run_*` kini hanya mengambil frame indeks **14–27**. Frame antisipasi (0–13) dan pengereman (28–30) tidak ikut loop, sehingga tidak ada jeda paksa saat kembali ke awal.
+- Aset asli `Run.tres` masih memuat 31 frame, tapi siklus `walk_*` dan `run_*` kini hanya mengambil frame indeks **15–28**. Frame antisipasi (0–13) dan pengereman (28–30) tidak ikut loop, sehingga tidak ada jeda paksa saat kembali ke awal.
 - Durasi sumber pada bagian tengah adalah 0.5 unit/frame. Setelan animasi Godot `WALK_FPS=6.0` menghasilkan ~12 fps tampilan; `RUN_FPS=13.0` menghasilkan ~26 fps tampilan, dan kecepatan karakter lari naik ke 325 unit/detik. Frame terakhir dipersingkat 22% agar seam tidak tertahan.
 - Tambahkan `FootContactShadow` radial tipis di belakang sepatu dan pulihkan sebagian kontras/saturasi karakter via material, **tanpa mengubah atlas maupun footprint collider**.
-- Uji render sekarang mencakup frame 14, 16, 20, 24, 27 serta seam 27→14.
+- Uji render sekarang mencakup frame 15, 16, 20, 24, 28 serta seam 28→15 dengan ambang relatif terhadap perubahan antarlangkah.
 - Walk masih *adaptasi gerakan run*, belum walk cycle anatomis yang dibuat khusus. Seluruh arah selain kanan/kiri juga masih memakai profil samping sementara.

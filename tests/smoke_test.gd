@@ -67,7 +67,7 @@ func _check() -> void:
             if mode != "idle":
                 var first: Texture2D = actor.sprite_frames.get_frame_texture(key,0)
                 var last: Texture2D = actor.sprite_frames.get_frame_texture(key,13)
-                if first != src.get_frame_texture("row_1",14) or last != src.get_frame_texture("row_1",27):
+                if first != src.get_frame_texture("row_1",15) or last != src.get_frame_texture("row_1",28):
                     push_error("RUN FAIL: startup/stopping frames have leaked into " + key)
                     failed = true
                 var expected_fps: float = 13.0 if mode == "run" else 6.0
