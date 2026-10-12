@@ -56,6 +56,37 @@ jobs:
           echo "Web export files:"
           ls -lh build/web/
 
+      - name: Smoke test eight-direction preview
+        run: |
+          set -o pipefail
+          godot --headless --audio-driver Dummy --path . --script res://tests/run8_directions_smoke.gd 2>&1 | tee run8-smoke.log
+          if grep -E 'SCRIPT ERROR|ERROR:|RUN8 FAIL' run8-smoke.log; then
+            echo "Run8 test failed"; exit 1
+          fi
+          grep -q 'RUN8 PASS:' run8-smoke.log
+
+      - name: Export isolated eight-direction preview (game main remains unchanged)
+        run: |
+          set -euo pipefail
+          cp project.godot /tmp/lembah-main-project.godot
+          trap 'cp /tmp/lembah-main-project.godot project.godot' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("project.godot")
+          text = path.read_text(encoding="utf-8")
+          src = 'run/main_scene="res://scenes/house_garden_stage1.tscn"'
+          dst = 'run/main_scene="res://scenes/run8_test.tscn"'
+          assert src in text, "Main scene has changed; do not replace it silently"
+          path.write_text(text.replace(src, dst), encoding="utf-8")
+          PY
+          mkdir -p build/web/run8
+          godot --headless --path . --editor --quit
+          godot --headless --path . --export-release "Web" build/web/run8/index.html
+          test -s build/web/run8/index.html
+          test -s build/web/run8/index.wasm
+          test -s build/web/run8/index.pck
+          echo "RUN8 EXPORT PASS"
+
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:
