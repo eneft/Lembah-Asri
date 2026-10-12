@@ -44,7 +44,7 @@ func _ready() -> void:
    for a in names:
     for j in source.get_frame_count(a):
      frames.append(source.get_frame_texture(a,j))
-  var key := "run_" + d
+  var key: String = "run_" + str(d)
   bank.add_animation(key)
   bank.set_animation_speed(key,12.0)
   bank.set_animation_loop(key,true)
