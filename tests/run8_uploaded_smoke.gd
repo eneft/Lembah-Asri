@@ -127,6 +127,50 @@ func _check() -> void:
         quit(1)
         return
     print("UPLOADED RUN8 CADENCE PASS: 12 FPS on 8 directions, normalized movement, stride phase preserved")
+    # Visible alpha bounds, NOT PNG canvas dimensions, define perceived size.
+    # Verify all 8 native/mirrored directions display one consistent body height
+    # and anchor their median foot baseline to the same actor.position.
+    var expected_body_screen_px: float = node.ACTOR_BASE_SCALE * node.TARGET_VISIBLE_HEIGHT
+    var observed_scale: Dictionary = {}
+    var observed_foot: Dictionary = {}
+    for direction in directions:
+        node.set_direction(direction, true)
+        if not node.SOURCE_VISIBLE_HEIGHT.has(direction):
+            push_error("UPLOADED RUN8 FAIL: direction lacks silhouette calibration: " + direction)
+            quit(1)
+            return
+        if not node.SOURCE_FOOT_BASELINE.has(direction):
+            push_error("UPLOADED RUN8 FAIL: direction lacks foot alignment: " + direction)
+            quit(1)
+            return
+        var source_height: float = float(node.SOURCE_VISIBLE_HEIGHT[direction])
+        var foot_y: float = float(node.SOURCE_FOOT_BASELINE[direction])
+        var visible_height: float = actor.scale.y * source_height
+        if absf(visible_height - expected_body_screen_px) > 0.02:
+            push_error("UPLOADED RUN8 FAIL: size differs from reference: " + direction + " rendered_height=" + str(visible_height))
+            quit(1)
+            return
+        if absf(actor.scale.x - actor.scale.y) > 0.00001:
+            push_error("UPLOADED RUN8 FAIL: non-proportional XY scale: " + direction)
+            quit(1)
+            return
+        if absf(actor.offset.y + foot_y) > 0.001 or absf(actor.offset.x + node.PIVOT_X) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: foot pivot misaligned: " + direction)
+            quit(1)
+            return
+        observed_scale[direction] = actor.scale.x
+        observed_foot[direction] = actor.offset.y
+        print("UPLOADED RUN8 SIZE PASS: ", direction, " rendered_visible_height_px=", visible_height, " actor_scale=", actor.scale.x, " foot=", -actor.offset.y)
+    for pairing in [["left", "right"], ["down_left", "down_right"], ["up_left", "up_right"]]:
+        if absf(float(observed_scale[pairing[0]]) - float(observed_scale[pairing[1]])) > 0.00001:
+            push_error("UPLOADED RUN8 FAIL: mirrored pair has differing size: " + str(pairing))
+            quit(1)
+            return
+        if absf(float(observed_foot[pairing[0]]) - float(observed_foot[pairing[1]])) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: mirrored pair has differing foot pivot: " + str(pairing))
+            quit(1)
+            return
+    print("UPLOADED RUN8 PROPORTIONS PASS: 8 matched visible heights, uniform XY scale, foot pivots and mirrors")
     node.queue_free()
     print("UPLOADED RUN8 PASS")
     quit(0)
