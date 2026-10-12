@@ -65,6 +65,16 @@ jobs:
           fi
           grep -q 'RUN8 PASS:' run8-smoke.log
 
+      - name: Verify uploaded run animation actually loads
+        run: |
+          set -o pipefail
+          godot --headless --audio-driver Dummy --path . --script res://tests/run8_uploaded_smoke.gd 2>&1 | tee uploaded-run8-smoke.log
+          if grep -E 'SCRIPT ERROR|ERROR:|UPLOADED RUN8 FAIL' uploaded-run8-smoke.log; then
+            echo "Uploaded run8 scene has runtime errors"
+            exit 1
+          fi
+          grep -q 'UPLOADED RUN8 PASS' uploaded-run8-smoke.log
+
       - name: Export isolated eight-direction preview (game main remains unchanged)
         run: |
           set -euo pipefail
