@@ -167,16 +167,16 @@ func _ready() -> void:
  _make_ui()
  set_direction("down",false)
  queue_redraw()
-# The two problematic uploaded sheets are NOT uniform uninterrupted cycles:
-# - Side source has row_3 (7), row_4 (7), row_6 (5), row_7 (7).
-#   Missing row_5 means sampling through all 26 frames creates a stride jump.
-#   row_6 + row_7 are 12 consecutive RUN poses, with no source segment gap.
-# - The 21-frame rear diagonal has 7 entry/acceleration frames (row_1).
-#   A loop through its row_1 makes the run look like it pauses on each repeat.
-#   Loop 12 consecutive frames from the actual running section (row_2/3).
-# These indexes are source AtlasTextures, NOT flattened spritesheet-grid cells.
-# Original images, colors, run FPS, idle sprites, and pivots remain unchanged.
-const SIDE_RUN_LOOP_12 := [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+# Per-pose audit: side-source rows have 7+7+5+7 frames, with missing
+# row_5. The former 14..25 selection (row_6/7) had an abrupt 25->14 wrap.
+# Visual and pixel-space continuity are better for 2..13 (row_3/4):
+# 2->13 wraps at 0.193 normalized composited-image distance versus 0.230,
+# with typical internal transitions around 0.188. Keep twelve true poses.
+# Rear-diagonal is a TURNING / acceleration sequence, not a faithful looping
+# running cycle; the index selection below is only a provisional fallback.
+# It cannot become seamless without new source poses or true in-between art.
+# Original source resources, idle, palette, pivots and 12 FPS are unchanged.
+const SIDE_RUN_LOOP_12 := [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 const REAR_DIAGONAL_RUN_LOOP_12 := [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
 func run_source_indices(direction: String, source_count: int) -> PackedInt32Array:
