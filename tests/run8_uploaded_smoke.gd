@@ -214,6 +214,33 @@ func _check() -> void:
             quit(1)
             return
     print("UPLOADED RUN8 PROPORTIONS PASS: 8 matched visible heights, uniform XY scale, foot pivots and mirrors")
+    # Color consistency is display-only. The 12 source-texture frames and
+    # 12 FPS stay unchanged, including both mirrored right/left directions.
+    var grade: ShaderMaterial = actor.material as ShaderMaterial
+    if grade == null or grade.shader == null:
+        push_error("UPLOADED RUN8 FAIL: color grade material missing")
+        quit(1)
+        return
+    for direction in directions:
+        node.set_direction(direction, true)
+        var actual_gain: Vector3 = grade.get_shader_parameter("channel_gain")
+        var actual_saturation: float = grade.get_shader_parameter("saturation")
+        var expected_gain: Vector3 = node.SIDE_COLOR_GAIN if direction == "left" or direction == "right" else node.NEUTRAL_COLOR_GAIN
+        var expected_saturation: float = node.SIDE_SATURATION if direction == "left" or direction == "right" else 1.0
+        if actual_gain.distance_to(expected_gain) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: wrong color balance for " + direction)
+            quit(1)
+            return
+        if absf(actual_saturation - expected_saturation) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: wrong saturation for " + direction)
+            quit(1)
+            return
+        if actor.sprite_frames.get_frame_count("run_" + direction) != 12:
+            push_error("UPLOADED RUN8 FAIL: color correction altered animation frames for " + direction)
+            quit(1)
+            return
+        print("UPLOADED RUN8 COLOR PASS: ", direction, " gain=", actual_gain, " saturation=", actual_saturation)
+    print("UPLOADED RUN8 COLOR GRADING PASS: 8 directions, matched L/R saturation, original alpha preserved")
     node.queue_free()
     print("UPLOADED RUN8 PASS")
     quit(0)
