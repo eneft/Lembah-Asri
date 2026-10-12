@@ -13,7 +13,29 @@ const IDLE_VISIBLE_HEIGHT := {
  "up_right": 1492.0, "up": 1529.0, "up_left": 1490.0,
  "left": 1515.0, "down_left": 1494.0
 }
-const IDLE_BASE_PATH := "res://assets/characters/player_base_8dir/"
+const IDLE_BASE_PATH := "res://assets/characters/player_base_8dir/" # Legacy ONLY if new files are missing.
+# User-supplied latest idle PNGs, with three mirrored partners. All 5 are
+# required before switching sources to prevent mixed art/style in one session.
+const NEW_IDLE_BASE_PATH := "res://assets/characters/idle_uploaded/"
+const NEW_IDLE_SOURCE := {
+ "down": "front", "down_right": "front_right", "right": "right",
+ "up_right": "back_right", "up": "back",
+ "up_left": "back_right", "left": "right", "down_left": "front_right"
+}
+# Actual alpha>=25 bounding boxes of the five latest images, all 1024x1536.
+const NEW_IDLE_VISIBLE_HEIGHT := {
+ "front": 1430.0, "front_right": 1447.0, "right": 1373.0,
+ "back_right": 1394.0, "back": 1396.0
+}
+const NEW_IDLE_FOOT_Y := {
+ "front": 1464.0, "front_right": 1491.0, "right": 1457.0,
+ "back_right": 1436.0, "back": 1436.0
+}
+const NEW_IDLE_PIVOT_X := {
+ "front": 528.0, "front_right": 524.0, "right": 510.0,
+ "back_right": 540.5, "back": 521.5
+}
+
 # Display-only color normalization measured against the existing diagonal
 # sources. Side views are slightly redder / more saturated than other views.
 # Keep original PNGs, animation frames, alpha, pivots, scale and FPS unchanged.
@@ -63,7 +85,17 @@ var current_dir := "down"
 var touch_dir := ""
 var info: Label
 var frames_count := {}
+var using_new_idle: bool = false
 func _ready() -> void:
+ using_new_idle = true
+ for source_name in ["front", "front_right", "right", "back_right", "back"]:
+  if not ResourceLoader.exists(NEW_IDLE_BASE_PATH + source_name + ".png"):
+   using_new_idle = false
+   break
+ if using_new_idle:
+  print("IDLE SOURCE: latest five PNGs, 8 dirs with 3 mirrors")
+ else:
+  push_warning("LATEST IDLE PNGs NOT IN GITHUB: still using legacy until 5 files are uploaded under assets/characters/idle_uploaded")
  var bank := SpriteFrames.new()
  if bank.has_animation("default"): bank.remove_animation("default")
  for d in DIRECTIONS:
@@ -118,12 +150,12 @@ func _ready() -> void:
    bank.add_frame(key, frame)
   frames_count[d] = run_frames.size()
   print("RUN8 RETIME %s: %d original -> %d frames @ %.0f FPS" % [d, frames.size(), run_frames.size(), RUN_FPS])
- # Full native 8-direction idle poses. Never mirror the existing left views:
- # each idle view was supplied separately in the approved character source.
+ # Prefer the five NEW user-uploaded pose PNGs when all are actually present.
+ # Mirror only left-facing partners; never mirror the hair or redraw frames.
  for d in DIRECTIONS:
-  var idle_path: String = IDLE_BASE_PATH + str(d) + ".png"
+  var idle_path: String = NEW_IDLE_BASE_PATH + str(NEW_IDLE_SOURCE[d]) + ".png" if using_new_idle else IDLE_BASE_PATH + str(d) + ".png"
   var idle_texture: Texture2D = load(idle_path) as Texture2D
-  assert(idle_texture != null, "Missing actual uploaded IDLE pose: " + idle_path)
+  assert(idle_texture != null, "Missing IDLE pose: " + idle_path)
   var idle_name: String = "idle_" + str(d)
   bank.add_animation(idle_name)
   bank.set_animation_speed(idle_name, 1.0)
@@ -185,21 +217,32 @@ func _apply_color_grade(direction: String) -> void:
   grade.set_shader_parameter("saturation", 1.0)
 
 func apply_proportions(direction: String, moving: bool = true) -> void:
- # The idle images have a DIFFERENT 1152x1632 source canvas from the
- # running sprites (768x1168). Align them by their real silhouette height
- # and original heel/ground pivot, without stretching either image.
- var source_height: float = float(SOURCE_VISIBLE_HEIGHT[direction]) if moving else float(IDLE_VISIBLE_HEIGHT[direction])
- var source_foot: float = float(SOURCE_FOOT_BASELINE[direction]) if moving else IDLE_FOOT_Y
+ # Calibrate each distinct canvas to a single visible body height and heel
+ # position; never resize or recolor the source PNG.
+ var source_height: float = float(SOURCE_VISIBLE_HEIGHT[direction])
+ var source_foot: float = float(SOURCE_FOOT_BASELINE[direction])
+ var source_pivot_x: float = PIVOT_X
+ if not moving:
+  if using_new_idle:
+   var origin: String = str(NEW_IDLE_SOURCE[direction])
+   source_height = float(NEW_IDLE_VISIBLE_HEIGHT[origin])
+   source_foot = float(NEW_IDLE_FOOT_Y[origin])
+   source_pivot_x = float(NEW_IDLE_PIVOT_X[origin])
+  else:
+   source_height = float(IDLE_VISIBLE_HEIGHT[direction])
+   source_foot = IDLE_FOOT_Y
+   source_pivot_x = IDLE_PIVOT_X
  var scale_factor: float = ACTOR_BASE_SCALE * TARGET_VISIBLE_HEIGHT / source_height
  actor.scale = Vector2(scale_factor, scale_factor)
- actor.offset = Vector2(-PIVOT_X, -source_foot) if moving else Vector2(-IDLE_PIVOT_X, -source_foot)
+ actor.offset = Vector2(-source_pivot_x, -source_foot)
 
 func set_direction(d: String, moving: bool) -> void:
  current_dir = d
  apply_proportions(d, moving)
  _apply_color_grade(d)
- # Run uses mirrored source pairs; IDLE uses all 8 native, non-mirrored images.
- actor.flip_h = moving and d in ["left", "down_left", "up_left"]
+ # New IDLE uses 5 source images and mirrors 3 left directions. Legacy idle
+ # already has unique native left poses so it must NOT be mirrored.
+ actor.flip_h = d in ["left", "down_left", "up_left"] if (moving or using_new_idle) else false
  var key: String = ("run_" if moving else "idle_") + d
  # Keep the stride phase when changing direction mid-run. Previously changing
  # animation reset the pose to frame 0, making turns seem slower or jerky.
@@ -222,7 +265,8 @@ func set_direction(d: String, moving: bool) -> void:
   actor.stop()
   actor.frame = 0
  if info != null:
-  info.text = "Arah: %s | %d RUN frames @ %.0f FPS | %s" % [d, int(frames_count[d]), RUN_FPS, "RUN" if moving else "IDLE"]
+  var state_label: String = "RUN" if moving else ("IDLE NEW" if using_new_idle else "IDLE LEGACY — NEW PNGs NOT UPLOADED")
+  info.text = "Arah: %s | %d RUN frames @ %.0f FPS | %s" % [d, int(frames_count[d]), RUN_FPS, state_label]
 
 func move_in_direction(direction: Vector2, delta: float) -> void:
  # Normalization is essential: diagonal input (1,1) must NOT move sqrt(2)x faster.
