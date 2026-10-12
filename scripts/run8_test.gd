@@ -5,11 +5,11 @@ extends Node2D
 ## The separately uploaded 8x8 RUN spritesheets are not committed yet.
 const DIRS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const SOURCES := {
-    "right": "res://assets/characters/player_hd/walk_atlases/right.png",
-    "down_right": "res://assets/characters/player_hd/walk_atlases/down_right.png",
-    "down": "res://assets/characters/player_hd/walk_atlases/down.png",
-    "up_right": "res://assets/characters/player_hd/walk_atlases/up_right.png",
-    "up": "res://assets/characters/player_hd/walk_atlases/up.png"
+    "right": "res://assets/characters/player_hd/walk16/right.png",
+    "down_right": "res://assets/characters/player_hd/walk16/down_right.png",
+    "down": "res://assets/characters/player_hd/walk16/down.png",
+    "up_right": "res://assets/characters/player_hd/walk16/up_right.png",
+    "up": "res://assets/characters/player_hd/walk16/up.png"
 }
 const TOUCH := {
     "up_left": Vector2(-1, -1), "up": Vector2(0, -1), "up_right": Vector2(1, -1),
