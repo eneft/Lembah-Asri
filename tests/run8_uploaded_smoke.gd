@@ -241,6 +241,55 @@ func _check() -> void:
             return
         print("UPLOADED RUN8 COLOR PASS: ", direction, " gain=", actual_gain, " saturation=", actual_saturation)
     print("UPLOADED RUN8 COLOR GRADING PASS: 8 directions, matched L/R saturation, original alpha preserved")
+    # All 8 native IDLE assets were already uploaded under player_base_8dir.
+    # Verify that stopping selects those original stills, never a frozen
+    # mid-stride frame, and that native left idle views are not mirrored.
+    for direction in directions:
+        node.set_direction(direction, false)
+        var idle_key: String = "idle_" + direction
+        if actor.animation != idle_key:
+            push_error("UPLOADED RUN8 FAIL: stopping did not select real IDLE " + direction)
+            quit(1)
+            return
+        if actor.is_playing():
+            push_error("UPLOADED RUN8 FAIL: static idle is unexpectedly playing: " + direction)
+            quit(1)
+            return
+        if actor.flip_h:
+            push_error("UPLOADED RUN8 FAIL: native idle should not be mirrored: " + direction)
+            quit(1)
+            return
+        if actor.sprite_frames.get_frame_count(idle_key) != 1:
+            push_error("UPLOADED RUN8 FAIL: missing native idle pose for " + direction)
+            quit(1)
+            return
+        var idle_path: String = node.IDLE_BASE_PATH + direction + ".png"
+        var expected_idle_tex: Texture2D = load(idle_path) as Texture2D
+        if expected_idle_tex == null or actor.sprite_frames.get_frame_texture(idle_key, 0) != expected_idle_tex:
+            push_error("UPLOADED RUN8 FAIL: wrong original idle texture for " + direction)
+            quit(1)
+            return
+        if expected_idle_tex.get_size() != Vector2(1152, 1632):
+            push_error("UPLOADED RUN8 FAIL: invalid original idle PNG dimensions for " + direction)
+            quit(1)
+            return
+        var idle_visible_px: float = actor.scale.y * float(node.IDLE_VISIBLE_HEIGHT[direction])
+        if absf(idle_visible_px - expected_body_screen_px) > 0.05:
+            push_error("UPLOADED RUN8 FAIL: native idle height does not match run for " + direction)
+            quit(1)
+            return
+        if absf(actor.offset.x + node.IDLE_PIVOT_X) > 0.001 or absf(actor.offset.y + node.IDLE_FOOT_Y) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: idle boot pivot off for " + direction)
+            quit(1)
+            return
+        node.set_direction(direction, true)
+        if actor.animation != "run_" + direction or not actor.is_playing():
+            push_error("UPLOADED RUN8 FAIL: does not resume run from idle for " + direction)
+            quit(1)
+            return
+        print("UPLOADED RUN8 IDLE PASS: ", direction, " native_original=true still_frames=1 scaled_visible_px=", idle_visible_px)
+    node.set_direction("down", false)
+    print("UPLOADED RUN8 IDLE 8-DIR PASS: all 8 native poses, matching height and pivot, RUN transitions")
     node.queue_free()
     print("UPLOADED RUN8 PASS")
     quit(0)
