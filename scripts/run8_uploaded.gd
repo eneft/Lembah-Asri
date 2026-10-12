@@ -5,6 +5,60 @@ const COLOR_GRADE := {
  "left": {"gain": Vector3(0.955, 1.041, 1.008), "saturation": 0.942, "brightness": 1.0}
 }
 const DEFAULT_COLOR_GRADE := {"gain": Vector3(1.0, 1.0, 1.0), "saturation": 1.0, "brightness": 1.0}
+const IDLE_BASE_PATH := "res://assets/characters/player_base_8dir/" # Legacy ONLY if new files are missing.
+# User-supplied latest idle PNGs, with three mirrored partners. All 5 are
+# required before switching sources to prevent mixed art/style in one session.
+const NEW_IDLE_BASE_PATH := "res://assets/characters/idle_uploaded/"
+const NEW_IDLE_SOURCE := {
+ "down": "front", "down_right": "front_right", "right": "right",
+ "up_right": "back_right", "up": "back",
+ "up_left": "back_right", "left": "right", "down_left": "front_right"
+}
+# Actual alpha>=25 bounding boxes of the five latest images, all 1024x1536.
+const NEW_IDLE_VISIBLE_HEIGHT := {
+ "front": 1430.0, "front_right": 1447.0, "right": 1373.0,
+ "back_right": 1394.0, "back": 1396.0
+}
+const NEW_IDLE_FOOT_Y := {
+ "front": 1464.0, "front_right": 1491.0, "right": 1457.0,
+ "back_right": 1436.0, "back": 1436.0
+}
+const NEW_IDLE_PIVOT_X := {
+ "front": 528.0, "front_right": 524.0, "right": 510.0,
+ "back_right": 540.5, "back": 521.5
+}
+
+# Display-only color normalization measured against the existing diagonal
+# sources. Side views are slightly redder / more saturated than other views.
+# Keep original PNGs, animation frames, alpha, pivots, scale and FPS unchanged.
+const SIDE_COLOR_GAIN := Vector3(0.955, 1.041, 1.008)
+const SIDE_SATURATION := 0.942
+const NEUTRAL_COLOR_GAIN := Vector3(1.0, 1.0, 1.0)
+# Visual-bounds calibration of the CURRENT uploaded sprite resources (alpha >= 25).
+# All resource frames use a 768x1168 canvas, but the visible character heights
+# are not equal. Normalize the median silhouette heights per DIRECTION, never
+# individual poses: resizing each frame would create an ugly pumping effect.
+# Values below are the median measured visible alpha bounds of source frames.
+const ACTOR_BASE_SCALE := 0.23
+const TARGET_VISIBLE_HEIGHT := 1101.0 # Front/down source is the size reference.
+const PIVOT_X := 384.0
+const SOURCE_VISIBLE_HEIGHT := {
+ "right": 988.0, "left": 988.0,
+ "down_right": 1076.5, "down_left": 1076.5,
+ "down": 1101.0,
+ "up_right": 1048.0, "up_left": 1048.0,
+ "up": 1081.0
+}
+# Median bottom of alpha silhouette in the 768x1168 source canvas.
+# Place this foot baseline on the node origin for EVERY direction, eliminating
+# floating/sinking when turning between differently cropped source sprites.
+const SOURCE_FOOT_BASELINE := {
+ "right": 1081.0, "left": 1081.0,
+ "down_right": 1097.5, "down_left": 1097.5,
+ "down": 1126.0,
+ "up_right": 1073.0, "up_left": 1073.0,
+ "up": 1120.0
+}
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const RESOURCES := {
  "right": "res://assets/characters/run_uploaded/right/lembah_asri_run_49_frames_7x7_lossless.tres",
@@ -29,7 +83,17 @@ var current_dir := "down"
 var touch_dir := ""
 var info: Label
 var frames_count := {}
+var using_new_idle: bool = false
 func _ready() -> void:
+ using_new_idle = true
+ for source_name in ["front", "front_right", "right", "back_right", "back"]:
+  if not ResourceLoader.exists(NEW_IDLE_BASE_PATH + source_name + ".png"):
+   using_new_idle = false
+   break
+ if using_new_idle:
+  print("IDLE SOURCE: latest five PNGs, 8 dirs with 3 mirrors")
+ else:
+  push_warning("LATEST IDLE PNGs NOT IN GITHUB: still using legacy until 5 files are uploaded under assets/characters/idle_uploaded")
  var bank := SpriteFrames.new()
  if bank.has_animation("default"): bank.remove_animation("default")
  for d in DIRECTIONS:
@@ -58,22 +122,23 @@ func _ready() -> void:
      frames.append(source.get_frame_texture(a,j))
   var key := "run_" + d
   bank.add_animation(key)
-  bank.set_animation_speed(key,12.0)
-  bank.set_animation_loop(key,true)
-  for frame in frames: bank.add_frame(key,frame)
-  frames_count[d] = frames.size()
- for idle_dir in DIRECTIONS:
-  var idle_origin: String = idle_dir
-  if idle_dir == "left": idle_origin = "right"
-  if idle_dir == "down_left": idle_origin = "down_right"
-  if idle_dir == "up_left": idle_origin = "up_right"
-  var idle_tex: Texture2D = load(IDLE_RESOURCES[idle_origin])
-  assert(idle_tex != null, "Missing idle image: " + idle_origin)
-  var idle_key := "idle_" + idle_dir
-  bank.add_animation(idle_key)
-  bank.set_animation_speed(idle_key,1.0)
-  bank.set_animation_loop(idle_key,true)
-  bank.add_frame(idle_key, idle_tex)
+  bank.set_animation_speed(key, RUN_FPS)
+  bank.set_animation_loop(key, true)
+  for frame in run_frames:
+   bank.add_frame(key, frame)
+  frames_count[d] = run_frames.size()
+  print("RUN8 RETIME %s: %d original -> %d frames @ %.0f FPS" % [d, frames.size(), run_frames.size(), RUN_FPS])
+ # Prefer the five NEW user-uploaded pose PNGs when all are actually present.
+ # Mirror only left-facing partners; never mirror the hair or redraw frames.
+ for d in DIRECTIONS:
+  var idle_path: String = NEW_IDLE_BASE_PATH + str(NEW_IDLE_SOURCE[d]) + ".png" if using_new_idle else IDLE_BASE_PATH + str(d) + ".png"
+  var idle_texture: Texture2D = load(idle_path) as Texture2D
+  assert(idle_texture != null, "Missing IDLE pose: " + idle_path)
+  var idle_name: String = "idle_" + str(d)
+  bank.add_animation(idle_name)
+  bank.set_animation_speed(idle_name, 1.0)
+  bank.set_animation_loop(idle_name, false)
+  bank.add_frame(idle_name, idle_texture)
  actor.sprite_frames = bank
  _ensure_color_material()
  actor.position = Vector2(640,470)
@@ -99,20 +164,55 @@ void fragment() {
  material.shader = shader
  actor.material = material
 
-func _apply_color_grade(direction: String) -> void:
- var cfg: Dictionary = COLOR_GRADE.get(direction, DEFAULT_COLOR_GRADE)
+func _apply_color_grade(direction: String, moving: bool = true) -> void:
  var material := actor.material as ShaderMaterial
  if material == null:
   return
+ if (moving or not using_new_idle) and (direction == "right" or direction == "left"):
+  material.set_shader_parameter("channel_gain", SIDE_COLOR_GAIN)
+  material.set_shader_parameter("saturation", float(SIDE_SATURATION))
+  material.set_shader_parameter("brightness", 1.0)
+  return
+ var cfg: Dictionary = COLOR_GRADE.get(direction, DEFAULT_COLOR_GRADE)
  material.set_shader_parameter("channel_gain", cfg["gain"])
  material.set_shader_parameter("saturation", float(cfg["saturation"]))
  material.set_shader_parameter("brightness", float(cfg["brightness"]))
 
-func set_direction(d:String, moving:bool) -> void:
+func apply_proportions(direction: String, moving: bool = true) -> void:
+ # Calibrate each distinct canvas to a single visible body height and heel
+ # position; never resize or recolor the source PNG.
+ var source_height: float = float(SOURCE_VISIBLE_HEIGHT[direction])
+ var source_foot: float = float(SOURCE_FOOT_BASELINE[direction])
+ var source_pivot_x: float = PIVOT_X
+ if not moving:
+  if using_new_idle:
+   var origin: String = str(NEW_IDLE_SOURCE[direction])
+   source_height = float(NEW_IDLE_VISIBLE_HEIGHT[origin])
+   source_foot = float(NEW_IDLE_FOOT_Y[origin])
+   source_pivot_x = float(NEW_IDLE_PIVOT_X[origin])
+  else:
+   source_height = float(IDLE_VISIBLE_HEIGHT[direction])
+   source_foot = IDLE_FOOT_Y
+   source_pivot_x = IDLE_PIVOT_X
+ var scale_factor: float = ACTOR_BASE_SCALE * TARGET_VISIBLE_HEIGHT / source_height
+ actor.scale = Vector2(scale_factor, scale_factor)
+ actor.offset = Vector2(-source_pivot_x, -source_foot)
+
+func set_direction(d: String, moving: bool) -> void:
  current_dir = d
- _apply_color_grade(d)
- actor.flip_h = d in ["left","down_left","up_left"]
- var key := ("run_" + d) if moving else ("idle_" + d)
+ apply_proportions(d, moving)
+ _apply_color_grade(d, moving)
+ # New IDLE uses 5 source images and mirrors 3 left directions. Legacy idle
+ # already has unique native left poses so it must NOT be mirrored.
+ actor.flip_h = d in ["left", "down_left", "up_left"] if (moving or using_new_idle) else false
+ var key: String = ("run_" if moving else "idle_") + d
+ # Keep the stride phase when changing direction mid-run. Previously changing
+ # animation reset the pose to frame 0, making turns seem slower or jerky.
+ var was_running: bool = actor.is_playing()
+ var phase: float = 0.0
+ if moving and was_running:
+  var previous_count: int = max(1, actor.sprite_frames.get_frame_count(actor.animation))
+  phase = fposmod((float(actor.frame) + actor.frame_progress) / float(previous_count), 1.0)
  if actor.animation != key:
   actor.animation = key
  if moving:
@@ -121,7 +221,17 @@ func set_direction(d:String, moving:bool) -> void:
   actor.stop()
   actor.frame = 0
  if info != null:
-  info.text = "Arah: %s | %d frame run | %s" % [d,frames_count[d],"RUN" if moving else "IDLE"]
+  var state_label: String = "RUN" if moving else ("IDLE NEW" if using_new_idle else "IDLE LEGACY — NEW PNGs NOT UPLOADED")
+  info.text = "Arah: %s | %d RUN frames @ %.0f FPS | %s" % [d, int(frames_count[d]), RUN_FPS, state_label]
+
+func move_in_direction(direction: Vector2, delta: float) -> void:
+ # Normalization is essential: diagonal input (1,1) must NOT move sqrt(2)x faster.
+ if direction == Vector2.ZERO:
+  return
+ var unit_direction: Vector2 = direction.normalized()
+ actor.position = (actor.position + unit_direction * MOVE_SPEED * maxf(delta, 0.0)).clamp(Vector2(110, 200), Vector2(1170, 655))
+ var idx: int = posmod(int(round(unit_direction.angle() / (PI / 4.0))), 8)
+ set_direction(DIRECTIONS[idx], true)
 func _process(delta:float) -> void:
  var v := Vector2.ZERO
  if Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A): v.x -= 1
