@@ -1,6 +1,7 @@
 extends Node2D
 # Isolated test only. Original main scene unchanged.
 const RUN_FPS := 12.0 # Exactly 12 displayed animation frames per second for every direction.
+const RUN_FRAME_COUNT := 12 # 12 source slots per loop: consistent cadence at 12 FPS.
 const MOVE_SPEED := 160.0 # Identical pixels/second for all directions, including diagonals.
 # Visual-bounds calibration of the CURRENT uploaded sprite resources (alpha >= 25).
 # All resource frames use a 768x1168 canvas, but the visible character heights
@@ -87,19 +88,40 @@ func _ready() -> void:
    for a in names:
     for j in source.get_frame_count(a):
      frames.append(source.get_frame_texture(a,j))
+  # Re-time the original pose sequence onto exactly twelve uniform slots.
+  # Long sources: choose ordered key poses across the source sequence.
+  # Short sources: repeat only existing poses at distributed positions.
+  # Keep uploaded .tres/PNG files completely untouched.
+  var run_frames: Array[Texture2D] = retime_run_frames(frames)
   var key: String = "run_" + str(d)
   bank.add_animation(key)
-  # Every source frame has equal duration (SpriteFrames.add_frame defaults to 1.0).
-  # The eight animations play at the SAME 12 FPS, with no frame drops or re-sampling.
   bank.set_animation_speed(key, RUN_FPS)
-  bank.set_animation_loop(key,true)
-  for frame in frames: bank.add_frame(key,frame)
-  frames_count[d] = frames.size()
+  bank.set_animation_loop(key, true)
+  for frame in run_frames:
+   bank.add_frame(key, frame)
+  frames_count[d] = run_frames.size()
+  print("RUN8 RETIME %s: %d original -> %d frames @ %.0f FPS" % [d, frames.size(), run_frames.size(), RUN_FPS])
  actor.sprite_frames = bank
  actor.position = Vector2(640,470)
  _make_ui()
  set_direction("down",false)
  queue_redraw()
+# Even phase-based sampling retains the original pose order, including both
+# leg-contact phases. Indices use a half-open interval [0, original_count),
+# avoiding duplicated wrap-around frames and providing stable loops.
+# Example: 8 -> 12 = [0,0,1,2,2,3,4,4,5,6,6,7]
+# 18/21/26 -> 12: skips only intermediate source poses, never interpolates
+# or alters pixel/alpha data. Original sources remain available for later edits.
+func retime_run_frames(original_frames: Array[Texture2D]) -> Array[Texture2D]:
+ var source_count: int = original_frames.size()
+ assert(source_count >= 2, "Run animation must contain at least two original poses")
+ var result: Array[Texture2D] = []
+ for slot in range(RUN_FRAME_COUNT):
+  var source_index: int = clampi(int(floor(float(slot) * float(source_count) / float(RUN_FRAME_COUNT))), 0, source_count - 1)
+  result.append(original_frames[source_index])
+ assert(result.size() == RUN_FRAME_COUNT)
+ return result
+
 func apply_proportions(direction: String) -> void:
  # One uniform factor for X and Y keeps each illustrated body proportional.
  # Mirrored partners share EXACTLY the same scale, foot baseline, and silhouette.
