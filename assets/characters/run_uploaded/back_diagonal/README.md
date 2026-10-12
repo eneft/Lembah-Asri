@@ -1,9 +1,19 @@
-# Approved rear-diagonal run sprite
+# Rear-diagonal RUN — edited Godot 4 source
 
-Place the exact PNG named `lembah_asri_run_49_7x7_transparent_lossless.png` here.
+Authoritative user-approved asset: **back_left_right_godot4.zip**.
 
-Source: user-provided 49-frame transparent sprite sheet, 7x7 cells, 768x1168 px per frame (5376x8176 total).
+Copy the **three resource files** directly into this directory:
 
-The isolated `run8_uploaded.gd` loads this native sheet for `up_right` (back-right), and mirrors the same image for `up_left` (back-left). Until the PNG arrives, a legacy temporary rear-diagonal source is used to keep the test running.
+- `back_left_right.tres`
+- `back_left_right-0.png`
+- `back_left_right-1.png`
 
-Do not resize, re-encode, or add character assets to the main scene. The `/run8-uploaded/` URL tests the isolated scene.
+Godot's `back_left_right.tres` references the two PNG pages **relatively**, so keep these names intact. The archive contains three seven-frame rows (`row_1`, `row_2`, `row_3`), which form **one sequential 21-frame run**; do not use each row as a different direction.
+
+Isolated test mappings:
+- `up_right` (Back Right): native 21-frame edited resource.
+- `up_left` (Back Left): horizontal mirror of the same 21 frames.
+
+`run8_uploaded.gd` normalizes all run-loop durations across all eight directions without degrading the images. The previous temporary rear-diagonal source is used only until these files arrive. `tests/run8_uploaded_smoke.gd` checks the frame count, 768x1168 canvas, and mirroring once they exist.
+
+Main-game scene, project.godot, and gameplay remain unchanged. Test only at `/run8-uploaded/`.
