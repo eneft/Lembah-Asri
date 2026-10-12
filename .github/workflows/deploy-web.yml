@@ -86,6 +86,23 @@ jobs:
           test -s build/web/run8/index.wasm
           test -s build/web/run8/index.pck
           echo "RUN8 EXPORT PASS"
+          # Also export the actual uploaded run sprites without replacing the legacy comparison.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("project.godot")
+          s = p.read_text(encoding="utf-8")
+          old = 'run/main_scene="res://scenes/run8_test.tscn"'
+          new = 'run/main_scene="res://scenes/run8_uploaded.tscn"'
+          assert old in s
+          p.write_text(s.replace(old, new), encoding="utf-8")
+          PY
+          mkdir -p build/web/run8-uploaded
+          godot --headless --path . --editor --quit
+          godot --headless --path . --export-release "Web" build/web/run8-uploaded/index.html
+          test -s build/web/run8-uploaded/index.html
+          test -s build/web/run8-uploaded/index.wasm
+          test -s build/web/run8-uploaded/index.pck
+          echo "RUN8 UPLOADED EXPORT PASS"
 
       - name: Upload browser build
         uses: actions/upload-artifact@v4
