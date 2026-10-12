@@ -24,8 +24,8 @@ func _check() -> void:
             quit(1)
             return
         var count: int = actor.sprite_frames.get_frame_count(key)
-        if count < 2:
-            push_error("UPLOADED RUN8 FAIL: insufficient frames " + key)
+        if count != 12:
+            push_error("UPLOADED RUN8 FAIL: expected EXACTLY 12 retimed frames for " + key + ", got " + str(count))
             quit(1)
             return
         node.set_direction(d, true)
@@ -52,16 +52,26 @@ func _check() -> void:
             return
         for direction in ["up_left", "up_right"]:
             var anim: String = "run_" + direction
-            if actor.sprite_frames.get_frame_count(anim) != expected_frames:
-                push_error("UPLOADED RUN8 FAIL: unexpected rear-diagonal frame count for " + direction)
+            if actor.sprite_frames.get_frame_count(anim) != 12:
+                push_error("UPLOADED RUN8 FAIL: edited rear diagonal did not retime to 12: " + direction)
                 quit(1)
                 return
-            var example_texture: Texture2D = actor.sprite_frames.get_frame_texture(anim, 0)
-            if example_texture.get_size() != Vector2(768, 1168):
-                push_error("UPLOADED RUN8 FAIL: rear-diagonal canvas size differs from 768x1168")
-                quit(1)
-                return
-        print("UPLOADED RUN8 APPROVED BACK DIAGONAL PASS: 21 frames, common canvas, mirrored")
+            for out_index in range(12):
+                # Preserve exactly the ordered source poses in the native 21-frame
+                # resource; the mirror setting may change, never the texture.
+                var input_index: int = int(floor(float(out_index) * 21.0 / 12.0))
+                var row_name: String = "row_" + str(int(input_index / 7) + 1)
+                var expected_tex: Texture2D = approved_frames.get_frame_texture(row_name, input_index % 7)
+                var actual_tex: Texture2D = actor.sprite_frames.get_frame_texture(anim, out_index)
+                if actual_tex != expected_tex:
+                    push_error("UPLOADED RUN8 FAIL: reordered/altered edited source frame in " + direction + "#" + str(out_index))
+                    quit(1)
+                    return
+                if actual_tex.get_size() != Vector2(768, 1168):
+                    push_error("UPLOADED RUN8 FAIL: edited source frame canvas size is wrong")
+                    quit(1)
+                    return
+        print("UPLOADED RUN8 APPROVED BACK DIAGONAL PASS: 21 source poses -> 12 ordered frames, common canvas, mirrored")
     else:
         print("UPLOADED RUN8 NOTE: edited back_left_right.tres/PNG assets not yet in repository")
     node.set_direction("up_right", true)
@@ -115,6 +125,39 @@ func _check() -> void:
             quit(1)
             return
         print("UPLOADED RUN8 12FPS PASS: ", direction, " frames=", frame_count, " fps=", fps, " cycle_s=", float(frame_count) / fps, " move_px_100ms=", distance)
+    # Native source integrity: 8/18/26 and edited 21 image frames remain in
+    # their original SpriteFrames resources, while active previews use 12.
+    var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 21}
+    var source_to_retuned: Dictionary = {}
+    for direction in directions:
+        var original_name: String = direction
+        if direction == "left":
+            original_name = "right"
+        elif direction == "down_left":
+            original_name = "down_right"
+        elif direction == "up_left":
+            original_name = "up_right"
+        var source_length: int = int(source_lengths[original_name])
+        var preceding_index: int = -1
+        var unique_input_indexes: Dictionary = {}
+        for target_index in range(12):
+            var from_source: int = int(floor(float(target_index) * float(source_length) / 12.0))
+            if from_source < preceding_index or from_source >= source_length:
+                push_error("UPLOADED RUN8 FAIL: retiming order broken for " + direction)
+                quit(1)
+                return
+            preceding_index = from_source
+            unique_input_indexes[from_source] = true
+        # 8 -> 12 repeats only four source poses, while longer sources
+        # cover all 12 output slots with non-repeated original textures.
+        var expected_unique: int = mini(source_length, 12)
+        if unique_input_indexes.size() != expected_unique:
+            push_error("UPLOADED RUN8 FAIL: source poses lost or over-repeated in " + direction)
+            quit(1)
+            return
+        source_to_retuned[direction] = unique_input_indexes.size()
+        print("UPLOADED RUN8 PHASE PASS: ", direction, " input=", source_length, " output=12 distinct=", unique_input_indexes.size())
+    # Do not shift the foot anchor or resize the sprite during frame selection.
     # Turning mid-stride must not jump back to first frame.
     node.set_direction("down", true)
     actor.play()
@@ -126,7 +169,7 @@ func _check() -> void:
         push_error("UPLOADED RUN8 FAIL: run phase resets on direction change")
         quit(1)
         return
-    print("UPLOADED RUN8 CADENCE PASS: 12 FPS on 8 directions, normalized movement, stride phase preserved")
+    print("UPLOADED RUN8 CADENCE PASS: 8 x 12 FRAMES @ 12 FPS, normalized movement, stride phase preserved")
     # Visible alpha bounds, NOT PNG canvas dimensions, define perceived size.
     # Verify all 8 native/mirrored directions display one consistent body height
     # and anchor their median foot baseline to the same actor.position.
