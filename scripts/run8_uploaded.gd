@@ -3,6 +3,12 @@ extends Node2D
 const RUN_FPS := 12.0 # Exactly 12 displayed animation frames per second for every direction.
 const RUN_FRAME_COUNT := 12 # 12 source slots per loop: consistent cadence at 12 FPS.
 const MOVE_SPEED := 160.0 # Identical pixels/second for all directions, including diagonals.
+# Display-only color normalization measured against the existing diagonal
+# sources. Side views are slightly redder / more saturated than other views.
+# Keep original PNGs, animation frames, alpha, pivots, scale and FPS unchanged.
+const SIDE_COLOR_GAIN := Vector3(0.955, 1.041, 1.008)
+const SIDE_SATURATION := 0.942
+const NEUTRAL_COLOR_GAIN := Vector3(1.0, 1.0, 1.0)
 # Visual-bounds calibration of the CURRENT uploaded sprite resources (alpha >= 25).
 # All resource frames use a 768x1168 canvas, but the visible character heights
 # are not equal. Normalize the median silhouette heights per DIRECTION, never
@@ -102,6 +108,7 @@ func _ready() -> void:
   frames_count[d] = run_frames.size()
   print("RUN8 RETIME %s: %d original -> %d frames @ %.0f FPS" % [d, frames.size(), run_frames.size(), RUN_FPS])
  actor.sprite_frames = bank
+ _setup_color_material()
  actor.position = Vector2(640,470)
  _make_ui()
  set_direction("down",false)
@@ -122,6 +129,39 @@ func retime_run_frames(original_frames: Array[Texture2D]) -> Array[Texture2D]:
  assert(result.size() == RUN_FRAME_COUNT)
  return result
 
+func _setup_color_material() -> void:
+ # In Godot CanvasItem fragment, COLOR already contains the sampled texture
+ # multiplied by the actor's modulate. Do not sample TEXTURE again or the
+ # sprites become unintentionally double-darkened.
+ var shader := Shader.new()
+ shader.code = """
+shader_type canvas_item;
+uniform vec3 channel_gain = vec3(1.0, 1.0, 1.0);
+uniform float saturation = 1.0;
+void fragment() {
+ vec4 original = COLOR;
+ vec3 balanced = original.rgb * channel_gain;
+ float luminosity = dot(balanced, vec3(0.2126, 0.7152, 0.0722));
+ balanced = mix(vec3(luminosity), balanced, saturation);
+ COLOR = vec4(clamp(balanced, vec3(0.0), vec3(1.0)), original.a);
+}
+"""
+ var grade := ShaderMaterial.new()
+ grade.shader = shader
+ actor.material = grade
+
+func _apply_color_grade(direction: String) -> void:
+ var grade: ShaderMaterial = actor.material as ShaderMaterial
+ if grade == null:
+  return
+ # Both mirrored side views use the same color treatment.
+ if direction == "right" or direction == "left":
+  grade.set_shader_parameter("channel_gain", SIDE_COLOR_GAIN)
+  grade.set_shader_parameter("saturation", SIDE_SATURATION)
+ else:
+  grade.set_shader_parameter("channel_gain", NEUTRAL_COLOR_GAIN)
+  grade.set_shader_parameter("saturation", 1.0)
+
 func apply_proportions(direction: String) -> void:
  # One uniform factor for X and Y keeps each illustrated body proportional.
  # Mirrored partners share EXACTLY the same scale, foot baseline, and silhouette.
@@ -135,6 +175,7 @@ func apply_proportions(direction: String) -> void:
 func set_direction(d: String, moving: bool) -> void:
  current_dir = d
  apply_proportions(d)
+ _apply_color_grade(d)
  actor.flip_h = d in ["left", "down_left", "up_left"]
  var key: String = "run_" + d
  # Keep the stride phase when changing direction mid-run. Previously changing
