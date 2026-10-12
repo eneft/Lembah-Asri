@@ -28,32 +28,30 @@ func _ready() -> void:
   if d == "up_left": origin = "up_right"
   var frames: Array[Texture2D] = []
   if origin == "up_right":
-   # New approved rear-diagonal source: 49 transparent 768x1168 cells (7x7).
-   # Keep the previous asset only as a non-breaking fallback until the new PNG
-   # is committed; the run8-uploaded scene must remain runnable meanwhile.
-   var approved_path: String = "res://assets/characters/run_uploaded/back_diagonal/lembah_asri_run_49_7x7_transparent_lossless.png"
-   var has_approved: bool = ResourceLoader.exists(approved_path)
-   var source_path: String = approved_path if has_approved else "res://assets/characters/run_uploaded/up_right/Natural_run_cycle_in_place.png"
-   var tex: Texture2D = load(source_path) as Texture2D
-   assert(tex != null, "Missing rear-diagonal sheet: " + source_path)
-   var cols: int = 7 if has_approved else 6
-   var cell_w: int = int(tex.get_width() / cols)
-   var cell_h: int = int(tex.get_height() / cols)
-   assert((tex.get_width() % cols) == 0 and (tex.get_height() % cols) == 0)
-   if has_approved:
-    assert(cell_w == 768 and cell_h == 1168, "Unexpected dimensions for approved rear-diagonal sprites")
-    print("RUN8 BACK DIAGONAL: approved 49-frame upload")
+   # New user-approved file back_left_right_godot4.zip: 3 sequential
+   # source rows x 7 frames = ONE natural, 21-frame running cycle.
+   # Do not treat rows as different directions.
+   var approved_path: String = "res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres"
+   if ResourceLoader.exists(approved_path):
+    var approved: SpriteFrames = load(approved_path) as SpriteFrames
+    assert(approved != null, "Approved back-diagonal SpriteFrames failed to load")
+    for row_name in ["row_1", "row_2", "row_3"]:
+     assert(approved.has_animation(row_name), "Missing approved animation row: " + row_name)
+     for j in range(approved.get_frame_count(row_name)):
+      frames.append(approved.get_frame_texture(row_name, j))
+    assert(frames.size() == 21, "Approved back-diagonal source should contain 21 continuous frames")
+    print("RUN8 BACK DIAGONAL: approved back_left_right.tres / 21 frames")
    else:
-    print("RUN8 BACK DIAGONAL: fallback until approved PNG is committed")
-   # New file uses all 49 real poses; old source skips the first bad cell.
-   var begin_frame: int = 0 if has_approved else 1
-   var end_frame: int = 49 if has_approved else 31
-   for i in range(begin_frame, end_frame):
-    var frame := AtlasTexture.new()
-    frame.atlas = tex
-    frame.region = Rect2((i % cols) * cell_w, int(i / cols) * cell_h, cell_w, cell_h)
-    frame.filter_clip = true
-    frames.append(frame)
+    # Keep test usable until the two edited PNGs and .tres have been uploaded.
+    var fallback: Texture2D = load("res://assets/characters/run_uploaded/up_right/Natural_run_cycle_in_place.png") as Texture2D
+    assert(fallback != null, "Missing temporary back-diagonal sheet")
+    for i in range(1, 31):
+     var frame := AtlasTexture.new()
+     frame.atlas = fallback
+     frame.region = Rect2((i % 6) * 512, int(i / 6) * 898, 512, 898)
+     frame.filter_clip = true
+     frames.append(frame)
+    print("RUN8 BACK DIAGONAL: temporary asset, awaiting edited back_left_right ZIP")
   else:
    var source: SpriteFrames = load(RESOURCES[origin]) as SpriteFrames
    assert(source != null, "Missing original upload: " + origin)
@@ -64,7 +62,7 @@ func _ready() -> void:
      frames.append(source.get_frame_texture(a,j))
   var key: String = "run_" + str(d)
   bank.add_animation(key)
-  # 8, 18, 26, 30 or 49 frames all complete in LOOP_SECONDS.
+  # All directions finish a complete running cycle in the same LOOP_SECONDS.
   bank.set_animation_speed(key, float(frames.size()) / LOOP_SECONDS)
   bank.set_animation_loop(key,true)
   for frame in frames: bank.add_frame(key,frame)
