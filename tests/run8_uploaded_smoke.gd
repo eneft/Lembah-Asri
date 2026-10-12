@@ -71,7 +71,10 @@ func _check() -> void:
                     push_error("UPLOADED RUN8 FAIL: edited rear diagonal canvas changed")
                     quit(1)
                     return
-        print("UPLOADED RUN8 APPROVED BACK DIAGONAL PASS: 21-source, clean 12-frame run section, 2 mirrored directions")
+        # The source is a camera-turn sequence with alternating near-duplicate
+        # frames, NOT a validated seamless full RUN loop. This check confirms
+        # resource mapping only; a proper loop requires new source artwork.
+        print("UPLOADED RUN8 REAR RESOURCE PASS: edited source mapped; VISUAL LOOP CONTINUITY NOT VERIFIED")
     else:
         print("UPLOADED RUN8 NOTE: edited back_left_right.tres/PNG assets not yet in repository")
     node.set_direction("up_right", true)
