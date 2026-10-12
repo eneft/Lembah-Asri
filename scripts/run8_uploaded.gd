@@ -1,5 +1,6 @@
 extends Node2D
 # Isolated test only. Original main scene unchanged.
+const LOOP_SECONDS := 1.0 # Same complete run-loop duration in all eight directions.
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const RESOURCES := {
  "right": "res://assets/characters/run_uploaded/right/lembah_asri_run_49_frames_7x7_lossless.tres",
@@ -27,13 +28,30 @@ func _ready() -> void:
   if d == "up_left": origin = "up_right"
   var frames: Array[Texture2D] = []
   if origin == "up_right":
-   var tex: Texture2D = load("res://assets/characters/run_uploaded/up_right/Natural_run_cycle_in_place.png")
-   assert(tex != null)
-   # 6 columns x 6 rows; first cell has dark artifact, use valid cells 1..30.
-   for i in range(1,31):
+   # New approved rear-diagonal source: 49 transparent 768x1168 cells (7x7).
+   # Keep the previous asset only as a non-breaking fallback until the new PNG
+   # is committed; the run8-uploaded scene must remain runnable meanwhile.
+   var approved_path: String = "res://assets/characters/run_uploaded/back_diagonal/lembah_asri_run_49_7x7_transparent_lossless.png"
+   var has_approved: bool = ResourceLoader.exists(approved_path)
+   var source_path: String = approved_path if has_approved else "res://assets/characters/run_uploaded/up_right/Natural_run_cycle_in_place.png"
+   var tex: Texture2D = load(source_path) as Texture2D
+   assert(tex != null, "Missing rear-diagonal sheet: " + source_path)
+   var cols: int = 7 if has_approved else 6
+   var cell_w: int = int(tex.get_width() / cols)
+   var cell_h: int = int(tex.get_height() / cols)
+   assert((tex.get_width() % cols) == 0 and (tex.get_height() % cols) == 0)
+   if has_approved:
+    assert(cell_w == 768 and cell_h == 1168, "Unexpected dimensions for approved rear-diagonal sprites")
+    print("RUN8 BACK DIAGONAL: approved 49-frame upload")
+   else:
+    print("RUN8 BACK DIAGONAL: fallback until approved PNG is committed")
+   # New file uses all 49 real poses; old source skips the first bad cell.
+   var begin_frame: int = 0 if has_approved else 1
+   var end_frame: int = 49 if has_approved else 31
+   for i in range(begin_frame, end_frame):
     var frame := AtlasTexture.new()
     frame.atlas = tex
-    frame.region = Rect2((i % 6)*512,int(i / 6)*898,512,898)
+    frame.region = Rect2((i % cols) * cell_w, int(i / cols) * cell_h, cell_w, cell_h)
     frame.filter_clip = true
     frames.append(frame)
   else:
@@ -46,7 +64,8 @@ func _ready() -> void:
      frames.append(source.get_frame_texture(a,j))
   var key: String = "run_" + str(d)
   bank.add_animation(key)
-  bank.set_animation_speed(key,12.0)
+  # 8, 18, 26, 30 or 49 frames all complete in LOOP_SECONDS.
+  bank.set_animation_speed(key, float(frames.size()) / LOOP_SECONDS)
   bank.set_animation_loop(key,true)
   for frame in frames: bank.add_frame(key,frame)
   frames_count[d] = frames.size()
