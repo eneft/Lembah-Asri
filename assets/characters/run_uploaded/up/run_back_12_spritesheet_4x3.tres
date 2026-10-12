@@ -1,0 +1,155 @@
+[gd_resource type="SpriteFrames" load_steps=10 format=3]
+
+[ext_resource type="Texture2D" path="run_back_12_spritesheet_4x3.png" id="1_page"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_1"]
+atlas = ExtResource("1_page")
+region = Rect2(1086, 1104, 512, 1061)
+margin = Rect2(101, 58, 256, 107)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2"]
+atlas = ExtResource("1_page")
+region = Rect2(1600, 1023, 473, 1096)
+margin = Rect2(179, 25, 295, 72)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3"]
+atlas = ExtResource("1_page")
+region = Rect2(1084, 0, 499, 1102)
+margin = Rect2(206, 9, 269, 66)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4"]
+atlas = ExtResource("1_page")
+region = Rect2(0, 1138, 521, 1033)
+margin = Rect2(204, 36, 247, 135)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5"]
+atlas = ExtResource("1_page")
+region = Rect2(573, 1115, 511, 1066)
+margin = Rect2(182, 64, 257, 102)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6"]
+atlas = ExtResource("1_page")
+region = Rect2(573, 0, 509, 1113)
+margin = Rect2(120, 28, 259, 55)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7"]
+atlas = ExtResource("1_page")
+region = Rect2(0, 0, 571, 1136)
+margin = Rect2(44, 0, 197, 32)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8"]
+atlas = ExtResource("1_page")
+region = Rect2(1585, 0, 574, 1021)
+margin = Rect2(32, 31, 194, 147)
+filter_clip = true
+
+[resource]
+metadata/nerulio = {
+"generator": "Nerulio Studio",
+"schemaVersion": 1,
+"frames": {
+"run_back_12_spritesheet_4x3_02": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_1",
+"boxes": [],
+"collision": []
+},
+"run_back_12_spritesheet_4x3_03": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_1",
+"boxes": [],
+"collision": []
+},
+"run_back_12_spritesheet_4x3_04": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_2",
+"boxes": [],
+"collision": []
+},
+"run_back_12_spritesheet_4x3_05": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_2",
+"boxes": [],
+"collision": []
+},
+"run_back_12_spritesheet_4x3_06": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_2",
+"boxes": [],
+"collision": []
+},
+"run_back_12_spritesheet_4x3_07": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_2",
+"boxes": [],
+"collision": []
+},
+"run_back_12_spritesheet_4x3_08": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_3",
+"boxes": [],
+"collision": []
+},
+"run_back_12_spritesheet_4x3_09": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_3",
+"boxes": [],
+"collision": []
+}
+}
+}
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_2")
+}],
+"loop": true,
+"name": &"row_1",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6")
+}],
+"loop": true,
+"name": &"row_2",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8")
+}],
+"loop": true,
+"name": &"row_3",
+"speed": 10.0
+}]

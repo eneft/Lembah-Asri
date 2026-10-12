@@ -1,0 +1,155 @@
+[gd_resource type="SpriteFrames" load_steps=10 format=3]
+
+[ext_resource type="Texture2D" path="run_12_spritesheet_4x3_1.png" id="1_page"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_1"]
+atlas = ExtResource("1_page")
+region = Rect2(1024, 0, 501, 1111)
+margin = Rect2(141, 27, 267, 57)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2"]
+atlas = ExtResource("1_page")
+region = Rect2(1024, 1113, 502, 1101)
+margin = Rect2(114, 8, 266, 67)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3"]
+atlas = ExtResource("1_page")
+region = Rect2(1528, 1071, 511, 1052)
+margin = Rect2(135, 0, 257, 116)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4"]
+atlas = ExtResource("1_page")
+region = Rect2(518, 0, 504, 1133)
+margin = Rect2(126, 15, 264, 35)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5"]
+atlas = ExtResource("1_page")
+region = Rect2(0, 1135, 488, 1101)
+margin = Rect2(154, 41, 280, 67)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6"]
+atlas = ExtResource("1_page")
+region = Rect2(490, 1135, 500, 1092)
+margin = Rect2(175, 22, 268, 76)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7"]
+atlas = ExtResource("1_page")
+region = Rect2(1527, 0, 516, 1069)
+margin = Rect2(149, 0, 252, 99)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8"]
+atlas = ExtResource("1_page")
+region = Rect2(0, 0, 516, 1133)
+margin = Rect2(161, 20, 252, 35)
+filter_clip = true
+
+[resource]
+metadata/nerulio = {
+"generator": "Nerulio Studio",
+"schemaVersion": 1,
+"frames": {
+"run_12_spritesheet_4x3_1__02": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_1",
+"boxes": [],
+"collision": [[454, 1137, 252, 546, 142, 602, 273, 108, 422, 28, 575, 137, 641, 507, 603, 659, 501, 580]]
+},
+"run_12_spritesheet_4x3_1__03": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_1",
+"boxes": [],
+"collision": [[438, 1108, 383, 944, 273, 926, 248, 398, 115, 425, 296, 264, 257, 105, 410, 9, 566, 133, 516, 260, 615, 415]]
+},
+"run_12_spritesheet_4x3_1__04": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_2",
+"boxes": [],
+"collision": [[368, 1051, 269, 367, 136, 342, 272, 232, 252, 91, 436, 0, 645, 437]]
+},
+"run_12_spritesheet_4x3_1__05": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_2",
+"boxes": [],
+"collision": [[360, 1147, 309, 559, 222, 602, 256, 409, 127, 437, 295, 286, 262, 93, 411, 16, 547, 112, 627, 490, 417, 861, 443, 1130]]
+},
+"run_12_spritesheet_4x3_1__06": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_2",
+"boxes": [],
+"collision": [[363, 1141, 305, 576, 184, 656, 161, 481, 289, 288, 264, 117, 423, 42, 561, 141, 635, 633, 519, 642, 543, 808, 420, 885]]
+},
+"run_12_spritesheet_4x3_1__07": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_2",
+"boxes": [],
+"collision": [[342, 1112, 176, 413, 268, 108, 435, 23, 576, 140, 513, 288, 674, 503, 546, 427, 526, 962, 445, 990, 414, 880]]
+},
+"run_12_spritesheet_4x3_1__08": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_3",
+"boxes": [],
+"collision": [[495, 1068, 398, 819, 294, 995, 285, 619, 150, 485, 425, 0, 664, 387, 547, 376, 549, 614, 496, 540]]
+},
+"run_12_spritesheet_4x3_1__09": {
+"pivot": [384, 1168],
+"source_size": [768, 1168],
+"tag": "row_3",
+"boxes": [],
+"collision": [[472, 1152, 398, 789, 298, 822, 162, 493, 265, 126, 439, 21, 676, 490, 551, 437, 578, 618, 498, 569]]
+}
+}
+}
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_2")
+}],
+"loop": true,
+"name": &"row_1",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6")
+}],
+"loop": true,
+"name": &"row_2",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8")
+}],
+"loop": true,
+"name": &"row_3",
+"speed": 10.0
+}]
