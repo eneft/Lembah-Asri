@@ -1,6 +1,6 @@
 extends Node2D
 # Isolated test only. Original main scene unchanged.
-const LOOP_SECONDS := 0.8 # Unified complete RUN cycle, including 8/18/26/21-frame sources.
+const RUN_FPS := 12.0 # Exactly 12 displayed animation frames per second for every direction.
 const MOVE_SPEED := 160.0 # Identical pixels/second for all directions, including diagonals.
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const RESOURCES := {
@@ -63,8 +63,9 @@ func _ready() -> void:
      frames.append(source.get_frame_texture(a,j))
   var key: String = "run_" + str(d)
   bank.add_animation(key)
-  # All directions finish a complete running cycle in the same LOOP_SECONDS.
-  bank.set_animation_speed(key, float(frames.size()) / LOOP_SECONDS)
+  # Every source frame has equal duration (SpriteFrames.add_frame defaults to 1.0).
+  # The eight animations play at the SAME 12 FPS, with no frame drops or re-sampling.
+  bank.set_animation_speed(key, RUN_FPS)
   bank.set_animation_loop(key,true)
   for frame in frames: bank.add_frame(key,frame)
   frames_count[d] = frames.size()
@@ -98,7 +99,7 @@ func set_direction(d: String, moving: bool) -> void:
   actor.stop()
   actor.frame = 0
  if info != null:
-  info.text = "Arah: %s | %d frame | RUN %.2fs/siklus | %s" % [d, int(frames_count[d]), LOOP_SECONDS, "RUN" if moving else "IDLE"]
+  info.text = "Arah: %s | %d frame | RUN %.0f FPS | %s" % [d, int(frames_count[d]), RUN_FPS, "RUN" if moving else "IDLE"]
 
 func move_in_direction(direction: Vector2, delta: float) -> void:
  # Normalization is essential: diagonal input (1,1) must NOT move sqrt(2)x faster.
