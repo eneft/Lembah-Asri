@@ -74,9 +74,9 @@ func _check() -> void:
         push_error("UPLOADED RUN8 FAIL: back-left should be mirrored PNG")
         quit(1)
         return
-    # Every 8-direction animation must use exactly the same complete-cycle
-    # duration even when source sheets have different frame counts.
-    var target_duration: float = -1.0
+    # The user explicitly requested 12 FPS, NOT the same total loop duration.
+    # Eight-frame source loops in 8/12 sec; 26-frame source loops in 26/12 sec.
+    # Never discard or duplicate frames merely to force matching cycle duration.
     var directions: Array[String] = ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
     var vectors: Array[Vector2] = [
         Vector2(1,0), Vector2(1,1), Vector2(0,1), Vector2(-1,1),
@@ -86,15 +86,23 @@ func _check() -> void:
         var direction: String = directions[i]
         var anim: String = "run_" + direction
         var frame_count: int = actor.sprite_frames.get_frame_count(anim)
-        var speed: float = actor.sprite_frames.get_animation_speed(anim)
-        var duration: float = float(frame_count) / speed
-        if target_duration < 0.0:
-            target_duration = duration
-        if absf(duration - target_duration) > 0.001:
-            push_error("UPLOADED RUN8 FAIL: unsynchronized animation cycle: " + direction)
+        var fps: float = actor.sprite_frames.get_animation_speed(anim)
+        if absf(fps - 12.0) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: animation FPS is not 12: " + direction + " = " + str(fps))
             quit(1)
             return
-        # Moving diagonally must cover the same distance as cardinal directions.
+        if not actor.sprite_frames.get_animation_loop(anim):
+            push_error("UPLOADED RUN8 FAIL: animation is not looping: " + direction)
+            quit(1)
+            return
+        # SpriteFrames animation_speed is frames/second only when duration=1.
+        for frame_index in range(frame_count):
+            var frame_duration: float = actor.sprite_frames.get_frame_duration(anim, frame_index)
+            if absf(frame_duration - 1.0) > 0.001:
+                push_error("UPLOADED RUN8 FAIL: frame has non-standard duration: " + direction + "#" + str(frame_index))
+                quit(1)
+                return
+        # Movement still uses independent world speed normalized for diagonals.
         actor.position = Vector2(640, 470)
         node.move_in_direction(vectors[i], 0.1)
         var distance: float = actor.position.distance_to(Vector2(640, 470))
@@ -106,11 +114,7 @@ func _check() -> void:
             push_error("UPLOADED RUN8 FAIL: input routed to wrong animation: " + direction)
             quit(1)
             return
-        print("UPLOADED RUN8 SPEED PASS: ", direction, " cycle_s=", duration, " travel_px_100ms=", distance)
-    if target_duration >= 1.0:
-        push_error("UPLOADED RUN8 FAIL: the agreed run animation is still too slow")
-        quit(1)
-        return
+        print("UPLOADED RUN8 12FPS PASS: ", direction, " frames=", frame_count, " fps=", fps, " cycle_s=", float(frame_count) / fps, " move_px_100ms=", distance)
     # Turning mid-stride must not jump back to first frame.
     node.set_direction("down", true)
     actor.play()
@@ -122,7 +126,7 @@ func _check() -> void:
         push_error("UPLOADED RUN8 FAIL: run phase resets on direction change")
         quit(1)
         return
-    print("UPLOADED RUN8 CADENCE PASS: 8 equal-speed directions, diagonals normalized, stride phase preserved")
+    print("UPLOADED RUN8 CADENCE PASS: 12 FPS on 8 directions, normalized movement, stride phase preserved")
     node.queue_free()
     print("UPLOADED RUN8 PASS")
     quit(0)
