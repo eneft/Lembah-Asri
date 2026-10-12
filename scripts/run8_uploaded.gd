@@ -1,6 +1,7 @@
 extends Node2D
 # Isolated test only. Original main scene unchanged.
-const LOOP_SECONDS := 1.0 # Same complete run-loop duration in all eight directions.
+const LOOP_SECONDS := 0.8 # Unified complete RUN cycle, including 8/18/26/21-frame sources.
+const MOVE_SPEED := 160.0 # Identical pixels/second for all directions, including diagonals.
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const RESOURCES := {
  "right": "res://assets/characters/run_uploaded/right/lembah_asri_run_49_frames_7x7_lossless.tres",
@@ -72,17 +73,41 @@ func _ready() -> void:
  _make_ui()
  set_direction("down",false)
  queue_redraw()
-func set_direction(d:String, moving:bool) -> void:
+func set_direction(d: String, moving: bool) -> void:
  current_dir = d
- actor.flip_h = d in ["left","down_left","up_left"]
- var key := "run_" + d
- if actor.animation != key: actor.animation = key
+ actor.flip_h = d in ["left", "down_left", "up_left"]
+ var key: String = "run_" + d
+ # Keep the stride phase when changing direction mid-run. Previously changing
+ # animation reset the pose to frame 0, making turns seem slower or jerky.
+ var was_running: bool = actor.is_playing()
+ var phase: float = 0.0
+ if moving and was_running:
+  var previous_count: int = max(1, actor.sprite_frames.get_frame_count(actor.animation))
+  phase = fposmod((float(actor.frame) + actor.frame_progress) / float(previous_count), 1.0)
+ if actor.animation != key:
+  actor.animation = key
+  if moving and was_running:
+   var next_count: int = actor.sprite_frames.get_frame_count(key)
+   var frame_position: float = phase * float(next_count)
+   var next_frame: int = clampi(int(floor(frame_position)), 0, next_count - 1)
+   actor.set_frame_and_progress(next_frame, frame_position - float(next_frame))
  if moving:
-  if not actor.is_playing(): actor.play()
+  if not actor.is_playing():
+   actor.play()
  else:
   actor.stop()
-  actor.frame=0
- if info != null: info.text = "Arah: %s | %d frame asli | %s" % [d,frames_count[d],"RUN" if moving else "IDLE"]
+  actor.frame = 0
+ if info != null:
+  info.text = "Arah: %s | %d frame | RUN %.2fs/siklus | %s" % [d, int(frames_count[d]), LOOP_SECONDS, "RUN" if moving else "IDLE"]
+
+func move_in_direction(direction: Vector2, delta: float) -> void:
+ # Normalization is essential: diagonal input (1,1) must NOT move sqrt(2)x faster.
+ if direction == Vector2.ZERO:
+  return
+ var unit_direction: Vector2 = direction.normalized()
+ actor.position = (actor.position + unit_direction * MOVE_SPEED * maxf(delta, 0.0)).clamp(Vector2(110, 200), Vector2(1170, 655))
+ var idx: int = posmod(int(round(unit_direction.angle() / (PI / 4.0))), 8)
+ set_direction(DIRECTIONS[idx], true)
 func _process(delta:float) -> void:
  var v := Vector2.ZERO
  if Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A): v.x -= 1
@@ -91,11 +116,9 @@ func _process(delta:float) -> void:
  if Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S): v.y += 1
  if v == Vector2.ZERO and touch_dir != "": v=MOVE[touch_dir]
  if v != Vector2.ZERO:
-  v=v.normalized()
-  actor.position=(actor.position+v*160*delta).clamp(Vector2(110,200),Vector2(1170,655))
-  var idx:=posmod(int(round(v.angle()/(PI/4.0))),8)
-  set_direction(DIRECTIONS[idx],true)
- elif actor.is_playing(): set_direction(current_dir,false)
+  move_in_direction(v, delta)
+ elif actor.is_playing():
+  set_direction(current_dir, false)
 func _draw() -> void:
  draw_rect(Rect2(0,0,1280,720),Color("d6e5c9"))
  for x in range(0,1281,40):draw_line(Vector2(x,0),Vector2(x,720),Color(0.3,0.4,0.3,0.14),1)
