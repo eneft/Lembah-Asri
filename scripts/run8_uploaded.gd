@@ -176,15 +176,15 @@ func _ready() -> void:
 #   Loop 12 consecutive frames from the actual running section (row_2/3).
 # These indexes are source AtlasTextures, NOT flattened spritesheet-grid cells.
 # Original images, colors, run FPS, idle sprites, and pivots remain unchanged.
-const SIDE_RUN_LOOP_12 := PackedInt32Array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25])
-const REAR_DIAGONAL_RUN_LOOP_12 := PackedInt32Array([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+const SIDE_RUN_LOOP_12 := [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+const REAR_DIAGONAL_RUN_LOOP_12 := [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
 func run_source_indices(direction: String, source_count: int) -> PackedInt32Array:
  assert(source_count >= 2, "RUN requires at least two source poses")
  if (direction == "right" or direction == "left") and source_count == 26:
-  return SIDE_RUN_LOOP_12
+  return PackedInt32Array(SIDE_RUN_LOOP_12)
  if (direction == "up_right" or direction == "up_left") and source_count == 21:
-  return REAR_DIAGONAL_RUN_LOOP_12
+  return PackedInt32Array(REAR_DIAGONAL_RUN_LOOP_12)
  # All other directions keep their previously approved source-frame cadence.
  var indices := PackedInt32Array()
  for slot in range(RUN_FRAME_COUNT):
