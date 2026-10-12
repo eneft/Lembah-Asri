@@ -204,12 +204,13 @@ void fragment() {
  grade.shader = shader
  actor.material = grade
 
-func _apply_color_grade(direction: String) -> void:
+func _apply_color_grade(direction: String, moving: bool = true) -> void:
  var grade: ShaderMaterial = actor.material as ShaderMaterial
  if grade == null:
   return
- # Both mirrored side views use the same color treatment.
- if direction == "right" or direction == "left":
+ # The uploaded NEW idle art already has its own native palette; preserve it.
+ # Keep side-view color balancing only for RUN / old fallback.
+ if (moving or not using_new_idle) and (direction == "right" or direction == "left"):
   grade.set_shader_parameter("channel_gain", SIDE_COLOR_GAIN)
   grade.set_shader_parameter("saturation", SIDE_SATURATION)
  else:
@@ -239,7 +240,7 @@ func apply_proportions(direction: String, moving: bool = true) -> void:
 func set_direction(d: String, moving: bool) -> void:
  current_dir = d
  apply_proportions(d, moving)
- _apply_color_grade(d)
+ _apply_color_grade(d, moving)
  # New IDLE uses 5 source images and mirrors 3 left directions. Legacy idle
  # already has unique native left poses so it must NOT be mirrored.
  actor.flip_h = d in ["left", "down_left", "up_left"] if (moving or using_new_idle) else false
