@@ -141,7 +141,7 @@ func _ready() -> void:
   # Long sources: choose ordered key poses across the source sequence.
   # Short sources: repeat only existing poses at distributed positions.
   # Keep uploaded .tres/PNG files completely untouched.
-  var run_frames: Array[Texture2D] = retime_run_frames(frames)
+  var run_frames: Array[Texture2D] = retime_run_frames(d, frames)
   var key: String = "run_" + str(d)
   bank.add_animation(key)
   bank.set_animation_speed(key, RUN_FPS)
@@ -167,20 +167,37 @@ func _ready() -> void:
  _make_ui()
  set_direction("down",false)
  queue_redraw()
-# Even phase-based sampling retains the original pose order, including both
-# leg-contact phases. Indices use a half-open interval [0, original_count),
-# avoiding duplicated wrap-around frames and providing stable loops.
-# Example: 8 -> 12 = [0,0,1,2,2,3,4,4,5,6,6,7]
-# 18/21/26 -> 12: skips only intermediate source poses, never interpolates
-# or alters pixel/alpha data. Original sources remain available for later edits.
-func retime_run_frames(original_frames: Array[Texture2D]) -> Array[Texture2D]:
- var source_count: int = original_frames.size()
- assert(source_count >= 2, "Run animation must contain at least two original poses")
- var result: Array[Texture2D] = []
+# The two problematic uploaded sheets are NOT uniform uninterrupted cycles:
+# - Side source has row_3 (7), row_4 (7), row_6 (5), row_7 (7).
+#   Missing row_5 means sampling through all 26 frames creates a stride jump.
+#   row_6 + row_7 are 12 consecutive RUN poses, with no source segment gap.
+# - The 21-frame rear diagonal has 7 entry/acceleration frames (row_1).
+#   A loop through its row_1 makes the run look like it pauses on each repeat.
+#   Loop 12 consecutive frames from the actual running section (row_2/3).
+# These indexes are source AtlasTextures, NOT flattened spritesheet-grid cells.
+# Original images, colors, run FPS, idle sprites, and pivots remain unchanged.
+const SIDE_RUN_LOOP_12 := PackedInt32Array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25])
+const REAR_DIAGONAL_RUN_LOOP_12 := PackedInt32Array([9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+
+func run_source_indices(direction: String, source_count: int) -> PackedInt32Array:
+ assert(source_count >= 2, "RUN requires at least two source poses")
+ if (direction == "right" or direction == "left") and source_count == 26:
+  return SIDE_RUN_LOOP_12
+ if (direction == "up_right" or direction == "up_left") and source_count == 21:
+  return REAR_DIAGONAL_RUN_LOOP_12
+ # All other directions keep their previously approved source-frame cadence.
+ var indices := PackedInt32Array()
  for slot in range(RUN_FRAME_COUNT):
-  var source_index: int = clampi(int(floor(float(slot) * float(source_count) / float(RUN_FRAME_COUNT))), 0, source_count - 1)
-  result.append(original_frames[source_index])
- assert(result.size() == RUN_FRAME_COUNT)
+  indices.append(clampi(int(floor(float(slot) * float(source_count) / float(RUN_FRAME_COUNT))), 0, source_count - 1))
+ return indices
+
+func retime_run_frames(direction: String, original_frames: Array[Texture2D]) -> Array[Texture2D]:
+ var indices: PackedInt32Array = run_source_indices(direction, original_frames.size())
+ assert(indices.size() == RUN_FRAME_COUNT, "RUN must have exactly 12 frames")
+ var result: Array[Texture2D] = []
+ for i in indices:
+  assert(i >= 0 and i < original_frames.size(), "RUN index out of source range")
+  result.append(original_frames[i])
  return result
 
 func _setup_color_material() -> void:
