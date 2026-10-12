@@ -2,6 +2,32 @@ extends Node2D
 # Isolated test only. Original main scene unchanged.
 const RUN_FPS := 12.0 # Exactly 12 displayed animation frames per second for every direction.
 const MOVE_SPEED := 160.0 # Identical pixels/second for all directions, including diagonals.
+# Visual-bounds calibration of the CURRENT uploaded sprite resources (alpha >= 25).
+# All resource frames use a 768x1168 canvas, but the visible character heights
+# are not equal. Normalize the median silhouette heights per DIRECTION, never
+# individual poses: resizing each frame would create an ugly pumping effect.
+# Values below are the median measured visible alpha bounds of source frames.
+const ACTOR_BASE_SCALE := 0.23
+const TARGET_VISIBLE_HEIGHT := 1101.0 # Front/down source is the size reference.
+const PIVOT_X := 384.0
+const SOURCE_VISIBLE_HEIGHT := {
+ "right": 988.0, "left": 988.0,
+ "down_right": 1076.5, "down_left": 1076.5,
+ "down": 1101.0,
+ "up_right": 1048.0, "up_left": 1048.0,
+ "up": 1081.0
+}
+# Median bottom of alpha silhouette in the 768x1168 source canvas.
+# Place this foot baseline on the node origin for EVERY direction, eliminating
+# floating/sinking when turning between differently cropped source sprites.
+const SOURCE_FOOT_BASELINE := {
+ "right": 1081.0, "left": 1081.0,
+ "down_right": 1097.5, "down_left": 1097.5,
+ "down": 1126.0,
+ "up_right": 1073.0, "up_left": 1073.0,
+ "up": 1120.0
+}
+
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const RESOURCES := {
  "right": "res://assets/characters/run_uploaded/right/lembah_asri_run_49_frames_7x7_lossless.tres",
@@ -74,8 +100,19 @@ func _ready() -> void:
  _make_ui()
  set_direction("down",false)
  queue_redraw()
+func apply_proportions(direction: String) -> void:
+ # One uniform factor for X and Y keeps each illustrated body proportional.
+ # Mirrored partners share EXACTLY the same scale, foot baseline, and silhouette.
+ assert(SOURCE_VISIBLE_HEIGHT.has(direction), "Unknown RUN direction for size calibration")
+ var source_height: float = float(SOURCE_VISIBLE_HEIGHT[direction])
+ var source_foot: float = float(SOURCE_FOOT_BASELINE[direction])
+ var scale_factor: float = ACTOR_BASE_SCALE * TARGET_VISIBLE_HEIGHT / source_height
+ actor.scale = Vector2(scale_factor, scale_factor)
+ actor.offset = Vector2(-PIVOT_X, -source_foot)
+
 func set_direction(d: String, moving: bool) -> void:
  current_dir = d
+ apply_proportions(d)
  actor.flip_h = d in ["left", "down_left", "up_left"]
  var key: String = "run_" + d
  # Keep the stride phase when changing direction mid-run. Previously changing
