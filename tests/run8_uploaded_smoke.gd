@@ -127,7 +127,8 @@ func _check() -> void:
         print("UPLOADED RUN8 12FPS PASS: ", direction, " frames=", frame_count, " fps=", fps, " cycle_s=", float(frame_count) / fps, " move_px_100ms=", distance)
     # Actual source-frame verification, not only FPS or animation length.
     # Native right source is stored as row_3 (7), row_4 (7), row_6 (5),
-    # row_7 (7). A uniform sample crossed the absent row_5 and caused a hitch.
+    # row_7 (7). The last patch row_6/7 still had an ugly 25->14 wrap;
+    # index 2..13 stays in the full row_3+row_4 sequence.
     var side_source: SpriteFrames = load(node.RESOURCES["right"]) as SpriteFrames
     if side_source == null:
         push_error("UPLOADED RUN8 FAIL: original side-run sheet unavailable")
@@ -145,20 +146,20 @@ func _check() -> void:
         return
     for direction in ["right", "left"]:
         var map: PackedInt32Array = node.run_source_indices(direction, side_original.size())
-        if map.size() != 12 or int(map[0]) != 14 or int(map[11]) != 25:
-            push_error("UPLOADED RUN8 FAIL: side run is not the uninterrupted row_6+row_7 cycle")
+        if map.size() != 12 or int(map[0]) != 2 or int(map[11]) != 13:
+            push_error("UPLOADED RUN8 FAIL: side run does not use audited row_3+row_4 cycle")
             quit(1)
             return
         for slot in range(12):
-            if int(map[slot]) != 14 + slot:
-                push_error("UPLOADED RUN8 FAIL: lateral RUN cycle source has a pose gap")
+            if int(map[slot]) != 2 + slot:
+                push_error("UPLOADED RUN8 FAIL: audited lateral RUN contains a pose gap")
                 quit(1)
                 return
             if actor.sprite_frames.get_frame_texture("run_" + direction, slot) != side_original[int(map[slot])]:
                 push_error("UPLOADED RUN8 FAIL: lateral original pose changed at slot " + str(slot))
                 quit(1)
                 return
-        print("UPLOADED RUN8 SEAM PASS: ", direction, " original_row_6_and_7=12 contiguous loop frames")
+        print("UPLOADED RUN8 SEAM PASS: ", direction, " original_row_3_and_4=12 poses, audited wrap")
 
     var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 21}
     for direction in directions:
