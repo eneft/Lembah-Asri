@@ -57,8 +57,10 @@ const ACTOR_BASE_SCALE := 0.23
 const TARGET_VISIBLE_HEIGHT := 1101.0 # Front/down source is the size reference.
 const PIVOT_X := 384.0
 const SOURCE_VISIBLE_HEIGHT := {
- "right": 988.0, "left": 988.0,
- "down_right": 1076.5, "down_left": 1076.5,
+ # Re-measured from ORIGINAL alpha>=25 source frames used by each direction.
+ # Calibrate one scale per direction, never resize poses individually.
+ "right": 980.0, "left": 980.0,
+ "down_right": 1069.0, "down_left": 1069.0,
  "down": 1101.0,
  "up_right": 1048.0, "up_left": 1048.0,
  "up": 1081.0
@@ -67,11 +69,12 @@ const SOURCE_VISIBLE_HEIGHT := {
 # Place this foot baseline on the node origin for EVERY direction, eliminating
 # floating/sinking when turning between differently cropped source sprites.
 const SOURCE_FOOT_BASELINE := {
- "right": 1081.0, "left": 1081.0,
- "down_right": 1097.5, "down_left": 1097.5,
- "down": 1126.0,
+ # Median last opaque pixel, measured from the actual selected run poses.
+ "right": 1077.0, "left": 1077.0,
+ "down_right": 1092.5, "down_left": 1092.5,
+ "down": 1125.0,
  "up_right": 1073.0, "up_left": 1073.0,
- "up": 1120.0
+ "up": 1119.0
 }
 
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
@@ -95,7 +98,7 @@ var using_new_idle: bool = false
 var using_refined_back_loop: bool = false
 const REFINED_BACK_RUN_PATH := "res://assets/characters/run_uploaded/back_diagonal/back_diagonal_run12.tres"
 const REFINED_BACK_HEIGHT := 1050.5
-const REFINED_BACK_FOOT := 1068.0
+const REFINED_BACK_FOOT := 1067.0
 func _ready() -> void:
  using_refined_back_loop = ResourceLoader.exists(REFINED_BACK_RUN_PATH)
  using_new_idle = true
@@ -184,15 +187,15 @@ func _ready() -> void:
  _make_ui()
  set_direction("down",false)
  queue_redraw()
-# Video audit 2026-10-13: the previous 12..23 span crossed between
-# atlas animation row_4 and row_6, with an entire row_5 absent. That caused
-# a discontinuity / pose cut. Choose one complete row_3 + row_4 run phase,
-# maintaining 12 FPS and preserving the right-left mirror.
-# 14 source frames reduced to 12: omit first redundant pose and index 7,
-# whose fist/arm coloring differs, and retain the rest in source order.
-# The 13->1 wrap is a normal cycle boundary; judge visual smoothness in-game.
-# RGB shader remains neutral to avoid exacerbating green outlines.
-const SIDE_RUN_LOOP_12 := [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
+# Source SpriteFrames right-side atlas holds two opposing contact phases:
+# row_3 (0..6) and row_4 (7..13). The previous mapping accidentally DROPPED
+# pose 7, which is the opposite-leg contact. That makes left/right appear to
+# run on one foot! Keep BOTH pose 0 and pose 7.
+# Reduce 14 -> 12 by dropping only in-betweens 3 and 10. Those are not the
+# contact extremes; do NOT remove 0/7 to hide inconsistent colors.
+# Palette issues in the PNG are an independent source-art problem, not a
+# reason to throw away essential RUN frames.
+const SIDE_RUN_LOOP_12 := [0, 1, 2, 4, 5, 6, 7, 8, 9, 11, 12, 13]
 const REAR_DIAGONAL_RUN_LOOP_12 := [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
 func run_source_indices(direction: String, source_count: int) -> PackedInt32Array:
