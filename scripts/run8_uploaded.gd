@@ -184,13 +184,15 @@ func _ready() -> void:
  _make_ui()
  set_direction("down",false)
  queue_redraw()
-# User-requested alternate 12-frame lateral RUN selection.
-# This keeps native source poses in order; it must be judged visually in the
-# preview for any remaining seam pause. Neither PNG nor any other direction
-# is modified, and both left/right use this same 12-frame map (left mirrored).
-# Sprite grade for these directions is disabled to remove the artificial
-# green color shift that was being added to the hands/sleeves.
-const SIDE_RUN_LOOP_12 := [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+# Video audit 2026-10-13: the previous 12..23 span crossed between
+# atlas animation row_4 and row_6, with an entire row_5 absent. That caused
+# a discontinuity / pose cut. Choose one complete row_3 + row_4 run phase,
+# maintaining 12 FPS and preserving the right-left mirror.
+# 14 source frames reduced to 12: omit first redundant pose and index 7,
+# whose fist/arm coloring differs, and retain the rest in source order.
+# The 13->1 wrap is a normal cycle boundary; judge visual smoothness in-game.
+# RGB shader remains neutral to avoid exacerbating green outlines.
+const SIDE_RUN_LOOP_12 := [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
 const REAR_DIAGONAL_RUN_LOOP_12 := [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
 func run_source_indices(direction: String, source_count: int) -> PackedInt32Array:
