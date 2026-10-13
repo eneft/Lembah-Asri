@@ -111,9 +111,13 @@ func _make_player() -> void:
     _make_contact_shadow()
     var actor := AnimatedSprite2D.new()
     actor.name = "AnimatedSprite2D"
-    # Imported 512x778 runner; anchored at feet by stage1_player.gd.
-    actor.position = Vector2(0, -86.358)
-    actor.scale = Vector2(0.222, 0.222)
+    # Native eight-direction protagonist. Script establishes its exact
+    # pose-specific scale and foot anchor (112px in 1672x941 world units).
+    # Avoid a frame of the obsolete oversized one-direction player.
+    actor.centered = false
+    actor.position = Vector2.ZERO
+    actor.scale = Vector2.ONE * (112.0 / 1447.0)
+    actor.offset = Vector2(-524.0, -1491.0)
     actor.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
     player.add_child(actor)
     var collision := CollisionShape2D.new()
