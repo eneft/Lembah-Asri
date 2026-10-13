@@ -4,11 +4,10 @@ The user-approved source is **New_run_godot4.zip**. It contains one lossless RGB
 
 ## Installation (exact paths)
 
-Both original binary and SpriteFrames must be in the same directory:
+The repository already contains a functionally equivalent `New_run.tres` file with the exact 46 original AtlasTexture regions, 10 row animations, and native 10 FPS timing. To **activate it**, upload only the unchanged PNG from the original archive to:
 - `assets/characters/new_run/New_run.png`
-- `assets/characters/new_run/New_run.tres`
 
-The source `.tres` uses a relative `New_run.png` path, so **do not rename** either file. The project automatically detects both at startup and prefers them to the legacy proportional RUN8 atlas. If either file is missing, the existing normalized RUN8 is kept and the main game remains playable. The program never changes existing WALK or IDLE resources.
+The `.tres` references that PNG by relative path, so **do not rename** it. The original archive also contains optional generator metadata; the game's 8-way playback does not need that metadata. The project automatically detects both at startup and prefers them to the legacy proportional RUN8 atlas. If either file is missing, the existing normalized RUN8 is kept and the main game remains playable. The program never changes existing WALK or IDLE resources.
 
 ## Native mapping (original order retained; 10 FPS)
 
