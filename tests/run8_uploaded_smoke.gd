@@ -328,6 +328,32 @@ func _check() -> void:
         print("UPLOADED RUN8 NEW USER IDLE 8-DIR PASS: 5 real images + 3 mirrors")
     else:
         print("UPLOADED RUN8 WARNING: 5 new idle PNGs are NOT in repository, using legacy fallback")
+    # Regression from recorded gameplay: running UP/UP-LEFT for ~6 s previously
+    # put the foot pivot at y=200 so the character's head crossed the HUD
+    # and upper viewport. The actor should stop before any part is clipped.
+    var safe_top_foot: float = node.TOP_HUD_SAFE_Y + node.ACTOR_BASE_SCALE * node.TARGET_VISIBLE_HEIGHT + node.RUN_HEADROOM_MARGIN
+    actor.position = Vector2(640, 470)
+    node.move_in_direction(Vector2(-1, -1), 8.0)
+    if actor.position.y < safe_top_foot - 0.01:
+        push_error("UPLOADED RUN8 FAIL: full silhouette escapes the top HUD during up-left RUN")
+        quit(1)
+        return
+    if actor.position.x < node.STAGE_SIDE_MARGIN - 0.01:
+        push_error("UPLOADED RUN8 FAIL: character escapes left viewport during up-left RUN")
+        quit(1)
+        return
+    node.set_direction("up_left", false)
+    if actor.animation != "idle_up_left" or actor.position.y < safe_top_foot - 0.01:
+        push_error("UPLOADED RUN8 FAIL: idle immediately after up-left RUN is clipped")
+        quit(1)
+        return
+    actor.position = Vector2(640, 470)
+    node.move_in_direction(Vector2(1, 0), 10.0)
+    if actor.position.x > 1280.0 - node.STAGE_SIDE_MARGIN + 0.01:
+        push_error("UPLOADED RUN8 FAIL: side RUN exits right viewport")
+        quit(1)
+        return
+    print("UPLOADED RUN8 SCREEN BOUNDS PASS: full head visible above HUD and side edges safe")
     node.queue_free()
     print("UPLOADED RUN8 PASS")
     quit(0)
