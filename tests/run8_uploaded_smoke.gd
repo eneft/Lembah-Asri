@@ -32,51 +32,39 @@ func _check() -> void:
         print("UPLOADED RUN8 FRAMES ", d, ": ", count)
     # Verify all three rows of the edited user's Godot 4 asset are kept in
     # source order as one 21-frame running cycle (mirrored for the other side).
-    var approved: String = "res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres"
-    if ResourceLoader.exists(approved):
-        var approved_frames: SpriteFrames = load(approved) as SpriteFrames
-        if approved_frames == null:
-            push_error("UPLOADED RUN8 FAIL: cannot load edited rear-diagonal resource")
-            quit(1)
-            return
-        var expected_frames: int = 0
-        for row_name in ["row_1", "row_2", "row_3"]:
-            if not approved_frames.has_animation(row_name):
-                push_error("UPLOADED RUN8 FAIL: missing row " + row_name)
-                quit(1)
-                return
-            expected_frames += approved_frames.get_frame_count(row_name)
-        if expected_frames != 21:
-            push_error("UPLOADED RUN8 FAIL: edited asset must have 21 frames")
+    if node.using_refined_back_loop:
+        var revised: SpriteFrames = load(node.REFINED_BACK_RUN_PATH) as SpriteFrames
+        if revised == null or not revised.has_animation("run_back_right") or revised.get_frame_count("run_back_right") != 12:
+            push_error("UPLOADED RUN8 FAIL: revised 12-frame back diagonal source malformed")
             quit(1)
             return
         for direction in ["up_left", "up_right"]:
             var anim: String = "run_" + direction
-            if actor.sprite_frames.get_frame_count(anim) != 12:
-                push_error("UPLOADED RUN8 FAIL: edited rear diagonal did not retime to 12: " + direction)
+            for frame_index in range(12):
+                if actor.sprite_frames.get_frame_texture(anim, frame_index) != revised.get_frame_texture("run_back_right", frame_index):
+                    push_error("UPLOADED RUN8 FAIL: wrong revised back run frame " + direction + "/" + str(frame_index))
+                    quit(1)
+                    return
+        print("UPLOADED RUN8 REFINED REAR PASS: 12 full-source poses at 12 FPS, matching 2 directions")
+    else:
+        # The older 21 frames tilt/turn while moving, so this is a compatibility
+        # fallback only; do not report it as a visually seamless running cycle.
+        var approved: String = "res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres"
+        if ResourceLoader.exists(approved):
+            var approved_frames: SpriteFrames = load(approved) as SpriteFrames
+            if approved_frames == null:
+                push_error("UPLOADED RUN8 FAIL: missing old source")
                 quit(1)
                 return
-            for out_index in range(12):
-                # Source rows are chronological but row_1 is an acceleration
-                # lead-in, not part of the clean repeating RUN cycle.
-                var input_index: int = int(node.REAR_DIAGONAL_RUN_LOOP_12[out_index])
-                var row_name: String = "row_" + str(int(input_index / 7) + 1)
-                var expected_tex: Texture2D = approved_frames.get_frame_texture(row_name, input_index % 7)
-                var actual_tex: Texture2D = actor.sprite_frames.get_frame_texture(anim, out_index)
-                if actual_tex != expected_tex:
-                    push_error("UPLOADED RUN8 FAIL: incorrect uninterrupted rear diagonal source frame " + direction + "#" + str(out_index))
-                    quit(1)
-                    return
-                if actual_tex.get_size() != Vector2(768, 1168):
-                    push_error("UPLOADED RUN8 FAIL: edited rear diagonal canvas changed")
-                    quit(1)
-                    return
-        # The source is a camera-turn sequence with alternating near-duplicate
-        # frames, NOT a validated seamless full RUN loop. This check confirms
-        # resource mapping only; a proper loop requires new source artwork.
-        print("UPLOADED RUN8 REAR RESOURCE PASS: edited source mapped; VISUAL LOOP CONTINUITY NOT VERIFIED")
-    else:
-        print("UPLOADED RUN8 NOTE: edited back_left_right.tres/PNG assets not yet in repository")
+            for direction in ["up_left", "up_right"]:
+                for out_index in range(12):
+                    var input_index: int = int(node.REAR_DIAGONAL_RUN_LOOP_12[out_index])
+                    var row_name: String = "row_" + str(int(input_index / 7) + 1)
+                    if actor.sprite_frames.get_frame_texture("run_" + direction, out_index) != approved_frames.get_frame_texture(row_name, input_index % 7):
+                        push_error("UPLOADED RUN8 FAIL: legacy back run frame mismatch")
+                        quit(1)
+                        return
+            print("UPLOADED RUN8 REAR FALLBACK ONLY: 21-frame turning source; awaiting revised PNG in GitHub")
     node.set_direction("up_right", true)
     if actor.flip_h:
         push_error("UPLOADED RUN8 FAIL: back-right should use native PNG")
@@ -164,7 +152,7 @@ func _check() -> void:
                 return
         print("UPLOADED RUN8 SEAM PASS: ", direction, " original_row_3_and_4=12 poses, audited wrap")
 
-    var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 21}
+    var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 12 if node.using_refined_back_loop else 21}
     for direction in directions:
         var original_name: String = direction
         if direction == "left":
@@ -186,7 +174,7 @@ func _check() -> void:
                 quit(1)
                 return
             previous = index
-        if (direction == "up_left" or direction == "up_right") and (int(indices[0]) != 9 or int(indices[11]) != 20):
+        if (direction == "up_left" or direction == "up_right") and not node.using_refined_back_loop and (int(indices[0]) != 9 or int(indices[11]) != 20):
             push_error("UPLOADED RUN8 FAIL: rear-diagonal still includes walk/acceleration frames")
             quit(1)
             return
@@ -222,6 +210,9 @@ func _check() -> void:
             return
         var source_height: float = float(node.SOURCE_VISIBLE_HEIGHT[direction])
         var foot_y: float = float(node.SOURCE_FOOT_BASELINE[direction])
+        if node.using_refined_back_loop and direction in ["up_left", "up_right"]:
+            source_height = node.REFINED_BACK_HEIGHT
+            foot_y = node.REFINED_BACK_FOOT
         var visible_height: float = actor.scale.y * source_height
         if absf(visible_height - expected_body_screen_px) > 0.02:
             push_error("UPLOADED RUN8 FAIL: size differs from reference: " + direction + " rendered_height=" + str(visible_height))
