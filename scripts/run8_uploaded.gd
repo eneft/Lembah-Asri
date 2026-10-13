@@ -1,18 +1,19 @@
 extends Node2D
 # Isolated test only. Original main scene unchanged.
-# Most directions retain 12 source frames at 12 FPS. Frame-by-frame sprite
-# audit found that the previous 14-pose side loop had an abrupt wrap (13->0).
-# 22 consecutive original side poses (0..21) have a much closer end/start
-# match, preserving both alternating foot contacts without synthetic frames.
-# Side runs at 22 FPS so one full source cycle still lasts one second.
+# Source-preserving RUN: do NOT drop, duplicate, reorder, or resample frames
+# in LEFT/RIGHT (26-frame original) or UP_LEFT/UP_RIGHT (21-frame original).
+# One native cycle per second, so FPS equals original source frame count.
+# Other four directions retain their established 12@12 configuration.
+# A full original cycle is not a guarantee of a seamless source-art loop.
 const RUN_FPS := 12.0
 const RUN_FRAME_COUNT := 12
-const SIDE_RUN_FRAME_COUNT := 22
+const SIDE_RUN_FRAME_COUNT := 26
+const BACK_DIAGONAL_RUN_FRAME_COUNT := 21
 const RUN_FPS_BY_DIR := {
- "right": 22.0, "left": 22.0,
+ "right": 26.0, "left": 26.0,
  "down_right": 12.0, "down_left": 12.0,
- "down": 12.0, "up_right": 12.0,
- "up_left": 12.0, "up": 12.0
+ "down": 12.0, "up_right": 21.0,
+ "up_left": 21.0, "up": 12.0
 }
 const MOVE_SPEED := 160.0 # Identical pixels/second for all directions, including diagonals.
 # Test-scene movement boundaries refer to the *foot pivot*. A 253px-tall
@@ -110,12 +111,8 @@ var touch_dir := ""
 var info: Label
 var frames_count := {}
 var using_new_idle: bool = false
-var using_refined_back_loop: bool = false
-const REFINED_BACK_RUN_PATH := "res://assets/characters/run_uploaded/back_diagonal/back_diagonal_run12.tres"
-const REFINED_BACK_HEIGHT := 1050.5
-const REFINED_BACK_FOOT := 1067.0
+const ORIGINAL_BACK_RUN_PATH := "res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres"
 func _ready() -> void:
- using_refined_back_loop = ResourceLoader.exists(REFINED_BACK_RUN_PATH)
  using_new_idle = true
  for source_name in ["front", "front_right", "right", "back_right", "back"]:
   if not ResourceLoader.exists(NEW_IDLE_BASE_PATH + source_name + ".png"):
@@ -134,36 +131,17 @@ func _ready() -> void:
   if d == "up_left": origin = "up_right"
   var frames: Array[Texture2D] = []
   if origin == "up_right":
-   # Latest revised 12-frame in-place rear-diagonal cycle from the user's
-   # full 49-frame original. This takes priority over the turning 21-frame edit.
-   if using_refined_back_loop:
-    var refined: SpriteFrames = load(REFINED_BACK_RUN_PATH) as SpriteFrames
-    assert(refined != null and refined.has_animation("run_back_right"), "Refined back diagonal resource invalid")
-    assert(refined.get_frame_count("run_back_right") == 12)
-    for j in range(12):
-     frames.append(refined.get_frame_texture("run_back_right", j))
-    print("RUN8 BACK DIAGONAL: corrected 12 native frames from full 49-frame source")
-   else:
-    var approved_path: String = "res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres"
-    if ResourceLoader.exists(approved_path):
-     var approved: SpriteFrames = load(approved_path) as SpriteFrames
-     assert(approved != null, "Edited back diagonal SpriteFrames failed to load")
-     for row_name in ["row_1", "row_2", "row_3"]:
-      assert(approved.has_animation(row_name), "Missing source row " + row_name)
-      for j in range(approved.get_frame_count(row_name)):
-       frames.append(approved.get_frame_texture(row_name, j))
-     assert(frames.size() == 21)
-     print("RUN8 BACK DIAGONAL: fallback 21-frame turning source, pending revised 12-frame PNG")
-    else:
-     var fallback: Texture2D = load("res://assets/characters/run_uploaded/up_right/Natural_run_cycle_in_place.png") as Texture2D
-     assert(fallback != null)
-     for i in range(1, 31):
-      var frame := AtlasTexture.new()
-      frame.atlas = fallback
-      frame.region = Rect2((i % 6) * 512, int(i / 6) * 898, 512, 898)
-      frame.filter_clip = true
-      frames.append(frame)
-     print("RUN8 BACK DIAGONAL: emergency legacy fallback")
+   # Use the user's actual EDITED 21-frame Back Right/Left resource. Do not
+   # substitute the later 12-frame refined asset or trim any original pose.
+   # Mirroring to up_left is controlled by actor.flip_h, never by frame edits.
+   var back_source: SpriteFrames = load(ORIGINAL_BACK_RUN_PATH) as SpriteFrames
+   assert(back_source != null, "Missing original 21-frame back diagonal upload")
+   for row_name in ["row_1", "row_2", "row_3"]:
+    assert(back_source.has_animation(row_name), "Missing original back row " + row_name)
+    for j in range(back_source.get_frame_count(row_name)):
+     frames.append(back_source.get_frame_texture(row_name, j))
+   assert(frames.size() == BACK_DIAGONAL_RUN_FRAME_COUNT, "Back diagonal original must have exactly 21 poses")
+   print("RUN8 BACK DIAGONAL: all 21 original frames, no sampling or truncation")
   else:
    var source: SpriteFrames = load(RESOURCES[origin]) as SpriteFrames
    assert(source != null, "Missing original upload: " + origin)
@@ -172,8 +150,8 @@ func _ready() -> void:
    for a in names:
     for j in source.get_frame_count(a):
      frames.append(source.get_frame_texture(a,j))
-  # 22 ordered original lateral poses, with both foot phases and no discarded
-  # frames between 0 and 21. All other directions retain 12 poses.
+  # Side = all 26 original frames, rear diagonal = all 21 original frames.
+  # Other directions continue their existing 12-frame cadence.
   # Source .tres/PNG resources remain unchanged.
   var run_frames: Array[Texture2D] = retime_run_frames(d, frames)
   var key: String = "run_" + str(d)
@@ -201,27 +179,34 @@ func _ready() -> void:
  _make_ui()
  set_direction("down",false)
  queue_redraw()
-# Measured on the actual right AtlasTexture frames, at fixed scene scale:
-# OLD 14 frames [0..13] seam 13->0 = 9.10 mean RGB abs-pixel units,
-# NEW 22 frames [0..21] seam 21->0 = 3.99 vs internal average 4.61.
-# In the original atlas naming, crossing row_4->row_6 is not itself a pose
-# discontinuity: measured 13->14 = 4.97, a normal neighboring transition.
-# The real large discontinuity was looping from 13 to 0.
+# Keep the complete, source-ordered original pose lists. Even frames that
+# appear repeated are part of the user's source and MUST NOT be removed.
 const SIDE_RUN_LOOP_FULL := [
- 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
- 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+ 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
 ]
-const REAR_DIAGONAL_RUN_LOOP_12 := [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+const BACK_DIAGONAL_RUN_LOOP_FULL := [
+ 0, 1, 2, 3, 4, 5, 6,
+ 7, 8, 9, 10, 11, 12, 13,
+ 14, 15, 16, 17, 18, 19, 20
+]
 
 func target_run_frame_count(direction: String) -> int:
- return SIDE_RUN_FRAME_COUNT if direction == "right" or direction == "left" else RUN_FRAME_COUNT
+ if direction == "right" or direction == "left":
+  return SIDE_RUN_FRAME_COUNT
+ if direction == "up_right" or direction == "up_left":
+  return BACK_DIAGONAL_RUN_FRAME_COUNT
+ return RUN_FRAME_COUNT
 
 func run_source_indices(direction: String, source_count: int) -> PackedInt32Array:
  assert(source_count >= 2, "RUN requires at least two source poses")
- if (direction == "right" or direction == "left") and source_count == 26:
+ if direction == "right" or direction == "left":
+  assert(source_count == SIDE_RUN_FRAME_COUNT, "Side original must contain 26 poses")
   return PackedInt32Array(SIDE_RUN_LOOP_FULL)
- if (direction == "up_right" or direction == "up_left") and source_count == 21:
-  return PackedInt32Array(REAR_DIAGONAL_RUN_LOOP_12)
+ if direction == "up_right" or direction == "up_left":
+  assert(source_count == BACK_DIAGONAL_RUN_FRAME_COUNT, "Rear diagonal original must contain 21 poses")
+  return PackedInt32Array(BACK_DIAGONAL_RUN_LOOP_FULL)
+ # Other four directions retain their previous 12-frame sampling behavior.
  var target_count: int = target_run_frame_count(direction)
  var indices := PackedInt32Array()
  for slot in range(target_count):
@@ -287,9 +272,6 @@ func apply_proportions(direction: String, moving: bool = true) -> void:
  # position; never resize or recolor the source PNG.
  var source_height: float = float(SOURCE_VISIBLE_HEIGHT[direction])
  var source_foot: float = float(SOURCE_FOOT_BASELINE[direction])
- if moving and using_refined_back_loop and direction in ["up_left", "up_right"]:
-  source_height = REFINED_BACK_HEIGHT
-  source_foot = REFINED_BACK_FOOT
  var source_pivot_x: float = PIVOT_X
  if not moving:
   if using_new_idle:
