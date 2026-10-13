@@ -30,6 +30,14 @@ jobs:
 
       - name: Import project
         run: godot --headless --path . --editor --quit
+      - name: Verify scaled RUN8+IDLE in actual illustrated main scene
+        run: |
+          set -o pipefail
+          timeout 180s godot --headless --audio-driver Dummy --path . --script res://tests/main_run8_integration_smoke.gd 2>&1 | tee main-run8-integration.log
+          if grep -E 'SCRIPT ERROR|ERROR:|MAIN RUN8 FAIL' main-run8-integration.log; then
+            echo "Illustrated main scene avatar integration failed"; exit 1
+          fi
+          grep -q 'MAIN RUN8 INTEGRATION PASS' main-run8-integration.log
 
       - name: Export single-threaded Web build
         run: |
