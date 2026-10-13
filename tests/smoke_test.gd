@@ -3,8 +3,8 @@ var failed := false
 func _initialize() -> void:
     call_deferred("_check")
 func _check() -> void:
-    # The gameplay main scene must use the same uploaded sprites as RUN8 test:
-    # all 26 original side frames and all 21 edited rear diagonal frames.
+    # Keep original 26/21-pose assets for existing WALK and fallback.
+    # Approved RUN now uses its separate normalized 8/10-pose atlas.
     var native_side: SpriteFrames = load("res://assets/characters/run_uploaded/right/lembah_asri_run_49_frames_7x7_lossless.tres") as SpriteFrames
     var native_rear: SpriteFrames = load("res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres") as SpriteFrames
     if native_side == null or native_rear == null:
@@ -45,6 +45,9 @@ func _check() -> void:
         quit(1)
         return
     var actor: AnimatedSprite2D = player.get_node("AnimatedSprite2D")
+    if not player.using_proportional_run:
+        push_error("RUN FAIL: current protagonist did not select the installed proportional RUN atlas")
+        failed = true
     # The native 1672x941 stage should show an ~112px-high character.
     # When idle the front-right still is calibrated to its own PNG bounds.
     var idle_visible: float = actor.scale.y * player.IDLE_VISIBLE_HEIGHT["down_right"]
@@ -165,23 +168,23 @@ func _check() -> void:
     for heading in ["right","down_right","down","down_left","left","up_left","up","up_right"]:
         for mode in ["idle","walk","run"]:
             var key: String = mode + "_" + heading
-            var expected_count: int = 1 if mode == "idle" else (26 if heading in ["left", "right"] else (21 if heading in ["up_left", "up_right"] else 12))
+            var expected_count: int = 1 if mode == "idle" else ((8 if heading in ["right","left","up"] else 10) if mode == "run" else (26 if heading in ["left", "right"] else (21 if heading in ["up_left", "up_right"] else 12)))
             if not actor.sprite_frames.has_animation(key) or actor.sprite_frames.get_frame_count(key) != expected_count:
-                push_error("RUN FAIL: main player missing 8-way original frames: " + key)
+                push_error("RUN FAIL: main player missing 8-way frames: " + key)
                 failed = true
                 continue
             var fps: float = actor.sprite_frames.get_animation_speed(key)
-            var expected_fps: float = 1.0 if mode == "idle" else (float(expected_count) / 1.5 if mode == "walk" else float(expected_count))
+            var expected_fps: float = 1.0 if mode == "idle" else (10.0 if mode == "run" else float(expected_count) / 1.5)
             if not is_equal_approx(fps, expected_fps):
                 push_error("RUN FAIL: unexpected native 8-way " + mode + " cadence: " + heading)
                 failed = true
-            if mode != "idle" and heading in ["right", "left"]:
+            if mode == "walk" and heading in ["right", "left"]:
                 for idx in range(26):
                     if actor.sprite_frames.get_frame_texture(key, idx) != sampled_side_textures[idx]:
                         push_error("RUN FAIL: main scene omitted original side frame " + str(idx))
                         failed = true
                         break
-            if mode != "idle" and heading in ["up_right", "up_left"]:
+            if mode == "walk" and heading in ["up_right", "up_left"]:
                 for idx in range(21):
                     if actor.sprite_frames.get_frame_texture(key, idx) != sampled_rear_textures[idx]:
                         push_error("RUN FAIL: main scene omitted edited rear frame " + str(idx))
@@ -258,5 +261,5 @@ func _check() -> void:
     if failed:
         quit(1)
     else:
-        print("SMOKE PASS: main scene native RUN8+IDLE 112px character, 26/21 full frames, original terrain/Y-sort/river/bridge/HUD/mobile preserved")
+        print("SMOKE PASS: main 8-way proportional RUN (74 frames) plus native WALK/IDLE, 112px character, original terrain/Y-sort/river/bridge/HUD/mobile preserved")
         quit(0)
