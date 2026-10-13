@@ -3,18 +3,32 @@ var failed := false
 func _initialize() -> void:
     call_deferred("_check")
 func _check() -> void:
-    var src: SpriteFrames = load("res://assets/characters/run_cycle/Run.tres") as SpriteFrames
-    if src == null or not src.has_animation("row_1") or src.get_frame_count("row_1") != 31:
-        push_error("RUN FAIL: original 31 real frames not imported")
+    # The gameplay main scene must use the same uploaded sprites as RUN8 test:
+    # all 26 original side frames and all 21 edited rear diagonal frames.
+    var native_side: SpriteFrames = load("res://assets/characters/run_uploaded/right/lembah_asri_run_49_frames_7x7_lossless.tres") as SpriteFrames
+    var native_rear: SpriteFrames = load("res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres") as SpriteFrames
+    if native_side == null or native_rear == null:
+        push_error("RUN FAIL: current uploaded 8-direction source resources missing")
         quit(1)
         return
-    if src.get_frame_count("row_6") != 1:
-        push_error("RUN FAIL: original single-frame idle missing")
+    var side_total: int = 0
+    var side_names := Array(native_side.get_animation_names())
+    side_names.sort()
+    for row_name in side_names:
+        side_total += native_side.get_frame_count(row_name)
+    if side_total != 26:
+        push_error("RUN FAIL: original lateral 26 frames were changed")
         quit(1)
         return
-    var atlas: AtlasTexture = src.get_frame_texture("row_1", 0) as AtlasTexture
-    if atlas == null or atlas.atlas == null or atlas.atlas.get_size() != Vector2(2444, 3702):
-        push_error("RUN FAIL: invalid full-resolution source atlas")
+    var rear_total: int = 0
+    for row_name in ["row_1", "row_2", "row_3"]:
+        if not native_rear.has_animation(row_name):
+            push_error("RUN FAIL: original 21-frame rear diagonal row missing")
+            quit(1)
+            return
+        rear_total += native_rear.get_frame_count(row_name)
+    if rear_total != 21:
+        push_error("RUN FAIL: rear diagonal is not the edited original 21-frame asset")
         quit(1)
         return
     var scene: PackedScene = load("res://scenes/house_garden_stage1.tscn") as PackedScene
@@ -26,22 +40,28 @@ func _check() -> void:
     await process_frame
     await process_frame
     var player = world.get_node_or_null("Player")
-    if player == null or not player.using_imported_run:
-        push_error("RUN FAIL: gameplay player is not the imported runner")
+    if player == null or not player.using_imported_run or not player.using_run8_uploaded:
+        push_error("RUN FAIL: main scene is not using the latest uploaded RUN8+IDLE protagonist")
         quit(1)
         return
     var actor: AnimatedSprite2D = player.get_node("AnimatedSprite2D")
-    if not is_equal_approx(actor.scale.x, 0.222) or not actor.position.is_equal_approx(Vector2(0.0,-86.358)):
-        push_error("RUN FAIL: feet/size incorrect")
+    # The native 1672x941 stage should show an ~112px-high character.
+    # When idle the front-right still is calibrated to its own PNG bounds.
+    var idle_visible: float = actor.scale.y * player.IDLE_VISIBLE_HEIGHT["down_right"]
+    if absf(idle_visible - player.CHARACTER_HEIGHT_WORLD) > 0.1 or not actor.position.is_equal_approx(Vector2.ZERO):
+        push_error("RUN FAIL: main scene 8-way protagonist size/foot anchor is wrong")
+        failed = true
+    if not is_equal_approx(actor.scale.x, actor.scale.y) or actor.centered:
+        push_error("RUN FAIL: main player sprite is stretched or centered incorrectly")
         failed = true
     var material := actor.material as ShaderMaterial
-    if material == null or material.shader == null:
-        push_error("RUN FAIL: character environmental grade missing")
+    if material == null or material.shader == null or not material.shader.code.contains("shirt_mask") or not material.shader.code.contains("skin_mask"):
+        push_error("RUN FAIL: source-sensitive 8-way character palette missing")
         failed = true
-    elif float(material.get_shader_parameter("contrast")) < 1.0 or float(material.get_shader_parameter("saturation")) < 1.0:
-        push_error("RUN FAIL: protagonist too faded into the painted background")
+    elif not is_equal_approx(float(material.get_shader_parameter("grading_enabled")), 0.0):
+        push_error("RUN FAIL: native user-uploaded IDLE is recolored")
         failed = true
-    if (actor.material as ShaderMaterial).shader.code.contains("walk_sample_uv"):
+    if material != null and material.shader.code.contains("walk_sample_uv"):
         push_error("RUN FAIL: obsolete fake gait still running")
         failed = true
     # The base MUST be a different clean image, not the old PNG with
@@ -134,24 +154,42 @@ func _check() -> void:
         if shadow_image.get_pixel(64,24).a < 0.2 or shadow_image.get_pixel(0,0).a > 0.01:
             push_error("RUN FAIL: ground shadow softness/opacity wrong")
             failed = true
+    var sampled_side_textures: Array[Texture2D] = []
+    for row_name in side_names:
+        for idx in range(native_side.get_frame_count(row_name)):
+            sampled_side_textures.append(native_side.get_frame_texture(row_name, idx))
+    var sampled_rear_textures: Array[Texture2D] = []
+    for row_name in ["row_1", "row_2", "row_3"]:
+        for idx in range(native_rear.get_frame_count(row_name)):
+            sampled_rear_textures.append(native_rear.get_frame_texture(row_name, idx))
     for heading in ["right","down_right","down","down_left","left","up_left","up","up_right"]:
         for mode in ["idle","walk","run"]:
             var key: String = mode + "_" + heading
-            var expected_count: int = 1 if mode == "idle" else 14
+            var expected_count: int = 1 if mode == "idle" else (26 if heading in ["left", "right"] else (21 if heading in ["up_left", "up_right"] else 12))
             if not actor.sprite_frames.has_animation(key) or actor.sprite_frames.get_frame_count(key) != expected_count:
-                push_error("RUN FAIL: wrong loop length in " + key)
+                push_error("RUN FAIL: main player missing 8-way original frames: " + key)
                 failed = true
                 continue
-            if mode != "idle":
-                var first: Texture2D = actor.sprite_frames.get_frame_texture(key,0)
-                var last: Texture2D = actor.sprite_frames.get_frame_texture(key,13)
-                if first != src.get_frame_texture("row_1",15) or last != src.get_frame_texture("row_1",28):
-                    push_error("RUN FAIL: startup/stopping frames have leaked into " + key)
-                    failed = true
-                var expected_fps: float = 13.0 if mode == "run" else 6.0
-                if not is_equal_approx(actor.sprite_frames.get_animation_speed(key), expected_fps):
-                    push_error("RUN FAIL: wrong playback speed for " + key)
-                    failed = true
+            var fps: float = actor.sprite_frames.get_animation_speed(key)
+            var expected_fps: float = 1.0 if mode == "idle" else (float(expected_count) / 1.5 if mode == "walk" else float(expected_count))
+            if not is_equal_approx(fps, expected_fps):
+                push_error("RUN FAIL: unexpected native 8-way " + mode + " cadence: " + heading)
+                failed = true
+            if mode != "idle" and heading in ["right", "left"]:
+                for idx in range(26):
+                    if actor.sprite_frames.get_frame_texture(key, idx) != sampled_side_textures[idx]:
+                        push_error("RUN FAIL: main scene omitted original side frame " + str(idx))
+                        failed = true
+                        break
+            if mode != "idle" and heading in ["up_right", "up_left"]:
+                for idx in range(21):
+                    if actor.sprite_frames.get_frame_texture(key, idx) != sampled_rear_textures[idx]:
+                        push_error("RUN FAIL: main scene omitted edited rear frame " + str(idx))
+                        failed = true
+                        break
+    if not is_equal_approx(player.CHARACTER_HEIGHT_WORLD, 112.0):
+        push_error("RUN FAIL: new scene scale changed from 112px")
+        failed = true
     for removed in ["BuSari","HUD","Avatar"]:
         if world.get_node_or_null(removed) != null or player.get_node_or_null(removed) != null:
             push_error("RUN FAIL: obsolete scene node " + removed)
@@ -220,5 +258,5 @@ func _check() -> void:
     if failed:
         quit(1)
     else:
-        print("SMOKE PASS: crisp playable terrain and subtle distant DOF, RGBA cutouts, Y-sort, river, bridge, HUD/run/mobile")
+        print("SMOKE PASS: main scene native RUN8+IDLE 112px character, 26/21 full frames, original terrain/Y-sort/river/bridge/HUD/mobile preserved")
         quit(0)
