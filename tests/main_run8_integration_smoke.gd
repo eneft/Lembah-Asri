@@ -35,8 +35,8 @@ func _check() -> void:
   _fail("existing camera or ground shadow missing")
   return
  # Zoom MAIN stage only; keep world bounds, follow smoothing and mobile UI intact.
- if not camera.zoom.is_equal_approx(Vector2.ONE):
-  _fail("main camera must use 1.0 zoom after requested close-up")
+ if not camera.zoom.is_equal_approx(Vector2(1.25, 1.25)):
+  _fail("main camera must use 1.25 zoom after requested close-up")
   return
  if camera.limit_left != 0 or camera.limit_top != 0 or camera.limit_right != 1672 or camera.limit_bottom != 941:
   _fail("main camera map boundaries were modified")
@@ -44,7 +44,7 @@ func _check() -> void:
  if not camera.position_smoothing_enabled or not is_equal_approx(camera.position_smoothing_speed, 4.0):
   _fail("camera follow smoothing was modified")
   return
- print("MAIN CAMERA ZOOM PASS: 1.00 x/y, limits intact, smoothing intact")
+ print("MAIN CAMERA ZOOM PASS: 1.25 x/y, limits intact, smoothing intact")
  if not player.is_walkable_foot(Vector2(1430,470)) or player.is_walkable_foot(Vector2(1450,700)):
   _fail("bridge or river walkability was changed")
   return
