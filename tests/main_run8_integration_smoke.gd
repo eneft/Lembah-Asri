@@ -52,9 +52,18 @@ func _check() -> void:
  # Do not confuse the older 26/21-pose source inventory with the new
  # proportional 8/10-pose animation pack. The originals remain untouched
  # in assets/characters/run_uploaded and are still available as fallback.
- if not player.using_proportional_run:
-  _fail("normalized RUN8 pack is installed but main character did not select it")
+ var new_run_active: bool = player.using_new_run
+ if not new_run_active and not player.using_proportional_run:
+  _fail("neither uploaded New_run_godot4 nor proportional RUN8 fallback selected")
   return
+ var has_new_run_source: bool = ResourceLoader.exists(player.NEW_RUN_IMAGE_PATH) and ResourceLoader.exists(player.NEW_RUN_RESOURCE_PATH)
+ if has_new_run_source != new_run_active:
+  _fail("new RUN atlas availability must exactly match selected protagonist RUN source")
+  return
+ if new_run_active:
+  print("MAIN RUN8 SOURCE PASS: native New_run_godot4.zip, 46 source poses")
+ else:
+  print("MAIN RUN8 SOURCE PASS: proportional fallback when new source PNG is absent")
  var headings := ["right","down_right","down","down_left","left","up_left","up","up_right"]
  for direction in headings:
   print("MAIN RUN8 TRACE: begin direction=", direction)
@@ -72,7 +81,7 @@ func _check() -> void:
    player._set_animation(mode, direction)
    print("MAIN RUN8 TRACE: after set_animation ", key)
    var original: String = player._native_direction(direction)
-   var native_h: float = float(player.IDLE_VISIBLE_HEIGHT[original]) if mode == "idle" else 640.0
+   var native_h: float = float(player.IDLE_VISIBLE_HEIGHT[original]) if mode == "idle" else (float(player.NEW_RUN_VISIBLE_HEIGHT[original]) if new_run_active else 640.0)
    var world_h: float = sprite.scale.y * native_h
    if absf(world_h - 112.0) > 0.05:
     _fail(key + " rendered height must be 112 world px, got " + str(world_h))
@@ -82,7 +91,7 @@ func _check() -> void:
     return
    # In the normalized atlas, left-facing RUN poses are already mirrored
    # in the PNG. Mirroring them again would reverse the direction.
-   var expected_mirror: bool = mode == "idle" and direction in ["left","down_left","up_left"]
+   var expected_mirror: bool = direction in ["left","down_left","up_left"] and (mode == "idle" or new_run_active)
    if sprite.flip_h != expected_mirror:
     _fail(key + " mirror incorrectly applied")
     return
@@ -90,14 +99,17 @@ func _check() -> void:
     if absf(sprite.sprite_frames.get_animation_speed(key) - 10.0) > 0.01:
      _fail(key + " normalized gait fps must be 10")
      return
-    # Loaded frame inventory is validated above via SpriteFrames counts.
-    # Full region/PNG integrity has separately been checked against Git blobs.
-    # Calling get_frame_texture for each AtlasTexture inside a headless
-    # SceneTree smoke has shown a 180-second hang in Godot 4.3.
-    print("MAIN RUN8 TRACE: skipping repeated headless AtlasTexture reads ", key)
-    if not sprite.offset.is_equal_approx(Vector2(-256,-708)):
-     _fail(key + " must anchor both feet at (256,708)")
+    # New_run_godot4 uses native per-direction pivots, while the previous
+    # normalized fallback uses a shared 512x768 canvas. Check both correctly.
+    var expected_offset: Vector2 = Vector2(-float(player.NEW_RUN_PIVOT_X[original]), -float(player.NEW_RUN_PIVOT_Y[original])) if new_run_active else Vector2(-256,-708)
+    if not sprite.offset.is_equal_approx(expected_offset):
+     _fail(key + " RUN foot pivot mismatch, expected " + str(expected_offset))
      return
+    if new_run_active and direction == "down":
+     # Prove the protagonist loaded the NEW user PNG instead of the old atlas.
+     if sprite.sprite_frames.get_frame_texture(key, 0) != player.new_run_bank.get_frame_texture("row_2", 0):
+      _fail("new source selected but first DOWN texture is not New_run_godot4")
+      return
    print("MAIN RUN8 ART PASS: ", key, " frames=", expected, " body_height_px=", world_h)
  var material: ShaderMaterial = sprite.material as ShaderMaterial
  if material == null or material.shader == null or not material.shader.code.contains("shirt_mask"):
@@ -108,5 +120,5 @@ func _check() -> void:
   _fail("native user idle PNG recolored by side shader")
   return
  world.queue_free()
- print("MAIN RUN8 INTEGRATION PASS: original illustrated scene, 112px proportional 8-way RUN, 74 poses, 10fps, baked left-facing poses, native idle, Y-sort, mobile/camera")
+ print("MAIN RUN8 INTEGRATION PASS: original illustrated scene, 112px 8-way RUN, 74 directional poses, 10fps, user-source=" + ("New_run_godot4" if new_run_active else "normalized-fallback") + ", original WALK+IDLE, Y-sort, mobile/camera")
  quit(0)
