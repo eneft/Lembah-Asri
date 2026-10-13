@@ -59,7 +59,13 @@ jobs:
           grep -q 'ART LOADED:' "$GITHUB_WORKSPACE/build/web-export-check.log"
           # Fail deployment if the exported main stage silently falls back to
           # the obsolete single-direction runner or loses the uploaded RUN8.
-          grep -q 'LEMBAH ASRI MAIN: RUN8 normalized pack active: true' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          # Prefer user's newest ZIP only if BOTH native resources are in Git.
+          # Without New_run.png the previous 74-pose atlas remains the safe fallback.
+          if [ -f assets/characters/new_run/New_run.png ] && [ -f assets/characters/new_run/New_run.tres ]; then
+            grep -q 'LEMBAH ASRI MAIN: NEW_RUN_GODOT4 active: true' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          else
+            grep -q 'LEMBAH ASRI MAIN: RUN8 normalized pack active: true' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          fi
           cd "$GITHUB_WORKSPACE"
           touch build/web/.nojekyll
           echo "Web export files:"
