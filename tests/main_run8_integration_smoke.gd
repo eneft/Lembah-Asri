@@ -98,7 +98,6 @@ func _check() -> void:
     if not sprite.offset.is_equal_approx(Vector2(-256,-708)):
      _fail(key + " must anchor both feet at (256,708)")
      return
-    return
    print("MAIN RUN8 ART PASS: ", key, " frames=", expected, " body_height_px=", world_h)
  var material: ShaderMaterial = sprite.material as ShaderMaterial
  if material == null or material.shader == null or not material.shader.code.contains("shirt_mask"):
