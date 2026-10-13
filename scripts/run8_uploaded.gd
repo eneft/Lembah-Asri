@@ -86,7 +86,12 @@ var touch_dir := ""
 var info: Label
 var frames_count := {}
 var using_new_idle: bool = false
+var using_refined_back_loop: bool = false
+const REFINED_BACK_RUN_PATH := "res://assets/characters/run_uploaded/back_diagonal/back_diagonal_run12.tres"
+const REFINED_BACK_HEIGHT := 1050.5
+const REFINED_BACK_FOOT := 1068.0
 func _ready() -> void:
+ using_refined_back_loop = ResourceLoader.exists(REFINED_BACK_RUN_PATH)
  using_new_idle = true
  for source_name in ["front", "front_right", "right", "back_right", "back"]:
   if not ResourceLoader.exists(NEW_IDLE_BASE_PATH + source_name + ".png"):
@@ -105,30 +110,36 @@ func _ready() -> void:
   if d == "up_left": origin = "up_right"
   var frames: Array[Texture2D] = []
   if origin == "up_right":
-   # New user-approved file back_left_right_godot4.zip: 3 sequential
-   # source rows x 7 frames = ONE natural, 21-frame running cycle.
-   # Do not treat rows as different directions.
-   var approved_path: String = "res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres"
-   if ResourceLoader.exists(approved_path):
-    var approved: SpriteFrames = load(approved_path) as SpriteFrames
-    assert(approved != null, "Approved back-diagonal SpriteFrames failed to load")
-    for row_name in ["row_1", "row_2", "row_3"]:
-     assert(approved.has_animation(row_name), "Missing approved animation row: " + row_name)
-     for j in range(approved.get_frame_count(row_name)):
-      frames.append(approved.get_frame_texture(row_name, j))
-    assert(frames.size() == 21, "Approved back-diagonal source should contain 21 continuous frames")
-    print("RUN8 BACK DIAGONAL: approved back_left_right.tres / 21 frames")
+   # Latest revised 12-frame in-place rear-diagonal cycle from the user's
+   # full 49-frame original. This takes priority over the turning 21-frame edit.
+   if using_refined_back_loop:
+    var refined: SpriteFrames = load(REFINED_BACK_RUN_PATH) as SpriteFrames
+    assert(refined != null and refined.has_animation("run_back_right"), "Refined back diagonal resource invalid")
+    assert(refined.get_frame_count("run_back_right") == 12)
+    for j in range(12):
+     frames.append(refined.get_frame_texture("run_back_right", j))
+    print("RUN8 BACK DIAGONAL: corrected 12 native frames from full 49-frame source")
    else:
-    # Keep test usable until the two edited PNGs and .tres have been uploaded.
-    var fallback: Texture2D = load("res://assets/characters/run_uploaded/up_right/Natural_run_cycle_in_place.png") as Texture2D
-    assert(fallback != null, "Missing temporary back-diagonal sheet")
-    for i in range(1, 31):
-     var frame := AtlasTexture.new()
-     frame.atlas = fallback
-     frame.region = Rect2((i % 6) * 512, int(i / 6) * 898, 512, 898)
-     frame.filter_clip = true
-     frames.append(frame)
-    print("RUN8 BACK DIAGONAL: temporary asset, awaiting edited back_left_right ZIP")
+    var approved_path: String = "res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres"
+    if ResourceLoader.exists(approved_path):
+     var approved: SpriteFrames = load(approved_path) as SpriteFrames
+     assert(approved != null, "Edited back diagonal SpriteFrames failed to load")
+     for row_name in ["row_1", "row_2", "row_3"]:
+      assert(approved.has_animation(row_name), "Missing source row " + row_name)
+      for j in range(approved.get_frame_count(row_name)):
+       frames.append(approved.get_frame_texture(row_name, j))
+     assert(frames.size() == 21)
+     print("RUN8 BACK DIAGONAL: fallback 21-frame turning source, pending revised 12-frame PNG")
+    else:
+     var fallback: Texture2D = load("res://assets/characters/run_uploaded/up_right/Natural_run_cycle_in_place.png") as Texture2D
+     assert(fallback != null)
+     for i in range(1, 31):
+      var frame := AtlasTexture.new()
+      frame.atlas = fallback
+      frame.region = Rect2((i % 6) * 512, int(i / 6) * 898, 512, 898)
+      frame.filter_clip = true
+      frames.append(frame)
+     print("RUN8 BACK DIAGONAL: emergency legacy fallback")
   else:
    var source: SpriteFrames = load(RESOURCES[origin]) as SpriteFrames
    assert(source != null, "Missing original upload: " + origin)
@@ -239,6 +250,9 @@ func apply_proportions(direction: String, moving: bool = true) -> void:
  # position; never resize or recolor the source PNG.
  var source_height: float = float(SOURCE_VISIBLE_HEIGHT[direction])
  var source_foot: float = float(SOURCE_FOOT_BASELINE[direction])
+ if moving and using_refined_back_loop and direction in ["up_left", "up_right"]:
+  source_height = REFINED_BACK_HEIGHT
+  source_foot = REFINED_BACK_FOOT
  var source_pivot_x: float = PIVOT_X
  if not moving:
   if using_new_idle:
