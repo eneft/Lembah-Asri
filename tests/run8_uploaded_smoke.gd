@@ -117,9 +117,8 @@ func _check() -> void:
             return
         print("UPLOADED RUN8 12FPS PASS: ", direction, " frames=", frame_count, " fps=", fps, " cycle_s=", float(frame_count) / fps, " move_px_100ms=", distance)
     # Actual source-frame verification, not only FPS or animation length.
-    # Native right source is stored as row_3 (7), row_4 (7), row_6 (5),
-    # row_7 (7). The last patch row_6/7 still had an ugly 25->14 wrap;
-    # index 2..13 stays in the full row_3+row_4 sequence.
+    # Native right source has 26 frames in four atlas animations; use
+    # the user-requested alternate 12-frame pose span, mirrored left/right.
     var side_source: SpriteFrames = load(node.RESOURCES["right"]) as SpriteFrames
     if side_source == null:
         push_error("UPLOADED RUN8 FAIL: original side-run sheet unavailable")
@@ -137,12 +136,12 @@ func _check() -> void:
         return
     for direction in ["right", "left"]:
         var map: PackedInt32Array = node.run_source_indices(direction, side_original.size())
-        if map.size() != 12 or int(map[0]) != 2 or int(map[11]) != 13:
-            push_error("UPLOADED RUN8 FAIL: side run does not use audited row_3+row_4 cycle")
+        if map.size() != 12 or int(map[0]) != 12 or int(map[11]) != 23:
+            push_error("UPLOADED RUN8 FAIL: side run does not use the new 12..23 cycle")
             quit(1)
             return
         for slot in range(12):
-            if int(map[slot]) != 2 + slot:
+            if int(map[slot]) != 12 + slot:
                 push_error("UPLOADED RUN8 FAIL: audited lateral RUN contains a pose gap")
                 quit(1)
                 return
@@ -150,7 +149,7 @@ func _check() -> void:
                 push_error("UPLOADED RUN8 FAIL: lateral original pose changed at slot " + str(slot))
                 quit(1)
                 return
-        print("UPLOADED RUN8 SEAM PASS: ", direction, " original_row_3_and_4=12 poses, audited wrap")
+        print("UPLOADED RUN8 SEAM PASS: ", direction, " original_frame_span=12..23, user-requested seamlessness trial")
 
     var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 12 if node.using_refined_back_loop else 21}
     for direction in directions:
@@ -239,8 +238,9 @@ func _check() -> void:
             quit(1)
             return
     print("UPLOADED RUN8 PROPORTIONS PASS: 8 matched visible heights, uniform XY scale, foot pivots and mirrors")
-    # Color consistency is display-only. The 12 source-texture frames and
-    # 12 FPS stay unchanged, including both mirrored right/left directions.
+    # The original side shader added excess green to hands/sleeves. Confirm
+    # NO side-RUN green channel gain or saturation manipulation remains.
+    # This check does not assert that the original PNG contains no green tint.
     var grade: ShaderMaterial = actor.material as ShaderMaterial
     if grade == null or grade.shader == null:
         push_error("UPLOADED RUN8 FAIL: color grade material missing")
@@ -250,8 +250,8 @@ func _check() -> void:
         node.set_direction(direction, true)
         var actual_gain: Vector3 = grade.get_shader_parameter("channel_gain")
         var actual_saturation: float = grade.get_shader_parameter("saturation")
-        var expected_gain: Vector3 = node.SIDE_COLOR_GAIN if direction == "left" or direction == "right" else node.NEUTRAL_COLOR_GAIN
-        var expected_saturation: float = node.SIDE_SATURATION if direction == "left" or direction == "right" else 1.0
+        var expected_gain: Vector3 = node.NEUTRAL_COLOR_GAIN
+        var expected_saturation: float = 1.0
         if actual_gain.distance_to(expected_gain) > 0.001:
             push_error("UPLOADED RUN8 FAIL: wrong color balance for " + direction)
             quit(1)
@@ -265,7 +265,15 @@ func _check() -> void:
             quit(1)
             return
         print("UPLOADED RUN8 COLOR PASS: ", direction, " gain=", actual_gain, " saturation=", actual_saturation)
-    print("UPLOADED RUN8 COLOR GRADING PASS: 8 directions, matched L/R saturation, original alpha preserved")
+    for side in ["left", "right"]:
+        node.set_direction(side, false)
+        var idle_gain: Vector3 = grade.get_shader_parameter("channel_gain")
+        var idle_saturation: float = grade.get_shader_parameter("saturation")
+        if idle_gain.distance_to(node.NEUTRAL_COLOR_GAIN) > 0.001 or absf(idle_saturation - 1.0) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: idle side view still has artificial tint: " + side)
+            quit(1)
+            return
+    print("UPLOADED RUN8 SIDE TINT PASS: neutral shader in left/right RUN + IDLE, alpha unchanged")
     # The user's five new PNGs take precedence only when all 5 are present.
     # Until uploaded, legacy remains an EXPLICITLY LABELED fallback rather
     # than falsely reporting that the new idle sprites are installed.
