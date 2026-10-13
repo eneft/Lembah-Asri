@@ -59,7 +59,7 @@ jobs:
           grep -q 'ART LOADED:' "$GITHUB_WORKSPACE/build/web-export-check.log"
           # Fail deployment if the exported main stage silently falls back to
           # the obsolete single-direction runner or loses the uploaded RUN8.
-          grep -q 'LEMBAH ASRI MAIN: uploaded RUN8+IDLE active' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          grep -q 'LEMBAH ASRI MAIN: RUN8 normalized pack active: true' "$GITHUB_WORKSPACE/build/web-export-check.log"
           cd "$GITHUB_WORKSPACE"
           touch build/web/.nojekyll
           echo "Web export files:"
