@@ -48,6 +48,13 @@ func _check() -> void:
  if not player.is_walkable_foot(Vector2(1430,470)) or player.is_walkable_foot(Vector2(1450,700)):
   _fail("bridge or river walkability was changed")
   return
+ # This main-branch build includes the approved normalized RUN8 atlas.
+ # Do not confuse the older 26/21-pose source inventory with the new
+ # proportional 8/10-pose animation pack. The originals remain untouched
+ # in assets/characters/run_uploaded and are still available as fallback.
+ if not player.using_proportional_run:
+  _fail("normalized RUN8 pack is installed but main character did not select it")
+  return
  var headings := ["right","down_right","down","down_left","left","up_left","up","up_right"]
  for direction in headings:
   for mode in ["run", "idle"]:
@@ -55,13 +62,13 @@ func _check() -> void:
    if not sprite.sprite_frames.has_animation(key):
     _fail("missing " + key)
     return
-   var expected: int = 1 if mode == "idle" else (26 if direction in ["left","right"] else (21 if direction in ["up_left","up_right"] else 12))
+   var expected: int = 1 if mode == "idle" else (8 if direction in ["left","right","up"] else 10)
    if sprite.sprite_frames.get_frame_count(key) != expected:
     _fail(key + " frames should be " + str(expected))
     return
    player._set_animation(mode, direction)
    var original: String = player._native_direction(direction)
-   var native_h: float = float(player.IDLE_VISIBLE_HEIGHT[original]) if mode == "idle" else float(player.SOURCE_VISIBLE_HEIGHT[direction])
+   var native_h: float = float(player.IDLE_VISIBLE_HEIGHT[original]) if mode == "idle" else 640.0
    var world_h: float = sprite.scale.y * native_h
    if absf(world_h - 112.0) > 0.05:
     _fail(key + " rendered height must be 112 world px, got " + str(world_h))
@@ -69,13 +76,26 @@ func _check() -> void:
    if absf(sprite.scale.x - sprite.scale.y) > 0.00001 or not sprite.position.is_equal_approx(Vector2.ZERO):
     _fail(key + " anisotropic scale or wrong foot origin")
     return
-   if sprite.flip_h != (direction in ["left","down_left","up_left"]):
+   # In the normalized atlas, left-facing RUN poses are already mirrored
+   # in the PNG. Mirroring them again would reverse the direction.
+   var expected_mirror: bool = mode == "idle" and direction in ["left","down_left","up_left"]
+   if sprite.flip_h != expected_mirror:
     _fail(key + " mirror incorrectly applied")
     return
-   if mode == "run" and absf(sprite.sprite_frames.get_animation_speed(key) - float(expected)) > 0.01:
-    _fail(key + " original gait fps not preserved")
+   if mode == "run":
+    if absf(sprite.sprite_frames.get_animation_speed(key) - 10.0) > 0.01:
+     _fail(key + " normalized gait fps must be 10")
+     return
+    for frame_index in range(expected):
+     var frame_tex: Texture2D = sprite.sprite_frames.get_frame_texture(key, frame_index)
+     if frame_tex == null or frame_tex.get_size() != Vector2(512,768):
+      _fail(key + " frame " + str(frame_index) + " must be 512x768 normalized atlas")
+      return
+    if not sprite.offset.is_equal_approx(Vector2(-256,-708)):
+     _fail(key + " must anchor both feet at (256,708)")
+     return
     return
-   print("MAIN RUN8 ART PASS: ", key, " native_frames=", expected, " body_height_px=", world_h)
+   print("MAIN RUN8 ART PASS: ", key, " frames=", expected, " body_height_px=", world_h)
  var material: ShaderMaterial = sprite.material as ShaderMaterial
  if material == null or material.shader == null or not material.shader.code.contains("shirt_mask"):
   _fail("selective side-run color material missing")
@@ -85,5 +105,5 @@ func _check() -> void:
   _fail("native user idle PNG recolored by side shader")
   return
  world.queue_free()
- print("MAIN RUN8 INTEGRATION PASS: original illustrated scene, 112px 8-way avatar, full 26/21 native cycles, idle, Y-sort, mobile/camera")
+ print("MAIN RUN8 INTEGRATION PASS: original illustrated scene, 112px proportional 8-way RUN, 74 poses, 10fps, baked left-facing poses, native idle, Y-sort, mobile/camera")
  quit(0)
