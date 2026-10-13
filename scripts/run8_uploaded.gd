@@ -1,7 +1,17 @@
 extends Node2D
 # Isolated test only. Original main scene unchanged.
-const RUN_FPS := 12.0 # Exactly 12 displayed animation frames per second for every direction.
-const RUN_FRAME_COUNT := 12 # 12 source slots per loop: consistent cadence at 12 FPS.
+# Most directions keep their approved 12-frame / 12-FPS RUN. Side views
+# deliberately retain all 14 native stride poses and play at 14 FPS, so
+# their full left+right foot cycle still lasts one second.
+const RUN_FPS := 12.0
+const RUN_FRAME_COUNT := 12
+const SIDE_RUN_FRAME_COUNT := 14
+const RUN_FPS_BY_DIR := {
+ "right": 14.0, "left": 14.0,
+ "down_right": 12.0, "down_left": 12.0,
+ "down": 12.0, "up_right": 12.0,
+ "up_left": 12.0, "up": 12.0
+}
 const MOVE_SPEED := 160.0 # Identical pixels/second for all directions, including diagonals.
 # Test-scene movement boundaries refer to the *foot pivot*. A 253px-tall
 # character whose feet are at y=200 is clipped above the viewport/header.
@@ -42,11 +52,12 @@ const NEW_IDLE_PIVOT_X := {
  "back_right": 540.5, "back": 521.5
 }
 
-# Display-only color normalization measured against the existing diagonal
-# sources. Side views are slightly redder / more saturated than other views.
-# Keep original PNGs, animation frames, alpha, pivots, scale and FPS unchanged.
-const SIDE_COLOR_GAIN := Vector3(1.0, 1.0, 1.0) # Disable green-tinted side RUN grading.
-const SIDE_SATURATION := 1.0 # Preserve source hues at semitransparent hand edges.
+# Earlier side color balance brought opaque left/right closer to front but
+# tinted partially transparent hands green. Restore the measured correction
+# ONLY on opaque pixels of side RUN using the alpha-aware shader below.
+# Preserve native side IDLE art and every non-side direction.
+const SIDE_COLOR_GAIN := Vector3(0.955, 1.041, 1.008)
+const SIDE_SATURATION := 0.942
 const NEUTRAL_COLOR_GAIN := Vector3(1.0, 1.0, 1.0)
 # Visual-bounds calibration of the CURRENT uploaded sprite resources (alpha >= 25).
 # All resource frames use a 768x1168 canvas, but the visible character heights
@@ -157,19 +168,18 @@ func _ready() -> void:
    for a in names:
     for j in source.get_frame_count(a):
      frames.append(source.get_frame_texture(a,j))
-  # Re-time the original pose sequence onto exactly twelve uniform slots.
-  # Long sources: choose ordered key poses across the source sequence.
-  # Short sources: repeat only existing poses at distributed positions.
-  # Keep uploaded .tres/PNG files completely untouched.
+  # Full native 14-frame side stride; other directions retain 12 frames.
+  # Never discard contact phases to force a uniform frame count.
+  # Source .tres/PNG resources remain unchanged.
   var run_frames: Array[Texture2D] = retime_run_frames(d, frames)
   var key: String = "run_" + str(d)
   bank.add_animation(key)
-  bank.set_animation_speed(key, RUN_FPS)
+  bank.set_animation_speed(key, float(RUN_FPS_BY_DIR[d]))
   bank.set_animation_loop(key, true)
   for frame in run_frames:
    bank.add_frame(key, frame)
   frames_count[d] = run_frames.size()
-  print("RUN8 RETIME %s: %d original -> %d frames @ %.0f FPS" % [d, frames.size(), run_frames.size(), RUN_FPS])
+  print("RUN8 RETIME %s: %d original -> %d frames @ %.0f FPS" % [d, frames.size(), run_frames.size(), float(RUN_FPS_BY_DIR[d])])
  # Prefer the five NEW user-uploaded pose PNGs when all are actually present.
  # Mirror only left-facing partners; never mirror the hair or redraw frames.
  for d in DIRECTIONS:
@@ -187,32 +197,31 @@ func _ready() -> void:
  _make_ui()
  set_direction("down",false)
  queue_redraw()
-# Source SpriteFrames right-side atlas holds two opposing contact phases:
-# row_3 (0..6) and row_4 (7..13). The previous mapping accidentally DROPPED
-# pose 7, which is the opposite-leg contact. That makes left/right appear to
-# run on one foot! Keep BOTH pose 0 and pose 7.
-# Reduce 14 -> 12 by dropping only in-betweens 3 and 10. Those are not the
-# contact extremes; do NOT remove 0/7 to hide inconsistent colors.
-# Palette issues in the PNG are an independent source-art problem, not a
-# reason to throw away essential RUN frames.
-const SIDE_RUN_LOOP_12 := [0, 1, 2, 4, 5, 6, 7, 8, 9, 11, 12, 13]
+# Native side SpriteFrames are arranged in 7-frame row_3 (indices 0..6)
+# then 7-frame row_4 (7..13), representing BOTH foot-contact phases.
+# Repeating these 14 source frames at 14 FPS preserves the full original gait.
+# Never skip contacts or cross into disconnected row_6 / row_7.
+const SIDE_RUN_LOOP_FULL := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 const REAR_DIAGONAL_RUN_LOOP_12 := [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+
+func target_run_frame_count(direction: String) -> int:
+ return SIDE_RUN_FRAME_COUNT if direction == "right" or direction == "left" else RUN_FRAME_COUNT
 
 func run_source_indices(direction: String, source_count: int) -> PackedInt32Array:
  assert(source_count >= 2, "RUN requires at least two source poses")
  if (direction == "right" or direction == "left") and source_count == 26:
-  return PackedInt32Array(SIDE_RUN_LOOP_12)
+  return PackedInt32Array(SIDE_RUN_LOOP_FULL)
  if (direction == "up_right" or direction == "up_left") and source_count == 21:
   return PackedInt32Array(REAR_DIAGONAL_RUN_LOOP_12)
- # All other directions keep their previously approved source-frame cadence.
+ var target_count: int = target_run_frame_count(direction)
  var indices := PackedInt32Array()
- for slot in range(RUN_FRAME_COUNT):
-  indices.append(clampi(int(floor(float(slot) * float(source_count) / float(RUN_FRAME_COUNT))), 0, source_count - 1))
+ for slot in range(target_count):
+  indices.append(clampi(int(floor(float(slot) * float(source_count) / float(target_count))), 0, source_count - 1))
  return indices
 
 func retime_run_frames(direction: String, original_frames: Array[Texture2D]) -> Array[Texture2D]:
  var indices: PackedInt32Array = run_source_indices(direction, original_frames.size())
- assert(indices.size() == RUN_FRAME_COUNT, "RUN must have exactly 12 frames")
+ assert(indices.size() == target_run_frame_count(direction), "RUN frame count mismatch for " + direction)
  var result: Array[Texture2D] = []
  for i in indices:
   assert(i >= 0 and i < original_frames.size(), "RUN index out of source range")
@@ -220,20 +229,24 @@ func retime_run_frames(direction: String, original_frames: Array[Texture2D]) -> 
  return result
 
 func _setup_color_material() -> void:
- # In Godot CanvasItem fragment, COLOR already contains the sampled texture
- # multiplied by the actor's modulate. Do not sample TEXTURE again or the
- # sprites become unintentionally double-darkened.
+ # In Godot CanvasItem fragment, COLOR already includes the sampled texture.
+ # Keep alpha unchanged, apply palette balancing only to opaque source pixels.
+ # This avoids green edge fringes on transparent hands and hair.
  var shader := Shader.new()
  shader.code = """
 shader_type canvas_item;
 uniform vec3 channel_gain = vec3(1.0, 1.0, 1.0);
 uniform float saturation = 1.0;
+uniform float edge_alpha_start = 0.35;
+uniform float edge_alpha_end = 0.95;
 void fragment() {
  vec4 original = COLOR;
- vec3 balanced = original.rgb * channel_gain;
- float luminosity = dot(balanced, vec3(0.2126, 0.7152, 0.0722));
- balanced = mix(vec3(luminosity), balanced, saturation);
- COLOR = vec4(clamp(balanced, vec3(0.0), vec3(1.0)), original.a);
+ vec3 graded = original.rgb * channel_gain;
+ float luminosity = dot(graded, vec3(0.2126, 0.7152, 0.0722));
+ graded = mix(vec3(luminosity), graded, saturation);
+ float opaque_mask = smoothstep(edge_alpha_start, edge_alpha_end, original.a);
+ vec3 final_rgb = mix(original.rgb, graded, opaque_mask);
+ COLOR = vec4(clamp(final_rgb, vec3(0.0), vec3(1.0)), original.a);
 }
 """
  var grade := ShaderMaterial.new()
@@ -244,11 +257,14 @@ func _apply_color_grade(direction: String, moving: bool = true) -> void:
  var grade: ShaderMaterial = actor.material as ShaderMaterial
  if grade == null:
   return
- # IMPORTANT: do not tint side-run hands, sleeves or semitransparent edges.
- # Source RGB and alpha must pass through unchanged. Other directions were
- # already neutral and remain so. Palette cleanup baked into PNGs is separate.
- grade.set_shader_parameter("channel_gain", NEUTRAL_COLOR_GAIN)
- grade.set_shader_parameter("saturation", 1.0)
+ # Side RUN only. New user-uploaded IDLE artwork retains its original colors.
+ # Other directions remain neutral.
+ if moving and (direction == "left" or direction == "right"):
+  grade.set_shader_parameter("channel_gain", SIDE_COLOR_GAIN)
+  grade.set_shader_parameter("saturation", SIDE_SATURATION)
+ else:
+  grade.set_shader_parameter("channel_gain", NEUTRAL_COLOR_GAIN)
+  grade.set_shader_parameter("saturation", 1.0)
 
 func apply_proportions(direction: String, moving: bool = true) -> void:
  # Calibrate each distinct canvas to a single visible body height and heel
@@ -303,7 +319,7 @@ func set_direction(d: String, moving: bool) -> void:
   actor.frame = 0
  if info != null:
   var state_label: String = "RUN" if moving else ("IDLE NEW" if using_new_idle else "IDLE LEGACY — NEW PNGs NOT UPLOADED")
-  info.text = "Arah: %s | %d RUN frames @ %.0f FPS | %s" % [d, int(frames_count[d]), RUN_FPS, state_label]
+  info.text = "Arah: %s | %d RUN frames @ %.0f FPS | %s" % [d, int(frames_count[d]), float(RUN_FPS_BY_DIR[d]), state_label]
 
 func move_in_direction(direction: Vector2, delta: float) -> void:
  # Normalization is essential: diagonal input (1,1) must NOT move sqrt(2)x faster.
