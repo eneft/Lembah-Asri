@@ -30,9 +30,21 @@ func _check() -> void:
  if world.get_node_or_null("MobileControlsLayer/TouchControls") == null:
   _fail("mobile joystick/buttons missing")
   return
- if player.get_node_or_null("Camera2D") == null or player.get_node_or_null("FootContactShadow") == null:
+ var camera: Camera2D = player.get_node_or_null("Camera2D") as Camera2D
+ if camera == null or player.get_node_or_null("FootContactShadow") == null:
   _fail("existing camera or ground shadow missing")
   return
+ # Zoom MAIN stage only; keep world bounds, follow smoothing and mobile UI intact.
+ if not camera.zoom.is_equal_approx(Vector2.ONE):
+  _fail("main camera must use 1.0 zoom after requested close-up")
+  return
+ if camera.limit_left != 0 or camera.limit_top != 0 or camera.limit_right != 1672 or camera.limit_bottom != 941:
+  _fail("main camera map boundaries were modified")
+  return
+ if not camera.position_smoothing_enabled or not is_equal_approx(camera.position_smoothing_speed, 4.0):
+  _fail("camera follow smoothing was modified")
+  return
+ print("MAIN CAMERA ZOOM PASS: 1.00 x/y, limits intact, smoothing intact")
  if not player.is_walkable_foot(Vector2(1430,470)) or player.is_walkable_foot(Vector2(1450,700)):
   _fail("bridge or river walkability was changed")
   return
