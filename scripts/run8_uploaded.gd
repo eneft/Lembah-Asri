@@ -1,13 +1,15 @@
 extends Node2D
 # Isolated test only. Original main scene unchanged.
-# Most directions keep their approved 12-frame / 12-FPS RUN. Side views
-# deliberately retain all 14 native stride poses and play at 14 FPS, so
-# their full left+right foot cycle still lasts one second.
+# Most directions retain 12 source frames at 12 FPS. Frame-by-frame sprite
+# audit found that the previous 14-pose side loop had an abrupt wrap (13->0).
+# 22 consecutive original side poses (0..21) have a much closer end/start
+# match, preserving both alternating foot contacts without synthetic frames.
+# Side runs at 22 FPS so one full source cycle still lasts one second.
 const RUN_FPS := 12.0
 const RUN_FRAME_COUNT := 12
-const SIDE_RUN_FRAME_COUNT := 14
+const SIDE_RUN_FRAME_COUNT := 22
 const RUN_FPS_BY_DIR := {
- "right": 14.0, "left": 14.0,
+ "right": 22.0, "left": 22.0,
  "down_right": 12.0, "down_left": 12.0,
  "down": 12.0, "up_right": 12.0,
  "up_left": 12.0, "up": 12.0
@@ -52,12 +54,14 @@ const NEW_IDLE_PIVOT_X := {
  "back_right": 540.5, "back": 521.5
 }
 
-# Earlier side color balance brought opaque left/right closer to front but
-# tinted partially transparent hands green. Restore the measured correction
-# ONLY on opaque pixels of side RUN using the alpha-aware shader below.
-# Preserve native side IDLE art and every non-side direction.
-const SIDE_COLOR_GAIN := Vector3(0.955, 1.041, 1.008)
-const SIDE_SATURATION := 0.942
+# Color audit (skin/shirt median RGB, opaque source pixels, normalized crops):
+# SIDE skin [220,133,87] vs FRONT skin [224,148,93]; SIDE green shirt
+# [124,109,70] vs FRONT shirt [126,101,66]. One global green-channel gain
+# makes the shirt greener while trying to correct skin, causing bad fringes.
+# Separate alpha-protected skin and green-shirt corrections instead.
+# Original textures, IDLE and non-side directions remain unchanged.
+const SIDE_SKIN_GAIN := Vector3(1.015, 1.11, 1.08)
+const SIDE_SHIRT_GAIN := Vector3(1.020, 0.900, 0.920)
 const NEUTRAL_COLOR_GAIN := Vector3(1.0, 1.0, 1.0)
 # Visual-bounds calibration of the CURRENT uploaded sprite resources (alpha >= 25).
 # All resource frames use a 768x1168 canvas, but the visible character heights
@@ -168,8 +172,8 @@ func _ready() -> void:
    for a in names:
     for j in source.get_frame_count(a):
      frames.append(source.get_frame_texture(a,j))
-  # Full native 14-frame side stride; other directions retain 12 frames.
-  # Never discard contact phases to force a uniform frame count.
+  # 22 ordered original lateral poses, with both foot phases and no discarded
+  # frames between 0 and 21. All other directions retain 12 poses.
   # Source .tres/PNG resources remain unchanged.
   var run_frames: Array[Texture2D] = retime_run_frames(d, frames)
   var key: String = "run_" + str(d)
@@ -197,11 +201,16 @@ func _ready() -> void:
  _make_ui()
  set_direction("down",false)
  queue_redraw()
-# Native side SpriteFrames are arranged in 7-frame row_3 (indices 0..6)
-# then 7-frame row_4 (7..13), representing BOTH foot-contact phases.
-# Repeating these 14 source frames at 14 FPS preserves the full original gait.
-# Never skip contacts or cross into disconnected row_6 / row_7.
-const SIDE_RUN_LOOP_FULL := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+# Measured on the actual right AtlasTexture frames, at fixed scene scale:
+# OLD 14 frames [0..13] seam 13->0 = 9.10 mean RGB abs-pixel units,
+# NEW 22 frames [0..21] seam 21->0 = 3.99 vs internal average 4.61.
+# In the original atlas naming, crossing row_4->row_6 is not itself a pose
+# discontinuity: measured 13->14 = 4.97, a normal neighboring transition.
+# The real large discontinuity was looping from 13 to 0.
+const SIDE_RUN_LOOP_FULL := [
+ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+ 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+]
 const REAR_DIAGONAL_RUN_LOOP_12 := [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
 func target_run_frame_count(direction: String) -> int:
@@ -229,24 +238,34 @@ func retime_run_frames(direction: String, original_frames: Array[Texture2D]) -> 
  return result
 
 func _setup_color_material() -> void:
- # In Godot CanvasItem fragment, COLOR already includes the sampled texture.
- # Keep alpha unchanged, apply palette balancing only to opaque source pixels.
- # This avoids green edge fringes on transparent hands and hair.
+ # The sprite artwork already has hand/skin and jacket pixels of different
+ # hues; a SINGLE green gain worsens the mismatch. Isolate colors in RGB,
+ # preserve alpha and do not grade translucent edges.
  var shader := Shader.new()
  shader.code = """
 shader_type canvas_item;
-uniform vec3 channel_gain = vec3(1.0, 1.0, 1.0);
-uniform float saturation = 1.0;
-uniform float edge_alpha_start = 0.35;
-uniform float edge_alpha_end = 0.95;
+uniform vec3 skin_gain = vec3(1.0, 1.0, 1.0);
+uniform vec3 shirt_gain = vec3(1.0, 1.0, 1.0);
+uniform float grading_enabled = 0.0;
 void fragment() {
  vec4 original = COLOR;
- vec3 graded = original.rgb * channel_gain;
- float luminosity = dot(graded, vec3(0.2126, 0.7152, 0.0722));
- graded = mix(vec3(luminosity), graded, saturation);
- float opaque_mask = smoothstep(edge_alpha_start, edge_alpha_end, original.a);
- vec3 final_rgb = mix(original.rgb, graded, opaque_mask);
- COLOR = vec4(clamp(final_rgb, vec3(0.0), vec3(1.0)), original.a);
+ vec3 rgb = original.rgb;
+ float skin_mask = smoothstep(0.71, 0.83, rgb.r)
+   * smoothstep(0.33, 0.47, rgb.g)
+   * (1.0 - smoothstep(0.64, 0.76, rgb.g))
+   * smoothstep(0.12, 0.25, rgb.r - rgb.g)
+   * (1.0 - smoothstep(0.50, 0.68, rgb.b));
+ float shirt_mask = smoothstep(0.35, 0.47, rgb.g)
+   * (1.0 - smoothstep(0.55, 0.65, rgb.r))
+   * smoothstep(0.72, 0.87, rgb.g / max(rgb.r, 0.001))
+   * (1.0 - smoothstep(0.53, 0.65, rgb.b));
+ shirt_mask *= (1.0 - skin_mask);
+ vec3 corrected = rgb
+   + (rgb * skin_gain - rgb) * skin_mask
+   + (rgb * shirt_gain - rgb) * shirt_mask;
+ float opaque_mask = smoothstep(0.40, 0.97, original.a);
+ COLOR = vec4(mix(rgb, clamp(corrected, vec3(0.0), vec3(1.0)),
+   grading_enabled * opaque_mask), original.a);
 }
 """
  var grade := ShaderMaterial.new()
@@ -257,14 +276,11 @@ func _apply_color_grade(direction: String, moving: bool = true) -> void:
  var grade: ShaderMaterial = actor.material as ShaderMaterial
  if grade == null:
   return
- # Side RUN only. New user-uploaded IDLE artwork retains its original colors.
- # Other directions remain neutral.
- if moving and (direction == "left" or direction == "right"):
-  grade.set_shader_parameter("channel_gain", SIDE_COLOR_GAIN)
-  grade.set_shader_parameter("saturation", SIDE_SATURATION)
- else:
-  grade.set_shader_parameter("channel_gain", NEUTRAL_COLOR_GAIN)
-  grade.set_shader_parameter("saturation", 1.0)
+ # Correct opaque RUN skin and green jacket differently; native IDLE art
+ # and all non-side directions are passed through without recoloring.
+ grade.set_shader_parameter("skin_gain", SIDE_SKIN_GAIN)
+ grade.set_shader_parameter("shirt_gain", SIDE_SHIRT_GAIN)
+ grade.set_shader_parameter("grading_enabled", 1.0 if moving and (direction == "left" or direction == "right") else 0.0)
 
 func apply_proportions(direction: String, moving: bool = true) -> void:
  # Calibrate each distinct canvas to a single visible body height and heel
