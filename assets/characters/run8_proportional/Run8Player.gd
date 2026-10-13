@@ -31,7 +31,7 @@ func set_character_height(height_in_pixels: float) -> void:
 func set_from_vector(motion: Vector2) -> void:
     if motion.length_squared() < 0.001:
         return
-    var sector := posmodi(int(round(motion.angle() / (PI / 4.0))), 8)
+    var sector: int = posmod(int(round(motion.angle() / (PI / 4.0))), 8)
     set_direction(DIRECTIONS[sector])
 
 func set_direction(direction: String) -> void:
