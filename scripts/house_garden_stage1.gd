@@ -129,9 +129,10 @@ func _make_player() -> void:
     var camera := Camera2D.new()
     camera.name = "Camera2D"
     camera.enabled = true
-    # Main-scene camera zoom: 0.80 -> 1.00 (25% closer).
+    # Main-scene camera zoom: 1.00 -> 1.25 (25% closer than last build).
+    # Only gameplay camera changes; collision/map limits and RUN8 preview stay as-is.
     # Preserve world-space protagonist scale, map art, smooth follow and limits.
-    camera.zoom = Vector2(1.0, 1.0)
+    camera.zoom = Vector2(1.25, 1.25)
     camera.position = Vector2(0,-33)
     camera.position_smoothing_enabled = true
     camera.position_smoothing_speed = 4.0
