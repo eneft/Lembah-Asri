@@ -3,6 +3,12 @@ extends Node2D
 const RUN_FPS := 12.0 # Exactly 12 displayed animation frames per second for every direction.
 const RUN_FRAME_COUNT := 12 # 12 source slots per loop: consistent cadence at 12 FPS.
 const MOVE_SPEED := 160.0 # Identical pixels/second for all directions, including diagonals.
+# Test-scene movement boundaries refer to the *foot pivot*. A 253px-tall
+# character whose feet are at y=200 is clipped above the viewport/header.
+# Keep the whole silhouette inside the stage with clearance below the HUD.
+const TOP_HUD_SAFE_Y := 105.0
+const RUN_HEADROOM_MARGIN := 20.0
+const STAGE_SIDE_MARGIN := 150.0
 # Original, approved 8-direction IDLE artwork already present in repository.
 # This avoids freezing a running frame whenever input is released.
 # These 1152x1632 PNGs were uploaded by the user and anchored at boot Y=1585.
@@ -305,7 +311,13 @@ func move_in_direction(direction: Vector2, delta: float) -> void:
  if direction == Vector2.ZERO:
   return
  var unit_direction: Vector2 = direction.normalized()
- actor.position = (actor.position + unit_direction * MOVE_SPEED * maxf(delta, 0.0)).clamp(Vector2(110, 200), Vector2(1170, 655))
+ # Full silhouette is approximately 0.23 * 1101 = 253 screen units.
+ # Clamp the FOOT position accordingly so head/hair never disappears over the
+ # top of the screen, even when holding an upward direction for several seconds.
+ var min_foot_y: float = TOP_HUD_SAFE_Y + ACTOR_BASE_SCALE * TARGET_VISIBLE_HEIGHT + RUN_HEADROOM_MARGIN
+ var min_foot: Vector2 = Vector2(STAGE_SIDE_MARGIN, min_foot_y)
+ var max_foot: Vector2 = Vector2(1280.0 - STAGE_SIDE_MARGIN, 655.0)
+ actor.position = (actor.position + unit_direction * MOVE_SPEED * maxf(delta, 0.0)).clamp(min_foot, max_foot)
  var idx: int = posmod(int(round(unit_direction.angle() / (PI / 4.0))), 8)
  set_direction(DIRECTIONS[idx], true)
 func _process(delta:float) -> void:
