@@ -116,9 +116,11 @@ func _check() -> void:
             quit(1)
             return
         print("UPLOADED RUN8 12FPS PASS: ", direction, " frames=", frame_count, " fps=", fps, " cycle_s=", float(frame_count) / fps, " move_px_100ms=", distance)
-    # Actual source-frame verification, not only FPS or animation length.
-    # Native right source has 26 frames in four atlas animations; use
-    # the user-requested alternate 12-frame pose span, mirrored left/right.
+    # Regression for the latest user video. Side source comprises
+    # row_3(7), row_4(7), row_6(5), row_7(7), with missing row_5.
+    # Previous mapping [12..23] crossed row_4 -> row_6 and cut the stride.
+    # Select only row_3+row_4 (indices 0..13), remove near-redundant 0 and
+    # visually inconsistent/tinted 7, preserving 12 native ordered poses.
     var side_source: SpriteFrames = load(node.RESOURCES["right"]) as SpriteFrames
     if side_source == null:
         push_error("UPLOADED RUN8 FAIL: original side-run sheet unavailable")
@@ -134,23 +136,29 @@ func _check() -> void:
         push_error("UPLOADED RUN8 FAIL: original right/left source changed unexpectedly")
         quit(1)
         return
+    var approved_side_indices: Array[int] = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
     for direction in ["right", "left"]:
-        var map: PackedInt32Array = node.run_source_indices(direction, side_original.size())
-        if map.size() != 12 or int(map[0]) != 12 or int(map[11]) != 23:
-            push_error("UPLOADED RUN8 FAIL: side run does not use the new 12..23 cycle")
+        var mapped: PackedInt32Array = node.run_source_indices(direction, side_original.size())
+        if mapped.size() != 12:
+            push_error("UPLOADED RUN8 FAIL: expected 12 side RUN poses")
             quit(1)
             return
         for slot in range(12):
-            if int(map[slot]) != 12 + slot:
-                push_error("UPLOADED RUN8 FAIL: audited lateral RUN contains a pose gap")
+            var source_index: int = int(mapped[slot])
+            if source_index != approved_side_indices[slot]:
+                push_error("UPLOADED RUN8 FAIL: side RUN mapping lost approved contiguous stride at " + str(slot))
                 quit(1)
                 return
-            if actor.sprite_frames.get_frame_texture("run_" + direction, slot) != side_original[int(map[slot])]:
-                push_error("UPLOADED RUN8 FAIL: lateral original pose changed at slot " + str(slot))
+            if source_index >= 14 or source_index == 7:
+                push_error("UPLOADED RUN8 FAIL: lateral RUN uses missing-row region or tinted source frame")
                 quit(1)
                 return
-        print("UPLOADED RUN8 SEAM PASS: ", direction, " original_frame_span=12..23, user-requested seamlessness trial")
-
+            if actor.sprite_frames.get_frame_texture("run_" + direction, slot) != side_original[source_index]:
+                push_error("UPLOADED RUN8 FAIL: side RUN frame texture mismatches original art " + str(slot))
+                quit(1)
+                return
+        print("UPLOADED RUN8 SIDE SOURCE PASS: ", direction, " 12 poses from uninterrupted row_3+row_4, no green-tinted frame 7")
+    
     var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 12 if node.using_refined_back_loop else 21}
     for direction in directions:
         var original_name: String = direction
