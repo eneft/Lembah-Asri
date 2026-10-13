@@ -12,6 +12,36 @@ const PROPORTIONAL_RUN_PATH := "res://assets/characters/run8_proportional/Run8_S
 var proportional_run_bank: SpriteFrames = null
 var using_proportional_run: bool = false
 
+# New_run_godot4.zip: 46 original poses across 10 row_* groups.
+# Five native views + horizontal mirroring yield the full 8-way RUN.
+# This source takes precedence ONLY when its PNG and SpriteFrames are present.
+# Legacy WALK, uploaded IDLE and normalized RUN8 fallback remain untouched.
+const NEW_RUN_RESOURCE_PATH := "res://assets/characters/new_run/New_run.tres"
+const NEW_RUN_IMAGE_PATH := "res://assets/characters/new_run/New_run.png"
+const NEW_RUN_SOURCE_ROWS := {
+ "down": ["row_2", "row_3_2"],       # 7+3 = 10 frontal frames
+ "down_right": ["row_3", "row_4"],    # 7+3 = 10 front-diagonal
+ "right": ["row_5", "row_6"],        # 7+1 = 8 lateral
+ "up": ["row_4_2", "row_5_2"],     # 1+7 = 8 rear
+ "up_right": ["row_4_3", "row_5_3"] # 5+5 = 10 rear-diagonal
+}
+# Measured alpha silhouette heights, 46 source poses. Uniform per direction.
+const NEW_RUN_VISIBLE_HEIGHT := {
+ "down": 668.0, "down_right": 656.0, "right": 589.0,
+ "up": 575.0, "up_right": 596.0
+}
+# Pivots in the source file are centered horizontally and fixed at the feet.
+const NEW_RUN_PIVOT_X := {
+ "down": 208.0, "down_right": 232.0, "right": 232.0,
+ "up": 232.0, "up_right": 232.0
+}
+const NEW_RUN_PIVOT_Y := {
+ "down": 704.0, "down_right": 688.0, "right": 688.0,
+ "up": 656.0, "up_right": 640.0
+}
+var new_run_bank: SpriteFrames = null
+var using_new_run: bool = false
+
 const RUN_RIGHT: SpriteFrames = preload("res://assets/characters/run_uploaded/right/lembah_asri_run_49_frames_7x7_lossless.tres")
 const RUN_FRONT_RIGHT: SpriteFrames = preload("res://assets/characters/run_uploaded/down_right/run_12_spritesheet_4x3.tres")
 const RUN_FRONT: SpriteFrames = preload("res://assets/characters/run_uploaded/down/run_12_spritesheet_4x3_1.tres")
@@ -104,6 +134,7 @@ func _ready() -> void:
  actor.centered = false
  actor.position = Vector2.ZERO
  _detect_proportional_run()
+ _detect_new_run()
  _setup_animations()
  _setup_color_material(actor)
  # Explicit shader state is needed even before the first movement input:
@@ -116,6 +147,7 @@ func _ready() -> void:
  actor.frame = 0
  actor.stop()
  print("LEMBAH ASRI MAIN: RUN8 normalized pack active: %s; legacy WALK+IDLE preserved; world_height=112px" % str(using_proportional_run))
+ print("LEMBAH ASRI MAIN: NEW_RUN_GODOT4 active: %s; 46 native poses mapped to 8 directions; world_height=112px" % str(using_new_run))
 
 func _detect_proportional_run() -> void:
  using_proportional_run = false
@@ -133,6 +165,32 @@ func _detect_proportional_run() -> void:
    return
  proportional_run_bank = candidate
  using_proportional_run = true
+
+
+func _detect_new_run() -> void:
+ using_new_run = false
+ new_run_bank = null
+ # A text-only integration commit must NOT switch the protagonist until the
+ # actual user-supplied atlas PNG is added to this precise repository path.
+ if not ResourceLoader.exists(NEW_RUN_IMAGE_PATH) or not ResourceLoader.exists(NEW_RUN_RESOURCE_PATH):
+  return
+ var candidate := load(NEW_RUN_RESOURCE_PATH) as SpriteFrames
+ if candidate == null:
+  push_warning("New_run_godot4 SpriteFrames failed to load; keeping RUN8 fallback.")
+  return
+ var required_counts := {
+  "row_2": 7, "row_3_2": 3, "row_3": 7, "row_4": 3,
+  "row_5": 7, "row_6": 1, "row_4_2": 1, "row_5_2": 7,
+  "row_4_3": 5, "row_5_3": 5
+ }
+ for row_name in required_counts:
+  if not candidate.has_animation(row_name) or candidate.get_frame_count(row_name) != required_counts[row_name]:
+   push_warning("New_run_godot4 frame inventory mismatch at " + str(row_name) + "; keeping RUN8 fallback.")
+   return
+ new_run_bank = candidate
+ using_new_run = true
+ # Exactly one RUN source is active; the normalized pack remains on disk.
+ using_proportional_run = false
 
 
 func _native_direction(heading: String) -> String:
@@ -211,8 +269,14 @@ func _setup_animations() -> void:
    var key: String = state + "_" + direction
    bank.add_animation(key)
    bank.set_animation_loop(key, true)
-   if state == "run" and using_proportional_run:
-    # Use ALL normalized poses, including the already baked left directions.
+   if state == "run" and using_new_run:
+    # Preserve the user's native 46-frame order; left views use mirroring.
+    bank.set_animation_speed(key, 10.0)
+    for row_name in NEW_RUN_SOURCE_ROWS[origin]:
+     for frame_id in range(new_run_bank.get_frame_count(row_name)):
+      bank.add_frame(key, new_run_bank.get_frame_texture(row_name, frame_id))
+   elif state == "run" and using_proportional_run:
+    # Keep previous RUN8 atlas as a safe fallback, not the new default.
     bank.set_animation_speed(key, 10.0)
     for frame_id in range(proportional_run_bank.get_frame_count(key)):
      bank.add_frame(key, proportional_run_bank.get_frame_texture(key, frame_id))
@@ -270,15 +334,22 @@ func _apply_color_state(direction: String, state: String) -> void:
   return
  grade.set_shader_parameter("skin_gain", SKIN_GAIN)
  grade.set_shader_parameter("shirt_gain", SHIRT_GAIN)
- grade.set_shader_parameter("grading_enabled", 1.0 if state != "idle" and direction in ["left", "right"] and not (state == "run" and using_proportional_run) else 0.0)
+ grade.set_shader_parameter("grading_enabled", 1.0 if state != "idle" and direction in ["left", "right"] and not (state == "run" and (using_proportional_run or using_new_run)) else 0.0)
 
-func _apply_visual_proportions(direction: String, is_moving: bool, new_run: bool = false) -> void:
+func _apply_visual_proportions(direction: String, is_moving: bool, new_run: bool = false, imported_run: bool = false) -> void:
  var actor: AnimatedSprite2D = $AnimatedSprite2D
  var origin: String = _native_direction(direction)
  var original_height: float = float(SOURCE_VISIBLE_HEIGHT[direction])
  var source_foot: float = float(SOURCE_FOOT_BASELINE[direction])
  var source_mid_x: float = 384.0
- if new_run:
+ if imported_run:
+  # Native New_run_godot4 canvas differs by direction; use the measured
+  # silhouette height and each view's original foot pivot, never scale frames
+  # independently. Left mirrored frames share the original centered pivot.
+  original_height = float(NEW_RUN_VISIBLE_HEIGHT[origin])
+  source_foot = float(NEW_RUN_PIVOT_Y[origin])
+  source_mid_x = float(NEW_RUN_PIVOT_X[origin])
+ elif new_run:
   # Baked canonical 512x768 frames: identical source scale and foot pivot for all 8 directions.
   original_height = 640.0
   source_foot = 708.0
@@ -312,7 +383,7 @@ func _set_animation(next_state: String, direction: String) -> void:
    var new_frame: int = clampi(int(floor(target)), 0, next_count - 1)
    actor.set_frame_and_progress(new_frame, target - float(new_frame))
  if has_changed or animation_state != next_state:
-  _apply_visual_proportions(direction, next_state != "idle", next_state == "run" and using_proportional_run)
+  _apply_visual_proportions(direction, next_state != "idle", next_state == "run" and using_proportional_run, next_state == "run" and using_new_run)
   _apply_color_state(direction, next_state)
  actor.flip_h = direction in ["left", "down_left", "up_left"] and not (next_state == "run" and using_proportional_run)
  if next_state == "idle":
