@@ -129,7 +129,9 @@ func _make_player() -> void:
     var camera := Camera2D.new()
     camera.name = "Camera2D"
     camera.enabled = true
-    camera.zoom = Vector2(0.80,0.80)
+    # Main-scene camera zoom: 0.80 -> 1.00 (25% closer).
+    # Preserve world-space protagonist scale, map art, smooth follow and limits.
+    camera.zoom = Vector2(1.0, 1.0)
     camera.position = Vector2(0,-33)
     camera.position_smoothing_enabled = true
     camera.position_smoothing_speed = 4.0
