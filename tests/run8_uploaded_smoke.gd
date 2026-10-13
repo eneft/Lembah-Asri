@@ -116,11 +116,10 @@ func _check() -> void:
             quit(1)
             return
         print("UPLOADED RUN8 12FPS PASS: ", direction, " frames=", frame_count, " fps=", fps, " cycle_s=", float(frame_count) / fps, " move_px_100ms=", distance)
-    # Regression for the latest user video. Side source comprises
-    # row_3(7), row_4(7), row_6(5), row_7(7), with missing row_5.
-    # Previous mapping [12..23] crossed row_4 -> row_6 and cut the stride.
-    # Select only row_3+row_4 (indices 0..13), remove near-redundant 0 and
-    # visually inconsistent/tinted 7, preserving 12 native ordered poses.
+    # Two opposing foot-contact poses are required for a true run cycle:
+    # source index 0 (first stride) and 7 (opposite foot). Last patch removed
+    # 7 to hide color artifacts and accidentally created one-foot running.
+    # Independently verify BOTH are restored, on both mirrored directions.
     var side_source: SpriteFrames = load(node.RESOURCES["right"]) as SpriteFrames
     if side_source == null:
         push_error("UPLOADED RUN8 FAIL: original side-run sheet unavailable")
@@ -133,32 +132,37 @@ func _check() -> void:
         for j in range(side_source.get_frame_count(row_name)):
             side_original.append(side_source.get_frame_texture(row_name, j))
     if side_original.size() != 26:
-        push_error("UPLOADED RUN8 FAIL: original right/left source changed unexpectedly")
+        push_error("UPLOADED RUN8 FAIL: side source no longer contains 26 original textures")
         quit(1)
         return
-    var approved_side_indices: Array[int] = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
+    var expected_side: Array[int] = [0, 1, 2, 4, 5, 6, 7, 8, 9, 11, 12, 13]
     for direction in ["right", "left"]:
         var mapped: PackedInt32Array = node.run_source_indices(direction, side_original.size())
-        if mapped.size() != 12:
-            push_error("UPLOADED RUN8 FAIL: expected 12 side RUN poses")
+        if mapped.size() != 12 or not mapped.has(0) or not mapped.has(7):
+            push_error("UPLOADED RUN8 FAIL: missing one of the two opposing foot contacts: " + direction)
             quit(1)
             return
         for slot in range(12):
             var source_index: int = int(mapped[slot])
-            if source_index != approved_side_indices[slot]:
-                push_error("UPLOADED RUN8 FAIL: side RUN mapping lost approved contiguous stride at " + str(slot))
+            if source_index != expected_side[slot]:
+                push_error("UPLOADED RUN8 FAIL: side RUN source order changed: " + direction + " frame " + str(slot))
                 quit(1)
                 return
-            if source_index >= 14 or source_index == 7:
-                push_error("UPLOADED RUN8 FAIL: lateral RUN uses missing-row region or tinted source frame")
+            if source_index >= 14:
+                push_error("UPLOADED RUN8 FAIL: side RUN crossed disconnected source row: " + direction)
                 quit(1)
                 return
             if actor.sprite_frames.get_frame_texture("run_" + direction, slot) != side_original[source_index]:
-                push_error("UPLOADED RUN8 FAIL: side RUN frame texture mismatches original art " + str(slot))
+                push_error("UPLOADED RUN8 FAIL: side RUN texture mismatch " + direction + " frame " + str(slot))
                 quit(1)
                 return
-        print("UPLOADED RUN8 SIDE SOURCE PASS: ", direction, " 12 poses from uninterrupted row_3+row_4, no green-tinted frame 7")
-    
+        node.set_direction(direction, true)
+        if actor.flip_h != (direction == "left"):
+            push_error("UPLOADED RUN8 FAIL: left/right mirror mismatch " + direction)
+            quit(1)
+            return
+        print("UPLOADED RUN8 TWO-FOOT PASS: ", direction, " contact poses 0 and 7 preserved, 12 ordered frames")
+
     var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 12 if node.using_refined_back_loop else 21}
     for direction in directions:
         var original_name: String = direction
@@ -245,7 +249,36 @@ func _check() -> void:
             push_error("UPLOADED RUN8 FAIL: mirrored pair has differing foot pivot: " + str(pairing))
             quit(1)
             return
-    print("UPLOADED RUN8 PROPORTIONS PASS: 8 matched visible heights, uniform XY scale, foot pivots and mirrors")
+    # Actual alpha-bound measurements from the source files, used to update
+    # SOURCE_VISIBLE_HEIGHT and SOURCE_FOOT_BASELINE. Ensure calibrations aren't
+    # reverted to older values that differ from these downloaded assets.
+    var measured_side_height: float = 980.0
+    var measured_side_foot: float = 1077.0
+    var measured_front_diag_height: float = 1069.0
+    var measured_front_diag_foot: float = 1092.5
+    var measured_down_foot: float = 1125.0
+    var measured_up_foot: float = 1119.0
+    if absf(float(node.SOURCE_VISIBLE_HEIGHT["left"]) - measured_side_height) > 0.5 or absf(float(node.SOURCE_VISIBLE_HEIGHT["right"]) - measured_side_height) > 0.5:
+        push_error("UPLOADED RUN8 FAIL: side character visible-height calibration is outdated")
+        quit(1)
+        return
+    if absf(float(node.SOURCE_FOOT_BASELINE["left"]) - measured_side_foot) > 0.5 or absf(float(node.SOURCE_FOOT_BASELINE["right"]) - measured_side_foot) > 0.5:
+        push_error("UPLOADED RUN8 FAIL: lateral foot pivot is outdated")
+        quit(1)
+        return
+    if absf(float(node.SOURCE_VISIBLE_HEIGHT["down_right"]) - measured_front_diag_height) > 0.5 or absf(float(node.SOURCE_VISIBLE_HEIGHT["down_left"]) - measured_front_diag_height) > 0.5:
+        push_error("UPLOADED RUN8 FAIL: front diagonal scale calibration is outdated")
+        quit(1)
+        return
+    if absf(float(node.SOURCE_FOOT_BASELINE["down_right"]) - measured_front_diag_foot) > 0.5 or absf(float(node.SOURCE_FOOT_BASELINE["down_left"]) - measured_front_diag_foot) > 0.5:
+        push_error("UPLOADED RUN8 FAIL: front diagonal foot calibration is outdated")
+        quit(1)
+        return
+    if absf(float(node.SOURCE_FOOT_BASELINE["down"]) - measured_down_foot) > 0.5 or absf(float(node.SOURCE_FOOT_BASELINE["up"]) - measured_up_foot) > 0.5:
+        push_error("UPLOADED RUN8 FAIL: front/back foot calibration is outdated")
+        quit(1)
+        return
+    print("UPLOADED RUN8 PROPORTIONS PASS: 8 matched heights, updated alpha-measured scale and pivots")
     # The original side shader added excess green to hands/sleeves. Confirm
     # NO side-RUN green channel gain or saturation manipulation remains.
     # This check does not assert that the original PNG contains no green tint.
