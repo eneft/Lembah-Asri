@@ -28,7 +28,7 @@ jobs:
       - name: Main stage eight-direction integration and scale
         run: |
           set -o pipefail
-          timeout 180s godot --headless --audio-driver Dummy --path . --script res://tests/main_run8_integration_smoke.gd 2>&1 | tee main-run8-integration.log
+          timeout 45s godot --headless --audio-driver Dummy --path . --script res://tests/main_run8_integration_smoke.gd 2>&1 | tee main-run8-integration.log
           if grep -E 'SCRIPT ERROR|ERROR:|MAIN RUN8 FAIL' main-run8-integration.log; then
             echo "Main scene character integration failed"; exit 1
           fi
