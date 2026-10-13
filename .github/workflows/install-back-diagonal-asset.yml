@@ -1,0 +1,96 @@
+name: Install Verified Back Diagonal 12-Frame Asset
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/install-back-diagonal-asset.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Download verified user-approved PNG and generate original Godot SpriteFrames resource
+        env:
+          ASSET_URL: https://cdn.openart.ai/openart-uploads/production/attachment-transfers/07ddfa64653c1a9d43fe9020467fc45454f88a6404fa1d1b7289c03f04863faa.png
+        run: |
+          set -euo pipefail
+          ASSET_DIR=assets/characters/run_uploaded/back_diagonal
+          mkdir -p "$ASSET_DIR"
+          curl -fL --retry 4 --retry-delay 4 --connect-timeout 30 --max-time 240 "$ASSET_URL" -o "$ASSET_DIR/back_diagonal_run12.png"
+          echo '17bb6fb5aade2d83fc7b10a4d6f20663278b0aaa635ec0ebc37faf24cbe0cb3e  assets/characters/run_uploaded/back_diagonal/back_diagonal_run12.png' | sha256sum --check --strict
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          root = Path('assets/characters/run_uploaded/back_diagonal')
+          png = (root/'back_diagonal_run12.png').read_bytes()
+          assert png[:8] == b'\x89PNG\r\n\x1a\n', 'Invalid PNG signature'
+          assert struct.unpack('>II', png[16:24]) == (3072, 3504), 'Incorrect atlas resolution'
+          lines = [
+              '[gd_resource type="SpriteFrames" load_steps=14 format=3]',
+              '',
+              '[ext_resource type="Texture2D" path="res://assets/characters/run_uploaded/back_diagonal/back_diagonal_run12.png" id="1_atlas"]',
+              ''
+          ]
+          for i in range(12):
+              x, y = (i % 4) * 768, (i // 4) * 1168
+              lines.extend([
+                  f'[sub_resource type="AtlasTexture" id="AtlasTexture_{i+1}"]',
+                  'atlas = ExtResource("1_atlas")',
+                  f'region = Rect2({x}, {y}, 768, 1168)',
+                  'filter_clip = true',
+                  ''
+              ])
+          lines.append('[resource]')
+          lines.append('animations = [{')
+          lines.append('"frames": [')
+          for i in range(12):
+              comma = ',' if i < 11 else ''
+              lines.append('{"duration": 1.0, "texture": SubResource("AtlasTexture_' + str(i+1) + '")}' + comma)
+          lines.extend([
+              ' ],',
+              '"loop": true,',
+              '"name": &"run_back_right",',
+              '"speed": 12.0',
+              '}]',
+              ''
+          ])
+          (root/'back_diagonal_run12.tres').write_text('\n'.join(lines), encoding='utf-8')
+          print('NEW BACK RUN ASSETS VERIFIED: PNG 3072x3504, 12 frames, 12 FPS, SHA256 checked')
+          PY
+
+      - name: Commit both verified binaries/resources to main
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/characters/run_uploaded/back_diagonal/back_diagonal_run12.png assets/characters/run_uploaded/back_diagonal/back_diagonal_run12.tres
+          git diff --cached --stat
+          if git diff --cached --quiet; then
+            echo 'Verified assets already present; no new commit'
+          else
+            git commit -m 'Install verified 12-frame back-diagonal RUN PNG and Godot SpriteFrames'
+            git push origin HEAD:main
+          fi
+
+      - name: Trigger Web deploy for bot-created asset commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" \
+            -d '{"ref":"main"}' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy-web.yml/dispatches"
+          echo 'Triggered web deploy of verified native 12-frame rear diagonal asset'
