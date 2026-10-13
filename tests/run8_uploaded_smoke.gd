@@ -31,41 +31,38 @@ func _check() -> void:
             return
         node.set_direction(d, true)
         print("UPLOADED RUN8 FRAMES ", d, ": ", count)
-    # Verify all three rows of the edited user's Godot 4 asset are kept in
-    # source order as one 21-frame running cycle (mirrored for the other side).
-    if node.using_refined_back_loop:
-        var revised: SpriteFrames = load(node.REFINED_BACK_RUN_PATH) as SpriteFrames
-        if revised == null or not revised.has_animation("run_back_right") or revised.get_frame_count("run_back_right") != 12:
-            push_error("UPLOADED RUN8 FAIL: revised 12-frame back diagonal source malformed")
+    # User instruction: back-left and back-right MUST play all 21 source
+    # frames from edited back_left_right.tres, not the revised 12-frame asset.
+    # Compare each rendered AtlasTexture with the original in source order.
+    var original_back: SpriteFrames = load(node.ORIGINAL_BACK_RUN_PATH) as SpriteFrames
+    if original_back == null:
+        push_error("UPLOADED RUN8 FAIL: edited native rear diagonal resource missing")
+        quit(1)
+        return
+    var original_back_textures: Array[Texture2D] = []
+    for row_name in ["row_1", "row_2", "row_3"]:
+        if not original_back.has_animation(row_name):
+            push_error("UPLOADED RUN8 FAIL: missing original rear row " + row_name)
             quit(1)
             return
-        for direction in ["up_left", "up_right"]:
-            var anim: String = "run_" + direction
-            for frame_index in range(12):
-                if actor.sprite_frames.get_frame_texture(anim, frame_index) != revised.get_frame_texture("run_back_right", frame_index):
-                    push_error("UPLOADED RUN8 FAIL: wrong revised back run frame " + direction + "/" + str(frame_index))
-                    quit(1)
-                    return
-        print("UPLOADED RUN8 REFINED REAR PASS: 12 full-source poses at 12 FPS, matching 2 directions")
-    else:
-        # The older 21 frames tilt/turn while moving, so this is a compatibility
-        # fallback only; do not report it as a visually seamless running cycle.
-        var approved: String = "res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres"
-        if ResourceLoader.exists(approved):
-            var approved_frames: SpriteFrames = load(approved) as SpriteFrames
-            if approved_frames == null:
-                push_error("UPLOADED RUN8 FAIL: missing old source")
+        for frame_index in range(original_back.get_frame_count(row_name)):
+            original_back_textures.append(original_back.get_frame_texture(row_name, frame_index))
+    if original_back_textures.size() != 21:
+        push_error("UPLOADED RUN8 FAIL: rear source no longer contains all 21 original frames")
+        quit(1)
+        return
+    for direction in ["up_left", "up_right"]:
+        var anim: String = "run_" + direction
+        if actor.sprite_frames.get_frame_count(anim) != 21:
+            push_error("UPLOADED RUN8 FAIL: rear run contains fewer than 21 original poses")
+            quit(1)
+            return
+        for frame_index in range(21):
+            if actor.sprite_frames.get_frame_texture(anim, frame_index) != original_back_textures[frame_index]:
+                push_error("UPLOADED RUN8 FAIL: original rear frame dropped or reordered: " + direction + "/" + str(frame_index))
                 quit(1)
                 return
-            for direction in ["up_left", "up_right"]:
-                for out_index in range(12):
-                    var input_index: int = int(node.REAR_DIAGONAL_RUN_LOOP_12[out_index])
-                    var row_name: String = "row_" + str(int(input_index / 7) + 1)
-                    if actor.sprite_frames.get_frame_texture("run_" + direction, out_index) != approved_frames.get_frame_texture(row_name, input_index % 7):
-                        push_error("UPLOADED RUN8 FAIL: legacy back run frame mismatch")
-                        quit(1)
-                        return
-            print("UPLOADED RUN8 REAR FALLBACK ONLY: 21-frame turning source; awaiting revised PNG in GitHub")
+        print("UPLOADED RUN8 FULL REAR PASS: ", direction, " all 21 ORIGINAL poses untrimmed @ 21 FPS")
     node.set_direction("up_right", true)
     if actor.flip_h:
         push_error("UPLOADED RUN8 FAIL: back-right should use native PNG")
@@ -76,9 +73,9 @@ func _check() -> void:
         push_error("UPLOADED RUN8 FAIL: back-left should be mirrored PNG")
         quit(1)
         return
-    # Left/Right now use 22 consecutive source poses at 22 FPS: the 21->0
-    # seam was measured much closer than 13->0. Other directions stay 12@12.
-    # Movement speed remains independent and normalized for diagonal input.
+    # LEFT/RIGHT retain 26 original frames @ 26 FPS and BACK LEFT/RIGHT
+    # retain 21 original frames @ 21 FPS. Other four directions are 12@12.
+    # One source cycle per second. Gameplay movement remains normalized.
     var directions: Array[String] = ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
     var vectors: Array[Vector2] = [
         Vector2(1,0), Vector2(1,1), Vector2(0,1), Vector2(-1,1),
@@ -123,10 +120,8 @@ func _check() -> void:
             quit(1)
             return
         print("UPLOADED RUN8 RUN CADENCE PASS: ", direction, " frames=", frame_count, " fps=", fps, " cycle_s=", float(frame_count) / fps, " move_px_100ms=", distance)
-    # Side sequence audit: source atlas has 26 ordered native poses.
-    # Previous 14-pose 13->0 jump was ~9.10 pixel-distance units;
-    # untrimmed source poses 0..21 return 21->0 at ~3.99. Preserve all
-    # sequential poses, BOTH opposite contacts (0 and 7) and mirror the left.
+    # Side RUN must preserve every one of the 26 original AtlasTexture
+    # frames in source order. Left mirrors right without modifying images.
     var side_source: SpriteFrames = load(node.RESOURCES["right"]) as SpriteFrames
     if side_source == null:
         push_error("UPLOADED RUN8 FAIL: original side-run sheet unavailable")
@@ -144,17 +139,17 @@ func _check() -> void:
         return
     for direction in ["right", "left"]:
         var mapped: PackedInt32Array = node.run_source_indices(direction, side_original.size())
-        if mapped.size() != 22 or not mapped.has(0) or not mapped.has(7) or not mapped.has(14) or not mapped.has(21):
-            push_error("UPLOADED RUN8 FAIL: side run missing complete 22-frame sequence or leg contact: " + direction)
+        if mapped.size() != 26 or not mapped.has(0) or not mapped.has(7) or not mapped.has(25):
+            push_error("UPLOADED RUN8 FAIL: truncated original 26-frame side gait: " + direction)
             quit(1)
             return
-        for slot in range(22):
+        for slot in range(26):
             if int(mapped[slot]) != slot:
-                push_error("UPLOADED RUN8 FAIL: unexpected side pose reordering: " + str(slot))
+                push_error("UPLOADED RUN8 FAIL: side pose omitted or reordered: " + direction + " frame " + str(slot))
                 quit(1)
                 return
             if actor.sprite_frames.get_frame_texture("run_" + direction, slot) != side_original[slot]:
-                push_error("UPLOADED RUN8 FAIL: source art mismatch in side run: " + str(slot))
+                push_error("UPLOADED RUN8 FAIL: altered native source texture: " + direction + " frame " + str(slot))
                 quit(1)
                 return
         node.set_direction(direction, true)
@@ -162,8 +157,8 @@ func _check() -> void:
             push_error("UPLOADED RUN8 FAIL: left/right mirror broken " + direction)
             quit(1)
             return
-        print("UPLOADED RUN8 SIDE SOURCE PASS: ", direction, " 22 consecutive native poses, both leg contacts @ 22 FPS")
-    var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 12 if node.using_refined_back_loop else 21}
+        print("UPLOADED RUN8 FULL SIDE PASS: ", direction, " all 26 ORIGINAL poses untrimmed @ 26 FPS")
+    var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 21}
     for direction in directions:
         var original_name: String = direction
         if direction == "left":
@@ -185,11 +180,17 @@ func _check() -> void:
                 quit(1)
                 return
             previous = index
-        if (direction == "up_left" or direction == "up_right") and not node.using_refined_back_loop and (int(indices[0]) != 9 or int(indices[11]) != 20):
-            push_error("UPLOADED RUN8 FAIL: rear-diagonal still includes walk/acceleration frames")
-            quit(1)
-            return
-        print("UPLOADED RUN8 PHASE PASS: ", direction, " input=", source_length, " output=12 start=", indices[0], " end=", indices[11])
+        if direction in ["right", "left", "up_left", "up_right"]:
+            if int(indices[0]) != 0 or int(indices[indices.size() - 1]) != source_length - 1 or indices.size() != source_length:
+                push_error("UPLOADED RUN8 FAIL: original side/rear frames were truncated " + direction)
+                quit(1)
+                return
+            for k in range(source_length):
+                if int(indices[k]) != k:
+                    push_error("UPLOADED RUN8 FAIL: reordered original frame " + direction + "#" + str(k))
+                    quit(1)
+                    return
+        print("UPLOADED RUN8 PHASE PASS: ", direction, " input=", source_length, " output=", indices.size(), " start=", indices[0], " end=", indices[indices.size()-1])
     # Do not shift the foot anchor or resize sprites during frame selection.
     # Turning mid-stride must not jump back to first frame.
     node.set_direction("down", true)
@@ -202,7 +203,7 @@ func _check() -> void:
         push_error("UPLOADED RUN8 FAIL: run phase resets on direction change")
         quit(1)
         return
-    print("UPLOADED RUN8 CADENCE PASS: left/right=22@22, other six=12@12, normalized movement and stride phase preserved")
+    print("UPLOADED RUN8 CADENCE PASS: side=26@26, rear diagonals=21@21, other four=12@12; no original side/rear frames discarded")
     # Visible alpha bounds, NOT PNG canvas dimensions, define perceived size.
     # Verify all 8 native/mirrored directions display one consistent body height
     # and anchor their median foot baseline to the same actor.position.
@@ -221,9 +222,6 @@ func _check() -> void:
             return
         var source_height: float = float(node.SOURCE_VISIBLE_HEIGHT[direction])
         var foot_y: float = float(node.SOURCE_FOOT_BASELINE[direction])
-        if node.using_refined_back_loop and direction in ["up_left", "up_right"]:
-            source_height = node.REFINED_BACK_HEIGHT
-            foot_y = node.REFINED_BACK_FOOT
         var visible_height: float = actor.scale.y * source_height
         if absf(visible_height - expected_body_screen_px) > 0.02:
             push_error("UPLOADED RUN8 FAIL: size differs from reference: " + direction + " rendered_height=" + str(visible_height))
