@@ -111,9 +111,13 @@ func _make_player() -> void:
     _make_contact_shadow()
     var actor := AnimatedSprite2D.new()
     actor.name = "AnimatedSprite2D"
-    # Imported 512x778 runner; anchored at feet by stage1_player.gd.
-    actor.position = Vector2(0, -86.358)
-    actor.scale = Vector2(0.222, 0.222)
+    # Native eight-direction protagonist. Script establishes its exact
+    # pose-specific scale and foot anchor (112px in 1672x941 world units).
+    # Avoid a frame of the obsolete oversized one-direction player.
+    actor.centered = false
+    actor.position = Vector2.ZERO
+    actor.scale = Vector2.ONE * (112.0 / 1447.0)
+    actor.offset = Vector2(-524.0, -1491.0)
     actor.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
     player.add_child(actor)
     var collision := CollisionShape2D.new()
@@ -125,7 +129,10 @@ func _make_player() -> void:
     var camera := Camera2D.new()
     camera.name = "Camera2D"
     camera.enabled = true
-    camera.zoom = Vector2(0.80,0.80)
+    # Main-scene camera zoom: 1.00 -> 1.25 (25% closer than last build).
+    # Only gameplay camera changes; collision/map limits and RUN8 preview stay as-is.
+    # Preserve world-space protagonist scale, map art, smooth follow and limits.
+    camera.zoom = Vector2(1.25, 1.25)
     camera.position = Vector2(0,-33)
     camera.position_smoothing_enabled = true
     camera.position_smoothing_speed = 4.0

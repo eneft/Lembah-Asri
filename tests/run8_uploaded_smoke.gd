@@ -24,56 +24,45 @@ func _check() -> void:
             quit(1)
             return
         var count: int = actor.sprite_frames.get_frame_count(key)
-        if count != 12:
-            push_error("UPLOADED RUN8 FAIL: expected EXACTLY 12 retimed frames for " + key + ", got " + str(count))
+        var expected_frames: int = node.target_run_frame_count(d)
+        if count != expected_frames:
+            push_error("UPLOADED RUN8 FAIL: expected " + str(expected_frames) + " source-ordered frames for " + key + ", got " + str(count))
             quit(1)
             return
         node.set_direction(d, true)
         print("UPLOADED RUN8 FRAMES ", d, ": ", count)
-    # Verify all three rows of the edited user's Godot 4 asset are kept in
-    # source order as one 21-frame running cycle (mirrored for the other side).
-    var approved: String = "res://assets/characters/run_uploaded/back_diagonal/back_left_right.tres"
-    if ResourceLoader.exists(approved):
-        var approved_frames: SpriteFrames = load(approved) as SpriteFrames
-        if approved_frames == null:
-            push_error("UPLOADED RUN8 FAIL: cannot load edited rear-diagonal resource")
+    # User instruction: back-left and back-right MUST play all 21 source
+    # frames from edited back_left_right.tres, not the revised 12-frame asset.
+    # Compare each rendered AtlasTexture with the original in source order.
+    var original_back: SpriteFrames = load(node.ORIGINAL_BACK_RUN_PATH) as SpriteFrames
+    if original_back == null:
+        push_error("UPLOADED RUN8 FAIL: edited native rear diagonal resource missing")
+        quit(1)
+        return
+    var original_back_textures: Array[Texture2D] = []
+    for row_name in ["row_1", "row_2", "row_3"]:
+        if not original_back.has_animation(row_name):
+            push_error("UPLOADED RUN8 FAIL: missing original rear row " + row_name)
             quit(1)
             return
-        var expected_frames: int = 0
-        for row_name in ["row_1", "row_2", "row_3"]:
-            if not approved_frames.has_animation(row_name):
-                push_error("UPLOADED RUN8 FAIL: missing row " + row_name)
-                quit(1)
-                return
-            expected_frames += approved_frames.get_frame_count(row_name)
-        if expected_frames != 21:
-            push_error("UPLOADED RUN8 FAIL: edited asset must have 21 frames")
+        for frame_index in range(original_back.get_frame_count(row_name)):
+            original_back_textures.append(original_back.get_frame_texture(row_name, frame_index))
+    if original_back_textures.size() != 21:
+        push_error("UPLOADED RUN8 FAIL: rear source no longer contains all 21 original frames")
+        quit(1)
+        return
+    for direction in ["up_left", "up_right"]:
+        var anim: String = "run_" + direction
+        if actor.sprite_frames.get_frame_count(anim) != 21:
+            push_error("UPLOADED RUN8 FAIL: rear run contains fewer than 21 original poses")
             quit(1)
             return
-        for direction in ["up_left", "up_right"]:
-            var anim: String = "run_" + direction
-            if actor.sprite_frames.get_frame_count(anim) != 12:
-                push_error("UPLOADED RUN8 FAIL: edited rear diagonal did not retime to 12: " + direction)
+        for frame_index in range(21):
+            if actor.sprite_frames.get_frame_texture(anim, frame_index) != original_back_textures[frame_index]:
+                push_error("UPLOADED RUN8 FAIL: original rear frame dropped or reordered: " + direction + "/" + str(frame_index))
                 quit(1)
                 return
-            for out_index in range(12):
-                # Preserve exactly the ordered source poses in the native 21-frame
-                # resource; the mirror setting may change, never the texture.
-                var input_index: int = int(floor(float(out_index) * 21.0 / 12.0))
-                var row_name: String = "row_" + str(int(input_index / 7) + 1)
-                var expected_tex: Texture2D = approved_frames.get_frame_texture(row_name, input_index % 7)
-                var actual_tex: Texture2D = actor.sprite_frames.get_frame_texture(anim, out_index)
-                if actual_tex != expected_tex:
-                    push_error("UPLOADED RUN8 FAIL: reordered/altered edited source frame in " + direction + "#" + str(out_index))
-                    quit(1)
-                    return
-                if actual_tex.get_size() != Vector2(768, 1168):
-                    push_error("UPLOADED RUN8 FAIL: edited source frame canvas size is wrong")
-                    quit(1)
-                    return
-        print("UPLOADED RUN8 APPROVED BACK DIAGONAL PASS: 21 source poses -> 12 ordered frames, common canvas, mirrored")
-    else:
-        print("UPLOADED RUN8 NOTE: edited back_left_right.tres/PNG assets not yet in repository")
+        print("UPLOADED RUN8 FULL REAR PASS: ", direction, " all 21 ORIGINAL poses untrimmed @ 21 FPS")
     node.set_direction("up_right", true)
     if actor.flip_h:
         push_error("UPLOADED RUN8 FAIL: back-right should use native PNG")
@@ -84,9 +73,9 @@ func _check() -> void:
         push_error("UPLOADED RUN8 FAIL: back-left should be mirrored PNG")
         quit(1)
         return
-    # The user explicitly requested 12 FPS, NOT the same total loop duration.
-    # Eight-frame source loops in 8/12 sec; 26-frame source loops in 26/12 sec.
-    # Never discard or duplicate frames merely to force matching cycle duration.
+    # LEFT/RIGHT retain 26 original frames @ 26 FPS and BACK LEFT/RIGHT
+    # retain 21 original frames @ 21 FPS. Other four directions are 12@12.
+    # One source cycle per second. Gameplay movement remains normalized.
     var directions: Array[String] = ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
     var vectors: Array[Vector2] = [
         Vector2(1,0), Vector2(1,1), Vector2(0,1), Vector2(-1,1),
@@ -97,8 +86,10 @@ func _check() -> void:
         var anim: String = "run_" + direction
         var frame_count: int = actor.sprite_frames.get_frame_count(anim)
         var fps: float = actor.sprite_frames.get_animation_speed(anim)
-        if absf(fps - 12.0) > 0.001:
-            push_error("UPLOADED RUN8 FAIL: animation FPS is not 12: " + direction + " = " + str(fps))
+        var expected_fps: float = float(node.RUN_FPS_BY_DIR[direction])
+        var expected_frames: int = node.target_run_frame_count(direction)
+        if absf(fps - expected_fps) > 0.001 or frame_count != expected_frames:
+            push_error("UPLOADED RUN8 FAIL: incorrect frame count or FPS for " + direction + ": " + str(frame_count) + " @ " + str(fps))
             quit(1)
             return
         if not actor.sprite_frames.get_animation_loop(anim):
@@ -124,11 +115,50 @@ func _check() -> void:
             push_error("UPLOADED RUN8 FAIL: input routed to wrong animation: " + direction)
             quit(1)
             return
-        print("UPLOADED RUN8 12FPS PASS: ", direction, " frames=", frame_count, " fps=", fps, " cycle_s=", float(frame_count) / fps, " move_px_100ms=", distance)
-    # Native source integrity: 8/18/26 and edited 21 image frames remain in
-    # their original SpriteFrames resources, while active previews use 12.
+        if absf(float(frame_count) / fps - 1.0) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: left/right cycle duration changed: " + direction)
+            quit(1)
+            return
+        print("UPLOADED RUN8 RUN CADENCE PASS: ", direction, " frames=", frame_count, " fps=", fps, " cycle_s=", float(frame_count) / fps, " move_px_100ms=", distance)
+    # Side RUN must preserve every one of the 26 original AtlasTexture
+    # frames in source order. Left mirrors right without modifying images.
+    var side_source: SpriteFrames = load(node.RESOURCES["right"]) as SpriteFrames
+    if side_source == null:
+        push_error("UPLOADED RUN8 FAIL: original side-run sheet unavailable")
+        quit(1)
+        return
+    var side_original: Array[Texture2D] = []
+    var side_rows := Array(side_source.get_animation_names())
+    side_rows.sort()
+    for row_name in side_rows:
+        for j in range(side_source.get_frame_count(row_name)):
+            side_original.append(side_source.get_frame_texture(row_name, j))
+    if side_original.size() != 26:
+        push_error("UPLOADED RUN8 FAIL: original side atlas inventory changed")
+        quit(1)
+        return
+    for direction in ["right", "left"]:
+        var mapped: PackedInt32Array = node.run_source_indices(direction, side_original.size())
+        if mapped.size() != 26 or not mapped.has(0) or not mapped.has(7) or not mapped.has(25):
+            push_error("UPLOADED RUN8 FAIL: truncated original 26-frame side gait: " + direction)
+            quit(1)
+            return
+        for slot in range(26):
+            if int(mapped[slot]) != slot:
+                push_error("UPLOADED RUN8 FAIL: side pose omitted or reordered: " + direction + " frame " + str(slot))
+                quit(1)
+                return
+            if actor.sprite_frames.get_frame_texture("run_" + direction, slot) != side_original[slot]:
+                push_error("UPLOADED RUN8 FAIL: altered native source texture: " + direction + " frame " + str(slot))
+                quit(1)
+                return
+        node.set_direction(direction, true)
+        if actor.flip_h != (direction == "left"):
+            push_error("UPLOADED RUN8 FAIL: left/right mirror broken " + direction)
+            quit(1)
+            return
+        print("UPLOADED RUN8 FULL SIDE PASS: ", direction, " all 26 ORIGINAL poses untrimmed @ 26 FPS")
     var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 21}
-    var source_to_retuned: Dictionary = {}
     for direction in directions:
         var original_name: String = direction
         if direction == "left":
@@ -138,26 +168,30 @@ func _check() -> void:
         elif direction == "up_left":
             original_name = "up_right"
         var source_length: int = int(source_lengths[original_name])
-        var preceding_index: int = -1
-        var unique_input_indexes: Dictionary = {}
-        for target_index in range(12):
-            var from_source: int = int(floor(float(target_index) * float(source_length) / 12.0))
-            if from_source < preceding_index or from_source >= source_length:
-                push_error("UPLOADED RUN8 FAIL: retiming order broken for " + direction)
-                quit(1)
-                return
-            preceding_index = from_source
-            unique_input_indexes[from_source] = true
-        # 8 -> 12 repeats only four source poses, while longer sources
-        # cover all 12 output slots with non-repeated original textures.
-        var expected_unique: int = mini(source_length, 12)
-        if unique_input_indexes.size() != expected_unique:
-            push_error("UPLOADED RUN8 FAIL: source poses lost or over-repeated in " + direction)
+        var indices: PackedInt32Array = node.run_source_indices(direction, source_length)
+        if indices.size() != node.target_run_frame_count(direction):
+            push_error("UPLOADED RUN8 FAIL: retiming count mismatch: " + direction)
             quit(1)
             return
-        source_to_retuned[direction] = unique_input_indexes.size()
-        print("UPLOADED RUN8 PHASE PASS: ", direction, " input=", source_length, " output=12 distinct=", unique_input_indexes.size())
-    # Do not shift the foot anchor or resize the sprite during frame selection.
+        var previous: int = -1
+        for index in indices:
+            if index < previous or index < 0 or index >= source_length:
+                push_error("UPLOADED RUN8 FAIL: frame order/index broken: " + direction)
+                quit(1)
+                return
+            previous = index
+        if direction in ["right", "left", "up_left", "up_right"]:
+            if int(indices[0]) != 0 or int(indices[indices.size() - 1]) != source_length - 1 or indices.size() != source_length:
+                push_error("UPLOADED RUN8 FAIL: original side/rear frames were truncated " + direction)
+                quit(1)
+                return
+            for k in range(source_length):
+                if int(indices[k]) != k:
+                    push_error("UPLOADED RUN8 FAIL: reordered original frame " + direction + "#" + str(k))
+                    quit(1)
+                    return
+        print("UPLOADED RUN8 PHASE PASS: ", direction, " input=", source_length, " output=", indices.size(), " start=", indices[0], " end=", indices[indices.size()-1])
+    # Do not shift the foot anchor or resize sprites during frame selection.
     # Turning mid-stride must not jump back to first frame.
     node.set_direction("down", true)
     actor.play()
@@ -169,7 +203,7 @@ func _check() -> void:
         push_error("UPLOADED RUN8 FAIL: run phase resets on direction change")
         quit(1)
         return
-    print("UPLOADED RUN8 CADENCE PASS: 8 x 12 FRAMES @ 12 FPS, normalized movement, stride phase preserved")
+    print("UPLOADED RUN8 CADENCE PASS: side=26@26, rear diagonals=21@21, other four=12@12; no original side/rear frames discarded")
     # Visible alpha bounds, NOT PNG canvas dimensions, define perceived size.
     # Verify all 8 native/mirrored directions display one consistent body height
     # and anchor their median foot baseline to the same actor.position.
@@ -213,34 +247,76 @@ func _check() -> void:
             push_error("UPLOADED RUN8 FAIL: mirrored pair has differing foot pivot: " + str(pairing))
             quit(1)
             return
-    print("UPLOADED RUN8 PROPORTIONS PASS: 8 matched visible heights, uniform XY scale, foot pivots and mirrors")
-    # Color consistency is display-only. The 12 source-texture frames and
-    # 12 FPS stay unchanged, including both mirrored right/left directions.
+    # Actual alpha-bound measurements from the source files, used to update
+    # SOURCE_VISIBLE_HEIGHT and SOURCE_FOOT_BASELINE. Ensure calibrations aren't
+    # reverted to older values that differ from these downloaded assets.
+    var measured_side_height: float = 980.0
+    var measured_side_foot: float = 1077.0
+    var measured_front_diag_height: float = 1069.0
+    var measured_front_diag_foot: float = 1092.5
+    var measured_down_foot: float = 1125.0
+    var measured_up_foot: float = 1119.0
+    if absf(float(node.SOURCE_VISIBLE_HEIGHT["left"]) - measured_side_height) > 0.5 or absf(float(node.SOURCE_VISIBLE_HEIGHT["right"]) - measured_side_height) > 0.5:
+        push_error("UPLOADED RUN8 FAIL: side character visible-height calibration is outdated")
+        quit(1)
+        return
+    if absf(float(node.SOURCE_FOOT_BASELINE["left"]) - measured_side_foot) > 0.5 or absf(float(node.SOURCE_FOOT_BASELINE["right"]) - measured_side_foot) > 0.5:
+        push_error("UPLOADED RUN8 FAIL: lateral foot pivot is outdated")
+        quit(1)
+        return
+    if absf(float(node.SOURCE_VISIBLE_HEIGHT["down_right"]) - measured_front_diag_height) > 0.5 or absf(float(node.SOURCE_VISIBLE_HEIGHT["down_left"]) - measured_front_diag_height) > 0.5:
+        push_error("UPLOADED RUN8 FAIL: front diagonal scale calibration is outdated")
+        quit(1)
+        return
+    if absf(float(node.SOURCE_FOOT_BASELINE["down_right"]) - measured_front_diag_foot) > 0.5 or absf(float(node.SOURCE_FOOT_BASELINE["down_left"]) - measured_front_diag_foot) > 0.5:
+        push_error("UPLOADED RUN8 FAIL: front diagonal foot calibration is outdated")
+        quit(1)
+        return
+    if absf(float(node.SOURCE_FOOT_BASELINE["down"]) - measured_down_foot) > 0.5 or absf(float(node.SOURCE_FOOT_BASELINE["up"]) - measured_up_foot) > 0.5:
+        push_error("UPLOADED RUN8 FAIL: front/back foot calibration is outdated")
+        quit(1)
+        return
+    print("UPLOADED RUN8 PROPORTIONS PASS: 8 matched heights, updated alpha-measured scale and pivots")
+    # Side RUN uses distinct skin/shirt color masks measured against the
+    # actual front source. The old global green gain incorrectly tinted fabric.
+    # Grading must not alter native IDLE or the sprite alpha.
     var grade: ShaderMaterial = actor.material as ShaderMaterial
     if grade == null or grade.shader == null:
-        push_error("UPLOADED RUN8 FAIL: color grade material missing")
+        push_error("UPLOADED RUN8 FAIL: side palette shader missing")
+        quit(1)
+        return
+    var shader_source: String = grade.shader.code
+    if not shader_source.contains("skin_mask") or not shader_source.contains("shirt_mask") or not shader_source.contains("original.a"):
+        push_error("UPLOADED RUN8 FAIL: side shader lacks selective alpha-preserving masks")
+        quit(1)
+        return
+    var skin_gain: Vector3 = grade.get_shader_parameter("skin_gain")
+    var shirt_gain: Vector3 = grade.get_shader_parameter("shirt_gain")
+    if skin_gain.distance_to(node.SIDE_SKIN_GAIN) > 0.001 or shirt_gain.distance_to(node.SIDE_SHIRT_GAIN) > 0.001:
+        push_error("UPLOADED RUN8 FAIL: separate skin/shirt target grades are missing")
         quit(1)
         return
     for direction in directions:
         node.set_direction(direction, true)
-        var actual_gain: Vector3 = grade.get_shader_parameter("channel_gain")
-        var actual_saturation: float = grade.get_shader_parameter("saturation")
-        var expected_gain: Vector3 = node.SIDE_COLOR_GAIN if direction == "left" or direction == "right" else node.NEUTRAL_COLOR_GAIN
-        var expected_saturation: float = node.SIDE_SATURATION if direction == "left" or direction == "right" else 1.0
-        if actual_gain.distance_to(expected_gain) > 0.001:
-            push_error("UPLOADED RUN8 FAIL: wrong color balance for " + direction)
+        var enabled: float = grade.get_shader_parameter("grading_enabled")
+        var expected_enabled: float = 1.0 if direction == "left" or direction == "right" else 0.0
+        if absf(enabled - expected_enabled) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: incorrect color mask state for RUN " + direction)
             quit(1)
             return
-        if absf(actual_saturation - expected_saturation) > 0.001:
-            push_error("UPLOADED RUN8 FAIL: wrong saturation for " + direction)
+        if actor.sprite_frames.get_frame_count("run_" + direction) != node.target_run_frame_count(direction):
+            push_error("UPLOADED RUN8 FAIL: incorrect source-frame count: " + direction)
             quit(1)
             return
-        if actor.sprite_frames.get_frame_count("run_" + direction) != 12:
-            push_error("UPLOADED RUN8 FAIL: color correction altered animation frames for " + direction)
+        print("UPLOADED RUN8 SELECTIVE PALETTE PASS: ", direction, " enabled=", enabled)
+    for side in ["left", "right"]:
+        node.set_direction(side, false)
+        var enabled: float = grade.get_shader_parameter("grading_enabled")
+        if absf(enabled) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: original idle art is recolored " + side)
             quit(1)
             return
-        print("UPLOADED RUN8 COLOR PASS: ", direction, " gain=", actual_gain, " saturation=", actual_saturation)
-    print("UPLOADED RUN8 COLOR GRADING PASS: 8 directions, matched L/R saturation, original alpha preserved")
+    print("UPLOADED RUN8 TWO-MASK COLOR PASS: front-referenced skin and shirt, transparent edges protected, idle unchanged")
     # The user's five new PNGs take precedence only when all 5 are present.
     # Until uploaded, legacy remains an EXPLICITLY LABELED fallback rather
     # than falsely reporting that the new idle sprites are installed.
@@ -303,6 +379,32 @@ func _check() -> void:
         print("UPLOADED RUN8 NEW USER IDLE 8-DIR PASS: 5 real images + 3 mirrors")
     else:
         print("UPLOADED RUN8 WARNING: 5 new idle PNGs are NOT in repository, using legacy fallback")
+    # Regression from recorded gameplay: running UP/UP-LEFT for ~6 s previously
+    # put the foot pivot at y=200 so the character's head crossed the HUD
+    # and upper viewport. The actor should stop before any part is clipped.
+    var safe_top_foot: float = node.TOP_HUD_SAFE_Y + node.ACTOR_BASE_SCALE * node.TARGET_VISIBLE_HEIGHT + node.RUN_HEADROOM_MARGIN
+    actor.position = Vector2(640, 470)
+    node.move_in_direction(Vector2(-1, -1), 8.0)
+    if actor.position.y < safe_top_foot - 0.01:
+        push_error("UPLOADED RUN8 FAIL: full silhouette escapes the top HUD during up-left RUN")
+        quit(1)
+        return
+    if actor.position.x < node.STAGE_SIDE_MARGIN - 0.01:
+        push_error("UPLOADED RUN8 FAIL: character escapes left viewport during up-left RUN")
+        quit(1)
+        return
+    node.set_direction("up_left", false)
+    if actor.animation != "idle_up_left" or actor.position.y < safe_top_foot - 0.01:
+        push_error("UPLOADED RUN8 FAIL: idle immediately after up-left RUN is clipped")
+        quit(1)
+        return
+    actor.position = Vector2(640, 470)
+    node.move_in_direction(Vector2(1, 0), 10.0)
+    if actor.position.x > 1280.0 - node.STAGE_SIDE_MARGIN + 0.01:
+        push_error("UPLOADED RUN8 FAIL: side RUN exits right viewport")
+        quit(1)
+        return
+    print("UPLOADED RUN8 SCREEN BOUNDS PASS: full head visible above HUD and side edges safe")
     node.queue_free()
     print("UPLOADED RUN8 PASS")
     quit(0)
