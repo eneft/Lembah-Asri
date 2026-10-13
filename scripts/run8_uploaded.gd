@@ -45,8 +45,8 @@ const NEW_IDLE_PIVOT_X := {
 # Display-only color normalization measured against the existing diagonal
 # sources. Side views are slightly redder / more saturated than other views.
 # Keep original PNGs, animation frames, alpha, pivots, scale and FPS unchanged.
-const SIDE_COLOR_GAIN := Vector3(0.955, 1.041, 1.008)
-const SIDE_SATURATION := 0.942
+const SIDE_COLOR_GAIN := Vector3(1.0, 1.0, 1.0) # Disable green-tinted side RUN grading.
+const SIDE_SATURATION := 1.0 # Preserve source hues at semitransparent hand edges.
 const NEUTRAL_COLOR_GAIN := Vector3(1.0, 1.0, 1.0)
 # Visual-bounds calibration of the CURRENT uploaded sprite resources (alpha >= 25).
 # All resource frames use a 768x1168 canvas, but the visible character heights
@@ -184,16 +184,13 @@ func _ready() -> void:
  _make_ui()
  set_direction("down",false)
  queue_redraw()
-# Per-pose audit: side-source rows have 7+7+5+7 frames, with missing
-# row_5. The former 14..25 selection (row_6/7) had an abrupt 25->14 wrap.
-# Visual and pixel-space continuity are better for 2..13 (row_3/4):
-# 2->13 wraps at 0.193 normalized composited-image distance versus 0.230,
-# with typical internal transitions around 0.188. Keep twelve true poses.
-# Rear-diagonal is a TURNING / acceleration sequence, not a faithful looping
-# running cycle; the index selection below is only a provisional fallback.
-# It cannot become seamless without new source poses or true in-between art.
-# Original source resources, idle, palette, pivots and 12 FPS are unchanged.
-const SIDE_RUN_LOOP_12 := [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+# User-requested alternate 12-frame lateral RUN selection.
+# This keeps native source poses in order; it must be judged visually in the
+# preview for any remaining seam pause. Neither PNG nor any other direction
+# is modified, and both left/right use this same 12-frame map (left mirrored).
+# Sprite grade for these directions is disabled to remove the artificial
+# green color shift that was being added to the hands/sleeves.
+const SIDE_RUN_LOOP_12 := [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
 const REAR_DIAGONAL_RUN_LOOP_12 := [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
 func run_source_indices(direction: String, source_count: int) -> PackedInt32Array:
@@ -242,14 +239,11 @@ func _apply_color_grade(direction: String, moving: bool = true) -> void:
  var grade: ShaderMaterial = actor.material as ShaderMaterial
  if grade == null:
   return
- # The uploaded NEW idle art already has its own native palette; preserve it.
- # Keep side-view color balancing only for RUN / old fallback.
- if (moving or not using_new_idle) and (direction == "right" or direction == "left"):
-  grade.set_shader_parameter("channel_gain", SIDE_COLOR_GAIN)
-  grade.set_shader_parameter("saturation", SIDE_SATURATION)
- else:
-  grade.set_shader_parameter("channel_gain", NEUTRAL_COLOR_GAIN)
-  grade.set_shader_parameter("saturation", 1.0)
+ # IMPORTANT: do not tint side-run hands, sleeves or semitransparent edges.
+ # Source RGB and alpha must pass through unchanged. Other directions were
+ # already neutral and remain so. Palette cleanup baked into PNGs is separate.
+ grade.set_shader_parameter("channel_gain", NEUTRAL_COLOR_GAIN)
+ grade.set_shader_parameter("saturation", 1.0)
 
 func apply_proportions(direction: String, moving: bool = true) -> void:
  # Calibrate each distinct canvas to a single visible body height and heel
