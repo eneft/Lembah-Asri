@@ -76,8 +76,8 @@ func _check() -> void:
         push_error("UPLOADED RUN8 FAIL: back-left should be mirrored PNG")
         quit(1)
         return
-    # Left/Right preserve all 14 native gait poses at 14 FPS, still a 1s loop.
-    # The other six directions remain 12 frames at 12 FPS / one-second loop.
+    # Left/Right now use 22 consecutive source poses at 22 FPS: the 21->0
+    # seam was measured much closer than 13->0. Other directions stay 12@12.
     # Movement speed remains independent and normalized for diagonal input.
     var directions: Array[String] = ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
     var vectors: Array[Vector2] = [
@@ -123,10 +123,10 @@ func _check() -> void:
             quit(1)
             return
         print("UPLOADED RUN8 RUN CADENCE PASS: ", direction, " frames=", frame_count, " fps=", fps, " cycle_s=", float(frame_count) / fps, " move_px_100ms=", distance)
-    # The prior 12-frame side version removed critical original contact poses.
-    # Preserve the entire 14-frame row_3+row_4 sequence (0 through 13).
-    # Both left and right must use precisely the SAME native textures, with
-    # left mirrored only at render time. Source row_6/7 are disconnected.
+    # Side sequence audit: source atlas has 26 ordered native poses.
+    # Previous 14-pose 13->0 jump was ~9.10 pixel-distance units;
+    # untrimmed source poses 0..21 return 21->0 at ~3.99. Preserve all
+    # sequential poses, BOTH opposite contacts (0 and 7) and mirror the left.
     var side_source: SpriteFrames = load(node.RESOURCES["right"]) as SpriteFrames
     if side_source == null:
         push_error("UPLOADED RUN8 FAIL: original side-run sheet unavailable")
@@ -139,31 +139,30 @@ func _check() -> void:
         for j in range(side_source.get_frame_count(row_name)):
             side_original.append(side_source.get_frame_texture(row_name, j))
     if side_original.size() != 26:
-        push_error("UPLOADED RUN8 FAIL: side source texture inventory unexpectedly changed")
+        push_error("UPLOADED RUN8 FAIL: original side atlas inventory changed")
         quit(1)
         return
     for direction in ["right", "left"]:
         var mapped: PackedInt32Array = node.run_source_indices(direction, side_original.size())
-        if mapped.size() != 14 or not mapped.has(0) or not mapped.has(7):
-            push_error("UPLOADED RUN8 FAIL: side gait lacks either foot-contact pose: " + direction)
+        if mapped.size() != 22 or not mapped.has(0) or not mapped.has(7) or not mapped.has(14) or not mapped.has(21):
+            push_error("UPLOADED RUN8 FAIL: side run missing complete 22-frame sequence or leg contact: " + direction)
             quit(1)
             return
-        for slot in range(14):
+        for slot in range(22):
             if int(mapped[slot]) != slot:
-                push_error("UPLOADED RUN8 FAIL: side gait skipped or reordered native pose " + str(slot))
+                push_error("UPLOADED RUN8 FAIL: unexpected side pose reordering: " + str(slot))
                 quit(1)
                 return
             if actor.sprite_frames.get_frame_texture("run_" + direction, slot) != side_original[slot]:
-                push_error("UPLOADED RUN8 FAIL: side native texture changed: " + direction + " frame " + str(slot))
+                push_error("UPLOADED RUN8 FAIL: source art mismatch in side run: " + str(slot))
                 quit(1)
                 return
         node.set_direction(direction, true)
         if actor.flip_h != (direction == "left"):
-            push_error("UPLOADED RUN8 FAIL: incorrect left/right mirror " + direction)
+            push_error("UPLOADED RUN8 FAIL: left/right mirror broken " + direction)
             quit(1)
             return
-        print("UPLOADED RUN8 FULL SIDE PASS: ", direction, " 14 native poses preserved, two-foot contact @ 14 FPS")
-
+        print("UPLOADED RUN8 SIDE SOURCE PASS: ", direction, " 22 consecutive native poses, both leg contacts @ 22 FPS")
     var source_lengths: Dictionary = {"right": 26, "down_right": 18, "down": 8, "up": 8, "up_right": 12 if node.using_refined_back_loop else 21}
     for direction in directions:
         var original_name: String = direction
@@ -203,7 +202,7 @@ func _check() -> void:
         push_error("UPLOADED RUN8 FAIL: run phase resets on direction change")
         quit(1)
         return
-    print("UPLOADED RUN8 CADENCE PASS: left/right=14@14, other six=12@12, normalized movement and stride phase preserved")
+    print("UPLOADED RUN8 CADENCE PASS: left/right=22@22, other six=12@12, normalized movement and stride phase preserved")
     # Visible alpha bounds, NOT PNG canvas dimensions, define perceived size.
     # Verify all 8 native/mirrored directions display one consistent body height
     # and anchor their median foot baseline to the same actor.position.
@@ -280,44 +279,46 @@ func _check() -> void:
         quit(1)
         return
     print("UPLOADED RUN8 PROPORTIONS PASS: 8 matched heights, updated alpha-measured scale and pivots")
-    # Restore the previous opaque-pixel side palette correction without
-    # changing semitransparent edge colors. Shader preserves original alpha
-    # and applies smoothstep mask only to left/right RUN.
+    # Side RUN uses distinct skin/shirt color masks measured against the
+    # actual front source. The old global green gain incorrectly tinted fabric.
+    # Grading must not alter native IDLE or the sprite alpha.
     var grade: ShaderMaterial = actor.material as ShaderMaterial
     if grade == null or grade.shader == null:
-        push_error("UPLOADED RUN8 FAIL: side color shader missing")
+        push_error("UPLOADED RUN8 FAIL: side palette shader missing")
         quit(1)
         return
     var shader_source: String = grade.shader.code
-    if not shader_source.contains("smoothstep(edge_alpha_start, edge_alpha_end, original.a)") or not shader_source.contains("original.a);"):
-        push_error("UPLOADED RUN8 FAIL: shader lacks alpha-aware edge mask or alpha preservation")
+    if not shader_source.contains("skin_mask") or not shader_source.contains("shirt_mask") or not shader_source.contains("original.a"):
+        push_error("UPLOADED RUN8 FAIL: side shader lacks selective alpha-preserving masks")
+        quit(1)
+        return
+    var skin_gain: Vector3 = grade.get_shader_parameter("skin_gain")
+    var shirt_gain: Vector3 = grade.get_shader_parameter("shirt_gain")
+    if skin_gain.distance_to(node.SIDE_SKIN_GAIN) > 0.001 or shirt_gain.distance_to(node.SIDE_SHIRT_GAIN) > 0.001:
+        push_error("UPLOADED RUN8 FAIL: separate skin/shirt target grades are missing")
         quit(1)
         return
     for direction in directions:
         node.set_direction(direction, true)
-        var actual_gain: Vector3 = grade.get_shader_parameter("channel_gain")
-        var actual_saturation: float = grade.get_shader_parameter("saturation")
-        var side_running: bool = direction == "right" or direction == "left"
-        var wanted_gain: Vector3 = node.SIDE_COLOR_GAIN if side_running else node.NEUTRAL_COLOR_GAIN
-        var wanted_saturation: float = node.SIDE_SATURATION if side_running else 1.0
-        if actual_gain.distance_to(wanted_gain) > 0.001 or absf(actual_saturation - wanted_saturation) > 0.001:
-            push_error("UPLOADED RUN8 FAIL: wrong side RUN palette: " + direction)
+        var enabled: float = grade.get_shader_parameter("grading_enabled")
+        var expected_enabled: float = 1.0 if direction == "left" or direction == "right" else 0.0
+        if absf(enabled - expected_enabled) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: incorrect color mask state for RUN " + direction)
             quit(1)
             return
         if actor.sprite_frames.get_frame_count("run_" + direction) != node.target_run_frame_count(direction):
-            push_error("UPLOADED RUN8 FAIL: color correction altered animation length " + direction)
+            push_error("UPLOADED RUN8 FAIL: incorrect source-frame count: " + direction)
             quit(1)
             return
-        print("UPLOADED RUN8 PALETTE PASS: ", direction, " gain=", actual_gain, " saturation=", actual_saturation)
+        print("UPLOADED RUN8 SELECTIVE PALETTE PASS: ", direction, " enabled=", enabled)
     for side in ["left", "right"]:
         node.set_direction(side, false)
-        var idle_gain: Vector3 = grade.get_shader_parameter("channel_gain")
-        var idle_saturation: float = grade.get_shader_parameter("saturation")
-        if idle_gain.distance_to(node.NEUTRAL_COLOR_GAIN) > 0.001 or absf(idle_saturation - 1.0) > 0.001:
-            push_error("UPLOADED RUN8 FAIL: idle side color was tinted " + side)
+        var enabled: float = grade.get_shader_parameter("grading_enabled")
+        if absf(enabled) > 0.001:
+            push_error("UPLOADED RUN8 FAIL: original idle art is recolored " + side)
             quit(1)
             return
-    print("UPLOADED RUN8 SIDE ALPHA-MASK PASS: opaque RUN palette matched; native idle and alpha unchanged")
+    print("UPLOADED RUN8 TWO-MASK COLOR PASS: front-referenced skin and shirt, transparent edges protected, idle unchanged")
     # The user's five new PNGs take precedence only when all 5 are present.
     # Until uploaded, legacy remains an EXPLICITLY LABELED fallback rather
     # than falsely reporting that the new idle sprites are installed.
