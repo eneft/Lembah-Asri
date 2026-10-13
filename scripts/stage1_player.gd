@@ -6,6 +6,12 @@ extends CharacterBody2D
 @export var walk_speed: float = 160.0
 @export var run_speed: float = 325.0
 
+# Optional normalized 8-direction run atlas. Old RUN/IDLE/WALK are preserved
+# unless BOTH atlas PNGs and the SpriteFrames resource have been installed.
+const PROPORTIONAL_RUN_PATH := "res://assets/characters/run8_proportional/Run8_SpriteFrames.tres"
+var proportional_run_bank: SpriteFrames = null
+var using_proportional_run: bool = false
+
 const RUN_RIGHT: SpriteFrames = preload("res://assets/characters/run_uploaded/right/lembah_asri_run_49_frames_7x7_lossless.tres")
 const RUN_FRONT_RIGHT: SpriteFrames = preload("res://assets/characters/run_uploaded/down_right/run_12_spritesheet_4x3.tres")
 const RUN_FRONT: SpriteFrames = preload("res://assets/characters/run_uploaded/down/run_12_spritesheet_4x3_1.tres")
@@ -97,6 +103,7 @@ func _ready() -> void:
  # A centered Sprite2D with a second manual offset would shift the pivot.
  actor.centered = false
  actor.position = Vector2.ZERO
+ _detect_proportional_run()
  _setup_animations()
  _setup_color_material(actor)
  # Explicit shader state is needed even before the first movement input:
@@ -108,7 +115,25 @@ func _ready() -> void:
  actor.animation = "idle_down_right"
  actor.frame = 0
  actor.stop()
- print("LEMBAH ASRI MAIN: uploaded RUN8+IDLE active; side=26@26, back_diagonal=21@21, others=12@12, world_height=112px")
+ print("LEMBAH ASRI MAIN: RUN8 normalized pack active: %s; legacy WALK+IDLE preserved; world_height=112px" % str(using_proportional_run))
+
+func _detect_proportional_run() -> void:
+ using_proportional_run = false
+ proportional_run_bank = null
+ if not ResourceLoader.exists(PROPORTIONAL_RUN_PATH):
+  return
+ var candidate := load(PROPORTIONAL_RUN_PATH) as SpriteFrames
+ if candidate == null:
+  push_warning("New proportional run resource failed to load; keeping current animation.")
+  return
+ for direction in DIRECTIONS:
+  var key: String = "run_" + direction
+  if not candidate.has_animation(key) or candidate.get_frame_count(key) < 2:
+   push_warning("Incomplete new proportional RUN8 (" + key + "); keeping current animation.")
+   return
+ proportional_run_bank = candidate
+ using_proportional_run = true
+
 
 func _native_direction(heading: String) -> String:
  if heading == "left":
@@ -186,12 +211,17 @@ func _setup_animations() -> void:
    var key: String = state + "_" + direction
    bank.add_animation(key)
    bank.set_animation_loop(key, true)
-   # WALK temporarily reuses genuine directional RUN art at a lower gait
-   # cadence until separate WALK frames have been supplied.
-   var fps: float = float(RUN_FPS_BY_DIR[direction]) if state == "run" else float(count) / 1.5
-   bank.set_animation_speed(key, fps)
-   for original_frame in frames:
-    bank.add_frame(key, original_frame)
+   if state == "run" and using_proportional_run:
+    # Use ALL normalized poses, including the already baked left directions.
+    bank.set_animation_speed(key, 10.0)
+    for frame_id in range(proportional_run_bank.get_frame_count(key)):
+     bank.add_frame(key, proportional_run_bank.get_frame_texture(key, frame_id))
+   else:
+    # Preserve the pre-existing WALK cadence (and legacy RUN fallback).
+    var fps: float = float(RUN_FPS_BY_DIR[direction]) if state == "run" else float(count) / 1.5
+    bank.set_animation_speed(key, fps)
+    for original_frame in frames:
+     bank.add_frame(key, original_frame)
   var idle_key: String = "idle_" + direction
   bank.add_animation(idle_key)
   bank.set_animation_loop(idle_key, false)
@@ -240,15 +270,20 @@ func _apply_color_state(direction: String, state: String) -> void:
   return
  grade.set_shader_parameter("skin_gain", SKIN_GAIN)
  grade.set_shader_parameter("shirt_gain", SHIRT_GAIN)
- grade.set_shader_parameter("grading_enabled", 1.0 if state != "idle" and direction in ["left", "right"] else 0.0)
+ grade.set_shader_parameter("grading_enabled", 1.0 if state != "idle" and direction in ["left", "right"] and not (state == "run" and using_proportional_run) else 0.0)
 
-func _apply_visual_proportions(direction: String, is_moving: bool) -> void:
+func _apply_visual_proportions(direction: String, is_moving: bool, new_run: bool = false) -> void:
  var actor: AnimatedSprite2D = $AnimatedSprite2D
  var origin: String = _native_direction(direction)
  var original_height: float = float(SOURCE_VISIBLE_HEIGHT[direction])
  var source_foot: float = float(SOURCE_FOOT_BASELINE[direction])
  var source_mid_x: float = 384.0
- if not is_moving:
+ if new_run:
+  # Baked canonical 512x768 frames: identical source scale and foot pivot for all 8 directions.
+  original_height = 640.0
+  source_foot = 708.0
+  source_mid_x = 256.0
+ elif not is_moving:
   original_height = float(IDLE_VISIBLE_HEIGHT[origin])
   source_foot = float(IDLE_FOOT[origin])
   source_mid_x = float(IDLE_PIVOT_X[origin])
@@ -277,9 +312,9 @@ func _set_animation(next_state: String, direction: String) -> void:
    var new_frame: int = clampi(int(floor(target)), 0, next_count - 1)
    actor.set_frame_and_progress(new_frame, target - float(new_frame))
  if has_changed or animation_state != next_state:
-  _apply_visual_proportions(direction, next_state != "idle")
+  _apply_visual_proportions(direction, next_state != "idle", next_state == "run" and using_proportional_run)
   _apply_color_state(direction, next_state)
- actor.flip_h = direction in ["left", "down_left", "up_left"]
+ actor.flip_h = direction in ["left", "down_left", "up_left"] and not (next_state == "run" and using_proportional_run)
  if next_state == "idle":
   actor.stop()
   actor.frame = 0
