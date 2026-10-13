@@ -16,7 +16,7 @@ func _check() -> void:
  var world: Node2D = source.instantiate()
  root.add_child(world)
  await process_frame
- var player: CharacterBody2D = world.get_node_or_null("Player") as CharacterBody2D
+ var player: Variant = world.get_node_or_null("Player")
  if player == null or not player.using_run8_uploaded:
   _fail("main stage did not instantiate native eight-direction player")
   return
