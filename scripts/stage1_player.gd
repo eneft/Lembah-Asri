@@ -99,6 +99,10 @@ func _ready() -> void:
  actor.position = Vector2.ZERO
  _setup_animations()
  _setup_color_material(actor)
+ # Explicit shader state is needed even before the first movement input:
+ # ShaderMaterial.get_shader_parameter() returns null for unset uniforms,
+ # and native IDLE must always remain unaffected by RUN side color grading.
+ _apply_color_state("down_right", "idle")
  _apply_visual_proportions("down_right", false)
  actor.flip_h = false
  actor.animation = "idle_down_right"
