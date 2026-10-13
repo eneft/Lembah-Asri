@@ -1,0 +1,211 @@
+{
+  "normalization": "same visual body height, uniform X/Y per direction, consistent median pivot, natural running stride/bounce retained",
+  "target_visual_height_px": 640,
+  "canvas_wh_px": [
+    512,
+    768
+  ],
+  "pivot_xy_px": [
+    256,
+    708
+  ],
+  "atlas_pixel_sizes": {
+    "base": [
+      3000,
+      3938
+    ],
+    "mirror": [
+      2500,
+      2636
+    ]
+  },
+  "sources": {
+    "down": {
+      "source_median_height_px": 641.0,
+      "normalization_factor": 0.99844,
+      "new_median_height_px": 640.0,
+      "new_height_range_px": [
+        621,
+        652
+      ],
+      "new_median_foot_y_px": 708.0,
+      "new_median_center_x_px": 255.75,
+      "frames": 10,
+      "source_group": "front"
+    },
+    "down_right": {
+      "source_median_height_px": 620.5,
+      "normalization_factor": 1.031426,
+      "new_median_height_px": 641.0,
+      "new_height_range_px": [
+        629,
+        654
+      ],
+      "new_median_foot_y_px": 708.5,
+      "new_median_center_x_px": 256.0,
+      "frames": 10,
+      "source_group": "front_right"
+    },
+    "right": {
+      "source_median_height_px": 570.5,
+      "normalization_factor": 1.121823,
+      "new_median_height_px": 640.5,
+      "new_height_range_px": [
+        630,
+        647
+      ],
+      "new_median_foot_y_px": 708.5,
+      "new_median_center_x_px": 256.5,
+      "frames": 8,
+      "source_group": "right"
+    },
+    "up_right": {
+      "source_median_height_px": 569.5,
+      "normalization_factor": 1.123793,
+      "new_median_height_px": 640.0,
+      "new_height_range_px": [
+        626,
+        668
+      ],
+      "new_median_foot_y_px": 708.0,
+      "new_median_center_x_px": 256.0,
+      "frames": 10,
+      "source_group": "back_right"
+    },
+    "up": {
+      "source_median_height_px": 544.5,
+      "normalization_factor": 1.17539,
+      "new_median_height_px": 641.0,
+      "new_height_range_px": [
+        635,
+        674
+      ],
+      "new_median_foot_y_px": 707.5,
+      "new_median_center_x_px": 255.25,
+      "frames": 8,
+      "source_group": "back"
+    }
+  },
+  "eight_directions": {
+    "down": {
+      "frame_count": 10,
+      "mirrored_from": null,
+      "normalized_median_character_height_px": 640.0,
+      "normalized_median_foot_y": 708.0,
+      "normalized_canvas_px": [
+        512,
+        768
+      ],
+      "sprite_offset_px": [
+        -256,
+        -708
+      ],
+      "normalization_factor": 0.99844
+    },
+    "down_right": {
+      "frame_count": 10,
+      "mirrored_from": null,
+      "normalized_median_character_height_px": 641.0,
+      "normalized_median_foot_y": 708.5,
+      "normalized_canvas_px": [
+        512,
+        768
+      ],
+      "sprite_offset_px": [
+        -256,
+        -708
+      ],
+      "normalization_factor": 1.031426
+    },
+    "right": {
+      "frame_count": 8,
+      "mirrored_from": null,
+      "normalized_median_character_height_px": 640.5,
+      "normalized_median_foot_y": 708.5,
+      "normalized_canvas_px": [
+        512,
+        768
+      ],
+      "sprite_offset_px": [
+        -256,
+        -708
+      ],
+      "normalization_factor": 1.121823
+    },
+    "up_right": {
+      "frame_count": 10,
+      "mirrored_from": null,
+      "normalized_median_character_height_px": 640.0,
+      "normalized_median_foot_y": 708.0,
+      "normalized_canvas_px": [
+        512,
+        768
+      ],
+      "sprite_offset_px": [
+        -256,
+        -708
+      ],
+      "normalization_factor": 1.123793
+    },
+    "up": {
+      "frame_count": 8,
+      "mirrored_from": null,
+      "normalized_median_character_height_px": 641.0,
+      "normalized_median_foot_y": 707.5,
+      "normalized_canvas_px": [
+        512,
+        768
+      ],
+      "sprite_offset_px": [
+        -256,
+        -708
+      ],
+      "normalization_factor": 1.17539
+    },
+    "up_left": {
+      "frame_count": 10,
+      "mirrored_from": "back_right",
+      "normalized_median_character_height_px": 640.0,
+      "normalized_median_foot_y": 708.0,
+      "normalized_canvas_px": [
+        512,
+        768
+      ],
+      "sprite_offset_px": [
+        -256,
+        -708
+      ],
+      "normalization_factor": 1.123793
+    },
+    "left": {
+      "frame_count": 8,
+      "mirrored_from": "right",
+      "normalized_median_character_height_px": 640.5,
+      "normalized_median_foot_y": 708.5,
+      "normalized_canvas_px": [
+        512,
+        768
+      ],
+      "sprite_offset_px": [
+        -256,
+        -708
+      ],
+      "normalization_factor": 1.121823
+    },
+    "down_left": {
+      "frame_count": 10,
+      "mirrored_from": "front_right",
+      "normalized_median_character_height_px": 641.0,
+      "normalized_median_foot_y": 708.5,
+      "normalized_canvas_px": [
+        512,
+        768
+      ],
+      "sprite_offset_px": [
+        -256,
+        -708
+      ],
+      "normalization_factor": 1.031426
+    }
+  }
+}

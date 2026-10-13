@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/run8_proportional_test.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://assets/characters/run8_proportional/Run8Player.tscn" id="2_player"]
+
+[node name="Run8Test" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="Run8Player" parent="." instance=ExtResource("2_player")]
+
+[node name="HUD" type="CanvasLayer" parent="."]
