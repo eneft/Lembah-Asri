@@ -26,7 +26,7 @@ func _check() -> void:
  var scene: Node2D = packed.instantiate()
  root.add_child(scene)
  await process_frame
- var player := scene.get_node_or_null("Run8Player")
+ var player: Variant = scene.get_node_or_null("Run8Player")
  var sprite := scene.get_node_or_null("Run8Player/AnimatedSprite2D") as AnimatedSprite2D
  if player == null or sprite == null or sprite.sprite_frames == null:
   _fail("preview did not instantiate real proportional Run8Player")
@@ -34,7 +34,7 @@ func _check() -> void:
  if scene.get_node_or_null("HUD/Overlay/DirectionPanel") == null:
   _fail("mobile 8-direction buttons missing from new preview")
   return
- if not scene.auto_rotate:
+ if not bool(scene.get("auto_rotate")):
   _fail("approved preview must auto-play all eight RUN directions")
   return
  if sprite.flip_h:
