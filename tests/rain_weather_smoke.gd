@@ -21,7 +21,7 @@ func _check() -> void:
   if weather == null or not bool(weather.get("raining")):
    _fail("active RainWeather scene missing from " + path)
    return
-  for effect in ["RainBack", "RainFront", "GroundSplashes", "RiverRipples"]:
+  for effect in ["RainBack", "RainFront", "GroundPuddles", "GroundSplashes", "RiverRipples", "FootstepSplashes"]:
    var layer: Node2D = weather.get_node_or_null(effect) as Node2D
    if layer == null or not layer.visible or not layer.is_processing():
     _fail("missing active effect " + effect)
@@ -39,7 +39,7 @@ func _check() -> void:
    if points.size() > 230:
     _fail("weather layer exceeds bounded GPU batch budget: " + effect)
     return
-   var expected_fps: float = 30.0 if effect.begins_with("Rain") else 20.0
+   var expected_fps: float = 30.0 if effect.begins_with("Rain") else (12.0 if effect == "GroundPuddles" else 20.0)
    if not is_equal_approx(float(layer.get("update_fps")), expected_fps):
     _fail("weather effect tick cap regressed: " + effect)
     return
@@ -51,7 +51,36 @@ func _check() -> void:
    if entry.x < 1058.0 or entry.y < 288.0:
     _fail("river impact outside RGBA sprite origin")
     return
+  # Verify that puddle footprints generate splashes only while moving.
+  var splashes: Node2D = weather.get_node("FootstepSplashes")
+  var before: int = int(splashes.get("next_footstep_slot"))
+  var spot := Vector2(821, 562)
+  if not bool(weather.call("is_in_puddle", spot)) or bool(weather.call("is_in_puddle", Vector2(100, 100))):
+   _fail("puddle collision radius is missing or too broad")
+   return
+  weather.call("register_footstep", spot, false)
+  if int(splashes.get("next_footstep_slot")) != before:
+   _fail("standing still must not create a puddle footstep")
+   return
+  weather.call("register_footstep", spot, true)
+  if int(splashes.get("next_footstep_slot")) == before:
+   _fail("moving through a puddle must produce a footstep splash")
+   return
+  var after: int = int(splashes.get("next_footstep_slot"))
+  weather.call("register_footstep", spot, true)
+  if int(splashes.get("next_footstep_slot")) != after:
+   _fail("footstep cooldown is not enforced")
+   return
+  # Genangan visible even without motion; stable seed/canonical positions.
+  var puddles: Node2D = weather.get_node("GroundPuddles")
+  if (puddles.get("entries") as Array).size() != 12:
+   _fail("expected twelve hand-positioned puddles")
+   return
   weather.call("set_raining", false)
+  weather.call("register_footstep", spot, true)
+  if int(splashes.get("next_footstep_slot")) != after:
+   _fail("disabled rain must suppress footsteps")
+   return
   if bool(weather.get("raining")):
    _fail("toggle off failed")
    return
@@ -80,5 +109,5 @@ func _check() -> void:
     return
   world.queue_free()
   await process_frame
- print("RAIN WEATHER PASS: four GPU-instanced weather layers, visible-rain budgets <=230, 30/20Hz updates, land+river splashes and game unchanged")
+ print("RAIN WEATHER PASS: six GPU-batched layers, 12 reflective puddles, visible ground hits, masked river ripples, walking footstep cooldown, no legacy gameplay regression")
  quit(0)

@@ -107,6 +107,8 @@ func _process(delta: float) -> void:
    _update_status()
   var speed: float = fast_move_speed if touch_fast or Input.is_key_pressed(KEY_SHIFT) else run_move_speed
   runner.position = (runner.position + motion * speed * step).clamp(Vector2(110, 355), Vector2(1535, 795))
+  # Feet are at the avatar Node2D origin; only splash when stepping in water.
+  weather.call("register_footstep", runner.global_position, true)
  else:
   if str(runner.get("animation_state")) != "idle":
    runner.set_idle_direction(direction_name)
@@ -225,7 +227,7 @@ func _build_ui() -> void:
  stack.add_child(cb)
  var rain_switch := CheckButton.new()
  rain_switch.name = "RainSwitch"
- rain_switch.text = "Hujan + percikan air"
+ rain_switch.text = "Hujan, genangan & percikan"
  rain_switch.button_pressed = bool(weather.get("raining"))
  rain_switch.toggled.connect(_on_rain_toggled)
  stack.add_child(rain_switch)

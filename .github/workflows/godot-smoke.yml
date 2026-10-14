@@ -70,6 +70,14 @@ jobs:
             echo "Batched rain GPU output failed"; exit 1
           fi
           grep -q 'RAIN RENDER PASS:' rain-render.log
+      - name: Verify ground splash, puddle glint and player footprint GPU pixels
+        run: |
+          set -o pipefail
+          timeout 65s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/puddle_render_smoke.gd 2>&1 | tee puddle-render.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PUDDLE RENDER FAIL' puddle-render.log; then
+            echo "Ground puddle/footstep rendering failed"; exit 1
+          fi
+          grep -q 'PUDDLE RENDER PASS:' puddle-render.log
       - name: Gameplay smoke with existing art and controls
         run: |
           set -o pipefail

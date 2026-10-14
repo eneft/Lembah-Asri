@@ -8,12 +8,15 @@ extends Node2D
 @onready var player: CharacterBody2D = $Player
 @onready var gameplay_hud: Control = $GameplayHUDLayer/GameplayHUD
 @onready var touch_controls: Control = $MobileControlsLayer/TouchControls
+@onready var rain_weather: Node2D = $RainWeather
+var previous_player_foot: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
     gameplay_hud.call("bind_player", player)
     touch_controls.connect("move_changed", Callable(self, "_on_mobile_move"))
     touch_controls.connect("run_changed", Callable(self, "_on_mobile_run"))
     _make_contact_shadow()
+    previous_player_foot = player.global_position
     print("LEMBAH ASRI: editable stage1 scene loaded; original RUN8/IDLE, Y-sort, river, HUD and touch retained")
 
 func _on_mobile_move(direction: Vector2) -> void:
@@ -53,3 +56,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
         if has_node("RainWeather"):
             $RainWeather.call("toggle_rain")
             get_viewport().set_input_as_handled()
+
+func _process(_delta: float) -> void:
+    # Read the actual moved foot pivot; no additional physics or collision.
+    var current_foot: Vector2 = player.global_position
+    var moved: bool = current_foot.distance_to(previous_player_foot) > 0.75
+    rain_weather.call("register_footstep", current_foot, moved)
+    previous_player_foot = current_foot

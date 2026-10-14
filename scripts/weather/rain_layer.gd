@@ -14,6 +14,8 @@ var update_fps: float = 30.0
 var batched_mesh: MultiMesh
 var batched_sprites: MultiMeshInstance2D
 var batch_update_count: int = 0
+var puddle_positions: Array[Vector2] = []
+var next_footstep_slot: int = 0
 
 func _ready() -> void:
  var rng := RandomNumberGenerator.new()
@@ -24,6 +26,10 @@ func _ready() -> void:
   _seed_ground(rng)
  elif effect_kind == "water":
   _seed_water(rng)
+ elif effect_kind == "puddle":
+  _seed_puddles(rng)
+ elif effect_kind == "footstep":
+  _seed_footsteps()
  _create_batch()
  _update_batch()
  set_process(true)
@@ -56,6 +62,22 @@ func _seed_ground(rng: RandomNumberGenerator) -> void:
     point = candidate
     break
   entries.append(Vector4(point.x, point.y, rng.randf(), rng.randf_range(0.6, 1.3)))
+
+func _seed_puddles(rng: RandomNumberGenerator) -> void:
+ for point in puddle_positions:
+  entries.append(Vector4(point.x, point.y, rng.randf_range(0.0, TAU), rng.randf_range(0.87, 1.13)))
+
+func _seed_footsteps() -> void:
+ # Fixed-size ring-buffer: no new object is allocated for each footstep.
+ for i in range(particle_count):
+  entries.append(Vector4(-1000.0, -1000.0, -100000.0, 1.0))
+
+func spawn_footstep(world_pos: Vector2) -> void:
+ if effect_kind != "footstep" or entries.is_empty():
+  return
+ entries[next_footstep_slot] = Vector4(world_pos.x, world_pos.y, elapsed, 1.0)
+ next_footstep_slot = (next_footstep_slot + 1) % entries.size()
+ _update_batch()
 
 func _seed_water(rng: RandomNumberGenerator) -> void:
  # Source river RGBA image alpha is the exact water coverage, not a box.
@@ -91,13 +113,23 @@ func _create_batch() -> void:
  batched_mesh.use_colors = true
  var quad := QuadMesh.new()
  var is_rain: bool = effect_kind.begins_with("rain")
- quad.size = Vector2(2.8, 27.0) if is_rain else Vector2(48.0, 48.0)
+ if is_rain:
+  quad.size = Vector2(2.8, 27.0)
+ elif effect_kind == "puddle":
+  quad.size = Vector2(96.0, 48.0)
+ else:
+  quad.size = Vector2(48.0, 48.0)
  batched_mesh.mesh = quad
  batched_mesh.instance_count = entries.size()
  batched_sprites = MultiMeshInstance2D.new()
  batched_sprites.name = "BatchedSprites"
  batched_sprites.multimesh = batched_mesh
- batched_sprites.texture = _rain_texture() if is_rain else _splash_texture()
+ if is_rain:
+  batched_sprites.texture = _rain_texture()
+ elif effect_kind == "puddle":
+  batched_sprites.texture = _puddle_texture()
+ else:
+  batched_sprites.texture = _splash_texture()
  batched_sprites.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
  add_child(batched_sprites)
 
@@ -114,23 +146,48 @@ func _rain_texture() -> Texture2D:
  return ImageTexture.create_from_image(img)
 
 func _splash_texture() -> Texture2D:
- # 48x48 alpha-only painterly ring + two tiny upward droplets.
- # Constructed ONCE instead of drawing 16-segment arcs every frame.
+ # Thick luminous oval contact crown + two small ejected droplets.
+ # Rendered with one GPU batch at 20 Hz, not hundreds of draw_arc calls.
  var img := Image.create(48, 48, false, Image.FORMAT_RGBA8)
  img.fill(Color.TRANSPARENT)
  for y in range(48):
   for x in range(48):
    var fx: float = float(x) - 23.5
    var fy: float = float(y) - 29.0
-   var ring_distance: float = sqrt(pow(fx / 15.0, 2) + pow(fy / 5.5, 2))
-   var ring_alpha: float = clampf((0.14 - absf(ring_distance - 1.0)) / 0.14, 0.0, 1.0) * 0.78
-   var left_drop: float = Vector2(fx + 6.0, fy + 11.0).length()
-   var right_drop: float = Vector2(fx - 5.0, fy + 9.0).length()
-   var crown_alpha: float = maxf(0.0, 1.0 - left_drop / 2.2)
-   crown_alpha = maxf(crown_alpha, maxf(0.0, 1.0 - right_drop / 2.1))
-   var alpha: float = maxf(ring_alpha, crown_alpha * 0.88)
+   var ring_d: float = sqrt(pow(fx / 16.0, 2.0) + pow(fy / 6.8, 2.0))
+   var ring: float = clampf(1.0 - absf(ring_d - 1.0) / 0.22, 0.0, 1.0)
+   var crown_left: float = maxf(0.0, 1.0 - Vector2(fx + 5.0, fy + 10.0).length() / 2.8)
+   var crown_right: float = maxf(0.0, 1.0 - Vector2(fx - 6.0, fy + 12.0).length() / 2.8)
+   var flash: float = maxf(0.0, 1.0 - Vector2(fx, fy).length() / 4.0)
+   var alpha: float = maxf(ring * 0.95, maxf(crown_left, crown_right))
+   alpha = maxf(alpha, flash * 0.65)
    if alpha > 0.001:
-    img.set_pixel(x, y, Color(1, 1, 1, alpha))
+    img.set_pixel(x, y, Color(0.96, 0.99, 1.0, alpha))
+ return ImageTexture.create_from_image(img)
+
+func _puddle_texture() -> Texture2D:
+ # Soft pseudo-isometric puddle with cool sky reflection and thin rim.
+ # All texture pixels are prepared ONCE at startup.
+ var img := Image.create(96, 48, false, Image.FORMAT_RGBA8)
+ img.fill(Color.TRANSPARENT)
+ for y in range(48):
+  for x in range(96):
+   var fx: float = (float(x) - 47.5) / 46.0
+   var fy: float = (float(y) - 23.5) / 20.0
+   var d: float = sqrt(fx * fx + fy * fy)
+   var fill: float = clampf((1.03 - d) / 0.24, 0.0, 1.0)
+   if fill < 0.002:
+    continue
+   var rim: float = clampf(1.0 - absf(d - 0.88) / 0.095, 0.0, 1.0)
+   var highlight: float = 0.0
+   if fx > -0.57 and fx < 0.38 and fy < -0.10 and fy > -0.32:
+    highlight = (1.0 - absf(fy + 0.21) / 0.12) * 0.58
+   var shade: float = 0.18 + 0.13 * (1.0 - fy)
+   var alpha: float = minf(0.85, (0.43 + 0.2 * rim) * fill + highlight * fill)
+   var tint := Color(0.39 + shade, 0.57 + shade * 0.58, 0.68 + shade * 0.45, alpha)
+   if highlight > 0.0:
+    tint = tint.lerp(Color(0.96, 0.99, 1.0, alpha), highlight * 0.7)
+   img.set_pixel(x, y, tint)
  return ImageTexture.create_from_image(img)
 
 func _process(delta: float) -> void:
@@ -150,6 +207,8 @@ func _update_batch() -> void:
  batch_update_count += 1
  if effect_kind.begins_with("rain"):
   _update_rain()
+ elif effect_kind == "puddle":
+  _update_puddles()
  else:
   _update_impacts()
 
@@ -167,12 +226,35 @@ func _update_rain() -> void:
   batched_mesh.set_instance_transform_2d(i, Transform2D(-0.12, Vector2(0.86, 0.84 + drop.w * 0.20), 0.0, Vector2(x, y)))
   batched_mesh.set_instance_color(i, Color(0.84, 0.93, 1.0, base_alpha * (0.75 + 0.25 * drop.w) * strength))
 
-func _update_impacts() -> void:
- var is_water: bool = effect_kind == "water"
+func _update_puddles() -> void:
+ # Subtle glimmer animates the painted water surface, never the landscape.
  for i in range(entries.size()):
   var drop: Vector4 = entries[i]
-  var age: float = fposmod(elapsed * (1.20 + drop.w * 0.22) + drop.z, 1.0)
+  var shimmer: float = sin(elapsed * 2.2 + drop.z)
+  var sx: float = drop.w * (0.77 + 0.015 * shimmer)
+  var sy: float = drop.w * 0.53
+  batched_mesh.set_instance_transform_2d(i,
+   Transform2D(0.0, Vector2(sx, sy), 0.0, Vector2(drop.x, drop.y)))
+  batched_mesh.set_instance_color(i, Color(0.92, 0.99, 1.0, (0.77 + 0.12 * shimmer) * strength))
+
+func _update_impacts() -> void:
+ var is_water: bool = effect_kind == "water"
+ var is_footstep: bool = effect_kind == "footstep"
+ for i in range(entries.size()):
+  var drop: Vector4 = entries[i]
+  var age: float
+  if is_footstep:
+   age = (elapsed - drop.z) / 0.42
+   if age < 0.0 or age >= 1.0:
+    batched_mesh.set_instance_transform_2d(i, Transform2D(0.0, Vector2.ZERO, 0.0, Vector2(-1000, -1000)))
+    batched_mesh.set_instance_color(i, Color.TRANSPARENT)
+    continue
+  else:
+   age = fposmod(elapsed * (1.28 + drop.w * 0.24) + drop.z, 1.0)
   var fade: float = 1.0 - age
-  var scale_factor: float = (0.21 + age * (0.34 if is_water else 0.24)) * drop.w
-  batched_mesh.set_instance_transform_2d(i, Transform2D(0.0, Vector2(scale_factor, scale_factor), 0.0, Vector2(drop.x, drop.y)))
-  batched_mesh.set_instance_color(i, Color(0.85, 0.95, 1.0, (0.82 if is_water else 0.64) * fade * fade * strength))
+  var scale_factor: float = (0.58 + age * (0.53 if is_footstep else (0.38 if is_water else 0.33))) * drop.w
+  batched_mesh.set_instance_transform_2d(i,
+   Transform2D(0.0, Vector2(scale_factor, scale_factor), 0.0, Vector2(drop.x, drop.y)))
+  var alpha: float = (1.0 if is_footstep else (0.88 if is_water else 0.92)) * pow(fade, 1.35) * strength
+  batched_mesh.set_instance_color(i,
+   Color(0.96, 0.99, 1.0, alpha))
