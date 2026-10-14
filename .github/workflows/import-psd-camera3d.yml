@@ -1,0 +1,48 @@
+name: Import four genuine Photoshop layers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "assets/source_psd/background"
+      - "assets/source_psd/background.psd"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PSD compositor
+        run: python -m pip install --disable-pip-version-check "psd-tools>=1.10,<2" "Pillow>=10,<13"
+      - name: Export exactly four approved PSD layers
+        run: |
+          set -euo pipefail
+          if [ -f assets/source_psd/background.psd ]; then
+            source=assets/source_psd/background.psd
+          elif [ -f assets/source_psd/background ]; then
+            source=assets/source_psd/background
+          else
+            echo "::error::PSD missing. Put the actual Photoshop background file at assets/source_psd/background.psd"
+            exit 1
+          fi
+          python tools/export_psd_camera3d.py "$source"
+          for file in 01_background.png 02_house.png 03_banana.png 04_foreground_tree.png; do
+            test -s "assets/art/psd_background/$file"
+          done
+      - name: Publish generated PNG assets to main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/art/psd_background/
+          if git diff --cached --quiet; then
+            echo "No PSD layer changes"
+            exit 0
+          fi
+          git commit -m "assets(psd): export exact four Photoshop layers [automated]"
+          git push origin HEAD:main
