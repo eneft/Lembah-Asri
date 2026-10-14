@@ -29,3 +29,9 @@ Halaman lain dipertahankan:
 **Catatan:** Ini tes integrasi visual dan animasi, bukan level permainan final. Background masih berupa clean plate tunggal tanpa layer Y-sort rumah/pagar/pohon dan tanpa collision mask sungai yang final. Fitur lama, alur scene utama, WALK/IDLE, dan kamera utama tidak diubah.
 
 Validasi otomatis melalui `tests/rumah_ladang_run8_smoke.gd` dan GitHub Actions wajib membuktikan background PNG asli termuat (bukan fallback), jumlah pose dan FPS benar, serta game lama tetap main scene.
+
+## IDLE 8 arah (pembaruan)
+
+Scene test kini memakai `scripts/rumah_ladang_runner_idle8.gd`, controller turunan RUN8 yang terisolasi. Saat bergerak: animasi RUN8 (74 frame) seperti sebelumnya, kiri/kanan 8 FPS, arah lainnya 10 FPS. Saat melepas kontrol: RUN langsung berhenti dan tampil pose IDLE sesuai arah terakhir, termasuk arah diagonal. Tombol delapan arah dan AUTO ketika diam menampilkan IDLE alih-alih memaksa RUN terus.
+
+IDLE bersumber dari 5 PNG user-approved di `assets/characters/idle_uploaded/`: `front.png`, `front_right.png`, `right.png`, `back_right.png`, `back.png`; 3 arah kiri dicerminkan. Satu pose statis per arah (bukan frame berlari yang dibekukan). Proporsi dan foot pivot disesuaikan pada pergantian RUN/IDLE, sementara sumber atlas RUN8 serta semua gameplay lama tidak disentuh. Verifikasi tes otomatis mencakup 8 IDLE, 8 RUN, mirroring, dan transisi tombol gerak→diam.

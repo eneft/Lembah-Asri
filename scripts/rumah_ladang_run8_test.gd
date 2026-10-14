@@ -38,10 +38,11 @@ func _ready() -> void:
  var touch: Control = $TouchOverlay/TouchControls
  touch.connect("move_changed", Callable(self, "_on_touch_move"))
  touch.connect("run_changed", Callable(self, "_on_touch_fast"))
- runner.set_direction(direction_name)
+ runner.set_idle_direction(direction_name)
  _update_status()
  print("RUMAH LADANG RUN8 TEST ACTIVE: 74 normalized poses; left/right 8fps; other six 10fps; background=" + ("original" if background_installed else "fallback"))
  print("RUMAH LADANG RUN8: original main scene and run8 browser test remain unchanged")
+ print("RUMAH LADANG IDLE8 SCENE READY: stationary=idle, moving=run, remembers last of 8 headings")
  print("RUMAH LADANG CAMERA SYNC PASS: runner and Camera2D render-idle updates; capped visual delta")
 
 func _load_background() -> void:
@@ -93,23 +94,29 @@ func _process(delta: float) -> void:
   auto_rotate = false
   rotate_elapsed = 0.0
   motion = motion.normalized()
-  runner.set_from_vector(motion)
-  var current_dir: String = str(runner.get("facing"))
-  if current_dir != direction_name:
+  var sector: int = posmod(int(round(motion.angle() / (PI / 4.0))), 8)
+  var current_dir: String = DIRECTIONS[sector]
+  var was_idle: bool = str(runner.get("animation_state")) == "idle"
+  runner.set_run_direction(current_dir)
+  if current_dir != direction_name or was_idle:
    direction_name = current_dir
    _update_status()
   var speed: float = fast_move_speed if touch_fast or Input.is_key_pressed(KEY_SHIFT) else run_move_speed
   runner.position = (runner.position + motion * speed * step).clamp(Vector2(110, 355), Vector2(1535, 795))
- elif auto_rotate:
-  rotate_elapsed += step
-  if rotate_elapsed >= 1.25:
-   rotate_elapsed = 0.0
-   var next_index: int = (DIRECTIONS.find(direction_name) + 1) % DIRECTIONS.size()
-   _set_facing(DIRECTIONS[next_index])
+ else:
+  if str(runner.get("animation_state")) != "idle":
+   runner.set_idle_direction(direction_name)
+   _update_status()
+  if auto_rotate:
+   rotate_elapsed += step
+   if rotate_elapsed >= 1.25:
+    rotate_elapsed = 0.0
+    var next_index: int = (DIRECTIONS.find(direction_name) + 1) % DIRECTIONS.size()
+    _set_facing(DIRECTIONS[next_index])
 
 func _set_facing(direction: String) -> void:
  direction_name = direction
- runner.set_direction(direction)
+ runner.set_idle_direction(direction)
  _update_status()
 
 func _choose_direction(direction: String) -> void:
@@ -129,10 +136,14 @@ func _on_touch_fast(pressed: bool) -> void:
 func _update_status() -> void:
  if status_label == null or actor.sprite_frames == null:
   return
- var anim: String = "run_" + direction_name
- var native_fps: float = actor.sprite_frames.get_animation_speed(anim)
+ var state: String = str(runner.get("animation_state"))
+ var anim: String = state + "_" + direction_name
  var total: int = actor.sprite_frames.get_frame_count(anim)
- status_label.text = "%s  |  %d frame  |  %.0f FPS" % [str(DIR_DISPLAY[direction_name]), total, native_fps]
+ if state == "idle":
+  status_label.text = "IDLE  |  %s  |  diam  |  %d pose" % [str(DIR_DISPLAY[direction_name]), total]
+ else:
+  var native_fps: float = actor.sprite_frames.get_animation_speed(anim)
+  status_label.text = "RUN  |  %s  |  %d frame  |  %.0f FPS" % [str(DIR_DISPLAY[direction_name]), total, native_fps]
 
 func _update_asset_label() -> void:
  if asset_label == null:
@@ -165,7 +176,7 @@ func _build_ui() -> void:
  asset_label.add_theme_font_size_override("font_size", 13)
  info.add_child(asset_label)
  var description := Label.new()
- description.text = "RUN8 74 frame | WASD/panah: gerak | Shift: cepat"
+ description.text = "IDLE8 saat diam | RUN8 saat bergerak | WASD/panah | Shift"
  info.add_child(description)
  status_label = Label.new()
  status_label.add_theme_font_size_override("font_size", 15)
@@ -184,7 +195,7 @@ func _build_ui() -> void:
  var stack := VBoxContainer.new()
  chooser.add_child(stack)
  var h := Label.new()
- h.text = "UJI RUN 8 ARAH"
+ h.text = "UJI IDLE + RUN 8 ARAH"
  stack.add_child(h)
  var grid := GridContainer.new()
  grid.columns = 3
@@ -205,7 +216,7 @@ func _build_ui() -> void:
  cb.toggled.connect(_toggle_auto)
  stack.add_child(cb)
  var note := Label.new()
- note.text = "Kiri/kanan 8 FPS; lainnya 10 FPS"
+ note.text = "IDLE 8 pose | RUN kiri/kanan 8 FPS"
  note.add_theme_font_size_override("font_size", 12)
  stack.add_child(note)
 

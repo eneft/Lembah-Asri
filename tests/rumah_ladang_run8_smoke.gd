@@ -30,6 +30,12 @@ func _check() -> void:
  if player == null or sprite == null or sprite.sprite_frames == null:
   _fail("new test scene cannot load real proportional RUN8 player")
   return
+ if not player.has_method("set_idle_direction") or not player.has_method("set_run_direction"):
+  _fail("test runner must implement both 8-way idle and run")
+  return
+ if str(player.get("animation_state")) != "idle" or str(sprite.animation) != "idle_down" or sprite.is_playing():
+  _fail("standing character must start in a stopped front-facing IDLE pose")
+  return
  if background == null or background.texture == null or background.texture.get_size() != Vector2(1672,941):
   _fail("new test background not valid 1672x941 texture")
   return
@@ -84,17 +90,47 @@ func _check() -> void:
   if not is_equal_approx(sprite.sprite_frames.get_animation_speed(key), expected_fps):
    _fail(key + " FPS must be " + str(expected_fps))
    return
-  player.set_direction(direction)
-  if sprite.animation != key or sprite.flip_h or not sprite.is_playing():
+  player.set_run_direction(direction)
+  if sprite.animation != key or sprite.flip_h or not sprite.is_playing() or str(player.get("animation_state")) != "run":
    _fail("RUN direction did not play premirrored normalized frames: " + key)
+   return
+  var idle_key: String = "idle_" + direction
+  if not sprite.sprite_frames.has_animation(idle_key) or sprite.sprite_frames.get_frame_count(idle_key) != 1:
+   _fail("one native/mirrored standing IDLE frame is required for " + direction)
+   return
+  player.set_idle_direction(direction)
+  if sprite.animation != idle_key or sprite.is_playing() or sprite.frame != 0 or str(player.get("animation_state")) != "idle":
+   _fail("IDLE must stop running and retain facing " + direction)
+   return
+  var native: String = player._idle_native_direction(direction)
+  var expected_mirror: bool = direction in ["left","down_left","up_left"]
+  var expected_scale: float = 112.0 / float(player.IDLE_HEIGHT[native])
+  if sprite.flip_h != expected_mirror or absf(sprite.scale.x - expected_scale) > 0.00001 or absf(sprite.scale.y - expected_scale) > 0.00001:
+   _fail("IDLE mirror and 112px character scale incorrect for " + direction)
+   return
+  var idle_texture: Texture2D = sprite.sprite_frames.get_frame_texture(idle_key, 0)
+  if idle_texture != player._idle_texture_for_native(native):
+   _fail("IDLE image differs from approved standing sprite for " + direction)
    return
   count += frame_count
  if count != 74:
   _fail("expected 74 total RUN poses")
   return
+ # Simulate movement via mobile vector so keyboard devices are not needed in CI.
+ world.set("touch_direction", Vector2.RIGHT)
+ world.call("_process", 1.0 / 60.0)
+ if str(player.get("animation_state")) != "run" or sprite.animation != &"run_right":
+  _fail("moving right must switch IDLE to RUN immediately")
+  return
+ world.set("touch_direction", Vector2.ZERO)
+ world.call("_process", 1.0 / 60.0)
+ if str(player.get("animation_state")) != "idle" or sprite.animation != &"idle_right" or sprite.is_playing():
+  _fail("releasing movement must stop RUN and keep last right-facing IDLE")
+  return
+ print("RUMAH LADANG IDLE8 PASS: eight actual standstill poses; 5 native + 3 mirrored; stop/run/resume retains facing and feet")
  if world.get_node_or_null("GameplayHUDLayer") != null:
   _fail("new isolated scene must not modify/inherit the old gameplay HUD")
   return
- print("RUMAH LADANG RUN8 SMOKE PASS: separate scene, 74 proportional RUN poses, left/right 8FPS, six other directions 10FPS, 112px pivot, camera, mobile and old main preserved")
+ print("RUMAH LADANG RUN8 SMOKE PASS: separate scene, IDLE8+RUN8, 74 original RUN poses, left/right 8FPS, other six 10FPS, 112px foot pivot, camera, mobile, old main preserved")
  world.queue_free()
  quit(0)
