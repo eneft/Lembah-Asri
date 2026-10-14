@@ -53,6 +53,19 @@ func _check() -> void:
  if not camera.position_smoothing_enabled or camera.limit_right != 1672 or camera.limit_bottom != 941:
   _fail("test camera bounds or smoothing missing")
   return
+ # This test uses no physics-based collisions: moving the runner in
+ # _physics_process while the camera updates in idle causes browser judder.
+ # Both must update at render time to avoid sampling stale/fractional targets.
+ if not world.is_processing() or world.is_physics_processing():
+  _fail("background jitter regression: player motion must use render _process, not physics ticks")
+  return
+ if camera.process_callback != Camera2D.CAMERA2D_PROCESS_IDLE:
+  _fail("background jitter regression: Camera2D must update on idle/render ticks")
+  return
+ if absf(float(world.MAX_VISUAL_DELTA) - 1.0 / 30.0) > 0.00001:
+  _fail("background jitter regression: render delta spike cap missing")
+  return
+ print("RUMAH LADANG CAMERA SYNC PASS: render-time runner and idle camera, frame-step cap")
  if not sprite.offset.is_equal_approx(Vector2(-256,-708)) or not sprite.scale.is_equal_approx(Vector2.ONE * (112.0/640.0)):
   _fail("character foot pivot or scale changed from 112 world pixels")
   return

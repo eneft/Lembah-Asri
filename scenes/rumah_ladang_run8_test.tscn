@@ -20,6 +20,8 @@ character_height_px = 112.0
 [node name="FollowCamera" type="Camera2D" parent="Run8Player"]
 position = Vector2(0, -35)
 enabled = true
+# Match render-clock character movement; do not run the follow-camera on a separate physics tick.
+process_callback = 1
 zoom = Vector2(1.25, 1.25)
 position_smoothing_enabled = true
 position_smoothing_speed = 4.0

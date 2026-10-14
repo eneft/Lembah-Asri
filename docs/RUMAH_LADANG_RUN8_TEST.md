@@ -12,6 +12,7 @@ Scene ini terpisah dari gameplay lama dan memakai gambar background rumah-ladang
 - FPS: `run_left` dan `run_right` **8 FPS**; enam arah lainnya **10 FPS**.
 - Skala karakter: **112 piksel dunia**, pivot kaki (256,708), seragam pada setiap arah.
 - Kamera follow 1,25× dengan smoothing serta batas 1672×941.
+- **Fix background getar (14 Oktober 2026):** pergerakan RUN8 pada scene test kini dihitung di render `_process(delta)`, sesuai `Camera2D.process_callback = IDLE`; bukan lagi `_physics_process` (60 Hz). Delta render abnormal dibatasi 1/30 detik agar frame drop tidak menggeser background secara mendadak. Gambar background dan animasi RUN tidak diubah.
 - Gerak WASD/tombol panah; Shift mempercepat translasi; kontrol joystick mobile dan tombol delapan arah tersedia.
 - Karakter akan menjalankan siklus RUN di tempat saat diam untuk inspeksi; klik AUTO untuk berputar arah.
 

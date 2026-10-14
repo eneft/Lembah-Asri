@@ -174,6 +174,7 @@ jobs:
             echo "New Rumah-Ladang test web pack has a runtime problem"; exit 1
           fi
           grep -q 'RUMAH LADANG RUN8 TEST ACTIVE: 74 normalized poses' build/rumah-ladang-export-check.log
+          grep -q 'RUMAH LADANG CAMERA SYNC PASS: runner and Camera2D render-idle updates' build/rumah-ladang-export-check.log
           test -s assets/art/scenes/rumah_ladang_empty.png
           echo '7cfb92976182aa9c257954787fb7ab3f7c9cbf6298f8252944f5dc549e87d4c5  assets/art/scenes/rumah_ladang_empty.png' | sha256sum --check -
           grep -q 'background=original' build/rumah-ladang-export-check.log

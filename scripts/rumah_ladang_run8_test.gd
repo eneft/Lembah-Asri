@@ -4,6 +4,8 @@ extends Node2D
 const BACKGROUND_PATH := "res://assets/art/scenes/rumah_ladang_empty.png"
 const BACKGROUND_FALLBACK: Texture2D = preload("res://assets/art/separated/terrain_clean.webp")
 const WORLD_SIZE := Vector2(1672.0, 941.0)
+# Cap exceptional browser frame times to avoid the camera jumping on dropped frames.
+const MAX_VISUAL_DELTA := 1.0 / 30.0
 const DIRECTIONS := ["down", "down_right", "right", "up_right", "up", "up_left", "left", "down_left"]
 const DIR_DISPLAY := {
  "down": "Depan", "down_right": "Depan-kanan", "right": "Kanan",
@@ -40,6 +42,7 @@ func _ready() -> void:
  _update_status()
  print("RUMAH LADANG RUN8 TEST ACTIVE: 74 normalized poses; left/right 8fps; other six 10fps; background=" + ("original" if background_installed else "fallback"))
  print("RUMAH LADANG RUN8: original main scene and run8 browser test remain unchanged")
+ print("RUMAH LADANG CAMERA SYNC PASS: runner and Camera2D render-idle updates; capped visual delta")
 
 func _load_background() -> void:
  # When the approved PNG is not yet in Git, fall back visibly, not silently.
@@ -70,7 +73,11 @@ func _make_foot_shadow() -> void:
  shadow.z_index = -1
  runner.add_child(shadow)
 
-func _physics_process(delta: float) -> void:
+## This art-only scene does not use physics collision. Updating motion at
+## the same render cadence as the Camera2D (idle) avoids the 60 Hz physics
+## versus variable browser FPS mismatch that caused background judder.
+func _process(delta: float) -> void:
+ var step: float = minf(delta, MAX_VISUAL_DELTA)
  var motion := Vector2.ZERO
  if Input.is_action_pressed("ui_left") or Input.is_physical_key_pressed(KEY_A):
   motion.x -= 1.0
@@ -92,9 +99,9 @@ func _physics_process(delta: float) -> void:
    direction_name = current_dir
    _update_status()
   var speed: float = fast_move_speed if touch_fast or Input.is_key_pressed(KEY_SHIFT) else run_move_speed
-  runner.position = (runner.position + motion * speed * delta).clamp(Vector2(110, 355), Vector2(1535, 795))
+  runner.position = (runner.position + motion * speed * step).clamp(Vector2(110, 355), Vector2(1535, 795))
  elif auto_rotate:
-  rotate_elapsed += delta
+  rotate_elapsed += step
   if rotate_elapsed >= 1.25:
    rotate_elapsed = 0.0
    var next_index: int = (DIRECTIONS.find(direction_name) + 1) % DIRECTIONS.size()
