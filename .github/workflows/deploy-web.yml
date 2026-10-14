@@ -174,14 +174,10 @@ jobs:
             echo "New Rumah-Ladang test web pack has a runtime problem"; exit 1
           fi
           grep -q 'RUMAH LADANG RUN8 TEST ACTIVE: 74 normalized poses' build/rumah-ladang-export-check.log
-          if [ -f assets/art/scenes/rumah_ladang_empty.png ]; then
-            grep -q 'background=original' build/rumah-ladang-export-check.log
-            echo "RUMAH LADANG WEB EXPORT PASS: original background + 74 RUN8 poses"
-          else
-            grep -q 'background=fallback' build/rumah-ladang-export-check.log
-            echo "::notice::Rumah Ladang background PNG not in Git. Test scene intentionally shows a labeled fallback until original 1672x941 PNG is committed."
-            echo "RUMAH LADANG WEB EXPORT PASS: 74 RUN8 poses; original art pending"
-          fi
+          test -s assets/art/scenes/rumah_ladang_empty.png
+          echo '7cfb92976182aa9c257954787fb7ab3f7c9cbf6298f8252944f5dc549e87d4c5  assets/art/scenes/rumah_ladang_empty.png' | sha256sum --check -
+          grep -q 'background=original' build/rumah-ladang-export-check.log
+          echo "RUMAH LADANG WEB EXPORT PASS: original lossless 1672x941 PNG and 74-frame RUN8 fully active"
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:

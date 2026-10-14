@@ -37,10 +37,10 @@ func _check() -> void:
  if bool(world.get("background_installed")) != source_present:
   _fail("background display status does not match installed source art")
   return
- if source_present:
-  print("RUMAH LADANG BACKGROUND PASS: approved original PNG 1672x941 active")
- else:
-  print("RUMAH LADANG BACKGROUND PENDING: original PNG absent; explicit fallback warning displayed")
+ if not source_present:
+  _fail("approved original 1672x941 character-free background PNG is missing; do not ship fallback")
+  return
+ print("RUMAH LADANG BACKGROUND PASS: approved original PNG 1672x941 active")
  if world.get_node_or_null("HUD/HUDRoot/DirectionPanel") == null:
   _fail("8-way direction test controls missing")
   return
