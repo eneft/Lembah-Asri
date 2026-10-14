@@ -57,7 +57,7 @@ jobs:
       - name: Verify 3D camera PSD scene, 4 editable planes, and RUN8 IDLE8 layering
         run: |
           set -o pipefail
-          timeout 60s godot --headless --audio-driver Dummy --path . --script res://tests/psd_camera3d_smoke.gd 2>&1 | tee psd-camera3d.log
+          timeout 60s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_camera3d_smoke.gd 2>&1 | tee psd-camera3d.log
           if grep -E 'SCRIPT ERROR|ERROR:|PSD CAMERA3D FAIL' psd-camera3d.log; then
             echo "PSD Camera3D scene validation failed"; exit 1
           fi
