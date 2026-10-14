@@ -56,7 +56,10 @@ jobs:
             echo "Exported pack reported a runtime problem"
             exit 1
           fi
-          grep -q 'ART LOADED:' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          # The current editable main scene announces its real startup marker.
+          # 'ART LOADED:' belonged to the retired stage and produced a false
+          # deployment failure despite successful export and runtime startup.
+          grep -q 'LEMBAH ASRI: editable stage1 scene loaded;' "$GITHUB_WORKSPACE/build/web-export-check.log"
           # Explicitly reject a silent source switch to 46-pose New_run.
           # Approved protagonist must ship with the already-verified 74-pose
           # proportional RUN8 even if another RUN PNG is uploaded later.
