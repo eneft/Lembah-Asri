@@ -18,14 +18,12 @@ current = true
 
 [node name="ArtRig" type="Node3D" parent="."]
 
-# Photoshop layer 1 / BACKGROUND (BOTTOM).
 [node name="Background" type="Sprite3D" parent="."]
 position = Vector3(0, 0, -0.20)
 pixel_size = 0.01
 centered = true
 shaded = false
 
-# The character must be AFTER PSD layer 1 and BEFORE layer 2.
 [node name="Run8Player" type="Node3D" parent="."]
 position = Vector3(-0.16, -0.945, -0.10)
 script = ExtResource("3_player")
@@ -33,25 +31,20 @@ character_height_px = 112.0
 raster_density = 0.25
 
 
-# AnimatedSprite3D is instantiated as a child of Run8Player at _enter_tree.
-# Keeping the PSD picture planes at root avoids orphaning nested 3D nodes.
 
 
-# PSD layer 2, HOUSE (x=157 y=-107, 831x624).
 [node name="PSD_House" type="Sprite3D" parent="."]
 position = Vector3(-2.635, 2.655, -0.04)
 pixel_size = 0.01
 centered = true
 shaded = false
 
-# PSD layer 3, BANANA (x=63 y=217, 295x360).
 [node name="PSD_Banana" type="Sprite3D" parent="."]
 position = Vector3(-6.255, 0.735, 0.04)
 pixel_size = 0.01
 centered = true
 shaded = false
 
-# PSD layer 4, FOREGROUND TREE (x=-468 y=341, 916x893).
 [node name="PSD_ForegroundTree" type="Sprite3D" parent="."]
 position = Vector3(-8.46, -3.170, 0.12)
 pixel_size = 0.01
