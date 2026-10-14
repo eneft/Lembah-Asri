@@ -30,6 +30,19 @@ func _check() -> void:
    if points.is_empty():
     _fail("no rain/impact data for " + effect)
     return
+   # Performance regression guard: one GPU-instanced batch per layer.
+   # No CanvasItem queue_redraw/arc/line loops for each particle.
+   var batch: MultiMeshInstance2D = layer.get_node_or_null("BatchedSprites") as MultiMeshInstance2D
+   if batch == null or batch.multimesh == null or batch.multimesh.instance_count != points.size():
+    _fail("weather must be GPU-instanced, not individual draw calls: " + effect)
+    return
+   if points.size() > 165:
+    _fail("too many weather instances for the mobile-safe budget: " + effect)
+    return
+   var expected_fps: float = 30.0 if effect.begins_with("Rain") else 20.0
+   if not is_equal_approx(float(layer.get("update_fps")), expected_fps):
+    _fail("weather effect tick cap regressed: " + effect)
+    return
   for entry in weather.get_node("GroundSplashes").get("entries"):
    if entry.y < 485.0:
     _fail("a yard splash appears on a roof")
@@ -67,5 +80,5 @@ func _check() -> void:
     return
   world.queue_free()
   await process_frame
- print("RAIN WEATHER PASS: both scenes, front/back rain, ground splash crowns, river alpha-mask ripples, toggle, IDLE/RUN untouched")
+ print("RAIN WEATHER PASS: four GPU MultiMesh weather batches, reduced browser budgets, 30/20Hz updates, land+river impacts, idle/run/collisions intact")
  quit(0)
