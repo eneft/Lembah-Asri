@@ -9,6 +9,11 @@ var water_mask: Texture2D
 var water_origin: Vector2 = Vector2(1058.0, 288.0)
 var entries: Array[Vector4] = []
 var elapsed: float = 0.0
+var render_accumulator: float = 0.0
+var update_fps: float = 30.0
+var batched_mesh: MultiMesh
+var batched_sprites: MultiMeshInstance2D
+var batch_update_count: int = 0
 
 func _ready() -> void:
  var rng := RandomNumberGenerator.new()
@@ -19,6 +24,8 @@ func _ready() -> void:
   _seed_ground(rng)
  elif effect_kind == "water":
   _seed_water(rng)
+ _create_batch()
+ _update_batch()
  set_process(true)
 
 func _seed_rain(rng: RandomNumberGenerator) -> void:
@@ -75,49 +82,97 @@ func _seed_water(rng: RandomNumberGenerator) -> void:
   if found:
    entries.append(Vector4(point.x, point.y, rng.randf(), rng.randf_range(0.65, 1.35)))
 
+
+## 2D GPU instance batching: ONE MultiMesh draw per weather layer.
+## Old _draw loop issued hundreds of line/arc/crown commands EACH frame.
+func _create_batch() -> void:
+ batched_mesh = MultiMesh.new()
+ batched_mesh.transform_format = MultiMesh.TRANSFORM_2D
+ batched_mesh.use_colors = true
+ var quad := QuadMesh.new()
+ var is_rain: bool = effect_kind.begins_with("rain")
+ quad.size = Vector2(2.0, 19.0) if is_rain else Vector2(48.0, 48.0)
+ batched_mesh.mesh = quad
+ batched_mesh.instance_count = entries.size()
+ batched_sprites = MultiMeshInstance2D.new()
+ batched_sprites.name = "BatchedSprites"
+ batched_sprites.multimesh = batched_mesh
+ batched_sprites.texture = _rain_texture() if is_rain else _splash_texture()
+ batched_sprites.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+ add_child(batched_sprites)
+
+func _rain_texture() -> Texture2D:
+ var img := Image.create(4, 32, false, Image.FORMAT_RGBA8)
+ img.fill(Color.TRANSPARENT)
+ for y in range(32):
+  var t: float = float(y) / 31.0
+  var alpha: float = pow(t, 1.2) * 0.85
+  img.set_pixel(1, y, Color(1, 1, 1, alpha))
+  img.set_pixel(2, y, Color(1, 1, 1, alpha))
+  img.set_pixel(0, y, Color(1, 1, 1, alpha * 0.24))
+  img.set_pixel(3, y, Color(1, 1, 1, alpha * 0.24))
+ return ImageTexture.create_from_image(img)
+
+func _splash_texture() -> Texture2D:
+ # 48x48 alpha-only painterly ring + two tiny upward droplets.
+ # Constructed ONCE instead of drawing 16-segment arcs every frame.
+ var img := Image.create(48, 48, false, Image.FORMAT_RGBA8)
+ img.fill(Color.TRANSPARENT)
+ for y in range(48):
+  for x in range(48):
+   var fx: float = float(x) - 23.5
+   var fy: float = float(y) - 29.0
+   var ring_distance: float = sqrt(pow(fx / 15.0, 2) + pow(fy / 5.5, 2))
+   var ring_alpha: float = clampf((0.14 - absf(ring_distance - 1.0)) / 0.14, 0.0, 1.0) * 0.78
+   var left_drop: float = Vector2(fx + 6.0, fy + 11.0).length()
+   var right_drop: float = Vector2(fx - 5.0, fy + 9.0).length()
+   var crown_alpha: float = maxf(0.0, 1.0 - left_drop / 2.2)
+   crown_alpha = maxf(crown_alpha, maxf(0.0, 1.0 - right_drop / 2.1))
+   var alpha: float = maxf(ring_alpha, crown_alpha * 0.88)
+   if alpha > 0.001:
+    img.set_pixel(x, y, Color(1, 1, 1, alpha))
+ return ImageTexture.create_from_image(img)
+
 func _process(delta: float) -> void:
+ # Never rebuild CanvasItem draw commands at browser render FPS.
+ # Cap cosmetic updates independently of player movement/camera.
  elapsed += minf(delta, 0.05)
- queue_redraw()
+ render_accumulator += minf(delta, 0.05)
+ var interval: float = 1.0 / update_fps
+ if render_accumulator < interval:
+  return
+ render_accumulator = fmod(render_accumulator, interval)
+ _update_batch()
 
-func _draw() -> void:
+func _update_batch() -> void:
+ if batched_mesh == null:
+  return
+ batch_update_count += 1
  if effect_kind.begins_with("rain"):
-  _draw_rain()
+  _update_rain()
  else:
-  _draw_impacts()
+  _update_impacts()
 
-func _draw_rain() -> void:
+func _update_rain() -> void:
  var is_front: bool = effect_kind == "rain_front"
  var fall_speed: float = 1050.0 if is_front else 735.0
  var wind_speed: float = 92.0 if is_front else 60.0
- var trail: float = 13.0 if is_front else 9.0
  var canvas_w: float = world_size.x + 160.0
  var canvas_h: float = world_size.y + 220.0
- var base_alpha: float = 0.50 if is_front else 0.24
- for drop in entries:
+ var base_alpha: float = 0.50 if is_front else 0.28
+ for i in range(entries.size()):
+  var drop: Vector4 = entries[i]
   var y: float = fposmod(drop.y + elapsed * fall_speed * drop.z + 110.0, canvas_h) - 110.0
   var x: float = fposmod(drop.x + elapsed * wind_speed * drop.z + 80.0, canvas_w) - 80.0
-  var length: float = trail * drop.w
-  var lean: float = length * wind_speed / fall_speed
-  draw_line(Vector2(x - lean, y - length), Vector2(x, y),
-   Color(0.77, 0.89, 1.0, base_alpha * drop.w * strength),
-   1.05 if is_front else 0.8, true)
+  batched_mesh.set_instance_transform_2d(i, Transform2D(-0.08, Vector2(0.73, drop.w), 0.0, Vector2(x, y)))
+  batched_mesh.set_instance_color(i, Color(0.77, 0.89, 1.0, base_alpha * drop.w * strength))
 
-func _draw_impacts() -> void:
+func _update_impacts() -> void:
  var is_water: bool = effect_kind == "water"
- var base_color := Color(0.85, 0.95, 1.0, 0.8 if is_water else 0.63)
- for drop in entries:
+ for i in range(entries.size()):
+  var drop: Vector4 = entries[i]
   var age: float = fposmod(elapsed * (1.20 + drop.w * 0.22) + drop.z, 1.0)
   var fade: float = 1.0 - age
-  var point := Vector2(drop.x, drop.y)
-  var radius: float = (2.4 + age * (6.1 if is_water else 3.9)) * drop.w
-  var color: Color = base_color
-  color.a *= fade * fade * strength
-  draw_set_transform(point, 0.0, Vector2(1.0, 0.34))
-  draw_arc(Vector2.ZERO, radius, 0.0, TAU, 16, color, 0.9, true)
-  if age < 0.23:
-   var crown_alpha: float = 1.0 - age / 0.23
-   var crown_color := Color(0.9, 0.97, 1.0, (0.8 if is_water else 0.65) * crown_alpha * strength)
-   var lift: float = (2.5 + 3.0 * drop.w) * (1.0 - age / 0.23)
-   draw_line(Vector2.ZERO, Vector2(-2.0, -lift), crown_color, 1.1, true)
-   draw_line(Vector2.ZERO, Vector2(2.0, -lift * 0.8), crown_color, 1.1, true)
-  draw_set_transform(Vector2.ZERO)
+  var scale_factor: float = (0.21 + age * (0.34 if is_water else 0.24)) * drop.w
+  batched_mesh.set_instance_transform_2d(i, Transform2D(0.0, Vector2(scale_factor, scale_factor), 0.0, Vector2(drop.x, drop.y)))
+  batched_mesh.set_instance_color(i, Color(0.85, 0.95, 1.0, (0.82 if is_water else 0.64) * fade * fade * strength))
