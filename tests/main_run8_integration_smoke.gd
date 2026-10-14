@@ -92,8 +92,9 @@ func _check() -> void:
     _fail(key + " mirror incorrectly applied")
     return
    if mode == "run":
-    if absf(sprite.sprite_frames.get_animation_speed(key) - 10.0) > 0.01:
-     _fail(key + " normalized gait fps must be 10")
+    var expected_fps: float = 8.0 if direction in ["left","right"] else 10.0
+    if absf(sprite.sprite_frames.get_animation_speed(key) - expected_fps) > 0.01:
+     _fail(key + " normalized RUN fps must be " + str(expected_fps))
      return
     # New_run_godot4 uses native per-direction pivots, while the previous
     # normalized fallback uses a shared 512x768 canvas. Check both correctly.
@@ -116,5 +117,5 @@ func _check() -> void:
   _fail("native user idle PNG recolored by side shader")
   return
  world.queue_free()
- print("MAIN RUN8 INTEGRATION PASS: approved RUN8 proportional, 112px, 8 directions, 74 poses, 10fps, original WALK+IDLE, Y-sort, mobile/camera")
+ print("MAIN RUN8 INTEGRATION PASS: approved RUN8 proportional, 112px, 8 directions, 74 poses, LEFT+RIGHT 8fps (-20%), other RUN 10fps, original WALK+IDLE, Y-sort, mobile/camera")
  quit(0)

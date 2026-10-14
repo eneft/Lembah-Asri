@@ -283,7 +283,9 @@ func _setup_animations() -> void:
       bank.add_frame(key, new_run_bank.get_frame_texture(row_name, frame_id))
    elif state == "run" and using_proportional_run:
     # Keep previous RUN8 atlas as a safe fallback, not the new default.
-    bank.set_animation_speed(key, 10.0)
+    # Use approved asset timing: LEFT/RIGHT 8 FPS, other RUN directions 10 FPS.
+    # This changes gait playback only; world movement speed stays the same.
+    bank.set_animation_speed(key, proportional_run_bank.get_animation_speed(key))
     for frame_id in range(proportional_run_bank.get_frame_count(key)):
      bank.add_frame(key, proportional_run_bank.get_frame_texture(key, frame_id))
    else:

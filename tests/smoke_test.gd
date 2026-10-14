@@ -174,7 +174,7 @@ func _check() -> void:
                 failed = true
                 continue
             var fps: float = actor.sprite_frames.get_animation_speed(key)
-            var expected_fps: float = 1.0 if mode == "idle" else (10.0 if mode == "run" else float(expected_count) / 1.5)
+            var expected_fps: float = 1.0 if mode == "idle" else ((8.0 if heading in ["left", "right"] else 10.0) if mode == "run" else float(expected_count) / 1.5)
             if not is_equal_approx(fps, expected_fps):
                 push_error("RUN FAIL: unexpected native 8-way " + mode + " cadence: " + heading)
                 failed = true

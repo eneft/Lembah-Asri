@@ -56,13 +56,17 @@ func _check() -> void:
   if not sprite.sprite_frames.has_animation(key) or sprite.sprite_frames.get_frame_count(key) != expected:
    _fail("expected " + str(expected) + " approved RUN poses in " + key)
    return
-  if absf(sprite.sprite_frames.get_animation_speed(key) - 10.0) > 0.01:
-   _fail("wrong native FPS for " + key)
+  var expected_fps: float = 8.0 if direction in ["left","right"] else 10.0
+  if absf(sprite.sprite_frames.get_animation_speed(key) - expected_fps) > 0.01:
+   _fail("wrong native FPS for " + key + ": expected " + str(expected_fps))
    return
   total += expected
   player.set_direction(direction)
   if sprite.animation != key or sprite.flip_h or not sprite.is_playing():
    _fail("failed to play genuine premirrored " + key)
+   return
+  if absf(sprite.sprite_frames.get_animation_speed(key) * sprite.speed_scale - expected_fps) > 0.01:
+   _fail("actual preview playback FPS mismatch on " + key)
    return
  if total != 74:
   _fail("approved frame inventory must total 74, found " + str(total))
@@ -77,5 +81,5 @@ func _check() -> void:
   _fail("preview sourced wrong PNG atlas: " + first_frame.atlas.resource_path)
   return
  scene.queue_free()
- print("PROPORTIONAL RUN8 PASS: web test source is approved normalized atlas, 8 RUN directions, 74 frames, 10fps, no legacy 16-frame WALK, foot pivot correct")
+ print("PROPORTIONAL RUN8 PASS: approved normalized atlas, 8 RUN directions, 74 frames, LEFT+RIGHT 8fps, other RUN 10fps, no legacy WALK, foot pivot correct")
  quit(0)

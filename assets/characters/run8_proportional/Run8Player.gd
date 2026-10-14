@@ -9,6 +9,8 @@ const DIRECTIONS: Array[String] = [
 const FOOT_PIVOT := Vector2(-256.0, -708.0)
 
 @export_range(100.0, 400.0, 1.0) var character_height_px: float = 244.0
+# Preview tempo is relative to a 10-FPS reference; the native LEFT/RIGHT
+# animations are 8 FPS (-20%), while the other six stay at 10 FPS.
 @export_range(4.0, 20.0, 0.5) var frames_per_second: float = 10.0
 @onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
 var facing: String = "down"

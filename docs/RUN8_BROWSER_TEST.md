@@ -26,6 +26,11 @@ right 8, up_right 10, up 8, up_left 10, left 8, down_left 10.
 Frames are normalized to a common 512x768 cell, 640px visible body height,
 and foot pivot at (256,708), with baked left-facing orientations.
 
+**Animation tempo:** RUN LEFT and RIGHT play at **8 FPS** (20% slower than
+10 FPS). The other six RUN directions remain **10 FPS**. Character travel
+speed, WALK, IDLE, frame count, size, and pivot do not change. The preview
+speed control is relative to the normal 10-FPS reference.
+
 Web export is verified by loading the **actual preview index.pck** headlessly
 and checking for:
 `PROPORTIONAL RUN8 PREVIEW ACTIVE: 74 poses`

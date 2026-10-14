@@ -92,7 +92,8 @@ func _select_direction(direction: String) -> void:
 func _show_direction() -> void:
     if state_label != null:
         var count: int = player.animated_sprite.sprite_frames.get_frame_count(player.animated_sprite.animation)
-        state_label.text = "Direction: %s  |  %d frames  |  %.1f FPS" % [DISPLAY_NAMES[player.facing], count, player.frames_per_second]
+        var effective_fps: float = player.animated_sprite.sprite_frames.get_animation_speed(player.animated_sprite.animation) * player.animated_sprite.speed_scale
+        state_label.text = "Direction: %s  |  %d frames  |  %.1f FPS" % [DISPLAY_NAMES[player.facing], count, effective_fps]
 
 func _on_auto_toggled(enabled: bool) -> void:
     auto_rotate = enabled
@@ -178,7 +179,7 @@ func _build_hud() -> void:
     move_toggle.toggled.connect(_on_move_toggled)
     section.add_child(move_toggle)
     var fps_label := Label.new()
-    fps_label.text = "Animation speed (FPS)"
+    fps_label.text = "Playback tempo (10 = normal; LEFT/RIGHT = 8 FPS)"
     section.add_child(fps_label)
     var fps := HSlider.new()
     fps.min_value = 4.0
