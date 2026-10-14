@@ -1,0 +1,37 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/rumah_ladang_run8_test.gd" id="1_test"]
+[ext_resource type="PackedScene" path="res://assets/characters/run8_proportional/Run8Player.tscn" id="2_runner"]
+[ext_resource type="Script" path="res://scripts/mobile_touch_controls.gd" id="3_touch"]
+
+[node name="RumahLadangRun8Test" type="Node2D"]
+y_sort_enabled = true
+script = ExtResource("1_test")
+
+[node name="Background" type="Sprite2D" parent="."]
+z_index = -20
+centered = false
+texture_filter = 1
+
+[node name="Run8Player" parent="." instance=ExtResource("2_runner")]
+position = Vector2(820, 565)
+character_height_px = 112.0
+
+[node name="FollowCamera" type="Camera2D" parent="Run8Player"]
+position = Vector2(0, -35)
+enabled = true
+zoom = Vector2(1.25, 1.25)
+position_smoothing_enabled = true
+position_smoothing_speed = 4.0
+limit_left = 0
+limit_top = 0
+limit_right = 1672
+limit_bottom = 941
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="TouchOverlay" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="TouchControls" type="Control" parent="TouchOverlay"]
+script = ExtResource("3_touch")
