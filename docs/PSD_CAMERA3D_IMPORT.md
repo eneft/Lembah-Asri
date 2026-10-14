@@ -1,13 +1,29 @@
-# Lembah Asri — layered Photoshop scene and genuine Camera3D
+# Lembah Asri — Photoshop layers and Camera3D
 
-Choose `scenes/rumah_ladang_psd_camera3d.tscn` in Godot 4.3 and press **F6**.
+Open scenes/rumah_ladang_psd_camera3d.tscn in Godot 4.3, then press **F6**. This isolated test scene uses actual Node3D, **orthographic Camera3D**, four separate Sprite3D planes, and RUN8 + IDLE8 character animations.
 
-This isolated scene uses actual **Node3D, Camera3D and Sprite3D**, not Camera2D. Camera3D looks at the image planes from an angle and uses orthographic projection. The art rig faces Camera3D so Photoshop's existing pseudo-isometric perspective remains visually correct. All four transparent layer textures remain independently selectable in Godot's 3D scene editor.
+Bottom-to-top layer order: **01_background → character → 02_house → 03_banana → 04_foreground_tree**.
 
-The exact bottom-to-top order is: **Background (layer 1) → 8-direction AnimatedSprite3D protagonist → House (layer 2) → Banana (layer 3) → Foreground tree (layer 4)**. The original Photoshop image offsets (including portions outside the canvas) are retained. Camera uses stable world-space smoothing without updating the 2D environment, preserving previous RUN8/IDLE8 resource files, gameplay source, and scenes.
+## Import the actual Photoshop PSD (without screenshot crops)
 
-**Binary PNG assets:** Extract the accompanying [PSD Camera3D asset ZIP] from ChatGPT directly into the **root of the Lembah-Asri project**, next to `project.godot`. Only the PSD PNG files are not uploaded to GitHub by the GitHub text connector; until copied, this new scene shows the previous flattened test image as a fallback, but the layers and 3D code are present. Stage `assets/art/psd_background/*.png` in GitHub Desktop to publish the exact editable art.
+The four PNG files are **not yet committed**. Until all four exist, the scene displays the old flattened test image as a fallback; that fallback is NOT proof the Photoshop layer import was completed.
 
-**Controls:** WASD/arrows and Shift (fast movement) on desktop, touch joystick and run button on mobile. Camera3D follows the player, maintains orthographic pseudo-isometric appearance, and uses the original character's 112px world height.
+From the repository root, on a computer containing the original Photoshop file named 'background' (even if its .psd extension is omitted), run:
 
-This Camera3D preview intentionally does **not** convert existing 2D CanvasItem rain/impact effects into 3D particles. Original rain/weather test and game main scenes remain intact. The PSD 3D scene is a separate experiment for layering/camera before optional 3D collisions and 3D rain are added.
+1. Install Python packages: python -m pip install psd-tools Pillow
+2. Export: python tools/export_psd_camera3d.py "C:\path\to\background"
+3. Inspect four PNG files and manifest.json under assets/art/psd_background/.
+4. Stage the generated assets using GitHub Desktop (or git add assets/art/psd_background/), commit and push to main.
+
+This exporter reads the **actual PSD layer pixels**, including their transparency, rather than cropping the screenshot or substituting earlier reconstructed images. To protect scene composition, it verifies the approved 1672 × 941 canvas and layer bounds:
+
+- 01_background.png: (0, 0, 1672, 941)
+- 02_house.png: (157, -107, 988, 517)
+- 03_banana.png: (63, 217, 358, 577)
+- 04_foreground_tree.png: (-468, 341, 448, 1234)
+
+The script refuses a PSD with mismatched bounds or a missing layer. Fix the asset source instead of forcing unmatched artwork into the game.
+
+Controls: WASD/arrows on desktop, Shift to run, joystick and run button on mobile. The Camera3D follows the 112px-high character using smooth movement.
+
+This remains a **separate test scene**. The previous main scene, 2D weather effects, rain and existing gameplay were not replaced. Switching project.godot to the new main scene should wait until four actual layer PNGs are available and visually verified.
