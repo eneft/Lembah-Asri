@@ -1,15 +1,54 @@
-# Uji 8 Arah di Browser (isolated)
+# Lembah Asri — RUN8 Proportional browser test (approved)
 
-Main game: https://eneft.github.io/Lembah-Asri/
+The official, direct browser animation test is:
 
-Eight-direction test: https://eneft.github.io/Lembah-Asri/run8/
+**https://eneft.github.io/Lembah-Asri/run8/**
 
-The root `project.godot` and the house garden main scene are not changed. The Pages deployment temporarily exports `scenes/run8_test.tscn` as a second Web build in `/run8/` and restores the original project configuration before exiting.
+This path exports `scenes/run8_proportional_test.tscn`, which instantiates
+`assets/characters/run8_proportional/Run8Player.tscn` using the actual
+`Run8_SpriteFrames.tres` and both `Run8_Normalized_*.png` atlases.
 
-**Asset provenance:** This browser test currently uses the existing 16-frame directional walk atlases in `assets/characters/player_hd/walk16/`, displayed at running speed. It does **not** yet use the eight new run spritesheets from the user's locally uploaded ZIP; those binaries have not been uploaded to this repository. Five views are native, and three are mirrored. Do not claim these are the user's new run frames.
+The former page at the same `/run8/` URL was exported from
+`scenes/run8_test.tscn` and incorrectly showed the **old 16-pose WALK**
+sheets at running speed. It was NOT a valid demonstration of the approved
+proportional RUN. That export mapping has been fixed.
 
-Controls: WASD/arrow keys; Shift to move faster; 8 direction touch pad for mobile. `LARI` checkbox controls travel speed, and the frame clock stays at 16 FPS to preserve the source poses. Direction names are screen-based (down = toward bottom).
+## Prove the correct new source is running
 
-Smoke test: `godot --headless --path . --script res://tests/run8_directions_smoke.gd` after running `godot --headless --path . --editor --quit`.
+The page displays **"RUN8 PROPORTIONAL (NEW)"** and
+**"SOURCE: Run8_Normalized_Base + Mirror | 74 poses"**.
+The sprite plays immediately and auto-rotates through 8 directions; mobile
+users can also tap the eight direction buttons. WASD/arrow keys select
+directions, and the FPS slider changes playback speed for inspection.
 
-No gameplay, storage, or house scene logic was changed.
+The 74 normalized directional pose references are: down 10, down_right 10,
+right 8, up_right 10, up 8, up_left 10, left 8, down_left 10.
+Frames are normalized to a common 512x768 cell, 640px visible body height,
+and foot pivot at (256,708), with baked left-facing orientations.
+
+Web export is verified by loading the **actual preview index.pck** headlessly
+and checking for:
+`PROPORTIONAL RUN8 PREVIEW ACTIVE: 74 poses`
+
+Additionally `tests/run8_proportional_browser_smoke.gd` asserts the
+PNG source, 74 frames, frame timing, 8-way animation playback,
+mirroring behavior and pivot. A PASS on the old
+`tests/run8_directions_smoke.gd` is only a regression check for the old
+WALK preview and must never be described as proof of new RUN.
+
+## Main game is a separate screen
+
+https://eneft.github.io/Lembah-Asri/
+
+The main illustrated house scene retains original IDLE and WALK resources;
+the proportional animation is selected **only while RUN is engaged**:
+
+- Desktop: hold Shift while moving with WASD or arrow keys
+- Mobile: hold LARI while moving the joystick simultaneously
+
+An old-looking stationary/slow-walking character on the **main scene**
+does not mean RUN8 is missing; IDLE and WALK were intentionally preserved.
+The dedicated `/run8/` page always displays the new RUN source instead.
+
+If the browser previously visited the old test, hard refresh the browser
+or use a cache-busting URL query (e.g., `/run8/?v=approved74`).
