@@ -41,6 +41,19 @@ jobs:
             echo "Published run8 preview still points to wrong character"; exit 1
           fi
           grep -q 'PROPORTIONAL RUN8 PASS:' browser-proportional-smoke.log
+      - name: Test separate Rumah-Ladang environment with latest proportional RUN8
+        run: |
+          set -o pipefail
+          timeout 60s godot --headless --audio-driver Dummy --path . --script res://tests/rumah_ladang_run8_smoke.gd 2>&1 | tee rumah-ladang-run8-test.log
+          if grep -E 'SCRIPT ERROR|ERROR:|RUMAH LADANG RUN8 FAIL' rumah-ladang-run8-test.log; then
+            echo "Rumah-Ladang RUN8 test failed"; exit 1
+          fi
+          grep -q 'RUMAH LADANG RUN8 SMOKE PASS:' rumah-ladang-run8-test.log
+          # Original PNG is a separate binary asset; report its absence
+          # explicitly rather than claiming the approved scene is installed.
+          if grep -q 'RUMAH LADANG BACKGROUND PENDING' rumah-ladang-run8-test.log; then
+            echo "::notice::Approved character-free Rumah-Ladang PNG is still missing from Git; fallback visible in test only."
+          fi
       - name: Gameplay smoke with existing art and controls
         run: |
           set -o pipefail
