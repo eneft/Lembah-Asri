@@ -14,7 +14,7 @@ Scene ini terpisah dari gameplay lama dan memakai gambar background rumah-ladang
 - Kamera follow 1,25× dengan smoothing serta batas 1672×941.
 - **Fix background getar (14 Oktober 2026):** pergerakan RUN8 pada scene test kini dihitung di render `_process(delta)`, sesuai `Camera2D.process_callback = IDLE`; bukan lagi `_physics_process` (60 Hz). Delta render abnormal dibatasi 1/30 detik agar frame drop tidak menggeser background secara mendadak. Gambar background dan animasi RUN tidak diubah.
 - Gerak WASD/tombol panah; Shift mempercepat translasi; kontrol joystick mobile dan tombol delapan arah tersedia.
-- Karakter akan menjalankan siklus RUN di tempat saat diam untuk inspeksi; klik AUTO untuk berputar arah.
+- Ketika tidak ada input, karakter berhenti pada IDLE sesuai arah terakhir; klik AUTO untuk berputar arah dalam pose IDLE.
 
 ## Browser test
 
@@ -47,3 +47,15 @@ IDLE bersumber dari 5 PNG user-approved di `assets/characters/idle_uploaded/`: `
 - Skala karakter dunia = **112/640** pada IDLE maupun RUN; tidak ada resize/pivot saat berpindah animasi
 - SHA-256 PNG: `5fa6c2ca4f4f23c8f13e2a611626fc35a212cb4c7d52d745bdcf2eff798b0445`
 - RUN8 atlas lama, F5 scene utama, WALK asli, kamera, dan HUD lama tidak berubah.
+
+
+## Percobaan resolusi karakter vs latar (14 Oktober 2026)
+
+Hanya scene `scenes/rumah_ladang_run8_test.tscn` yang memakai raster detail lebih rendah.
+- RUN8 dan IDLE8 **sama-sama 25% resolusi sumber** (tinggi detail tubuh 640 → 160 piksel).
+- Tinggi karakter yang tampak di dunia **tetap 112 piksel**, kamera dan lokasi tidak berubah.
+- Aset HD original **tidak ditimpa**, tidak ada resolusi background yang diubah.
+- Saat runtime, tiga atlas sumber dikonversi masing-masing sekali secara lokal, dengan resize Lanczos; `AtlasTexture.region` serta `margin` diperhitungkan agar pivot dan pemotongan frame konsisten.
+- `AnimatedSprite2D.texture_filter` memakai linear filtering, sama seperti background, supaya karakter tidak tampak tajam/pecah dibanding lukisan latar.
+- Nilai `Run8Player.raster_density` pada test dapat diubah menjadi `0.5` atau `1.0` untuk membandingkan detail tanpa mengubah ukuran dunia.
+- Hanya preview Rumah-Ladang yang berubah; sumber utama RUN8 dan IDLE8, gameplay F5, HUD, collision, dan scene test RUN8 lainnya tetap seperti sebelumnya.

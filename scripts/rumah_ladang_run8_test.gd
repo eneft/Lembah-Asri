@@ -179,8 +179,12 @@ func _build_ui() -> void:
  asset_label.add_theme_font_size_override("font_size", 13)
  info.add_child(asset_label)
  var description := Label.new()
- description.text = "IDLE8 BARU saat diam | RUN8 saat gerak | WASD/panah | Shift"
+ description.text = "IDLE8 diam | RUN8 gerak | WASD/panah | Shift"
  info.add_child(description)
+ var resolution_label := Label.new()
+ resolution_label.text = "DETAIL KARAKTER: %d%% (640 → %d px sumber); tinggi dunia tetap %d px" % [roundi(float(runner.get("active_raster_density")) * 100.0), roundi(640.0 * float(runner.get("active_raster_density"))), roundi(preview_character_height)]
+ resolution_label.add_theme_font_size_override("font_size", 12)
+ info.add_child(resolution_label)
  status_label = Label.new()
  status_label.add_theme_font_size_override("font_size", 15)
  info.add_child(status_label)

@@ -20,9 +20,10 @@ texture_filter = 2
 position = Vector2(820, 565)
 script = ExtResource("2_runner")
 character_height_px = 112.0
+raster_density = 0.25
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Run8Player"]
-texture_filter = 1
+texture_filter = 2
 centered = false
 offset = Vector2(-256, -708)
 scale = Vector2(0.175, 0.175)
