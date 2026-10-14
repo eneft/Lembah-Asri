@@ -1,0 +1,52 @@
+name: Materialize lossless PSD background PNG
+on:
+  push:
+    branches: [main]
+    paths:
+      - "assets/art/psd_background/01_background_lossless.webp"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize-background:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check Pillow
+      - name: Reconstruct exact RGBA PNG from lossless WebP
+        shell: bash
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageChops
+          from pathlib import Path
+          import hashlib, json
+          base = Path("assets/art/psd_background")
+          manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
+          source = Image.open(base / "01_background_lossless.webp").convert("RGBA")
+          assert source.size == (1672, 941), f"Wrong size: {source.size}"
+          target = base / "01_background.png"
+          source.save(target, format="PNG", optimize=True)
+          decoded = Image.open(target).convert("RGBA")
+          assert ImageChops.difference(source, decoded).getbbox() is None, "Pixel mismatch"
+          expected_sha = manifest["layers"]["01_background.png"]["sha256"]
+          sha = hashlib.sha256(target.read_bytes()).hexdigest()
+          print(f"Pixel-perfect background PNG exported: {target}; SHA-256 {sha}")
+          if sha != expected_sha:
+              print("PNG byte encoding differs but decoded RGBA is pixel-identical (expected).")
+          PY
+      - name: Commit generated PNG
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/art/psd_background/01_background.png
+          if git diff --cached --quiet; then
+            echo "Background PNG already committed"
+            exit 0
+          fi
+          git commit -m "assets(psd): materialize lossless full background PNG"
+          git push origin HEAD:main

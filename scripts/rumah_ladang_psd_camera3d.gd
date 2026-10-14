@@ -30,7 +30,7 @@ func _ready() -> void:
  mobile.connect("move_changed", Callable(self, "_on_touch_move"))
  mobile.connect("run_changed", Callable(self, "_on_touch_run"))
  var label := Label.new()
- label.text = "LEMBAH ASRI | PSD 4 LAYER | CAMERA 3D ORTHOGRAPHIC" if psd_ready else "PSD CAMERA3D: SALIN PNG DARI ZIP KE REPO"
+ label.text = "LEMBAH ASRI | PSD 4 LAYER | CAMERA 3D ORTHOGRAPHIC" if psd_ready else "PSD CAMERA3D: LAYER SUMBER BELUM TERSEDIA"
  label.position = Vector2(20, 20)
  label.add_theme_font_size_override("font_size", 16)
  $HUD.add_child(label)
@@ -48,6 +48,10 @@ func _refresh_psd_layers() -> void:
  for name in ["Background", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
   var layer: Sprite3D = get_node(name) as Sprite3D
   var path: String = "res://assets/art/psd_background/" + str(filenames[name])
+  # A lossless RGBA WebP of the exact PSD background is also committed.
+  # GitHub Actions materializes its identical PNG automatically.
+  if name == "Background" and not ResourceLoader.exists(path):
+   path = "res://assets/art/psd_background/01_background_lossless.webp"
   layer.texture = load(path) as Texture2D if ResourceLoader.exists(path) else null
   if layer.texture == null:
    psd_ready = false
