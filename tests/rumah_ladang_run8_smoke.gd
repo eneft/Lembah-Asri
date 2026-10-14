@@ -33,6 +33,10 @@ func _check() -> void:
  if background == null or background.texture == null or background.texture.get_size() != Vector2(1672,941):
   _fail("new test background not valid 1672x941 texture")
   return
+ if background.texture_filter != CanvasItem.TEXTURE_FILTER_LINEAR:
+  _fail("texture-quality regression: background must use LINEAR, not NEAREST, at camera 1.25x")
+  return
+ print("RUMAH LADANG BACKGROUND FILTER PASS: linear interpolation at native texture size")
  var source_present: bool = ResourceLoader.exists("res://assets/art/scenes/rumah_ladang_empty.png")
  if bool(world.get("background_installed")) != source_present:
   _fail("background display status does not match installed source art")
