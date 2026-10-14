@@ -145,6 +145,43 @@ jobs:
           test -s build/web/run8-uploaded/index.pck
           echo "RUN8 UPLOADED EXPORT PASS"
 
+      - name: Export separate Rumah-Ladang RUN8 test without replacing old scenes
+        run: |
+          set -euo pipefail
+          cp project.godot /tmp/lembah-rumah-ladang-original-project.godot
+          trap 'cp /tmp/lembah-rumah-ladang-original-project.godot project.godot' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("project.godot")
+          s = p.read_text(encoding="utf-8")
+          old = 'run/main_scene="res://scenes/house_garden_stage1.tscn"'
+          new = 'run/main_scene="res://scenes/rumah_ladang_run8_test.tscn"'
+          assert old in s, "Old main scene must remain unchanged"
+          p.write_text(s.replace(old, new), encoding="utf-8")
+          PY
+          mkdir -p build/web/rumah-ladang-test
+          godot --headless --path . --editor --quit
+          godot --headless --path . --export-release "Web" build/web/rumah-ladang-test/index.html
+          test -s build/web/rumah-ladang-test/index.html
+          test -s build/web/rumah-ladang-test/index.wasm
+          test -s build/web/rumah-ladang-test/index.pck
+          mkdir -p /tmp/lembah-rumah-ladang-export-check
+          (
+            cd /tmp/lembah-rumah-ladang-export-check
+            godot --headless --audio-driver Dummy --main-pack "$GITHUB_WORKSPACE/build/web/rumah-ladang-test/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/rumah-ladang-export-check.log"
+          )
+          if grep -E 'SCRIPT ERROR|ERROR:|RUMAH LADANG RUN8 FAIL' build/rumah-ladang-export-check.log; then
+            echo "New Rumah-Ladang test web pack has a runtime problem"; exit 1
+          fi
+          grep -q 'RUMAH LADANG RUN8 TEST ACTIVE: 74 normalized poses' build/rumah-ladang-export-check.log
+          if [ -f assets/art/scenes/rumah_ladang_empty.png ]; then
+            grep -q 'background=original' build/rumah-ladang-export-check.log
+            echo "RUMAH LADANG WEB EXPORT PASS: original background + 74 RUN8 poses"
+          else
+            grep -q 'background=fallback' build/rumah-ladang-export-check.log
+            echo "::notice::Rumah Ladang background PNG not in Git. Test scene intentionally shows a labeled fallback until original 1672x941 PNG is committed."
+            echo "RUMAH LADANG WEB EXPORT PASS: 74 RUN8 poses; original art pending"
+          fi
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:
