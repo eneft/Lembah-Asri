@@ -14,7 +14,7 @@ var update_fps: float = 30.0
 var batched_mesh: MultiMesh
 var batched_sprites: MultiMeshInstance2D
 var batch_update_count: int = 0
-var puddle_positions: Array[Vector2] = []
+var puddle_positions: Array = []
 var next_footstep_slot: int = 0
 
 func _ready() -> void:
@@ -64,7 +64,17 @@ func _seed_ground(rng: RandomNumberGenerator) -> void:
   entries.append(Vector4(point.x, point.y, rng.randf(), rng.randf_range(0.6, 1.3)))
 
 func _seed_puddles(rng: RandomNumberGenerator) -> void:
- for point in puddle_positions:
+ # Fallback is intentionally local so a typed/untyped Array handoff cannot
+ # silently suppress the entire water surface on browser exports.
+ var coordinates: Array = puddle_positions
+ if coordinates.is_empty():
+  coordinates = [
+   Vector2(378, 568), Vector2(474, 585), Vector2(555, 557),
+   Vector2(640, 586), Vector2(704, 613), Vector2(821, 562),
+   Vector2(900, 576), Vector2(1006, 559), Vector2(1115, 564),
+   Vector2(1210, 538), Vector2(1345, 496), Vector2(775, 620)
+  ]
+ for point in coordinates:
   entries.append(Vector4(point.x, point.y, rng.randf_range(0.0, TAU), rng.randf_range(0.87, 1.13)))
 
 func _seed_footsteps() -> void:
