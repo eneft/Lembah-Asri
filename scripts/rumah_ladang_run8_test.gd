@@ -45,7 +45,7 @@ func _ready() -> void:
  _update_status()
  print("RUMAH LADANG RUN8 TEST ACTIVE: 74 normalized poses; left/right 8fps; other six 10fps; background=" + ("original" if background_installed else "fallback"))
  print("RUMAH LADANG RUN8: original main scene and run8 browser test remain unchanged")
- print("RUMAH LADANG IDLE8 SCENE READY: stationary=idle, moving=run, remembers last of 8 headings")
+ print("RUMAH LADANG IDLE8 NEW SCENE READY: all eight NEW poses normalized to RUN8; stationary=idle, moving=run")
  print("RUMAH LADANG CAMERA SYNC PASS: runner and Camera2D render-idle updates; capped visual delta")
 
 func _load_background() -> void:
@@ -179,7 +179,7 @@ func _build_ui() -> void:
  asset_label.add_theme_font_size_override("font_size", 13)
  info.add_child(asset_label)
  var description := Label.new()
- description.text = "IDLE8 saat diam | RUN8 saat bergerak | WASD/panah | Shift"
+ description.text = "IDLE8 BARU saat diam | RUN8 saat gerak | WASD/panah | Shift"
  info.add_child(description)
  status_label = Label.new()
  status_label.add_theme_font_size_override("font_size", 15)
@@ -219,7 +219,7 @@ func _build_ui() -> void:
  cb.toggled.connect(_toggle_auto)
  stack.add_child(cb)
  var note := Label.new()
- note.text = "IDLE 8 pose | RUN kiri/kanan 8 FPS"
+ note.text = "IDLE8 baru 8 pose | RUN L/R 8 FPS"
  note.add_theme_font_size_override("font_size", 12)
  stack.add_child(note)
 

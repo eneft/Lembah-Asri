@@ -73,12 +73,15 @@ func _check() -> void:
   _fail("background jitter regression: Camera2D must update on idle/render ticks")
   return
  print("RUMAH LADANG CAMERA SYNC PASS: render-time runner and idle camera, frame-step cap")
- # Scene now starts in IDLE, which uses the source image's native
- # foot pivot and silhouette height. RUN has its own normalized 512x768
- # canvas and must still use (256,708) at 112 world pixels.
- var initial_idle_scale: float = 112.0 / float(player.IDLE_HEIGHT["down"])
- if not sprite.offset.is_equal_approx(Vector2(-528.0,-1464.0)) or not sprite.scale.is_equal_approx(Vector2.ONE * initial_idle_scale):
-  _fail("standing IDLE DOWN foot pivot or 112 world-pixel scale is incorrect")
+ # New IDLE and approved RUN use EXACTLY the same native sprite geometry,
+ # so switching animations must not move the character's feet or change size.
+ var normalized_scale: float = 112.0 / 640.0
+ if not sprite.offset.is_equal_approx(Vector2(-256.0,-708.0)) or not sprite.scale.is_equal_approx(Vector2.ONE * normalized_scale):
+  _fail("new normalized IDLE down foot pivot/scale must match RUN8")
+  return
+ var approved_idle_atlas: Texture2D = load("res://assets/characters/idle8_new/Idle8_Normalized.png")
+ if approved_idle_atlas == null or approved_idle_atlas.get_size() != Vector2(2048,1536):
+  _fail("new normalized 8-direction RGBA sprite atlas missing or wrong size")
   return
  if player.get_node_or_null("FootContactShadow") == null:
   _fail("grounding shadow missing")
@@ -109,15 +112,18 @@ func _check() -> void:
   if sprite.animation != idle_key or sprite.is_playing() or sprite.frame != 0 or str(player.get("animation_state")) != "idle":
    _fail("IDLE must stop running and retain facing " + direction)
    return
-  var native: String = player._idle_native_direction(direction)
-  var expected_mirror: bool = direction in ["left","down_left","up_left"]
-  var expected_scale: float = 112.0 / float(player.IDLE_HEIGHT[native])
-  if sprite.flip_h != expected_mirror or absf(sprite.scale.x - expected_scale) > 0.00001 or absf(sprite.scale.y - expected_scale) > 0.00001:
-   _fail("IDLE mirror and 112px character scale incorrect for " + direction)
+  # All eight new IDLE poses are unique: do not use mirrored source or old PNGs.
+  if sprite.flip_h or not sprite.offset.is_equal_approx(Vector2(-256.0,-708.0)) or not sprite.scale.is_equal_approx(Vector2.ONE * normalized_scale):
+   _fail("IDLE must use native 640px proportions with the exact RUN8 pivot, no flip: " + direction)
    return
-  var idle_texture: Texture2D = sprite.sprite_frames.get_frame_texture(idle_key, 0)
-  if idle_texture != player._idle_texture_for_native(native):
-   _fail("IDLE image differs from approved standing sprite for " + direction)
+  var idle_texture := sprite.sprite_frames.get_frame_texture(idle_key,0) as AtlasTexture
+  if idle_texture == null or idle_texture.atlas == null or idle_texture.atlas.resource_path != player.IDLE8_ATLAS_PATH:
+   _fail("IDLE direction still points to an old sprite, not the new PNG atlas: " + direction)
+   return
+  var expected_slot: int = ["down","down_right","right","up_right","up","up_left","left","down_left"].find(direction)
+  var expected_region := Rect2((expected_slot % 4) * 512, int(expected_slot / 4) * 768, 512, 768)
+  if idle_texture.region != expected_region:
+   _fail("IDLE new native direction atlas region does not match " + direction)
    return
   count += frame_count
  if count != 74:
@@ -134,7 +140,7 @@ func _check() -> void:
  if str(player.get("animation_state")) != "idle" or sprite.animation != &"idle_right" or sprite.is_playing():
   _fail("releasing movement must stop RUN and keep last right-facing IDLE")
   return
- print("RUMAH LADANG IDLE8 PASS: eight actual standstill poses; 5 native + 3 mirrored; stop/run/resume retains facing and feet")
+ print("RUMAH LADANG IDLE8 NEW PASS: 8 distinct native generated idle poses, 640px normalized, no mirrors, no size/pivot changes versus RUN8")
  if world.get_node_or_null("GameplayHUDLayer") != null:
   _fail("new isolated scene must not modify/inherit the old gameplay HUD")
   return

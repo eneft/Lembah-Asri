@@ -1,0 +1,55 @@
+[gd_resource type="SpriteFrames" load_steps=10 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/characters/idle8_new/Idle8_Normalized.png" id="1_atlas"]
+
+[sub_resource type="AtlasTexture" id="IdleNew_0"]
+atlas = ExtResource("1_atlas")
+region = Rect2(0, 0, 512, 768)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="IdleNew_1"]
+atlas = ExtResource("1_atlas")
+region = Rect2(512, 0, 512, 768)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="IdleNew_2"]
+atlas = ExtResource("1_atlas")
+region = Rect2(1024, 0, 512, 768)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="IdleNew_3"]
+atlas = ExtResource("1_atlas")
+region = Rect2(1536, 0, 512, 768)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="IdleNew_4"]
+atlas = ExtResource("1_atlas")
+region = Rect2(0, 768, 512, 768)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="IdleNew_5"]
+atlas = ExtResource("1_atlas")
+region = Rect2(512, 768, 512, 768)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="IdleNew_6"]
+atlas = ExtResource("1_atlas")
+region = Rect2(1024, 768, 512, 768)
+filter_clip = true
+
+[sub_resource type="AtlasTexture" id="IdleNew_7"]
+atlas = ExtResource("1_atlas")
+region = Rect2(1536, 768, 512, 768)
+filter_clip = true
+
+[resource]
+animations = [
+{"frames": [{"duration": 1.0, "texture": SubResource("IdleNew_0")}], "loop": false, "name": &"idle_down", "speed": 1.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("IdleNew_1")}], "loop": false, "name": &"idle_down_right", "speed": 1.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("IdleNew_2")}], "loop": false, "name": &"idle_right", "speed": 1.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("IdleNew_3")}], "loop": false, "name": &"idle_up_right", "speed": 1.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("IdleNew_4")}], "loop": false, "name": &"idle_up", "speed": 1.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("IdleNew_5")}], "loop": false, "name": &"idle_up_left", "speed": 1.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("IdleNew_6")}], "loop": false, "name": &"idle_left", "speed": 1.0},
+{"frames": [{"duration": 1.0, "texture": SubResource("IdleNew_7")}], "loop": false, "name": &"idle_down_left", "speed": 1.0}
+]
