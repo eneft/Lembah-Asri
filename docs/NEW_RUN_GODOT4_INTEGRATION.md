@@ -4,7 +4,7 @@ This document describes an **optional alternate RUN source**, not the currently 
 
 ## Installation (exact paths)
 
-The repository already contains a functionally equivalent `New_run.tres` file with the exact 46 original AtlasTexture regions, 10 row animations, and native 10 FPS timing. To **make the optional asset available**, upload only the unchanged PNG from the original archive to:
+The original optional `New_run.tres` has been preserved as **`docs/optional_new_run/New_run_pending.tres.txt`** until the genuine `New_run.png` exists. The Godot resource was deliberately taken out of `assets/` because its missing PNG made the entire web build fail, even though the optional animation was disabled. When intentionally installing that optional RUN source later, upload its genuine unmodified PNG and restore the saved text file as `assets/characters/new_run/New_run.tres` together. The 46 source frame references are unchanged. The genuine PNG destination is:
 - `assets/characters/new_run/New_run.png`
 
 The `.tres` references that PNG by relative path, so **do not rename** it. The original archive also contains optional generator metadata; the game's 8-way playback does not need that metadata. The main protagonist explicitly selects `RUN8 Proportional (approved)` by default (`run_source = 0` in `scripts/stage1_player.gd`). Uploading this alternate PNG does **not** automatically replace the approved RUN8 atlas. To intentionally test the alternate native source in the future, select `New_run_godot4 (optional)` (`run_source = 1`) and provide both files. If the alternate resource is missing, the normalized RUN8 continues to work. The program never changes existing WALK or IDLE resources.
@@ -41,3 +41,8 @@ GitHub Actions for the shipping main scene must log:
 `LEMBAH ASRI MAIN: approved RUN source=RUN8_PROPORTIONAL`
 
 The main-scene smoke test asserts `using_proportional_run = true` and `using_new_run = false`. Loading the optional native source requires a separate, deliberate choice and dedicated validation; simply uploading a PNG must never silently change the main game. No changes are made to the stage, camera, river, colliders, HUD, or mobile controls.
+
+
+## Export integrity (14 October 2026)
+
+The optional incomplete New RUN source is held as a text-only template, not imported as a `.tres`, until its original PNG is present. This corrects a previously failing Godot Web export with `Resource file not found: res://assets/characters/new_run/New_run.png`. Nothing about the active approved RUN8 proportional atlas or the new IDLE8 implementation was changed to resolve it. To restore this optional source, copy `docs/optional_new_run/New_run_pending.tres.txt` to `assets/characters/new_run/New_run.tres` in the same change that adds the authentic `New_run.png`.
