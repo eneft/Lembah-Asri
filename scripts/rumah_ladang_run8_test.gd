@@ -6,7 +6,10 @@ const BACKGROUND_FALLBACK: Texture2D = preload("res://assets/art/separated/terra
 const WORLD_SIZE := Vector2(1672.0, 941.0)
 # Cap exceptional browser frame times to avoid the camera jumping on dropped frames.
 const MAX_VISUAL_DELTA := 1.0 / 30.0
+# Clockwise order for AUTO preview; not the angle() octant order.
 const DIRECTIONS := ["down", "down_right", "right", "up_right", "up", "up_left", "left", "down_left"]
+# Godot Vector2.angle() zero points RIGHT; use this order for movement.
+const MOVEMENT_OCTANTS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const DIR_DISPLAY := {
  "down": "Depan", "down_right": "Depan-kanan", "right": "Kanan",
  "up_right": "Belakang-kanan", "up": "Belakang", "up_left": "Belakang-kiri",
@@ -95,7 +98,7 @@ func _process(delta: float) -> void:
   rotate_elapsed = 0.0
   motion = motion.normalized()
   var sector: int = posmod(int(round(motion.angle() / (PI / 4.0))), 8)
-  var current_dir: String = DIRECTIONS[sector]
+  var current_dir: String = MOVEMENT_OCTANTS[sector]
   var was_idle: bool = str(runner.get("animation_state")) == "idle"
   runner.set_run_direction(current_dir)
   if current_dir != direction_name or was_idle:
