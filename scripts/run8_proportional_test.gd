@@ -21,8 +21,9 @@ const DISPLAY_NAMES := {
 @onready var hud: CanvasLayer = $HUD
 var state_label: Label
 var hint_label: Label
+var source_label: Label
 var controls: PanelContainer
-var auto_rotate := false
+var auto_rotate := true # Show all new 8-way RUN poses automatically on opening the browser test.
 var move_player := false
 var elapsed := 0.0
 var index := 0
@@ -34,6 +35,7 @@ func _ready() -> void:
     get_viewport().size_changed.connect(_resize_layout)
     _resize_layout()
     _show_direction()
+    print("PROPORTIONAL RUN8 PREVIEW ACTIVE: 74 poses, 8 directions, approved normalized atlas")
 
 func _draw() -> void:
     var size := get_viewport_rect().size
@@ -113,21 +115,28 @@ func _build_hud() -> void:
     hud.add_child(full)
 
     var title := Label.new()
-    title.text = "LEMBAH ASRI  |  RUN CYCLE TEST"
+    title.text = "LEMBAH ASRI  |  RUN8 PROPORTIONAL (NEW)"
     title.add_theme_font_size_override("font_size", 24)
     title.add_theme_color_override("font_color", Color("#173b2c"))
     title.position = Vector2(25, 18)
     full.add_child(title)
 
+    source_label = Label.new()
+    source_label.text = "SOURCE: Run8_Normalized_Base + Mirror  |  74 poses  |  bukan WALK 16-frame lama"
+    source_label.position = Vector2(25, 55)
+    source_label.add_theme_font_size_override("font_size", 15)
+    source_label.add_theme_color_override("font_color", Color("#145a36"))
+    full.add_child(source_label)
+
     state_label = Label.new()
-    state_label.position = Vector2(25, 60)
+    state_label.position = Vector2(25, 84)
     state_label.add_theme_font_size_override("font_size", 17)
     state_label.add_theme_color_override("font_color", Color("#315944"))
     full.add_child(state_label)
 
     hint_label = Label.new()
-    hint_label.text = "WASD / arrows: change direction   |   Choose a direction on the right to preview."
-    hint_label.position = Vector2(25, 92)
+    hint_label.text = "RUN automatically plays in place. WASD/arrow or tap 8-direction buttons to test."
+    hint_label.position = Vector2(25, 117)
     hint_label.add_theme_color_override("font_color", Color("#315944"))
     full.add_child(hint_label)
 
@@ -162,6 +171,7 @@ func _build_hud() -> void:
     var cycling := CheckButton.new()
     cycling.text = "Auto rotate every 1.2 s"
     cycling.toggled.connect(_on_auto_toggled)
+    cycling.button_pressed = true
     section.add_child(cycling)
     var move_toggle := CheckButton.new()
     move_toggle.text = "Move in test area (WASD)"
