@@ -5,6 +5,10 @@ extends CharacterBody2D
 ## remain owned by house_garden_stage1.gd and are NOT replaced.
 @export var walk_speed: float = 160.0
 @export var run_speed: float = 325.0
+# Approved LembahAsri_Run8_Proportional_Godot4(1).zip is the main RUN source.
+# Keep New_run_godot4 as explicit opt-in ONLY; uploading its PNG must not
+# silently replace the currently approved proportional 8-direction animation.
+@export_enum("RUN8 Proportional (approved)", "New_run_godot4 (optional)") var run_source: int = 0
 
 # Optional normalized 8-direction run atlas. Old RUN/IDLE/WALK are preserved
 # unless BOTH atlas PNGs and the SpriteFrames resource have been installed.
@@ -14,8 +18,8 @@ var using_proportional_run: bool = false
 
 # New_run_godot4.zip: 46 original poses across 10 row_* groups.
 # Five native views + horizontal mirroring yield the full 8-way RUN.
-# This source takes precedence ONLY when its PNG and SpriteFrames are present.
-# Legacy WALK, uploaded IDLE and normalized RUN8 fallback remain untouched.
+# Optional source: only selected when run_source == 1 AND the original PNG
+# and SpriteFrames are installed. WALK and uploaded IDLE always remain unchanged.
 const NEW_RUN_RESOURCE_PATH := "res://assets/characters/new_run/New_run.tres"
 const NEW_RUN_IMAGE_PATH := "res://assets/characters/new_run/New_run.png"
 const NEW_RUN_SOURCE_ROWS := {
@@ -134,7 +138,8 @@ func _ready() -> void:
  actor.centered = false
  actor.position = Vector2.ZERO
  _detect_proportional_run()
- _detect_new_run()
+ if run_source == 1:
+  _detect_new_run()
  _setup_animations()
  _setup_color_material(actor)
  # Explicit shader state is needed even before the first movement input:
@@ -148,6 +153,7 @@ func _ready() -> void:
  actor.stop()
  print("LEMBAH ASRI MAIN: RUN8 normalized pack active: %s; legacy WALK+IDLE preserved; world_height=112px" % str(using_proportional_run))
  print("LEMBAH ASRI MAIN: NEW_RUN_GODOT4 active: %s; 46 native poses mapped to 8 directions; world_height=112px" % str(using_new_run))
+ print("LEMBAH ASRI MAIN: approved RUN source=%s" % ("RUN8_PROPORTIONAL" if using_proportional_run else ("NEW_RUN_GODOT4" if using_new_run else "LEGACY_FALLBACK")))
 
 func _detect_proportional_run() -> void:
  using_proportional_run = false
