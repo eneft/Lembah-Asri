@@ -19,3 +19,5 @@ Browser: https://eneft.github.io/Lembah-Asri/rumah-ladang-test/
 ## Kalibrasi hujan tampak lebih deras (14 Oktober 2026)
 
 Karena user menilai optimasi awal tampak seperti gerimis, density visual dikalibrasi tanpa kembali ke per-particle `_draw`: RainBack **230** dan RainFront **220** instance (browser **90%**, yaitu ±207 + 198 rintik). Tebal streak **2.8 px** dan panjang **27 px** pada mesh sumber, opacity/ramp meningkat dan arah angin sedikit lebih jelas. Splash di halaman (**75**) dan riak sungai (**65**) tidak diubah. Semua tetap hanya **empat draw batch** dan update cap **30/20 Hz**, sehingga tidak menambah node/physics, tidak menyentuh kamera, karakter, atau background. CI visual mengetes agar area hujan di frame benar-benar tampak lebih padat (bukan sekadar sukses memuat scene).
+
+**Pengukuran visual:** pembanding render versi ringan sebelumnya menghasilkan 101 piksel hujan terdeteksi pada viewport 640×360. Tes revisi membutuhkan minimal 145 piksel di viewport yang sama; performa FPS nyata tetap perlu divalidasi di perangkat pengguna.
