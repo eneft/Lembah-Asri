@@ -62,6 +62,14 @@ jobs:
             echo "Rain weather smoke failed"; exit 1
           fi
           grep -q 'RAIN WEATHER PASS:' rain-weather.log
+      - name: Verify batched rain is visibly rendered (Compatibility renderer)
+        run: |
+          set -o pipefail
+          timeout 60s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/rain_render_smoke.gd 2>&1 | tee rain-render.log
+          if grep -E 'SCRIPT ERROR|ERROR:|RAIN RENDER FAIL' rain-render.log; then
+            echo "Batched rain GPU output failed"; exit 1
+          fi
+          grep -q 'RAIN RENDER PASS:' rain-render.log
       - name: Gameplay smoke with existing art and controls
         run: |
           set -o pipefail
