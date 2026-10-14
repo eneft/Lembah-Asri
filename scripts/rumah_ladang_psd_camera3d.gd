@@ -33,9 +33,16 @@ func _ready() -> void:
 
 func _refresh_psd_layers() -> void:
  psd_ready = true
+ var filenames := {
+  "Background": "01_background.png",
+  "PSD_House": "02_house.png",
+  "PSD_Banana": "03_banana.png",
+  "PSD_ForegroundTree": "04_foreground_tree.png"
+ }
  for name in ["Background", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
   var layer: Sprite3D = art.get_node(name) as Sprite3D
-  layer.call("_refresh_texture")
+  var path: String = "res://assets/art/psd_background/" + str(filenames[name])
+  layer.texture = load(path) as Texture2D if ResourceLoader.exists(path) else null
   if layer.texture == null:
    psd_ready = false
  if not psd_ready:

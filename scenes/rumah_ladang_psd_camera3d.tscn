@@ -1,7 +1,6 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/rumah_ladang_psd_camera3d.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/psd_layer_sprite3d.gd" id="2_psd"]
 [ext_resource type="Script" path="res://scripts/psd_player_3d.gd" id="3_player"]
 [ext_resource type="SpriteFrames" path="res://assets/characters/run8_proportional/Run8_SpriteFrames.tres" id="4_runs"]
 [ext_resource type="Script" path="res://scripts/mobile_touch_controls.gd" id="5_mobile"]
@@ -25,8 +24,6 @@ position = Vector3(0, 0, -0.20)
 pixel_size = 0.01
 centered = true
 shaded = false
-script = ExtResource("2_psd")
-psd_texture_path = "res://assets/art/psd_background/01_background.png"
 
 # The character must be AFTER PSD layer 1 and BEFORE layer 2.
 [node name="Run8Player" type="Node3D" parent="ArtRig"]
@@ -48,8 +45,6 @@ position = Vector3(-2.635, 2.655, -0.04)
 pixel_size = 0.01
 centered = true
 shaded = false
-script = ExtResource("2_psd")
-psd_texture_path = "res://assets/art/psd_background/02_house.png"
 
 # PSD layer 3, BANANA (x=63 y=217, 295x360).
 [node name="PSD_Banana" type="Sprite3D" parent="ArtRig"]
@@ -57,8 +52,6 @@ position = Vector3(-6.255, 0.735, 0.04)
 pixel_size = 0.01
 centered = true
 shaded = false
-script = ExtResource("2_psd")
-psd_texture_path = "res://assets/art/psd_background/03_banana.png"
 
 # PSD layer 4, FOREGROUND TREE (x=-468 y=341, 916x893).
 [node name="PSD_ForegroundTree" type="Sprite3D" parent="ArtRig"]
@@ -66,8 +59,6 @@ position = Vector3(-8.46, -3.170, 0.12)
 pixel_size = 0.01
 centered = true
 shaded = false
-script = ExtResource("2_psd")
-psd_texture_path = "res://assets/art/psd_background/04_foreground_tree.png"
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
