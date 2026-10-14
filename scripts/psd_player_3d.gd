@@ -14,6 +14,14 @@ var facing: String = "down"
 var animation_state: String = "idle"
 var generated_atlas_count: int = 0
 
+func _enter_tree() -> void:
+ # Avoid fragile nested NodePath serialization; the 3D animated sprite
+ # is still a native AnimatedSprite3D with full RUN8+IDLE8 animations.
+ if not has_node("AnimatedSprite3D"):
+  var view := AnimatedSprite3D.new()
+  view.name = "AnimatedSprite3D"
+  add_child(view)
+
 func _ready() -> void:
  var bank: SpriteFrames = RUN8.duplicate(false) as SpriteFrames
  for direction in DIRECTIONS:

@@ -22,11 +22,7 @@ func _check() -> void:
  if rig == null:
   _fail("ArtRig missing")
   return
- var nested: Array[String] = []
- for child in rig.get_children():
-  nested.append(str(child.name) + ":" + child.get_class() + ":" + str(child.get_script()))
- print("PSD CAMERA3D DEBUG ArtRig children: " + str(nested))
- var player: Node3D = rig.get_node_or_null("Run8Player") as Node3D
+ var player: Node3D = scene.get_node_or_null("Run8Player") as Node3D
  if player == null:
   _fail("Run8Player missing below ArtRig")
   return
@@ -39,12 +35,9 @@ func _check() -> void:
   return
  var names := ["Background", "Run8Player", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]
  var depths := [-0.20, -0.10, -0.04, 0.04, 0.12]
- if rig.get_child_count() != names.size():
-  _fail("unexpected independent layer count")
-  return
  for i in range(names.size()):
-  var node: Node3D = rig.get_child(i) as Node3D
-  if str(node.name) != names[i] or absf(node.position.z - depths[i]) > 0.001:
+  var node: Node3D = scene.get_node(names[i]) as Node3D
+  if str(node.name) != names[i] or absf(art_to_local_z(rig, node) - depths[i]) > 0.001:
    _fail("wrong PSD bottom-up layer order/depth: " + names[i])
    return
  if sprite == null or not sprite.sprite_frames.has_animation("idle_down") or not sprite.sprite_frames.has_animation("run_down"):
@@ -60,3 +53,6 @@ func _check() -> void:
   return
  print("PSD CAMERA3D PASS: real Camera3D, 4 independently editable Sprite3D PSD planes, player between layer 1 and 2")
  quit(0)
+
+func art_to_local_z(rig: Node3D, item: Node3D) -> float:
+ return rig.to_local(item.global_position).z

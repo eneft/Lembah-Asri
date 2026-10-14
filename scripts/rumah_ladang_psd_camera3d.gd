@@ -11,7 +11,7 @@ const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_lef
 @export var camera_smoothing: float = 4.0
 @onready var camera: Camera3D = $Camera3D
 @onready var art: Node3D = $ArtRig
-@onready var player: Node3D = $ArtRig/Run8Player
+@onready var player: Node3D = $Run8Player
 @onready var mobile: Control = $TouchOverlay/TouchControls
 var touch_direction := Vector2.ZERO
 var touch_run := false
@@ -20,10 +20,12 @@ var psd_ready: bool = false
 func _ready() -> void:
  camera.look_at(Vector3.ZERO, Vector3.UP)
  art.global_basis = camera.global_basis
- if art.get_node_or_null("Run8Player") == null or art.get_node_or_null("Background") == null:
-  push_warning("PSD CAMERA3D: invalid packed scene hierarchy; see scene smoke diagnostic")
-  set_process(false)
-  return
+ # Orient each PSD picture plane AND the player parallel to the Camera3D.
+ # Flat image composition stays pixel-perfect despite genuine 3D depth.
+ for name in ["Background", "Run8Player", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
+  var item: Node3D = get_node(name) as Node3D
+  var source_local: Vector3 = item.position
+  item.global_transform = Transform3D(art.global_basis, art.to_global(source_local))
  _refresh_psd_layers()
  mobile.connect("move_changed", Callable(self, "_on_touch_move"))
  mobile.connect("run_changed", Callable(self, "_on_touch_run"))
@@ -44,20 +46,20 @@ func _refresh_psd_layers() -> void:
   "PSD_ForegroundTree": "04_foreground_tree.png"
  }
  for name in ["Background", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
-  var layer: Sprite3D = art.get_node(name) as Sprite3D
+  var layer: Sprite3D = get_node(name) as Sprite3D
   var path: String = "res://assets/art/psd_background/" + str(filenames[name])
   layer.texture = load(path) as Texture2D if ResourceLoader.exists(path) else null
   if layer.texture == null:
    psd_ready = false
  if not psd_ready:
-  var background: Sprite3D = art.get_node("Background") as Sprite3D
+  var background: Sprite3D = get_node("Background") as Sprite3D
   background.texture = load("res://assets/art/scenes/rumah_ladang_empty.png") as Texture2D
   for name in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
-   art.get_node(name).visible = false
+   get_node(name).visible = false
   push_warning("PSD Camera3D: four transparent PNG layers missing; unpack the companion ZIP at project root")
  else:
   for name in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
-   art.get_node(name).visible = true
+   get_node(name).visible = true
 
 func _on_touch_move(direction: Vector2) -> void:
  touch_direction = direction
@@ -82,10 +84,10 @@ func _process(delta: float) -> void:
   var octant: int = posmod(int(round(motion.angle() / (PI * 0.25))), 8)
   player.call("set_run_direction", DIRECTIONS[octant])
   var speed: float = run_speed_px if touch_run or Input.is_key_pressed(KEY_SHIFT) else walk_speed_px
-  var point := _local_to_pixel(player.position)
+  var point := _local_to_pixel(art.to_local(player.global_position))
   point += motion * speed * minf(delta, 1.0 / 30.0)
   point = point.clamp(Vector2(110, 355), Vector2(1535, 795))
-  player.position = _pixel_to_local(point, -0.10)
+  player.global_position = art.to_global(_pixel_to_local(point, -0.10))
  elif str(player.get("animation_state")) != "idle":
   player.call("set_idle_direction", str(player.get("facing")))
  _position_camera(false, delta)
@@ -99,7 +101,8 @@ func _local_to_pixel(point: Vector3) -> Vector2:
   CANVAS_SIZE.y * 0.5 - point.y / ART_SCALE)
 
 func _position_camera(instant: bool, delta: float = 0.0) -> void:
- var target: Vector3 = art.to_global(Vector3(player.position.x, player.position.y, camera_distance))
+ var origin_on_art: Vector3 = art.to_local(player.global_position)
+ var target: Vector3 = art.to_global(Vector3(origin_on_art.x, origin_on_art.y, camera_distance))
  if instant:
   camera.global_position = target
  else:
