@@ -53,17 +53,13 @@ func _check() -> void:
  # proportional 8/10-pose animation pack. The originals remain untouched
  # in assets/characters/run_uploaded and are still available as fallback.
  var new_run_active: bool = player.using_new_run
- if not new_run_active and not player.using_proportional_run:
-  _fail("neither uploaded New_run_godot4 nor proportional RUN8 fallback selected")
+ # The approved asset ZIP is the exact proportional 74-pose atlas.
+ # New_run_godot4 is opt-in only: adding unrelated files cannot silently
+ # replace the runner in the shipped main scene.
+ if player.run_source != 0 or new_run_active or not player.using_proportional_run:
+  _fail("main game must use approved RUN8 Proportional, not alternate New_run")
   return
- var has_new_run_source: bool = ResourceLoader.exists(player.NEW_RUN_IMAGE_PATH) and ResourceLoader.exists(player.NEW_RUN_RESOURCE_PATH)
- if has_new_run_source != new_run_active:
-  _fail("new RUN atlas availability must exactly match selected protagonist RUN source")
-  return
- if new_run_active:
-  print("MAIN RUN8 SOURCE PASS: native New_run_godot4.zip, 46 source poses")
- else:
-  print("MAIN RUN8 SOURCE PASS: proportional fallback when new source PNG is absent")
+ print("MAIN RUN8 SOURCE PASS: approved RUN8 proportional active (74 poses)")
  var headings := ["right","down_right","down","down_left","left","up_left","up","up_right"]
  for direction in headings:
   print("MAIN RUN8 TRACE: begin direction=", direction)
@@ -120,5 +116,5 @@ func _check() -> void:
   _fail("native user idle PNG recolored by side shader")
   return
  world.queue_free()
- print("MAIN RUN8 INTEGRATION PASS: original illustrated scene, 112px 8-way RUN, 74 directional poses, 10fps, user-source=" + ("New_run_godot4" if new_run_active else "normalized-fallback") + ", original WALK+IDLE, Y-sort, mobile/camera")
+ print("MAIN RUN8 INTEGRATION PASS: approved RUN8 proportional, 112px, 8 directions, 74 poses, 10fps, original WALK+IDLE, Y-sort, mobile/camera")
  quit(0)
