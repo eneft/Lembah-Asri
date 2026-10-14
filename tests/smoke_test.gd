@@ -45,8 +45,8 @@ func _check() -> void:
         quit(1)
         return
     var actor: AnimatedSprite2D = player.get_node("AnimatedSprite2D")
-    if not player.using_new_run and not player.using_proportional_run:
-        push_error("RUN FAIL: main protagonist did not select New_run_godot4 or proportional fallback")
+    if player.run_source != 0 or player.using_new_run or not player.using_proportional_run:
+        push_error("RUN FAIL: main protagonist must use approved RUN8 proportional atlas")
         failed = true
     # The native 1672x941 stage should show an ~112px-high character.
     # When idle the front-right still is calibrated to its own PNG bounds.
