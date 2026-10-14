@@ -20,6 +20,10 @@ var psd_ready: bool = false
 func _ready() -> void:
  camera.look_at(Vector3.ZERO, Vector3.UP)
  art.global_basis = camera.global_basis
+ if art.get_node_or_null("Run8Player") == null or art.get_node_or_null("Background") == null:
+  push_warning("PSD CAMERA3D: invalid packed scene hierarchy; see scene smoke diagnostic")
+  set_process(false)
+  return
  _refresh_psd_layers()
  mobile.connect("move_changed", Callable(self, "_on_touch_move"))
  mobile.connect("run_changed", Callable(self, "_on_touch_run"))

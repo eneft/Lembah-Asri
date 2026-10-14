@@ -14,9 +14,26 @@ func _check() -> void:
  root.add_child(scene)
  await process_frame
  var camera: Camera3D = scene.get_node("Camera3D") as Camera3D
- var rig: Node3D = scene.get_node("ArtRig") as Node3D
- var player: Node3D = rig.get_node("Run8Player") as Node3D
- var sprite: AnimatedSprite3D = player.get_node("AnimatedSprite3D") as AnimatedSprite3D
+ var rig: Node3D = scene.get_node_or_null("ArtRig") as Node3D
+ var root_nodes: Array[String] = []
+ for child in scene.get_children():
+  root_nodes.append(str(child.name))
+ print("PSD CAMERA3D DEBUG root nodes: " + str(root_nodes))
+ if rig == null:
+  _fail("ArtRig missing")
+  return
+ var nested: Array[String] = []
+ for child in rig.get_children():
+  nested.append(str(child.name) + ":" + child.get_class() + ":" + str(child.get_script()))
+ print("PSD CAMERA3D DEBUG ArtRig children: " + str(nested))
+ var player: Node3D = rig.get_node_or_null("Run8Player") as Node3D
+ if player == null:
+  _fail("Run8Player missing below ArtRig")
+  return
+ var sprite: AnimatedSprite3D = player.get_node_or_null("AnimatedSprite3D") as AnimatedSprite3D
+ if sprite == null:
+  _fail("AnimatedSprite3D missing below Run8Player")
+  return
  if camera == null or camera.projection != Camera3D.PROJECTION_ORTHOGONAL:
   _fail("expected a genuine orthographic Camera3D")
   return
