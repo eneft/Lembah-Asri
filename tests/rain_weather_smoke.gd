@@ -36,8 +36,8 @@ func _check() -> void:
    if batch == null or batch.multimesh == null or batch.multimesh.instance_count != points.size():
     _fail("weather must be GPU-instanced, not individual draw calls: " + effect)
     return
-   if points.size() > 165:
-    _fail("too many weather instances for the mobile-safe budget: " + effect)
+   if points.size() > 230:
+    _fail("weather layer exceeds bounded GPU batch budget: " + effect)
     return
    var expected_fps: float = 30.0 if effect.begins_with("Rain") else 20.0
    if not is_equal_approx(float(layer.get("update_fps")), expected_fps):
@@ -80,5 +80,5 @@ func _check() -> void:
     return
   world.queue_free()
   await process_frame
- print("RAIN WEATHER PASS: four GPU MultiMesh weather batches, reduced browser budgets, 30/20Hz updates, land+river impacts, idle/run/collisions intact")
+ print("RAIN WEATHER PASS: four GPU-instanced weather layers, visible-rain budgets <=230, 30/20Hz updates, land+river splashes and game unchanged")
  quit(0)

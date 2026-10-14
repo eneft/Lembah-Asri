@@ -36,10 +36,10 @@ func _check() -> void:
  var off_image: Image = await _snapshot(view)
  var dry_pixels: int = _count_visible(off_image)
  print("RAIN RENDER QA: %d rain pixels and %d dry pixels; MultiMesh compatibility" % [rain_pixels, dry_pixels])
- if rain_pixels < 16 or dry_pixels > 2:
-  push_error("RAIN RENDER FAIL: GPU batch missing, invisible or disable toggle not clearing")
+ if rain_pixels < 145 or dry_pixels > 2:
+  push_error("RAIN RENDER FAIL: rainfall still looks sparse/gerimis or toggle does not clear")
   quit(1)
   return
  view.queue_free()
- print("RAIN RENDER PASS: batched rain visible on GPU, rain OFF clears screen")
+ print("RAIN RENDER PASS: rain visibility >=145 pixels with GPU batching; rain OFF clears screen")
  quit(0)

@@ -91,7 +91,7 @@ func _create_batch() -> void:
  batched_mesh.use_colors = true
  var quad := QuadMesh.new()
  var is_rain: bool = effect_kind.begins_with("rain")
- quad.size = Vector2(2.0, 19.0) if is_rain else Vector2(48.0, 48.0)
+ quad.size = Vector2(2.8, 27.0) if is_rain else Vector2(48.0, 48.0)
  batched_mesh.mesh = quad
  batched_mesh.instance_count = entries.size()
  batched_sprites = MultiMeshInstance2D.new()
@@ -106,7 +106,7 @@ func _rain_texture() -> Texture2D:
  img.fill(Color.TRANSPARENT)
  for y in range(32):
   var t: float = float(y) / 31.0
-  var alpha: float = pow(t, 1.2) * 0.85
+  var alpha: float = (0.17 + 0.78 * pow(t, 0.8)) * 0.95
   img.set_pixel(1, y, Color(1, 1, 1, alpha))
   img.set_pixel(2, y, Color(1, 1, 1, alpha))
   img.set_pixel(0, y, Color(1, 1, 1, alpha * 0.24))
@@ -159,13 +159,13 @@ func _update_rain() -> void:
  var wind_speed: float = 92.0 if is_front else 60.0
  var canvas_w: float = world_size.x + 160.0
  var canvas_h: float = world_size.y + 220.0
- var base_alpha: float = 0.50 if is_front else 0.28
+ var base_alpha: float = 0.83 if is_front else 0.53
  for i in range(entries.size()):
   var drop: Vector4 = entries[i]
   var y: float = fposmod(drop.y + elapsed * fall_speed * drop.z + 110.0, canvas_h) - 110.0
   var x: float = fposmod(drop.x + elapsed * wind_speed * drop.z + 80.0, canvas_w) - 80.0
-  batched_mesh.set_instance_transform_2d(i, Transform2D(-0.08, Vector2(0.73, drop.w), 0.0, Vector2(x, y)))
-  batched_mesh.set_instance_color(i, Color(0.77, 0.89, 1.0, base_alpha * drop.w * strength))
+  batched_mesh.set_instance_transform_2d(i, Transform2D(-0.12, Vector2(0.86, 0.84 + drop.w * 0.20), 0.0, Vector2(x, y)))
+  batched_mesh.set_instance_color(i, Color(0.84, 0.93, 1.0, base_alpha * (0.75 + 0.25 * drop.w) * strength))
 
 func _update_impacts() -> void:
  var is_water: bool = effect_kind == "water"
