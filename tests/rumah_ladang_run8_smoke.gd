@@ -73,8 +73,12 @@ func _check() -> void:
   _fail("background jitter regression: Camera2D must update on idle/render ticks")
   return
  print("RUMAH LADANG CAMERA SYNC PASS: render-time runner and idle camera, frame-step cap")
- if not sprite.offset.is_equal_approx(Vector2(-256,-708)) or not sprite.scale.is_equal_approx(Vector2.ONE * (112.0/640.0)):
-  _fail("character foot pivot or scale changed from 112 world pixels")
+ # Scene now starts in IDLE, which uses the source image's native
+ # foot pivot and silhouette height. RUN has its own normalized 512x768
+ # canvas and must still use (256,708) at 112 world pixels.
+ var initial_idle_scale: float = 112.0 / float(player.IDLE_HEIGHT["down"])
+ if not sprite.offset.is_equal_approx(Vector2(-528.0,-1464.0)) or not sprite.scale.is_equal_approx(Vector2.ONE * initial_idle_scale):
+  _fail("standing IDLE DOWN foot pivot or 112 world-pixel scale is incorrect")
   return
  if player.get_node_or_null("FootContactShadow") == null:
   _fail("grounding shadow missing")
@@ -93,6 +97,9 @@ func _check() -> void:
   player.set_run_direction(direction)
   if sprite.animation != key or sprite.flip_h or not sprite.is_playing() or str(player.get("animation_state")) != "run":
    _fail("RUN direction did not play premirrored normalized frames: " + key)
+   return
+  if not sprite.offset.is_equal_approx(Vector2(-256,-708)) or not sprite.scale.is_equal_approx(Vector2.ONE * (112.0/640.0)):
+   _fail("normalized RUN pivot or 112 world-pixel scale changed on " + direction)
    return
   var idle_key: String = "idle_" + direction
   if not sprite.sprite_frames.has_animation(idle_key) or sprite.sprite_frames.get_frame_count(idle_key) != 1:
