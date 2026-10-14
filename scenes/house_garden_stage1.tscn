@@ -1,6 +1,178 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=20 format=3]
 
-[ext_resource type="Script" path="res://scripts/house_garden_stage1.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/house_garden_layout_editable.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/art/separated/terrain_clean.webp" id="2"]
+[ext_resource type="Texture2D" path="res://assets/art/separated/house.webp" id="3"]
+[ext_resource type="Texture2D" path="res://assets/art/separated/coop.webp" id="4"]
+[ext_resource type="Texture2D" path="res://assets/art/separated/banana.webp" id="5"]
+[ext_resource type="Texture2D" path="res://assets/art/separated/front_fence.webp" id="6"]
+[ext_resource type="Texture2D" path="res://assets/art/separated/bridge_rail.webp" id="7"]
+[ext_resource type="Texture2D" path="res://assets/art/separated/river_water.webp" id="8"]
+[ext_resource type="Texture2D" path="res://assets/characters/idle_uploaded/front_right.png" id="9"]
+[ext_resource type="ShaderMaterial" path="res://assets/materials/village_background_grade.tres" id="10"]
+[ext_resource type="ShaderMaterial" path="res://assets/materials/river_surface_motion.tres" id="11"]
+[ext_resource type="Script" path="res://scripts/stage1_player.gd" id="12"]
+[ext_resource type="Script" path="res://scripts/gameplay_hud.gd" id="13"]
+[ext_resource type="Script" path="res://scripts/mobile_touch_controls.gd" id="14"]
+
+[sub_resource type="RectangleShape2D" id="HouseShape"]
+size = Vector2(372, 166)
+
+[sub_resource type="RectangleShape2D" id="CoopShape"]
+size = Vector2(183, 97)
+
+[sub_resource type="RectangleShape2D" id="RiverShape"]
+size = Vector2(125, 430)
+
+[sub_resource type="CircleShape2D" id="PlayerShape"]
+radius = 11.0
+
+[sub_resource type="SpriteFrames" id="EditorIdle"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("9")
+}],
+"loop": false,
+"name": &"idle_down_right",
+"speed": 1.0
+}]
 
 [node name="HouseGardenStage1" type="Node2D"]
+y_sort_enabled = true
 script = ExtResource("1")
+
+[node name="BackgroundBase" type="Sprite2D" parent="."]
+z_index = -20
+texture_filter = 1
+material = ExtResource("10")
+centered = false
+texture = ExtResource("2")
+
+[node name="RiverWaterfallSurface" type="Sprite2D" parent="."]
+z_index = -19
+texture_filter = 1
+material = ExtResource("11")
+position = Vector2(1058, 288)
+centered = false
+texture = ExtResource("8")
+
+[node name="HouseCutout" type="Node2D" parent="."]
+position = Vector2(0, 455)
+
+[node name="Visual" type="Sprite2D" parent="HouseCutout"]
+texture_filter = 1
+position = Vector2(0, -435)
+centered = false
+texture = ExtResource("3")
+
+[node name="HouseWallsCollision" type="StaticBody2D" parent="HouseCutout"]
+collision_layer = 2
+collision_mask = 0
+position = Vector2(335, -165)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HouseCutout/HouseWallsCollision"]
+shape = SubResource("HouseShape")
+
+[node name="CoopCutout" type="Node2D" parent="."]
+position = Vector2(0, 475)
+
+[node name="Visual" type="Sprite2D" parent="CoopCutout"]
+texture_filter = 1
+position = Vector2(729, -239)
+centered = false
+texture = ExtResource("4")
+
+[node name="CoopCollision" type="StaticBody2D" parent="CoopCutout"]
+collision_layer = 2
+collision_mask = 0
+position = Vector2(869, -90)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CoopCutout/CoopCollision"]
+shape = SubResource("CoopShape")
+
+[node name="BananaCutout" type="Node2D" parent="."]
+position = Vector2(0, 492)
+
+[node name="Visual" type="Sprite2D" parent="BananaCutout"]
+texture_filter = 1
+position = Vector2(0, -332)
+centered = false
+texture = ExtResource("5")
+
+[node name="BridgeRailCutout" type="Node2D" parent="."]
+position = Vector2(0, 512)
+
+[node name="Visual" type="Sprite2D" parent="BridgeRailCutout"]
+texture_filter = 1
+position = Vector2(1192, -167)
+centered = false
+texture = ExtResource("7")
+
+[node name="FrontFenceCutout" type="Node2D" parent="."]
+position = Vector2(0, 735)
+
+[node name="Visual" type="Sprite2D" parent="FrontFenceCutout"]
+texture_filter = 1
+position = Vector2(121, -303)
+centered = false
+texture = ExtResource("6")
+
+[node name="RiverBankCollision" type="StaticBody2D" parent="."]
+collision_layer = 2
+collision_mask = 0
+position = Vector2(1490, 693)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RiverBankCollision"]
+shape = SubResource("RiverShape")
+
+[node name="Player" type="CharacterBody2D" parent="."]
+position = Vector2(700, 617)
+collision_mask = 2
+script = ExtResource("12")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Player"]
+texture_filter = 1
+position = Vector2(0, 0)
+scale = Vector2(0.07740152, 0.07740152)
+sprite_frames = SubResource("EditorIdle")
+animation = &"idle_down_right"
+centered = false
+offset = Vector2(-524, -1491)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+shape = SubResource("PlayerShape")
+
+[node name="Camera2D" type="Camera2D" parent="Player"]
+position = Vector2(0, -33)
+zoom = Vector2(1.25, 1.25)
+position_smoothing_enabled = true
+position_smoothing_speed = 4.0
+limit_left = 0
+limit_top = 0
+limit_right = 1672
+limit_bottom = 941
+
+[node name="GameplayHUDLayer" type="CanvasLayer" parent="."]
+layer = 15
+
+[node name="GameplayHUD" type="Control" parent="GameplayHUDLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("13")
+
+[node name="MobileControlsLayer" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="TouchControls" type="Control" parent="MobileControlsLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("14")
