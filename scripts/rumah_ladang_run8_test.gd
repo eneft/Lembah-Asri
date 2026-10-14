@@ -22,6 +22,7 @@ const DIR_DISPLAY := {
 @onready var scene_background: Sprite2D = $Background
 @onready var actor: AnimatedSprite2D = $Run8Player/AnimatedSprite2D
 @onready var camera: Camera2D = $Run8Player/FollowCamera
+@onready var weather: Node2D = $RainWeather
 var runner: Variant = null
 var touch_direction: Vector2 = Vector2.ZERO
 var touch_fast: bool = false
@@ -222,6 +223,12 @@ func _build_ui() -> void:
  cb.text = "Ganti arah otomatis"
  cb.toggled.connect(_toggle_auto)
  stack.add_child(cb)
+ var rain_switch := CheckButton.new()
+ rain_switch.name = "RainSwitch"
+ rain_switch.text = "Hujan + percikan air"
+ rain_switch.button_pressed = bool(weather.get("raining"))
+ rain_switch.toggled.connect(_on_rain_toggled)
+ stack.add_child(rain_switch)
  var note := Label.new()
  note.text = "IDLE8 baru 8 pose | RUN L/R 8 FPS"
  note.add_theme_font_size_override("font_size", 12)
@@ -230,3 +237,6 @@ func _build_ui() -> void:
 func _start_auto() -> void:
  auto_rotate = true
  rotate_elapsed = 0.0
+
+func _on_rain_toggled(active: bool) -> void:
+ weather.call("set_raining", active)

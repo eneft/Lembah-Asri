@@ -46,3 +46,10 @@ func _make_contact_shadow() -> void:
     contact.position = Vector2(0.0, -1.5)
     contact.z_index = -1
     player.add_child(contact)
+
+func _unhandled_key_input(event: InputEvent) -> void:
+    # Desktop test of weather in the editable main scene; controls intact.
+    if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_R:
+        if has_node("RainWeather"):
+            $RainWeather.call("toggle_rain")
+            get_viewport().set_input_as_handled()

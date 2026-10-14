@@ -54,6 +54,14 @@ jobs:
           if grep -q 'RUMAH LADANG BACKGROUND PENDING' rumah-ladang-run8-test.log; then
             echo "::notice::Approved character-free Rumah-Ladang PNG is still missing from Git; fallback visible in test only."
           fi
+      - name: Rain, soil splash crowns, and river RGBA ripples
+        run: |
+          set -o pipefail
+          timeout 60s godot --headless --audio-driver Dummy --path . --script res://tests/rain_weather_smoke.gd 2>&1 | tee rain-weather.log
+          if grep -E 'SCRIPT ERROR|ERROR:|RAIN WEATHER FAIL' rain-weather.log; then
+            echo "Rain weather smoke failed"; exit 1
+          fi
+          grep -q 'RAIN WEATHER PASS:' rain-weather.log
       - name: Gameplay smoke with existing art and controls
         run: |
           set -o pipefail

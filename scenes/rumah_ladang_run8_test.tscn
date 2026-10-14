@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/rumah_ladang_run8_test.gd" id="1_test"]
 [ext_resource type="Script" path="res://scripts/rumah_ladang_runner_idle8.gd" id="2_runner"]
 [ext_resource type="SpriteFrames" path="res://assets/characters/run8_proportional/Run8_SpriteFrames.tres" id="3_frames"]
 [ext_resource type="Script" path="res://scripts/mobile_touch_controls.gd" id="4_touch"]
+[ext_resource type="PackedScene" path="res://scenes/weather/rain_weather.tscn" id="5_rain"]
 
 [node name="RumahLadangRun8Test" type="Node2D"]
 y_sort_enabled = true
@@ -42,6 +43,8 @@ limit_left = 0
 limit_top = 0
 limit_right = 1672
 limit_bottom = 941
+
+[node name="RainWeather" parent="." instance=ExtResource("5_rain")]
 
 [node name="HUD" type="CanvasLayer" parent="."]
 

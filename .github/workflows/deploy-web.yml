@@ -39,6 +39,15 @@ jobs:
           fi
           grep -q 'MAIN RUN8 INTEGRATION PASS' main-run8-integration.log
 
+      - name: Verify weather effects before Web export
+        run: |
+          set -o pipefail
+          timeout 60s godot --headless --audio-driver Dummy --path . --script res://tests/rain_weather_smoke.gd 2>&1 | tee rain-weather-web-smoke.log
+          if grep -E 'SCRIPT ERROR|ERROR:|RAIN WEATHER FAIL' rain-weather-web-smoke.log; then
+            echo "Rain/weather integration failed"; exit 1
+          fi
+          grep -q 'RAIN WEATHER PASS:' rain-weather-web-smoke.log
+
       - name: Export single-threaded Web build
         run: |
           mkdir -p build/web
