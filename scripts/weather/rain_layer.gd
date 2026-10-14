@@ -131,6 +131,11 @@ func _create_batch() -> void:
   quad.size = Vector2(48.0, 48.0)
  batched_mesh.mesh = quad
  batched_mesh.instance_count = entries.size()
+ # An empty footstep ring starts outside the screen. Tell the renderer
+ # the FULL possible movement region, otherwise Godot culls the entire
+ # MultiMesh before a new splash can enter its dynamically moved bounds.
+ batched_mesh.custom_aabb = AABB(Vector3(-120, -120, -10),
+  Vector3(world_size.x + 240, world_size.y + 240, 20))
  batched_sprites = MultiMeshInstance2D.new()
  batched_sprites.name = "BatchedSprites"
  batched_sprites.multimesh = batched_mesh
