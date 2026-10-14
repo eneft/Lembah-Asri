@@ -1,0 +1,54 @@
+name: Install approved Rumah-Ladang background PNG
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/art/scenes/.source_chunks/**'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize-art:
+    name: Verify and install original character-free art
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout complete source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Reassemble and verify approved PNG
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib
+          from pathlib import Path
+          folder = Path('assets/art/scenes/.source_chunks')
+          chunks = sorted(folder.glob('chunk_*.b64'))
+          if len(chunks) != 17:
+              raise RuntimeError(f'Expected 17 art chunks, got {len(chunks)}')
+          encoded = ''.join(p.read_text(encoding='ascii') for p in chunks)
+          if len(encoded) != 4836988:
+              raise RuntimeError(f'Incomplete base64 PNG: {len(encoded)}')
+          raw = base64.b64decode(encoded, validate=True)
+          digest = hashlib.sha256(raw).hexdigest()
+          approved = '7cfb92976182aa9c257954787fb7ab3f7c9cbf6298f8252944f5dc549e87d4c5'
+          if digest != approved or len(raw) != 3627739:
+              raise RuntimeError(f'Art integrity mismatch: {digest} bytes={len(raw)}')
+          if raw[:8] != b'\x89PNG\r\n\x1a\n':
+              raise RuntimeError('Decoded bytes are not PNG')
+          target = Path('assets/art/scenes/rumah_ladang_empty.png')
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_bytes(raw)
+          print(f'APPROVED RUMAH LADANG ART READY: SHA256={digest}, bytes={len(raw)}')
+          PY
+      - name: Commit background PNG and clear temporary chunks
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f assets/art/scenes/rumah_ladang_empty.png
+          git rm -r assets/art/scenes/.source_chunks
+          git commit -m "Install approved character-free original 1672x941 Rumah-Ladang PNG"
+          git push origin HEAD:main
