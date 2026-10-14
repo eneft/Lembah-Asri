@@ -67,14 +67,23 @@ jobs:
           echo "Web export files:"
           ls -lh build/web/
 
-      - name: Smoke test eight-direction preview
+      - name: Smoke test approved proportional eight-direction preview
         run: |
           set -o pipefail
-          godot --headless --audio-driver Dummy --path . --script res://tests/run8_directions_smoke.gd 2>&1 | tee run8-smoke.log
-          if grep -E 'SCRIPT ERROR|ERROR:|RUN8 FAIL' run8-smoke.log; then
-            echo "Run8 test failed"; exit 1
+          godot --headless --audio-driver Dummy --path . --script res://tests/run8_proportional_browser_smoke.gd 2>&1 | tee run8-proportional-browser-smoke.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PROPORTIONAL RUN8 FAIL' run8-proportional-browser-smoke.log; then
+            echo "Approved 74-pose RUN8 preview is broken"; exit 1
           fi
-          grep -q 'RUN8 PASS:' run8-smoke.log
+          grep -q 'PROPORTIONAL RUN8 PASS:' run8-proportional-browser-smoke.log
+
+      - name: Regression test legacy 16-pose walk preview (not the published RUN8 test)
+        run: |
+          set -o pipefail
+          godot --headless --audio-driver Dummy --path . --script res://tests/run8_directions_smoke.gd 2>&1 | tee legacy-run8-smoke.log
+          if grep -E 'SCRIPT ERROR|ERROR:|RUN8 FAIL' legacy-run8-smoke.log; then
+            echo "Legacy walking test failed"; exit 1
+          fi
+          grep -q 'RUN8 PASS:' legacy-run8-smoke.log
 
       - name: Verify uploaded run animation actually loads
         run: |
@@ -86,7 +95,7 @@ jobs:
           fi
           grep -q 'UPLOADED RUN8 PASS' uploaded-run8-smoke.log
 
-      - name: Export isolated eight-direction preview (game main remains unchanged)
+      - name: Export approved RUN8 proportional preview (game main remains unchanged)
         run: |
           set -euo pipefail
           cp project.godot /tmp/lembah-main-project.godot
@@ -96,7 +105,7 @@ jobs:
           path = Path("project.godot")
           text = path.read_text(encoding="utf-8")
           src = 'run/main_scene="res://scenes/house_garden_stage1.tscn"'
-          dst = 'run/main_scene="res://scenes/run8_test.tscn"'
+          dst = 'run/main_scene="res://scenes/run8_proportional_test.tscn"'
           assert src in text, "Main scene has changed; do not replace it silently"
           path.write_text(text.replace(src, dst), encoding="utf-8")
           PY
@@ -106,13 +115,24 @@ jobs:
           test -s build/web/run8/index.html
           test -s build/web/run8/index.wasm
           test -s build/web/run8/index.pck
-          echo "RUN8 EXPORT PASS"
+          # Verify the actual deployed /run8/ .pck starts the proportional
+          # scene. Previously /run8/ served a 16-frame WALK test despite PASS.
+          mkdir -p /tmp/lembah-proportional-preview-check
+          (
+            cd /tmp/lembah-proportional-preview-check
+            godot --headless --audio-driver Dummy --main-pack "$GITHUB_WORKSPACE/build/web/run8/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/proportional-run8-export-check.log"
+          )
+          if grep -E 'SCRIPT ERROR|ERROR:|PROPORTIONAL RUN8 FAIL' build/proportional-run8-export-check.log; then
+            echo "Exported proportional RUN8 pack has runtime errors"; exit 1
+          fi
+          grep -q 'PROPORTIONAL RUN8 PREVIEW ACTIVE: 74 poses' build/proportional-run8-export-check.log
+          echo "PROPORTIONAL RUN8 EXPORT PASS: 74 frames; no legacy WALK source"
           # Also export the actual uploaded run sprites without replacing the legacy comparison.
           python3 - <<'PY'
           from pathlib import Path
           p = Path("project.godot")
           s = p.read_text(encoding="utf-8")
-          old = 'run/main_scene="res://scenes/run8_test.tscn"'
+          old = 'run/main_scene="res://scenes/run8_proportional_test.tscn"'
           new = 'run/main_scene="res://scenes/run8_uploaded.tscn"'
           assert old in s
           p.write_text(s.replace(old, new), encoding="utf-8")
