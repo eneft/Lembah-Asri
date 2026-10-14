@@ -33,6 +33,14 @@ jobs:
             echo "Main scene character integration failed"; exit 1
           fi
           grep -q 'MAIN RUN8 INTEGRATION PASS' main-run8-integration.log
+      - name: Verify published RUN8 browser preview uses proportional 74-frame character
+        run: |
+          set -o pipefail
+          timeout 45s godot --headless --audio-driver Dummy --path . --script res://tests/run8_proportional_browser_smoke.gd 2>&1 | tee browser-proportional-smoke.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PROPORTIONAL RUN8 FAIL' browser-proportional-smoke.log; then
+            echo "Published run8 preview still points to wrong character"; exit 1
+          fi
+          grep -q 'PROPORTIONAL RUN8 PASS:' browser-proportional-smoke.log
       - name: Gameplay smoke with existing art and controls
         run: |
           set -o pipefail
