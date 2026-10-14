@@ -80,7 +80,7 @@ func _seed_puddles(rng: RandomNumberGenerator) -> void:
 func _seed_footsteps() -> void:
  # Fixed-size ring-buffer: no new object is allocated for each footstep.
  for i in range(particle_count):
-  entries.append(Vector4(-1000.0, -1000.0, -100000.0, 1.0))
+  entries.append(Vector4(821.0, 562.0, -100000.0, 1.0))
 
 func spawn_footstep(world_pos: Vector2) -> void:
  if effect_kind != "footstep" or entries.is_empty():
@@ -261,7 +261,7 @@ func _update_impacts() -> void:
   if is_footstep:
    age = (elapsed - drop.z) / 0.42
    if age < 0.0 or age >= 1.0:
-    batched_mesh.set_instance_transform_2d(i, Transform2D(0.0, Vector2.ZERO, 0.0, Vector2(-1000, -1000)))
+    batched_mesh.set_instance_transform_2d(i, Transform2D(0.0, Vector2(0.001, 0.001), 0.0, Vector2(821, 562)))
     batched_mesh.set_instance_color(i, Color.TRANSPARENT)
     continue
   else:
