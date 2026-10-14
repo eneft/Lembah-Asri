@@ -136,7 +136,11 @@ func _check() -> void:
   var original_run: SpriteFrames = load("res://assets/characters/run8_proportional/Run8_SpriteFrames.tres") as SpriteFrames
   var source_frame: AtlasTexture = original_run.get_frame_texture(key, 0) as AtlasTexture
   var raster_frame: AtlasTexture = sprite.sprite_frames.get_frame_texture(key, 0) as AtlasTexture
-  if raster_frame == null or not (raster_frame.atlas is ImageTexture) or not raster_frame.atlas.get_size().is_equal_approx(source_frame.atlas.get_size() * density):
+  # Atlas sources have arbitrary widths/heights: resize() rounds each
+  # resulting dimension to integer pixels (up to 0.5px difference).
+  var raster_size: Vector2 = raster_frame.atlas.get_size() if raster_frame != null else Vector2.ZERO
+  var expected_size: Vector2 = source_frame.atlas.get_size() * density
+  if raster_frame == null or not (raster_frame.atlas is ImageTexture) or absf(raster_size.x - expected_size.x) > 0.51 or absf(raster_size.y - expected_size.y) > 0.51:
    _fail("RUN original atlas was not independently rasterized: " + direction)
    return
   if not raster_frame.region.is_equal_approx(Rect2(source_frame.region.position * density, source_frame.region.size * density)) or not raster_frame.margin.is_equal_approx(Rect2(source_frame.margin.position * density, source_frame.margin.size * density)):
