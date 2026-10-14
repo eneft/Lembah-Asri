@@ -55,6 +55,23 @@ func _check() -> void:
   _fail("raindrop-to-ground splashes remain invisible: " + str(splash_pixels))
   return
 
+ # Verify DIFFERENT rendered ground hit locations after recycling; a fixed
+ # stamp reused forever must fail even if individual ripples keep animating.
+ var ground: Node2D = weather.get_node("GroundSplashes")
+ ground.set("elapsed", float(ground.get("elapsed")) + 2.0)
+ ground.call("_update_batch")
+ var moved_splash: Image = await _snapshot(view)
+ var changed_pixels: int = 0
+ for y in range(0, splash_image.get_height(), 2):
+  for x in range(0, splash_image.get_width(), 2):
+   var before_color: Color = splash_image.get_pixel(x, y)
+   var after_color: Color = moved_splash.get_pixel(x, y)
+   if absf(before_color.a - after_color.a) > 0.08:
+    changed_pixels += 1
+ if changed_pixels < 25:
+  _fail("impact field did not relocate visibly: " + str(changed_pixels))
+  return
+
  weather.get_node("GroundSplashes").visible = false
  weather.get_node("FootstepSplashes").visible = true
  weather.call("register_footstep", Vector2(821, 562), true)
@@ -63,7 +80,7 @@ func _check() -> void:
  if step_pixels < 4:
   _fail("footstep splash is invisible: " + str(step_pixels))
   return
- print("PUDDLE RENDER QA: puddle=%d, falling-rain impact=%d, footstep=%d alpha pixels" % [puddle_pixels, splash_pixels, step_pixels])
+ print("PUDDLE RENDER QA: puddle=%d, rain impact=%d, relocated=%d, footstep=%d pixels" % [puddle_pixels, splash_pixels, changed_pixels, step_pixels])
  weather.call("set_raining", false)
  var dry_image: Image = await _snapshot(view)
  if _visible_pixels(dry_image) > 2:

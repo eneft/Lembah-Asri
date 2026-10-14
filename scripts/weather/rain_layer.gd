@@ -16,6 +16,14 @@ var batched_sprites: MultiMeshInstance2D
 var batch_update_count: int = 0
 var puddle_positions: Array = []
 var next_footstep_slot: int = 0
+# Recycled terrain impacts only. The rain, puddles, river and footprints
+# deliberately keep their existing animation/update paths unchanged.
+var yard_polygon: PackedVector2Array
+var yard_rng := RandomNumberGenerator.new()
+var yard_born: PackedFloat32Array = PackedFloat32Array()
+var yard_lifetime: PackedFloat32Array = PackedFloat32Array()
+var yard_variant: PackedInt32Array = PackedInt32Array()
+var yard_relocations: int = 0
 
 func _ready() -> void:
  var rng := RandomNumberGenerator.new()
@@ -44,8 +52,9 @@ func _seed_rain(rng: RandomNumberGenerator) -> void:
   ))
 
 func _seed_ground(rng: RandomNumberGenerator) -> void:
- # Open yard/paths only, excluding roof, walls, garden buildings.
- var yard := PackedVector2Array([
+ # Existing approved exposed-soil polygon, shared by initial placement AND
+ # every respawn. Never move rain contacts onto roof/coop/river.
+ yard_polygon = PackedVector2Array([
   Vector2(260, 549), Vector2(367, 514), Vector2(530, 485),
   Vector2(650, 496), Vector2(850, 540), Vector2(1050, 552),
   Vector2(1150, 535), Vector2(1250, 523), Vector2(1370, 483),
@@ -54,14 +63,46 @@ func _seed_ground(rng: RandomNumberGenerator) -> void:
   Vector2(820, 618), Vector2(733, 641), Vector2(590, 609),
   Vector2(510, 603), Vector2(385, 617), Vector2(275, 588)
  ])
+ yard_rng.seed = rng.seed
+ yard_born.resize(particle_count)
+ yard_lifetime.resize(particle_count)
+ yard_variant.resize(particle_count)
  for i in range(particle_count):
-  var point := Vector2(700.0, 555.0)
-  for trial in range(48):
-   var candidate := Vector2(rng.randf_range(275.0, 1440.0), rng.randf_range(488.0, 635.0))
-   if Geometry2D.is_point_in_polygon(candidate, yard):
-    point = candidate
-    break
-  entries.append(Vector4(point.x, point.y, rng.randf(), rng.randf_range(0.6, 1.3)))
+  entries.append(Vector4.ZERO)
+  _recycle_ground_hit(i, true)
+
+func _random_yard_point() -> Vector2:
+ # Rejection sampling distributes impacts across the same open dirt region,
+ # rather than reusing a static handful of positions every cycle.
+ for trial in range(36):
+  var candidate := Vector2(
+   yard_rng.randf_range(275.0, 1440.0),
+   yard_rng.randf_range(488.0, 635.0)
+  )
+  if Geometry2D.is_point_in_polygon(candidate, yard_polygon):
+   return candidate
+ return Vector2(700.0, 555.0)
+
+func _recycle_ground_hit(index: int, initial: bool = false) -> void:
+ # Original rain contact was short-lived with tiny rings and brief crowns.
+ # Distribution: 65% fine droplets, 25% medium, 10% accent splashes.
+ var chance: float = yard_rng.randf()
+ var kind: int = 0 if chance < 0.65 else (1 if chance < 0.90 else 2)
+ var life: float = yard_rng.randf_range(0.37, 0.67)
+ if kind == 1:
+  life = yard_rng.randf_range(0.40, 0.73)
+ elif kind == 2:
+  life = yard_rng.randf_range(0.45, 0.85)
+ var size: float = yard_rng.randf_range(0.80, 1.20)
+ var birth: float = elapsed - yard_rng.randf_range(0.0, life) if initial else elapsed
+ var at: Vector2 = _random_yard_point()
+ # All recycled instances have new positions/size/duration/variant.
+ entries[index] = Vector4(at.x, at.y, birth, size)
+ yard_born[index] = birth
+ yard_lifetime[index] = life
+ yard_variant[index] = kind
+ if not initial:
+  yard_relocations += 1
 
 func _seed_puddles(rng: RandomNumberGenerator) -> void:
  # Fallback is intentionally local so a typed/untyped Array handoff cannot
@@ -224,6 +265,8 @@ func _update_batch() -> void:
   _update_rain()
  elif effect_kind == "puddle":
   _update_puddles()
+ elif effect_kind == "yard":
+  _update_ground_impacts()
  else:
   _update_impacts()
 
@@ -251,6 +294,39 @@ func _update_puddles() -> void:
   batched_mesh.set_instance_transform_2d(i,
    Transform2D(0.0, Vector2(sx, sy), 0.0, Vector2(drop.x, drop.y)))
   batched_mesh.set_instance_color(i, Color(0.92, 0.99, 1.0, (0.77 + 0.12 * shimmer) * strength))
+
+func _update_ground_impacts() -> void:
+ # CPU updates a bounded pool at 20 Hz; the GPU still draws ONE MultiMesh.
+ # No per-frame Node allocations, CanvasItem arcs, or draw calls per drop.
+ for i in range(entries.size()):
+  var drop: Vector4 = entries[i]
+  var age_seconds: float = elapsed - yard_born[i]
+  if age_seconds >= yard_lifetime[i]:
+   _recycle_ground_hit(i)
+   drop = entries[i]
+   age_seconds = 0.0
+  var age: float = clampf(age_seconds / yard_lifetime[i], 0.0, 1.0)
+  var fade: float = pow(1.0 - age, 1.55)
+  var kind: int = yard_variant[i]
+  var size: float = drop.w
+  var spread: float
+  var opacity: float
+  if kind == 0:
+   # Fine rain: old 2-5px rings, no huge cartoon crown.
+   spread = (0.22 + 0.19 * age) * size
+   opacity = 0.62
+  elif kind == 1:
+   spread = (0.32 + 0.22 * age) * size
+   opacity = 0.76
+  else:
+   spread = (0.42 + 0.29 * age) * size
+   opacity = 0.87
+  var sx: float = spread
+  var sy: float = spread * (0.89 + 0.11 * size)
+  batched_mesh.set_instance_transform_2d(i,
+   Transform2D(0.0, Vector2(sx, sy), 0.0, Vector2(drop.x, drop.y)))
+  batched_mesh.set_instance_color(i,
+   Color(0.88, 0.96, 1.0, opacity * fade * strength))
 
 func _update_impacts() -> void:
  var is_water: bool = effect_kind == "water"

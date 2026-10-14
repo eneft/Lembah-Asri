@@ -43,10 +43,42 @@ func _check() -> void:
    if not is_equal_approx(float(layer.get("update_fps")), expected_fps):
     _fail("weather effect tick cap regressed: " + effect)
     return
-  for entry in weather.get_node("GroundSplashes").get("entries"):
-   if entry.y < 485.0:
-    _fail("a yard splash appears on a roof")
+  var ground: Node2D = weather.get_node("GroundSplashes")
+  var ground_entries: Array = ground.get("entries")
+  var first_locations: Array[Vector2] = []
+  var exposed: PackedVector2Array = ground.get("yard_polygon")
+  for entry in ground_entries:
+   var point := Vector2(entry.x, entry.y)
+   first_locations.append(point)
+   if entry.y < 485.0 or not Geometry2D.is_point_in_polygon(point, exposed):
+    _fail("a yard splash escaped onto a roof, building or river")
     return
+  # The pre-optimization bug reused the very same impact positions forever.
+  # Advance all pools across multiple lifetimes; every recycled drop must be
+  # redistributed, while remaining inside the same valid dirt polygon.
+  ground.set("elapsed", float(ground.get("elapsed")) + 2.0)
+  ground.call("_update_batch")
+  if int(ground.get("yard_relocations")) < ground_entries.size():
+   _fail("ground impacts are still stuck on static points")
+   return
+  var moved_count: int = 0
+  var variant_counts := [0, 0, 0]
+  var styles: PackedInt32Array = ground.get("yard_variant")
+  for i in range(ground_entries.size()):
+   var new_drop: Vector4 = ground_entries[i]
+   var new_point := Vector2(new_drop.x, new_drop.y)
+   if not Geometry2D.is_point_in_polygon(new_point, exposed):
+    _fail("recycled splash moved outside exposed soil")
+    return
+   if new_point.distance_to(first_locations[i]) > 15.0:
+    moved_count += 1
+   variant_counts[styles[i]] += 1
+  if moved_count < int(float(ground_entries.size()) * 0.80):
+   _fail("recycled ground positions do not move enough")
+   return
+  if variant_counts[0] < 20 or variant_counts[1] < 8 or variant_counts[2] < 2:
+   _fail("small / medium / accent ground splash variety missing")
+   return
   for entry in weather.get_node("RiverRipples").get("entries"):
    if entry.x < 1058.0 or entry.y < 288.0:
     _fail("river impact outside RGBA sprite origin")
@@ -109,5 +141,5 @@ func _check() -> void:
     return
   world.queue_free()
   await process_frame
- print("RAIN WEATHER PASS: six GPU-batched layers, 12 reflective puddles, visible ground hits, masked river ripples, walking footstep cooldown, no legacy gameplay regression")
+ print("RAIN WEATHER PASS: dynamic recycled dirt impacts with 3 shapes, six GPU batches, 12 puddles, river/footstep preserved")
  quit(0)

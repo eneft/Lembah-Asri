@@ -26,3 +26,8 @@ Karena user menilai optimasi awal tampak seperti gerimis, density visual dikalib
 ## Genangan, pantulan dan footstep splash (14 Oktober 2026)
 
 Scene utama dan Rumah-Ladang test: **12 genangan** berbentuk elips pseudo-isometrik di jalur halaman. Tekstur dibuat prosedural sekali saja, dengan tepi lembut dan highlight refleksi langit; update kilau 12 Hz. Percikan hujan di tanah kini dibuat lebih terang dan besar (125 native / 103 Web) agar tampak jelas di atas latar hijau, tetap menggunakan satu GPU MultiMesh batch pada 20 Hz. Efek injakan muncul **hanya ketika kaki karakter masuk area genangan sambil berjalan atau berlari** (trigger posisi kaki + cooldown 0,16 detik + jarak minimum 8 px). Ring-buffer 10 efek injakan, satu batch GPU, tidak menambah physics/collision/perhitungan berat. Total enam layer GPU batched, bukan ratusan node/DrawCalls. Saat toggle cuaca mati, animasi dan permukaan genangan disembunyikan bersamaan. Tes `tests/puddle_render_smoke.gd` memeriksa piksel hasil render asli pada renderer Compatibility, termasuk 3 efek independen.
+
+
+## Dynamic ground rain impacts
+
+GroundSplashes now recycles each pooled impact at a different random ground coordinate after a short independent lifetime. Three size categories (micro 65%, medium 25%, accent 10%) and independent fade timing create natural non-repeating rainfall. GPU MultiMesh instancing and the 20 Hz effect update remain unchanged. Roof exclusions use the existing exposed-soil polygon. River ripples, puddles and footstep splashes are unchanged. CI checks position recycling and real rendered-frame differences.
