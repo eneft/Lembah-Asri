@@ -1,0 +1,54 @@
+name: Install approved 8-way normalized IDLE sprite atlas
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/characters/idle8_new/.source_chunks/**'
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Reassemble IDLE8 atlas and verify lossless integrity
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, hashlib, struct
+          source = Path("assets/characters/idle8_new/.source_chunks")
+          parts = sorted(source.glob("chunk_*.b64"))
+          if len(parts) != 9:
+              raise RuntimeError(f"Expected 9 normalized IDLE8 transfer chunks, got {len(parts)}")
+          encoded = ''.join(p.read_text(encoding='ascii') for p in parts)
+          if len(encoded) != 2450028:
+              raise RuntimeError(f"Atlas transfer incomplete: {len(encoded)} chars")
+          data = base64.b64decode(encoded, validate=True)
+          digest = hashlib.sha256(data).hexdigest()
+          expected = "5fa6c2ca4f4f23c8f13e2a611626fc35a212cb4c7d52d745bdcf2eff798b0445"
+          if digest != expected or len(data) != 1837520:
+              raise RuntimeError(f"Sprite atlas checksum mismatch: {digest}, bytes={len(data)}")
+          if data[:8] != bytes((137,80,78,71,13,10,26,10)):
+              raise RuntimeError("Atlas transfer not a PNG")
+          width, height, depth, mode = struct.unpack(">IIBB", data[16:26])
+          if (width,height,depth,mode) != (2048,1536,8,6):
+              raise RuntimeError(f"Expected 2048x1536 RGBA PNG, got {(width,height,depth,mode)}")
+          target = Path("assets/characters/idle8_new/Idle8_Normalized.png")
+          target.parent.mkdir(parents=True,exist_ok=True)
+          target.write_bytes(data)
+          print(f"IDLE8 ATLAS VERIFIED: 8 poses, 512x768 each, SHA256={digest}")
+          PY
+      - name: Commit actual PNG asset and remove temporary transport chunks
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f assets/characters/idle8_new/Idle8_Normalized.png
+          git rm -r assets/characters/idle8_new/.source_chunks
+          git commit -m "Install new normalized eight-direction idle atlas (2048x1536 original RGBA)"
+          git push origin HEAD:main
