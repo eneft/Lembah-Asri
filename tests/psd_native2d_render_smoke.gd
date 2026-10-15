@@ -44,6 +44,15 @@ func _check() -> void:
  shadow.visible = false
  var without_shadow: Image = await _capture()
  var shadow_pixels: int = _difference(both,without_shadow,camera_screen)
+ sprite.visible = false
+ shadow.visible = true
+ var shadow_only: Image = await _capture()
+ shadow.visible = false
+ var background_only: Image = await _capture()
+ var isolated: int = _difference(shadow_only,background_only,camera_screen)
+ shadow.visible = true
+ sprite.visible = true
+ print("PSD NATIVE2D SHADOW TEST: standard_pixels=",shadow_pixels," isolated_pixels=",isolated)
  if hero_pixels < 90:
   _fail("hero missing from native Camera2D pixels: " + str(hero_pixels))
   return
