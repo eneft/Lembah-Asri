@@ -53,8 +53,48 @@ func _check() -> void:
    if absf(on.r - off.r) + absf(on.g - off.g) + absf(on.b - off.b) > 0.24:
     changed += 1
  print("PSD VISUAL QA: player_changed_pixels=", changed, " foot_screen=", foot_screen, " size=", with_player.get_size())
+ # Diagnosis: prove the GPU image changes for an actual visible 3D quad
+ # and a background layer, rather than trusting a resource-only smoke test.
+ var backdrop: Sprite3D = world.get_node("Background") as Sprite3D
+ backdrop.visible = false
+ var no_background: Image = await _snapshot()
+ backdrop.visible = true
+ var background_changed: int = 0
+ for y in range(40, 680, 16):
+  for x in range(40, 1240, 16):
+   var original_color: Color = without_player.get_pixel(x, y)
+   var without_color: Color = no_background.get_pixel(x, y)
+   if absf(original_color.r - without_color.r) + absf(original_color.g - without_color.g) + absf(original_color.b - without_color.b) > 0.2:
+    background_changed += 1
+ var probe: Sprite3D = Sprite3D.new()
+ var test_image: Image = Image.create(32, 32, false, Image.FORMAT_RGBA8)
+ test_image.fill(Color(1, 0, 0, 1))
+ probe.texture = ImageTexture.create_from_image(test_image)
+ probe.pixel_size = 0.02
+ probe.shaded = false
+ probe.double_sided = true
+ probe.no_depth_test = true
+ probe.position = Vector3(0.0, 0.5, 0.5)
+ player.add_child(probe)
+ var with_probe: Image = await _snapshot()
+ probe.visible = false
+ var without_probe: Image = await _snapshot()
+ var probe_changed: int = 0
+ for y in range(start_y, end_y, 2):
+  for x in range(start_x, end_x, 2):
+   var on_probe: Color = with_probe.get_pixel(x, y)
+   var off_probe: Color = without_probe.get_pixel(x, y)
+   if absf(on_probe.r - off_probe.r) + absf(on_probe.g - off_probe.g) + absf(on_probe.b - off_probe.b) > 0.3:
+    probe_changed += 1
+ print("PSD VISUAL DIAG: player=", changed, " background=", background_changed, " forced_quad=", probe_changed)
+ if background_changed < 50:
+  _fail("GPU root snapshots do not reflect hidden background; test setup invalid")
+  return
+ if probe_changed < 50:
+  _fail("independent 3D Sprite3D test quad not rendering; root cause is 3D viewport pipeline")
+  return
  if changed < 100:
-  _fail("main character not visibly drawn in Camera3D despite present SpriteFrames; changed=" + str(changed))
+  _fail("AnimatedSprite3D invisible but independent quad visible; changed=" + str(changed))
   return
  sprite.visible = true
  world.queue_free()
