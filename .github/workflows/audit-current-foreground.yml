@@ -1,0 +1,32 @@
+name: Audit CURRENT Photoshop Foreground layers
+on:
+  push:
+    branches: [audit/foreground-psd-current]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Photoshop parser
+        run: python -m pip install --disable-pip-version-check 'psd-tools>=1.10,<2' 'Pillow>=10,<13'
+      - name: Read all latest PSD layers, including hidden and groups
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from psd_tools import PSDImage
+          import json,hashlib
+          src=Path('assets/source_psd/Lembah asri tes scene')
+          psd=PSDImage.open(src)
+          print('SOURCE_SHA256:',hashlib.sha256(src.read_bytes()).hexdigest(),flush=True)
+          print('CANVAS:',psd.size,flush=True)
+          def dump(parent,prefix='',depth=0):
+              for i,layer in enumerate(parent):
+                  entry={'order':i,'depth':depth,'name':str(layer.name),'is_group':bool(layer.is_group()),'visible':bool(layer.is_visible()),'kind':str(layer.kind),'bbox':list(map(int,layer.bbox)),'opacity':int(layer.opacity)}
+                  print('CURRENT_PSD_LAYER:',json.dumps(entry,ensure_ascii=False),flush=True)
+                  if layer.is_group(): dump(layer,prefix+'/'+str(layer.name),depth+1)
+          dump(psd)
+          PY
