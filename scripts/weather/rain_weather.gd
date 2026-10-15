@@ -64,9 +64,11 @@ func configure_native2d_surfaces(
  native_puddles: Array[Vector2],
  river: Array[PackedVector2Array]) -> void:
  native_masked = true
- $GroundSplashes.call("set_native_terrain_mask", soil, [], [])
- $GroundPuddles.call("set_native_terrain_mask", soil, native_puddles, [])
- $RiverRipples.call("set_native_terrain_mask", [], [], river)
+ var no_polygons: Array[PackedVector2Array] = []
+ var no_puddles: Array[Vector2] = []
+ $GroundSplashes.call("set_native_terrain_mask", soil, no_puddles, no_polygons)
+ $GroundPuddles.call("set_native_terrain_mask", soil, native_puddles, no_polygons)
+ $RiverRipples.call("set_native_terrain_mask", no_polygons, no_puddles, river)
  print("PSD NATIVE WEATHER MASK READY: %d soil-only puddles" % int($GroundPuddles.get("entries").size()))
 
 func set_precipitation(level: float) -> void:
