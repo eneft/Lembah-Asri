@@ -99,7 +99,7 @@ func _ready() -> void:
  if background.texture == null or background.texture.get_size() != CANVAS_SIZE:
   psd_ready = false
   push_error("PSD CAMERA2D: authentic layered PSD background missing")
- if psd_layer_stack.get_child_count() != 10:
+ if psd_layer_stack.get_child_count() != 11:
   psd_ready = false
   push_error("PSD CAMERA2D: expected precisely ten authentic editable overlay objects")
  for art_node in psd_layer_stack.get_children():

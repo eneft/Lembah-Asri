@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=3]
+[gd_scene load_steps=35 format=3]
 
 [ext_resource type="Script" path="res://scripts/rumah_ladang_psd_camera2d.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/psd_player_2d.gd" id="2_player"]
@@ -27,6 +27,7 @@
 [ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/08_roof.png" id="L_ROOF"]
 [ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/09_bush.png" id="L_BUSH"]
 [ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/10_palm.png" id="L_PALM"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/11_foreground.png" id="L_FOREGROUND"]
 
 [sub_resource type="CircleShape2D" id="FootCircle"]
 radius = 9.0
@@ -89,6 +90,13 @@ centered = false
 texture_filter = 2
 texture = ExtResource("L_BRIDGE")
 z_index = 6
+
+[node name="Foreground" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(0, 476)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_FOREGROUND")
+z_index = 20
 
 [node name="BananaTree" type="Sprite2D" parent="PSDLayerStack"]
 position = Vector2(0, 261)

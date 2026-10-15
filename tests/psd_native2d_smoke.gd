@@ -64,7 +64,7 @@ func _check() -> void:
   _fail("scene did not load latest authored Background")
   return
  var stack: Node2D = stage.get_node_or_null("PSDLayerStack") as Node2D
- if stack == null or stack.get_child_count() != 10:
+ if stack == null or stack.get_child_count() != 11:
   _fail("not all ten individually editable PSD overlays imported")
   return
  var psd_manifest: Dictionary = JSON.parse_string(
@@ -100,7 +100,24 @@ func _check() -> void:
  if background.z_index != 0:
   _fail("Background must be the bottom-most layer")
   return
+ var foreground: Sprite2D = stack.get_node_or_null("Foreground") as Sprite2D
+ if foreground == null or foreground.texture == null:
+  _fail("User-authored forground is missing from Camera2D scene")
+  return
+ var authored_foreground: Dictionary
+ for info in layers:
+  if str(info["name"]) == "forground":
+   authored_foreground = info
+ if authored_foreground.is_empty():
+  _fail("User-authored forground was silently dropped from PSD manifest")
+  return
+ if foreground.texture.resource_path != "res://assets/art/psd_layered_scene/11_foreground.png":
+  _fail("Foreground must use authentic exported Photoshop pixels")
+  return
  var hero_order: int = int(psd_manifest.get("hero_marker_source_order", -1))
+ if foreground.z_index <= hero_order * 2:
+  _fail("Foreground must overlap the character from its exact PSD source order")
+  return
  if hero_order < 1 or hero.z_index != hero_order * 2 or shadow.z_index != hero.z_index - 1:
   _fail("original Photoshop placeholder z order not applied to RUN8/IDLE8")
   return

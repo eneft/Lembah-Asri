@@ -27,7 +27,8 @@ mapping={
  "layer-wooden-fence":"07_fence_front",
  "layer-tiled-roof":"08_roof",
  "layer-bush":"09_bush",
- "layer-palm-tree":"10_palm"
+ "layer-palm-tree":"10_palm",
+ "forground":"11_foreground"
 }
 manifest={"source":str(source),"source_sha256":hashlib.sha256(original).hexdigest(),
  "canvas":[1672,941],"order":"background-bottom-then-original-photoshop-layer-order",
@@ -37,7 +38,10 @@ for i,layer in enumerate(psd):
  if name=="Posisi layer karakter utama disini":
   manifest["character_marker_bbox"]=list(map(int,layer.bbox))
   manifest["hero_marker_source_order"]=i
- if name not in mapping: continue
+ if name not in mapping:
+  if layer.is_group() or name=="Posisi layer karakter utama disini":
+   continue
+  raise RuntimeError("Unrecognized PSD layer not exported: %r. Add it to mapping and Godot scene instead of silently ignoring it." % name)
  bounds=list(map(int,layer.bbox))
  rgba=layer.composite(force=True).convert("RGBA")
  assert rgba.size==(bounds[2]-bounds[0],bounds[3]-bounds[1]),name
@@ -47,8 +51,10 @@ for i,layer in enumerate(psd):
   "source_order":i,"opacity_already_baked":True,"visible":bool(layer.is_visible())}
  manifest["layers"].append(info)
  print("PSD_EXPORTED_LAYER:",name,bounds,target,flush=True)
-assert len(manifest["layers"])==11 and manifest["character_marker_bbox"] and manifest["hero_marker_source_order"] is not None,"Missing scene objects or marker"
+assert len(manifest["layers"])==12 and manifest["character_marker_bbox"] and manifest["hero_marker_source_order"] is not None,"Missing scene objects, foreground or marker"
 assert manifest["layers"][0]["name"]=="Background", "Background must remain the lowest painted PSD layer"
+foreground=[layer for layer in manifest["layers"] if layer["name"]=="forground"]
+assert len(foreground)==1 and foreground[0]["source_order"] > manifest["hero_marker_source_order"], "Photoshop 'forground' must be above the character placeholder"
 group=[x for x in psd if str(x.name)=="Collision"]
 assert len(group)==1 and group[0].is_group() and len(group[0])==1
 coll=group[0][0]; bounds=list(map(int,coll.bbox))

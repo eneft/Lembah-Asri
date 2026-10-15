@@ -22,10 +22,13 @@ assert manifest["canvas"] == collision["canvas"] == [1672, 941], "PSD canvas mis
 assert collision["obstacle_count"] == len(collision["polygons"]) and 1 <= len(collision["polygons"]) <= 128
 assert manifest["layers"][0]["name"] == "Background"
 assert manifest["layers"][0]["source_order"] == 0
-assert len(manifest["layers"]) == 11, "Scene uses eleven named native layer images"
+assert len(manifest["layers"]) == 12, "Scene must include the twelve named original layers, including forground"
 orders = [int(x["source_order"]) for x in manifest["layers"]]
 assert orders == sorted(orders) and len(set(orders)) == len(orders), "Layers not in PSD order"
+fg = [layer for layer in manifest["layers"] if layer["name"] == "forground"]
+assert len(fg) == 1 and fg[0]["filename"] == "11_foreground.png", "Missing Photoshop foreground pixels"
 marker_order = int(manifest["hero_marker_source_order"])
+assert fg[0]["source_order"] > marker_order, "Foreground must be stacked in front of character"
 assert marker_order >= 1 and marker_order not in orders, "Character must replace its authored placeholder"
 marker = manifest["character_marker_bbox"]
 foot = [(marker[0] + marker[2] + 1)//2, marker[3]]
