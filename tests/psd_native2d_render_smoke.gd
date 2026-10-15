@@ -35,6 +35,7 @@ func _check() -> void:
  shadow.call("_sync_shadow",0.0,true)
  await process_frame
  var camera_screen: Vector2 = root.get_viewport().get_canvas_transform() * foot
+ print("PSD NATIVE2D SHADOW DIAG: visible=",shadow.visible," bank=",shadow.sprite_frames != null," frame=",shadow.frame," anim=",shadow.animation," offset=",shadow.offset," transform=",shadow.transform," alpha=",(shadow.material as ShaderMaterial).get_shader_parameter("shadow_opacity")," sprite=",sprite.animation, " herofoot=",foot," screenfoot=",camera_screen)
  var both: Image = await _capture()
  sprite.visible = false
  var only_shadow: Image = await _capture()
