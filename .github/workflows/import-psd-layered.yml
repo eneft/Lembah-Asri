@@ -1,0 +1,47 @@
+name: Import Lembah Asri Split PSD into Original Layer PNGs
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/export_psd_layered_scene.py
+      - .github/workflows/import-psd-layered.yml
+      - assets/source_psd/Lembah asri tes scene
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Install original PSD parser and mask contour extraction
+        run: python -m pip install --disable-pip-version-check "psd-tools>=1.10,<2" "Pillow>=10,<13" "numpy<3" "opencv-python-headless>=4.8,<5"
+      - name: Export actual PSD layer pixels, marker and hand-authored collision
+        run: python tools/export_psd_layered_scene.py
+      - name: Verify exported PSD source matches the original file
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,hashlib
+          d=Path('assets/art/psd_layered_scene')
+          m=json.loads((d/'manifest.json').read_text())
+          c=json.loads((d/'collision_polygons.json').read_text())
+          assert len(m['layers'])==11 and len(c['polygons'])==5
+          assert m['layers'][0]['name']=='Background'
+          assert m['source_sha256']==hashlib.sha256(Path(m['source']).read_bytes()).hexdigest()
+          for layer in m['layers']:
+            assert (d/layer['filename']).stat().st_size>500
+          print("AUTHENTIC PSD EXPORT VERIFIED:",m['source_sha256'])
+          PY
+      - name: Commit original layer PNGs to main without changing the PSD
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/art/psd_layered_scene/
+          if git diff --cached --quiet; then echo "No changes in layer exports"; exit 0; fi
+          git commit -m "assets: sync Photoshop native layers and authored collision [skip ci]"
+          git push origin HEAD:main
