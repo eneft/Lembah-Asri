@@ -1,0 +1,137 @@
+[gd_scene load_steps=19 format=3]
+
+[ext_resource type="Script" path="res://scripts/rumah_ladang_psd_camera2d.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/psd_player_2d.gd" id="2_player"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_background/01_background.png" id="3_bg"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_background/02_house.png" id="4_house"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_background/03_banana.png" id="5_banana"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_background/04_foreground_tree.png" id="6_tree"]
+[ext_resource type="PackedScene" path="res://scenes/weather/rain_weather.tscn" id="7_weather"]
+[ext_resource type="Script" path="res://scripts/psd_native_shadow_2d.gd" id="8_shadow"]
+[ext_resource type="Shader" path="res://shaders/character_silhouette_shadow.gdshader" id="9_shadow_shader"]
+[ext_resource type="Shader" path="res://shaders/psd_atmosphere.gdshader" id="10_grade"]
+[ext_resource type="Shader" path="res://shaders/psd_porch_glow.gdshader" id="11_porch"]
+[ext_resource type="Script" path="res://scripts/psd_lighting_picker.gd" id="12_light_control"]
+[ext_resource type="Script" path="res://scripts/mobile_touch_controls.gd" id="13_mobile"]
+[ext_resource type="Script" path="res://scripts/psd_collision_debug.gd" id="14_collision_debug"]
+
+[sub_resource type="CircleShape2D" id="FootCircle"]
+radius = 9.0
+
+[sub_resource type="ShaderMaterial" id="ShadowMaterial"]
+shader = ExtResource("9_shadow_shader")
+
+[sub_resource type="ShaderMaterial" id="GradeMaterial"]
+shader = ExtResource("10_grade")
+
+[sub_resource type="ShaderMaterial" id="PorchMaterial"]
+shader = ExtResource("11_porch")
+
+[node name="RumahLadangPSDNative2D" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="Background" type="Sprite2D" parent="."]
+centered = false
+texture_filter = 1
+texture = ExtResource("3_bg")
+z_index = 0
+
+[node name="RainWeather" parent="." instance=ExtResource("7_weather")]
+
+[node name="ProjectedShadow" type="AnimatedSprite2D" parent="."]
+z_index = 2
+centered = false
+texture_filter = 1
+material = SubResource("ShadowMaterial")
+script = ExtResource("8_shadow")
+
+[node name="Run8Player" type="CharacterBody2D" parent="."]
+position = Vector2(820, 565)
+collision_layer = 1
+collision_mask = 2
+motion_mode = 1
+z_index = 3
+script = ExtResource("2_player")
+character_height_px = 112.0
+raster_density = 0.25
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Run8Player"]
+shape = SubResource("FootCircle")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Run8Player"]
+centered = false
+texture_filter = 1
+
+[node name="PSD_House" type="Sprite2D" parent="."]
+position = Vector2(157, -107)
+centered = false
+texture_filter = 1
+texture = ExtResource("4_house")
+z_index = 4
+
+[node name="PSD_Banana" type="Sprite2D" parent="."]
+position = Vector2(63, 217)
+centered = false
+texture_filter = 1
+texture = ExtResource("5_banana")
+z_index = 5
+
+[node name="PSD_ForegroundTree" type="Sprite2D" parent="."]
+position = Vector2(-468, 341)
+centered = false
+texture_filter = 1
+texture = ExtResource("6_tree")
+z_index = 6
+
+[node name="CollisionBodies" type="Node2D" parent="."]
+
+[node name="WalkablePolygons" type="Node2D" parent="."]
+visible = false
+z_index = 18
+script = ExtResource("14_collision_debug")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(836, 470.5)
+enabled = true
+limit_left = 0
+limit_top = 0
+limit_right = 1672
+limit_bottom = 941
+position_smoothing_enabled = true
+position_smoothing_speed = 4.0
+
+[node name="LightingOverlay" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="Atmosphere" type="ColorRect" parent="LightingOverlay"]
+material = SubResource("GradeMaterial")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="PorchGlow" type="ColorRect" parent="LightingOverlay"]
+visible = false
+material = SubResource("PorchMaterial")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="LightingControls" type="CanvasLayer" parent="."]
+layer = 21
+
+[node name="LightingPicker" type="Control" parent="LightingControls"]
+script = ExtResource("12_light_control")
+
+[node name="TouchOverlay" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="TouchControls" type="Control" parent="TouchOverlay"]
+script = ExtResource("13_mobile")

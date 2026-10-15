@@ -230,6 +230,35 @@ jobs:
           echo '7cfb92976182aa9c257954787fb7ab3f7c9cbf6298f8252944f5dc549e87d4c5  assets/art/scenes/rumah_ladang_empty.png' | sha256sum --check -
           grep -q 'background=original' build/rumah-ladang-export-check.log
           echo "RUMAH LADANG WEB EXPORT PASS: original lossless 1672x941 PNG and 74-frame RUN8 fully active"
+      - name: Export isolated native Camera2D PSD playable preview
+        run: |
+          set -euo pipefail
+          cp project.godot /tmp/lembah-main-before-camera2d.godot
+          trap 'cp /tmp/lembah-main-before-camera2d.godot project.godot' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("project.godot")
+          text = p.read_text()
+          old = 'run/main_scene="res://scenes/rumah_ladang_psd_camera3d.tscn"'
+          new = 'run/main_scene="res://scenes/rumah_ladang_psd_camera2d.tscn"'
+          assert old in text, "Production Camera3D main was unexpectedly replaced"
+          p.write_text(text.replace(old, new))
+          PY
+          mkdir -p build/web/camera2d
+          godot --headless --path . --editor --quit
+          godot --headless --path . --export-release "Web" build/web/camera2d/index.html
+          test -s build/web/camera2d/index.html
+          test -s build/web/camera2d/index.wasm
+          test -s build/web/camera2d/index.pck
+          mkdir -p /tmp/lembah-camera2d-preview-check
+          (
+            cd /tmp/lembah-camera2d-preview-check
+            xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/camera2d/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/psd-camera2d-export-check.log"
+          )
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD CAMERA2D:' build/psd-camera2d-export-check.log; then exit 1; fi
+          grep -q 'LEMBAH ASRI PSD CAMERA2D PREVIEW READY:' build/psd-camera2d-export-check.log
+          echo "CAMERA2D PREVIEW EXPORT PASS: alternate scene, production main unchanged"
+
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:

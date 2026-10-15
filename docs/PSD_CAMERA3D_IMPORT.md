@@ -93,3 +93,30 @@ length, horizontal lean and intensity with the existing manual lighting.
 No change is made to player controls, camera, movement physics, collision,
 source PSD layers, body proportions or rain. This is a painted 2.5D visual
 shadow rather than a physical 3D cast shadow.
+
+## Native Camera2D migration preview (not yet production)
+The proposed scene `scenes/rumah_ladang_psd_camera2d.tscn` now uses only
+`Node2D`, `Camera2D`, `CharacterBody2D` / `AnimatedSprite2D`,
+four original PSD `Sprite2D` images with their exact 1672x941 Photoshop
+pixel coordinates, and native `StaticBody2D` + `CollisionPolygon2D`
+terrain boundaries. The collision shapes are built from the merged, original
+yard / bridge / exit polygons so the junction cannot act as an invisible wall.
+The original foot-circle sweeper is retained as a second high-speed safety
+check. This is a playable **parallel preview**, not a replacement for the
+Camera3D production scene: `project.godot` still uses Camera3D until review.
+
+Native RUN8 + IDLE8 uses the existing proportional art bank with unchanged
+foot pivot (112px height, original 8 directions), smooth Y-depth and special
+bridge scaling. A native-2D animated silhouette shadow follows the sprite's
+frame and morning/day/evening/night direction. Original weather, river ripple,
+puddles, touch joystick, and shader atmosphere are loaded directly without
+rebuilding textures. Desktop: WASD/arrows, Shift run, R rain, L lighting,
+C walkable polygon debug; the lighting UI and touch controls remain.
+
+After a successful build, the **preview** is available at
+`https://eneft.github.io/Lembah-Asri/camera2d/` while the published root
+remains the Camera3D comparison. Run
+`tests/psd_native2d_smoke.gd` for scene/physics migration validation,
+and `tests/psd_native2d_render_smoke.gd` to check GPU hero, moving
+silhouette, and day/night grade. Only switch `run/main_scene` when both
+tests, Web export, and hands-on walk/bridge comparison are accepted.
