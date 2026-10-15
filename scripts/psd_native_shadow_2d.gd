@@ -1,19 +1,19 @@
 extends AnimatedSprite2D
 ## Native 2D projected silhouette shadow, synced to the actual RUN8/IDLE8 frame.
-const CAST_LENGTHS := [0.44, 0.24, 0.51, 0.24]
-const CAST_SHEARS := [-0.32, -0.055, 0.37, -0.07]
-const CAST_ALPHAS := [0.26, 0.20, 0.29, 0.14]
-const FOOT_OFFSETS := [Vector2(1, 1), Vector2(0, 1), Vector2(-1, 2), Vector2(0, 1)]
+const CAST_LENGTHS := [0.24, 0.12, 0.27, 0.10]
+const CAST_SHEARS := [-0.15, -0.025, 0.18, -0.03]
+const CAST_ALPHAS := [0.17, 0.13, 0.19, 0.09]
+const FOOT_OFFSETS := [Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO]
 @export_range(0.0, 2.0, 0.05) var silhouette_size: float = 1.0
 @export_range(0.0, 1.0, 0.05) var silhouette_opacity: float = 1.0
 @onready var stage: Node2D = get_node("..") as Node2D
 @onready var hero: AnimatedSprite2D = get_node("../Run8Player/AnimatedSprite2D") as AnimatedSprite2D
 @onready var avatar: CharacterBody2D = get_node("../Run8Player") as CharacterBody2D
 @onready var driver: AnimatedSprite2D = get_node("../Run8Player/AnimatedSprite2D") as AnimatedSprite2D
-var shadow_length: float = 0.24
-var shadow_shear: float = -0.055
-var shadow_alpha: float = 0.20
-var foot_offset: Vector2 = Vector2(0, 1)
+var shadow_length: float = 0.12
+var shadow_shear: float = -0.025
+var shadow_alpha: float = 0.13
+var foot_offset: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
  process_priority = 10

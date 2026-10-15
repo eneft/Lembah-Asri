@@ -1,11 +1,8 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/rumah_ladang_psd_camera2d.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/psd_player_2d.gd" id="2_player"]
-[ext_resource type="Texture2D" path="res://assets/art/psd_background/01_background.png" id="3_bg"]
-[ext_resource type="Texture2D" path="res://assets/art/psd_background/02_house.png" id="4_house"]
-[ext_resource type="Texture2D" path="res://assets/art/psd_background/03_banana.png" id="5_banana"]
-[ext_resource type="Texture2D" path="res://assets/art/psd_background/04_foreground_tree.png" id="6_tree"]
+[ext_resource type="Texture2D" path="res://assets/art/scenes/rumah_ladang_empty.png" id="3_bg"]
 [ext_resource type="PackedScene" path="res://scenes/weather/rain_weather.tscn" id="7_weather"]
 [ext_resource type="Script" path="res://scripts/psd_native_shadow_2d.gd" id="8_shadow"]
 [ext_resource type="Shader" path="res://shaders/character_silhouette_shadow.gdshader" id="9_shadow_shader"]
@@ -14,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/psd_lighting_picker.gd" id="12_light_control"]
 [ext_resource type="Script" path="res://scripts/mobile_touch_controls.gd" id="13_mobile"]
 [ext_resource type="Script" path="res://scripts/psd_collision_debug.gd" id="14_collision_debug"]
+[ext_resource type="Script" path="res://scripts/psd_foot_contact_shadow_2d.gd" id="15_contact_shadow"]
 
 [sub_resource type="CircleShape2D" id="FootCircle"]
 radius = 9.0
@@ -32,7 +30,7 @@ script = ExtResource("1_main")
 
 [node name="Background" type="Sprite2D" parent="."]
 centered = false
-texture_filter = 1
+texture_filter = 2
 texture = ExtResource("3_bg")
 z_index = 0
 
@@ -44,6 +42,10 @@ centered = false
 texture_filter = 1
 material = SubResource("ShadowMaterial")
 script = ExtResource("8_shadow")
+
+[node name="FootContactShadow" type="Node2D" parent="."]
+z_index = 2
+script = ExtResource("15_contact_shadow")
 
 [node name="Run8Player" type="CharacterBody2D" parent="."]
 position = Vector2(820, 565)
@@ -60,28 +62,7 @@ shape = SubResource("FootCircle")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Run8Player"]
 centered = false
-texture_filter = 1
-
-[node name="PSD_House" type="Sprite2D" parent="."]
-position = Vector2(157, -107)
-centered = false
-texture_filter = 1
-texture = ExtResource("4_house")
-z_index = 4
-
-[node name="PSD_Banana" type="Sprite2D" parent="."]
-position = Vector2(63, 217)
-centered = false
-texture_filter = 1
-texture = ExtResource("5_banana")
-z_index = 5
-
-[node name="PSD_ForegroundTree" type="Sprite2D" parent="."]
-position = Vector2(-468, 341)
-centered = false
-texture_filter = 1
-texture = ExtResource("6_tree")
-z_index = 6
+texture_filter = 2
 
 [node name="CollisionBodies" type="Node2D" parent="."]
 

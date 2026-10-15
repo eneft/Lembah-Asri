@@ -61,11 +61,12 @@ var lighting_current_glow: float = 0.0
 
 func _ready() -> void:
  psd_ready = true
- for name in ["Background", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
-  var layer: Sprite2D = get_node(name) as Sprite2D
-  if layer.texture == null:
-   psd_ready = false
-   push_error("PSD CAMERA2D: missing source texture " + name)
+ var background: Sprite2D = $Background
+ if background.texture == null or background.texture.get_size() != CANVAS_SIZE:
+  psd_ready = false
+  push_error("PSD CAMERA2D: original single background missing or wrong dimensions")
+ # Only one scenery sprite in this scene. The separated PSD components
+ # remain available in the repo but are not layered on this Camera2D stage.
  walkable_regions = WALKABLE_LAYOUT.regions()
  _build_native_collision()
  collision_visual.set("walkable_regions", walkable_regions)
@@ -87,7 +88,7 @@ func _ready() -> void:
  _set_lighting_preset(start_lighting_preset, true)
  if not _is_walkable_foot(player.position):
   push_error("PSD CAMERA2D: player spawn outside original walk polygon")
- print("LEMBAH ASRI PSD CAMERA2D PREVIEW READY: true 2D PSD layers, RUN8/IDLE8, native collision, weather, lighting and shadow")
+ print("LEMBAH ASRI PSD CAMERA2D PREVIEW READY: ONE original 1672x941 background, anchored RUN8/IDLE8, native collision, weather, lighting and shadow")
 
 func _build_native_collision() -> void:
  # Geometry2D merges intersecting polygon footprints BEFORE constructing

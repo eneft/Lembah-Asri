@@ -37,14 +37,35 @@ func _check() -> void:
  if absf(cam.zoom.y - 720.0 / 941.0) > 0.005:
   _fail("Camera2D zoom no longer fits the original canvas")
   return
- var points := ["Background", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]
- var sizes := [Vector2i(1672, 941), Vector2i(831, 624), Vector2i(295, 360), Vector2i(916, 893)]
- var origins := [Vector2.ZERO, Vector2(157,-107), Vector2(63,217), Vector2(-468,341)]
- for i in range(points.size()):
-  var image: Sprite2D = stage.get_node(points[i]) as Sprite2D
-  if image.texture == null or Vector2i(image.texture.get_size()) != sizes[i] or image.position != origins[i] or image.centered:
-   _fail("migrated PSD art mismatch: " + points[i])
+ var background: Sprite2D = stage.get_node("Background") as Sprite2D
+ if background.texture == null or background.texture.get_size() != Vector2(1672, 941):
+  _fail("single legacy 1672x941 scenery missing")
+  return
+ if background.texture.resource_path != "res://assets/art/scenes/rumah_ladang_empty.png":
+  _fail("2D preview not using approved older complete Rumah-Ladang image")
+  return
+ if background.position != Vector2.ZERO or background.centered:
+  _fail("single image doesn't align with PSD pixel world")
+  return
+ for old_layer in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree", "ArtRig"]:
+  if stage.get_node_or_null(old_layer) != null:
+   _fail("split multi-layer scenery still present: " + old_layer)
    return
+ var scenery_nodes: int = 0
+ for child in stage.get_children():
+  if child is Sprite2D:
+   scenery_nodes += 1
+ if scenery_nodes != 1:
+  _fail("must be exactly one scenery image, got " + str(scenery_nodes))
+  return
+ var contact: Node2D = stage.get_node_or_null("FootContactShadow") as Node2D
+ if contact == null or not contact.has_method("_sync_contact"):
+  _fail("grounded foot contact shadow missing")
+  return
+ contact.call("_sync_contact", true)
+ if not contact.position.is_equal_approx(hero.position + Vector2(0, 1)):
+  _fail("contact shadow must meet the moving avatar foot, not float away")
+  return
  for direction in ["down", "down_right", "right", "up_right", "up", "up_left", "left", "down_left"]:
   for state in ["run_", "idle_"]:
    if sprite.sprite_frames == null or not sprite.sprite_frames.has_animation(state + direction):
@@ -90,6 +111,6 @@ func _check() -> void:
  if not stage.get_node("LightingOverlay/PorchGlow").visible:
   _fail("night lighting / porch shader not working")
   return
- print("PSD NATIVE2D PASS: genuine Camera2D and CharacterBody2D, pixel-exact PSD layers, merged physics collision, bridge, RUN8/IDLE8, weather and lighting")
+ print("PSD NATIVE2D PASS: one complete legacy background, foot-locked RUN8/IDLE8, grounded contact, Camera2D and collision/weather/lighting")
  stage.queue_free()
  quit(0)

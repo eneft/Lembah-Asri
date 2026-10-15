@@ -31,6 +31,8 @@ func _check() -> void:
  stage.set_physics_process(false)
  var sprite: AnimatedSprite2D = stage.get_node("Run8Player/AnimatedSprite2D") as AnimatedSprite2D
  var shadow: AnimatedSprite2D = stage.get_node("ProjectedShadow") as AnimatedSprite2D
+ var contact: Node2D = stage.get_node("FootContactShadow") as Node2D
+ contact.call("_sync_contact", true)
  var foot: Vector2 = stage.get_node("Run8Player").position
  shadow.call("_sync_shadow",0.0,true)
  await process_frame
@@ -44,6 +46,14 @@ func _check() -> void:
  shadow.visible = false
  var without_shadow: Image = await _capture()
  var shadow_pixels: int = _difference(both,without_shadow,camera_screen)
+ shadow.visible = true
+ sprite.visible = false
+ var shadow_with_contact: Image = await _capture()
+ contact.visible = false
+ var shadow_without_contact: Image = await _capture()
+ var contact_pixels: int = _difference(shadow_with_contact, shadow_without_contact, camera_screen)
+ contact.visible = true
+ sprite.visible = true
  sprite.visible = false
  shadow.visible = true
  var shadow_only: Image = await _capture()
@@ -53,6 +63,9 @@ func _check() -> void:
  shadow.visible = true
  sprite.visible = true
  print("PSD NATIVE2D SHADOW TEST: standard_pixels=",shadow_pixels," isolated_pixels=",isolated)
+ if contact_pixels < 8:
+  _fail("real foot contact missing; visible pixels=" + str(contact_pixels))
+  return
  if hero_pixels < 90:
   _fail("hero missing from native Camera2D pixels: " + str(hero_pixels))
   return
@@ -74,6 +87,6 @@ func _check() -> void:
  if scene_change < 100:
   _fail("night lighting not visible in native Camera2D renderer")
   return
- print("PSD NATIVE2D RENDER PASS: hero_pixels=",hero_pixels," silhouette_pixels=",shadow_pixels," light_changed=",scene_change," native Camera2D")
+ print("PSD NATIVE2D RENDER PASS: hero_pixels=",hero_pixels," silhouette_pixels=",shadow_pixels," grounded_contact=",contact_pixels," light_changed=",scene_change," ONE background on Camera2D")
  stage.queue_free()
  quit(0)

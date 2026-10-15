@@ -120,3 +120,24 @@ remains the Camera3D comparison. Run
 and `tests/psd_native2d_render_smoke.gd` to check GPU hero, moving
 silhouette, and day/night grade. Only switch `run/main_scene` when both
 tests, Web export, and hands-on walk/bridge comparison are accepted.
+
+## Native Camera2D simplification — single older background (15 October 2026)
+The `/camera2d/` preview now deliberately contains just **one** scenery
+`Sprite2D`, loading the previously approved complete character-free
+`assets/art/scenes/rumah_ladang_empty.png` (1672×941). All split house,
+banana and foreground tree nodes have been removed **from the preview scene**,
+not deleted from the repository or legacy 3D scenes, so they can be assembled
+by hand later. A pure Camera2D/CharacterBody2D setup remains.
+
+The former long projected silhouette caused the running character to *appear*
+to hover above the ground even though its physical foot was anchored.
+A short subtle body cast remains, but a new three-ring soft
+`FootContactShadow` now sits at the actual CharacterBody2D foot on every
+RUN8 frame. The native animation controller also applies a capped,
+cached per-frame bottom-of-shoe correction (maximum 8 world pixels)
+for source RUN8 bobbing; the character position and collision never move.
+Manual lighting, rain and mobile input remain available.
+
+Legacy `/rumah-ladang-test/`, `/camera2d/`, the original main Camera3D
+scene and source PSD layers remain independent. Validate with
+`tests/psd_native2d_smoke.gd` and `tests/psd_native2d_render_smoke.gd`.
