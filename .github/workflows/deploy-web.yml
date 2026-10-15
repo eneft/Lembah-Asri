@@ -66,10 +66,10 @@ jobs:
           test -s build/web/index.html
           test -s build/web/index.wasm
           test -s build/web/index.pck
-          # Sanity-check the exported game pack, not just editor source.
+          # Run the exported 3D pack with a graphical Compatibility renderer, not the dummy headless mesh server.
           mkdir -p /tmp/lembah-export-check
           cd /tmp/lembah-export-check
-          godot --headless --audio-driver Dummy --main-pack "$GITHUB_WORKSPACE/build/web/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/web-export-check.log"
+          xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/web-export-check.log"
           if grep -E 'SCRIPT ERROR|ERROR:|LEMBAH ASRI: approved concept texture is missing' "$GITHUB_WORKSPACE/build/web-export-check.log"; then
             echo "Exported pack reported a runtime problem"
             exit 1
