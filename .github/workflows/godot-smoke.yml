@@ -94,6 +94,14 @@ jobs:
             echo "Lighting regression in Camera3D+PSD hybrid render"; exit 1
           fi
           grep -q 'PSD LIGHTING PASS:' psd-lighting.log
+      - name: Verify character silhouette cast-shadow GPU pixels
+        run: |
+          set -o pipefail
+          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_shadow_render_smoke.gd 2>&1 | tee psd-shadow.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD SHADOW FAIL' psd-shadow.log; then
+            echo "Shadow render regression"; exit 1
+          fi
+          grep -q 'PSD SHADOW PASS:' psd-shadow.log
       - name: Rain, soil splash crowns, and river RGBA ripples
         run: |
           set -o pipefail

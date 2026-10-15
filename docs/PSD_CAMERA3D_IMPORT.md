@@ -83,3 +83,13 @@ visual only. The manual preset is exported as `start_lighting_preset` (default
 No automatic in-game time progression has been activated yet. The ambient tint
 is not physically accurate cast shadows; those would require custom masks or
 separated 2D geometry with directional normals in a future step.
+
+## Avatar moving silhouette projection
+`CharacterOverlay/ProjectedShadow` uses a shader sampled from the exact
+RUN8/IDLE8 alpha frame active on the visible hero, then flattens the image
+into a slightly soft ground-plane cast silhouette. Its foot anchor stays at
+the physical 3D CharacterBody3D foot. Pagi, siang, sore and malam change its
+length, horizontal lean and intensity with the existing manual lighting.
+No change is made to player controls, camera, movement physics, collision,
+source PSD layers, body proportions or rain. This is a painted 2.5D visual
+shadow rather than a physical 3D cast shadow.

@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/rumah_ladang_psd_camera3d.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/psd_player_3d.gd" id="3_player"]
@@ -15,11 +15,17 @@
 [ext_resource type="Shader" path="res://shaders/psd_porch_glow.gdshader" id="13_porch_glow"]
 [ext_resource type="Script" path="res://scripts/psd_lighting_picker.gd" id="14_lighting_ui"]
 
+[ext_resource type="Shader" path="res://shaders/character_silhouette_shadow.gdshader" id="15_silhouette"]
+[ext_resource type="Script" path="res://scripts/psd_character_shadow.gd" id="16_shadow_script"]
+
 [sub_resource type="ShaderMaterial" id="PSDGradeMaterial"]
 shader = ExtResource("12_lighting_grade")
 
 [sub_resource type="ShaderMaterial" id="PSDPorchGlowMaterial"]
 shader = ExtResource("13_porch_glow")
+
+[sub_resource type="ShaderMaterial" id="CharacterSilhouetteMaterial"]
+shader = ExtResource("15_silhouette")
 
 [sub_resource type="SphereShape3D" id="PlayerFootShape"]
 radius = 0.13
@@ -82,6 +88,11 @@ texture = ExtResource("9_tree")
 
 [node name="CharacterOverlay" type="CanvasLayer" parent="."]
 layer = 1
+
+[node name="ProjectedShadow" type="AnimatedSprite2D" parent="CharacterOverlay"]
+script = ExtResource("16_shadow_script")
+material = SubResource("CharacterSilhouetteMaterial")
+z_index = -1
 
 [node name="ProjectedPlayer" type="AnimatedSprite2D" parent="CharacterOverlay"]
 texture_filter = 1
