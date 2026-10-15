@@ -1,8 +1,8 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=34 format=3]
 
 [ext_resource type="Script" path="res://scripts/rumah_ladang_psd_camera2d.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/psd_player_2d.gd" id="2_player"]
-[ext_resource type="Texture2D" path="res://assets/art/scenes/rumah_ladang_empty.png" id="3_bg"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/00_background.png" id="3_bg"]
 [ext_resource type="PackedScene" path="res://scenes/weather/rain_weather.tscn" id="7_weather"]
 [ext_resource type="Script" path="res://scripts/psd_native_shadow_2d.gd" id="8_shadow"]
 [ext_resource type="Shader" path="res://shaders/character_silhouette_shadow.gdshader" id="9_shadow_shader"]
@@ -16,6 +16,17 @@
 [ext_resource type="Script" path="res://scripts/weather/native_river_current.gd" id="17_river_current"]
 [ext_resource type="Script" path="res://scripts/weather/native_storm_bolt.gd" id="18_lightning_bolt"]
 [ext_resource type="Script" path="res://scripts/weather/native_wind_gust.gd" id="19_wind_gust"]
+[ext_resource type="Script" path="res://scripts/psd_authored_collision_debug.gd" id="20_psd_debug"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/01_fence_right.png" id="L_FENCE_RIGHT"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/02_stone_wall_left.png" id="L_STONE_WALL_LEFT"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/03_fence_left.png" id="L_FENCE_LEFT"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/04_stone_wall_bottom.png" id="L_STONE_WALL_BOTTOM"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/05_bridge.png" id="L_BRIDGE"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/06_banana.png" id="L_BANANA"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/07_fence_front.png" id="L_FENCE_FRONT"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/08_roof.png" id="L_ROOF"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/09_bush.png" id="L_BUSH"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/10_palm.png" id="L_PALM"]
 
 [sub_resource type="CircleShape2D" id="FootCircle"]
 radius = 9.0
@@ -41,6 +52,79 @@ texture_filter = 2
 texture = ExtResource("3_bg")
 z_index = 0
 
+[node name="PSDLayerStack" type="Node2D" parent="."]
+y_sort_enabled = false
+
+[node name="FenceRight" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(1218, 426)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_FENCE_RIGHT")
+z_index = 2
+
+[node name="StoneWallLeft" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(261, 520)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_STONE_WALL_LEFT")
+z_index = 3
+
+[node name="FenceLeft" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(13, 421)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_FENCE_LEFT")
+z_index = 4
+
+[node name="StoneWallBottom" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(500, 663)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_STONE_WALL_BOTTOM")
+z_index = 5
+
+[node name="WoodenBridge" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(1166, 563)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_BRIDGE")
+z_index = 6
+
+[node name="BananaTree" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(0, 261)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_BANANA")
+z_index = 9
+
+[node name="FenceFront" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(543, 573)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_FENCE_FRONT")
+z_index = 10
+
+[node name="RoofTiles" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(138, 109)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_ROOF")
+z_index = 11
+
+[node name="Bush" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(600, 597)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_BUSH")
+z_index = 12
+
+[node name="PalmTree" type="Sprite2D" parent="PSDLayerStack"]
+position = Vector2(0, 0)
+centered = false
+texture_filter = 2
+texture = ExtResource("L_PALM")
+z_index = 13
+
 [node name="RainWeather" parent="." instance=ExtResource("7_weather")]
 
 [node name="AnimatedRiverCurrent" type="Node2D" parent="."]
@@ -52,22 +136,22 @@ script = ExtResource("19_wind_gust")
 z_index = 9
 
 [node name="ProjectedShadow" type="AnimatedSprite2D" parent="."]
-z_index = 2
+z_index = 7
 centered = false
 texture_filter = 1
 material = SubResource("ShadowMaterial")
 script = ExtResource("8_shadow")
 
 [node name="FootContactShadow" type="Node2D" parent="."]
-z_index = 2
+z_index = 7
 script = ExtResource("15_contact_shadow")
 
 [node name="Run8Player" type="CharacterBody2D" parent="."]
-position = Vector2(820, 565)
+position = Vector2(1040, 505)
 collision_layer = 1
 collision_mask = 2
 motion_mode = 1
-z_index = 3
+z_index = 8
 script = ExtResource("2_player")
 character_height_px = 112.0
 raster_density = 0.25
@@ -84,7 +168,7 @@ texture_filter = 2
 [node name="WalkablePolygons" type="Node2D" parent="."]
 visible = false
 z_index = 18
-script = ExtResource("14_collision_debug")
+script = ExtResource("20_psd_debug")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(836, 470.5)

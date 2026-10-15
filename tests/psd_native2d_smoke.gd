@@ -31,8 +31,8 @@ func _check() -> void:
  if not bool(stage.get("psd_ready")):
   _fail("original PSD assets did not load")
   return
- if not hero.position.is_equal_approx(Vector2(820, 565)):
-  _fail("original physical spawn was changed")
+ if not hero.position.is_equal_approx(Vector2(1040, 505)):
+  _fail("physical foot must match the authored Photoshop character placeholder (1040,505)")
   return
  var full_fit: float = minf(1280.0 / 1672.0, 720.0 / 941.0)
  var expected_zoom: float = full_fit * float(stage.get("camera_follow_zoom"))
@@ -55,24 +55,41 @@ func _check() -> void:
   return
  var background: Sprite2D = stage.get_node("Background") as Sprite2D
  if background.texture == null or background.texture.get_size() != Vector2(1672, 941):
-  _fail("single legacy 1672x941 scenery missing")
+  _fail("original 1672x941 PSD Background missing")
   return
- if background.texture.resource_path != "res://assets/art/scenes/rumah_ladang_empty.png":
-  _fail("2D preview not using approved older complete Rumah-Ladang image")
+ if background.texture.resource_path != "res://assets/art/psd_layered_scene/00_background.png":
+  _fail("scene did not load latest authored Background")
   return
- if background.position != Vector2.ZERO or background.centered:
-  _fail("single image doesn't align with PSD pixel world")
+ var stack: Node2D = stage.get_node_or_null("PSDLayerStack") as Node2D
+ if stack == null or stack.get_child_count() != 10:
+  _fail("not all ten individually editable PSD overlays imported")
   return
- for old_layer in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree", "ArtRig"]:
-  if stage.get_node_or_null(old_layer) != null:
-   _fail("split multi-layer scenery still present: " + old_layer)
+ var image_nodes := {
+  "FenceRight":[Vector2(1218,426),2],
+  "StoneWallLeft":[Vector2(261,520),3],
+  "FenceLeft":[Vector2(13,421),4],
+  "StoneWallBottom":[Vector2(500,663),5],
+  "WoodenBridge":[Vector2(1166,563),6],
+  "BananaTree":[Vector2(0,261),9],
+  "FenceFront":[Vector2(543,573),10],
+  "RoofTiles":[Vector2(138,109),11],
+  "Bush":[Vector2(600,597),12],
+  "PalmTree":[Vector2(0,0),13]
+ }
+ for name in image_nodes:
+  var layer: Sprite2D = stack.get_node_or_null(name) as Sprite2D
+  var expected: Array = image_nodes[name]
+  if layer == null or layer.texture == null or layer.centered:
+   _fail("PSD original layer missing: " + name)
    return
- var scenery_nodes: int = 0
- for child in stage.get_children():
-  if child is Sprite2D:
-   scenery_nodes += 1
- if scenery_nodes != 1:
-  _fail("must be exactly one scenery image, got " + str(scenery_nodes))
+  if layer.position != expected[0] or layer.z_index != expected[1]:
+   _fail("Photoshop original position/stack corrupted: " + name)
+   return
+ if hero.z_index != 8 or shadow.z_index != 7:
+  _fail("character is not at the authored Photoshop layer between bridge and banana")
+  return
+ if stage.get_node_or_null("Collision") != null:
+  _fail("Photoshop red collision paint was rendered as actual scenery")
   return
  var contact: Node2D = stage.get_node_or_null("FootContactShadow") as Node2D
  if contact == null or not contact.has_method("_sync_contact"):
@@ -117,22 +134,28 @@ func _check() -> void:
   _fail("native circular physical foot radius lost")
   return
  var container: Node2D = stage.get_node("CollisionBodies") as Node2D
- var native_edges: int = 0
+ var solid_count: int = 0
+ var boundary_count: int = 0
  for child in container.get_children():
-  if child is StaticBody2D:
-   var border: CollisionPolygon2D = child.get_node_or_null("WalkableEdge") as CollisionPolygon2D
-   if border != null and border.build_mode == CollisionPolygon2D.BUILD_SEGMENTS and child.collision_layer == 2:
-    native_edges += 1
- if native_edges < 1 or native_edges > 3:
-  _fail("walk regions did not generate merged native 2D collision bodies; got " + str(native_edges))
-  return
- for safe in [Vector2(700, 530), Vector2(820,565), Vector2(1120,605), Vector2(1320,680), Vector2(1460,739)]:
-  if not bool(stage.call("_is_walkable_foot", safe)):
-   _fail("walkable grass/bridge denied " + str(safe))
+  if not (child is StaticBody2D) or child.collision_layer != 2:
+   _fail("non-authoritative physics obstacle in map")
    return
- for forbidden in [Vector2(600,290),Vector2(840,735),Vector2(1020,860),Vector2(1340,833),Vector2(1540,626)]:
-  if bool(stage.call("_is_walkable_foot", forbidden)):
-   _fail("house or river leak " + str(forbidden))
+  var solid: CollisionPolygon2D = child.get_node_or_null("PSD_RedBlockedArea") as CollisionPolygon2D
+  var edge: CollisionPolygon2D = child.get_node_or_null("CanvasEdge") as CollisionPolygon2D
+  if solid != null and solid.build_mode == CollisionPolygon2D.BUILD_SOLIDS:
+   solid_count += 1
+  if edge != null and edge.build_mode == CollisionPolygon2D.BUILD_SEGMENTS:
+   boundary_count += 1
+ if solid_count != 5 or boundary_count != 1:
+  _fail("must use exactly 5 authored PSD red collision areas and one outer boundary")
+  return
+ for safe in [Vector2(700,530),Vector2(820,565),Vector2(1040,505),Vector2(1320,680),Vector2(1460,739)]:
+  if not bool(stage.call("_is_walkable_foot",safe)):
+   _fail("PSD author intentionally left point walkable: " + str(safe))
+   return
+ for blocked in [Vector2(600,290),Vector2(300,480),Vector2(840,735),Vector2(900,700),Vector2(1380,480)]:
+  if bool(stage.call("_is_walkable_foot",blocked)):
+   _fail("hand-painted Photoshop blocked region leaked: " + str(blocked))
    return
  if stage.get_node_or_null("RainWeather/GroundPuddles") == null or stage.get_node_or_null("TouchOverlay/TouchControls") == null:
   _fail("weather and mobile input weren't migrated")
@@ -141,6 +164,6 @@ func _check() -> void:
  if not stage.get_node("LightingOverlay/PorchGlow").visible:
   _fail("night lighting / porch shader not working")
   return
- print("PSD NATIVE2D PASS: camera truly follows, shared GPU atlases, stable animation pivot, one background, grounded contact, collisions and lighting")
+ print("PSD NATIVE2D PASS: original PSD 11 layers, hero at user marker, 5 authored collision solids, Camera2D, native RUN8/IDLE8 and weather")
  stage.queue_free()
  quit(0)

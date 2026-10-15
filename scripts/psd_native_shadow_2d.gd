@@ -17,7 +17,7 @@ var foot_offset: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
  process_priority = 10
- z_index = 2 # Above opaque ground Sprite2D z=0, below hero z=3
+ z_index = 7 # Above authored bridge z=6, below player z=8
  texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
  call_deferred("_sync_shadow", 0.0, true)
  print("PSD NATIVE2D HUMAN SHADOW READY: RUN8/IDLE8 silhouette ground projection")

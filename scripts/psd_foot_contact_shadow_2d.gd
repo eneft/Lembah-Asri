@@ -11,7 +11,7 @@ const GROUND_OPACITY := [0.27, 0.31, 0.30, 0.18]
 var _opacity: float = 0.31
 
 func _ready() -> void:
- z_index = 2
+ z_index = 7
  process_priority = 11
  _sync_contact(true)
  print("PSD NATIVE2D FOOT CONTACT READY: soft shadow glued to real character foot")

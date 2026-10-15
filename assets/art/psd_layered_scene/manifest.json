@@ -1,0 +1,160 @@
+{
+  "source": "assets/source_psd/Lembah asri tes scene",
+  "source_sha256": "4d1e074536a4fcd0be848e4c93723b597030702aa31a4592d0d25dbd11013b58",
+  "canvas": [
+    1672,
+    941
+  ],
+  "order": "background-bottom-then-original-photoshop-layer-order",
+  "character_marker_bbox": [
+    995,
+    287,
+    1084,
+    505
+  ],
+  "layers": [
+    {
+      "name": "Background",
+      "filename": "00_background.png",
+      "bbox": [
+        0,
+        0,
+        1672,
+        941
+      ],
+      "source_order": 0,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
+      "name": "layer-wooden-fence 2",
+      "filename": "01_fence_right.png",
+      "bbox": [
+        1218,
+        426,
+        1463,
+        565
+      ],
+      "source_order": 2,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
+      "name": "layer-stone-wall",
+      "filename": "02_stone_wall_left.png",
+      "bbox": [
+        261,
+        520,
+        445,
+        692
+      ],
+      "source_order": 3,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
+      "name": "layer-wooden-fence 3",
+      "filename": "03_fence_left.png",
+      "bbox": [
+        13,
+        421,
+        439,
+        605
+      ],
+      "source_order": 4,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
+      "name": "layer-stone-wall 2",
+      "filename": "04_stone_wall_bottom.png",
+      "bbox": [
+        500,
+        663,
+        574,
+        759
+      ],
+      "source_order": 5,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
+      "name": "layer-wooden-bridge",
+      "filename": "05_bridge.png",
+      "bbox": [
+        1166,
+        563,
+        1532,
+        823
+      ],
+      "source_order": 6,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
+      "name": "banana-tree",
+      "filename": "06_banana.png",
+      "bbox": [
+        0,
+        261,
+        393,
+        555
+      ],
+      "source_order": 8,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
+      "name": "layer-wooden-fence",
+      "filename": "07_fence_front.png",
+      "bbox": [
+        543,
+        573,
+        1046,
+        792
+      ],
+      "source_order": 9,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
+      "name": "layer-tiled-roof",
+      "filename": "08_roof.png",
+      "bbox": [
+        138,
+        109,
+        486,
+        286
+      ],
+      "source_order": 10,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
+      "name": "layer-bush",
+      "filename": "09_bush.png",
+      "bbox": [
+        600,
+        597,
+        762,
+        713
+      ],
+      "source_order": 11,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
+      "name": "layer-palm-tree",
+      "filename": "10_palm.png",
+      "bbox": [
+        0,
+        0,
+        333,
+        378
+      ],
+      "source_order": 12,
+      "opacity_already_baked": true,
+      "visible": true
+    }
+  ]
+}
