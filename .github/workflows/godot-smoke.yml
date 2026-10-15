@@ -62,6 +62,14 @@ jobs:
             echo "PSD Camera3D scene validation failed"; exit 1
           fi
           grep -q 'PSD CAMERA3D PASS:' psd-camera3d.log
+      - name: GPU check PSD protagonist is really visible in Camera3D
+        run: |
+          set -o pipefail
+          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_visual_regression.gd 2>&1 | tee psd-visual.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD VISUAL FAIL' psd-visual.log; then
+            echo "Camera3D protagonist GPU pixel regression"; exit 1
+          fi
+          grep -q 'PSD VISUAL PASS:' psd-visual.log
       - name: Rain, soil splash crowns, and river RGBA ripples
         run: |
           set -o pipefail
