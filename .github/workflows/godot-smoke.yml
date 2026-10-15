@@ -23,6 +23,8 @@ jobs:
           include-templates: false
       - name: Report Godot version
         run: godot --version
+      - name: Verify latest Photoshop source matches PNGs, order and collision
+        run: python tools/verify_psd_layer_sync.py
       - name: Import project headlessly
         run: godot --headless --path . --editor --quit
       - name: Main stage eight-direction integration and scale

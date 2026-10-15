@@ -28,6 +28,8 @@ jobs:
           use-dotnet: false
           include-templates: true
 
+      - name: Verify latest Photoshop source matches PNGs, order and collision
+        run: python tools/verify_psd_layer_sync.py
       - name: Import project
         run: godot --headless --path . --editor --quit
       - name: Regression check preserved legacy Stage 1 RUN8+IDLE
