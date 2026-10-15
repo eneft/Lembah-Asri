@@ -102,8 +102,8 @@ func _sync_projected_player() -> void:
   projected.animation = driver.animation
  if projected.frame != driver.frame:
   projected.set_frame_and_progress(driver.frame, driver.frame_progress)
- # Driver controls RUN8 timing, but the 2D sprite is a render-only mirror.
- projected.stop()
+ # Driver controls RUN8 timing; pause the presentation clock without resetting frame 0.
+ projected.pause()
 
 func _on_touch_move(direction: Vector2) -> void:
  touch_direction = direction
