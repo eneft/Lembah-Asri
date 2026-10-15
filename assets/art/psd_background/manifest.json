@@ -1,6 +1,5 @@
 {
-  "source": "background.psd",
-  "source_sha256": "7a1e0571421dc318e834341909a9e620ce809a817f560ad3af86d0e9ae80f907",
+  "source": "background",
   "canvas": [
     1672,
     941
@@ -13,8 +12,6 @@
     "03_banana.png",
     "04_foreground_tree.png"
   ],
-  "lossless_background_source": "01_background_lossless.webp",
-  "lossless_source_pixel_identical": true,
   "layers": {
     "01_background.png": {
       "bbox": [
@@ -24,10 +21,7 @@
         941
       ],
       "width": 1672,
-      "height": 941,
-      "alpha_min": 227,
-      "alpha_max": 255,
-      "sha256": "5f3a93c05e844a0ab45fdecb1450d2981ca16fd5295762d16a9038cc8682874c"
+      "height": 941
     },
     "02_house.png": {
       "bbox": [
@@ -37,10 +31,7 @@
         517
       ],
       "width": 831,
-      "height": 624,
-      "alpha_min": 0,
-      "alpha_max": 254,
-      "sha256": "7f4d3331ec5c0bbd257ab0ba1cfd6944b12e0c243462b36d07a5c16536aa5458"
+      "height": 624
     },
     "03_banana.png": {
       "bbox": [
@@ -50,10 +41,7 @@
         577
       ],
       "width": 295,
-      "height": 360,
-      "alpha_min": 0,
-      "alpha_max": 254,
-      "sha256": "6b1560c3ec50810540ddfbd6042820b6b28d9a99a9ba6abcf23e379a91f37dc0"
+      "height": 360
     },
     "04_foreground_tree.png": {
       "bbox": [
@@ -63,10 +51,7 @@
         1234
       ],
       "width": 916,
-      "height": 893,
-      "alpha_min": 0,
-      "alpha_max": 255,
-      "sha256": "ceeb7ba53b6b655acd46ee9d6707a4bcf8c9530bf4c7a63c40795b696aa7c550"
+      "height": 893
     }
   }
 }
