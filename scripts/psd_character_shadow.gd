@@ -19,7 +19,7 @@ func _ready() -> void:
  process_priority = 10
  z_index = -1
  texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
- _sync_shadow(0.0, true)
+ call_deferred("_sync_shadow", 0.0, true)
  print("PSD HUMAN SHADOW READY: RUN8/IDLE8 silhouette ground projection")
 
 func _process(delta: float) -> void:
