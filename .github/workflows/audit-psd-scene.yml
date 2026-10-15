@@ -1,0 +1,80 @@
+name: Inspect new split PSD (read-only audit)
+
+on:
+  push:
+    branches:
+      - audit/lembah-asri-psd-oct15
+
+permissions:
+  contents: read
+
+jobs:
+  audit-psd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PSD reader
+        run: python -m pip install --disable-pip-version-check "psd-tools>=1.10,<2" "Pillow>=10,<13"
+      - name: Audit exact uploaded binary and layer stack
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, struct
+          from pathlib import Path
+          from psd_tools import PSDImage
+          from PIL import Image
+          path = Path("assets/source_psd/Lembah asri tes scene")
+          data = path.read_bytes()
+          print("FILE:", path)
+          print("RAW_BYTES:", len(data))
+          print("MAGIC:", repr(data[:4]))
+          print("SHA256:", hashlib.sha256(data).hexdigest())
+          if data[:4] != b"8BPS":
+              raise SystemExit("NOT_A_PHOTOSHOP_DOCUMENT")
+          header = struct.unpack(">4sH6sHIIHH", data[:26])
+          print("HEADER version=%d channels=%d width=%d height=%d bit_depth=%d color_mode=%d" % (header[1],header[3],header[5],header[4],header[6],header[7]))
+          psd = PSDImage.open(path)
+          print("PSD_READER_CANVAS:", psd.width, psd.height)
+          print("COLOR_MODE:", psd.color_mode)
+          print("DEPTH:", psd.depth)
+          counts={"groups":0,"layers":0,"visible":0,"hidden":0,"pixel":0,"other":0}
+          leaves=[]
+          def descend(parent, depth=0):
+              for layer in parent:
+                  bbox=[int(layer.left),int(layer.top),int(layer.right),int(layer.bottom)]
+                  group=bool(layer.is_group())
+                  counts["groups" if group else "layers"] += 1
+                  counts["visible" if layer.is_visible() else "hidden"] += 1
+                  if not group:
+                      counts["pixel" if layer.kind=="pixel" else "other"] += 1
+                  mask=bool(getattr(layer, "has_mask", lambda: False)())
+                  name=str(layer.name)
+                  info={"depth":depth,"name":name,"kind":str(layer.kind),"visible":bool(layer.is_visible()),"bounds":bbox,"width":bbox[2]-bbox[0],"height":bbox[3]-bbox[1],"opacity":int(layer.opacity),"has_mask":mask,"group":group}
+                  print("AUDIT_LAYER:", json.dumps(info, ensure_ascii=False))
+                  if not group:leaves.append(info)
+                  if group:descend(layer,depth+1)
+          descend(psd)
+          print("AUDIT_TOTAL:", json.dumps(counts))
+          print("LEAF_NAMES:", json.dumps([x["name"] for x in leaves],ensure_ascii=False))
+          print("NEGATIVE_OR_OUTSIDE_BOUNDS:", json.dumps([x["name"] for x in leaves if x["bounds"][0]<0 or x["bounds"][1]<0 or x["bounds"][2]>psd.width or x["bounds"][3]>psd.height],ensure_ascii=False))
+          print("EMPTY_LAYERS:", json.dumps([x["name"] for x in leaves if x["width"]<=0 or x["height"]<=0],ensure_ascii=False))
+          report={"path":str(path),"size_bytes":len(data),"sha256":hashlib.sha256(data).hexdigest(),"canvas":[psd.width,psd.height],"color_mode":str(psd.color_mode),"counts":counts,"layers":leaves}
+          Path("psd-audit.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
+          try:
+              merged=psd.composite()
+              print("COMPOSITE_SIZE:", merged.size)
+              print("COMPOSITE_MODE:", merged.mode)
+              merged.thumbnail((1254,706),Image.Resampling.LANCZOS)
+              merged.save("psd-composite-preview.png")
+              print("COMPOSITE_PREVIEW_OK")
+          except Exception as e:
+              print("COMPOSITE_PREVIEW_FAILED:", str(e))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lembah-asri-psd-audit
+          path: |
+            psd-audit.json
+            psd-composite-preview.png
+          if-no-files-found: warn
