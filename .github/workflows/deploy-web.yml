@@ -30,7 +30,7 @@ jobs:
 
       - name: Import project
         run: godot --headless --path . --editor --quit
-      - name: Verify scaled RUN8+IDLE in actual illustrated main scene
+      - name: Regression check preserved legacy Stage 1 RUN8+IDLE
         run: |
           set -o pipefail
           timeout 45s godot --headless --audio-driver Dummy --path . --script res://tests/main_run8_integration_smoke.gd 2>&1 | tee main-run8-integration.log
@@ -38,6 +38,42 @@ jobs:
             echo "Illustrated main scene avatar integration failed"; exit 1
           fi
           grep -q 'MAIN RUN8 INTEGRATION PASS' main-run8-integration.log
+
+      - name: Check layered PSD main Camera3D and physics
+        run: |
+          set -o pipefail
+          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_camera3d_smoke.gd 2>&1 | tee psd-camera3d-deploy.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD CAMERA3D FAIL' psd-camera3d-deploy.log; then
+            echo "PSD main scene validation failed"; exit 1
+          fi
+          grep -q 'PSD CAMERA3D PASS:' psd-camera3d-deploy.log
+
+      - name: Check exact polygon collision against house, fence, bridge and water
+        run: |
+          set -o pipefail
+          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_walkable_collision_smoke.gd 2>&1 | tee psd-walkable-web.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD WALK COLLISION FAIL' psd-walkable-web.log; then
+            echo "Playable map collision audit failed"; exit 1
+          fi
+          grep -q 'PSD WALK COLLISION PASS:' psd-walkable-web.log
+
+      - name: Verify PSD character Y-depth and bridge scale before Web export
+        run: |
+          set -o pipefail
+          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_depth_scaling_smoke.gd 2>&1 | tee psd-depth-web.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD DEPTH FAIL' psd-depth-web.log; then
+            echo "PSD character bridge perspective scale failed"; exit 1
+          fi
+          grep -q 'PSD DEPTH PASS:' psd-depth-web.log
+
+      - name: Check 2.5D lighting presets and real GPU frame differences
+        run: |
+          set -o pipefail
+          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_lighting_render_smoke.gd 2>&1 | tee psd-lighting-web.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD LIGHTING FAIL' psd-lighting-web.log; then
+            echo "Lighting breakage in web-export candidate"; exit 1
+          fi
+          grep -q 'PSD LIGHTING PASS:' psd-lighting-web.log
 
       - name: Verify weather effects before Web export
         run: |
@@ -57,23 +93,22 @@ jobs:
           test -s build/web/index.html
           test -s build/web/index.wasm
           test -s build/web/index.pck
-          # Sanity-check the exported game pack, not just editor source.
+          # Run the exported 3D pack with a graphical Compatibility renderer, not the dummy headless mesh server.
           mkdir -p /tmp/lembah-export-check
           cd /tmp/lembah-export-check
-          godot --headless --audio-driver Dummy --main-pack "$GITHUB_WORKSPACE/build/web/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/web-export-check.log"
+          xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/web-export-check.log"
           if grep -E 'SCRIPT ERROR|ERROR:|LEMBAH ASRI: approved concept texture is missing' "$GITHUB_WORKSPACE/build/web-export-check.log"; then
             echo "Exported pack reported a runtime problem"
             exit 1
           fi
-          # The current editable main scene announces its real startup marker.
+          # PSD Camera3D playable main scene announces its source-layer startup marker.
           # 'ART LOADED:' belonged to the retired stage and produced a false
           # deployment failure despite successful export and runtime startup.
-          grep -q 'LEMBAH ASRI: editable stage1 scene loaded;' "$GITHUB_WORKSPACE/build/web-export-check.log"
-          # Explicitly reject a silent source switch to 46-pose New_run.
-          # Approved protagonist must ship with the already-verified 74-pose
-          # proportional RUN8 even if another RUN PNG is uploaded later.
-          grep -q 'LEMBAH ASRI MAIN: RUN8 normalized pack active: true' "$GITHUB_WORKSPACE/build/web-export-check.log"
-          grep -q 'LEMBAH ASRI MAIN: approved RUN source=RUN8_PROPORTIONAL' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          grep -q 'LEMBAH ASRI MAIN PSD READY: four original layers, orthographic Camera3D, collision and RUN8/IDLE8' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          # Verify that the actual main pack initializes the approved RUN8/IDLE8 3D sprite.
+          # The approved proportional RUN8 asset remains the authoritative game character.
+          grep -q 'PSD 3D CHARACTER READY: RUN8+IDLE8' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          grep -q 'PSD COLLISION MAP READY: polygonal yard, narrow walkable bridge, far shore' "$GITHUB_WORKSPACE/build/web-export-check.log"
           cd "$GITHUB_WORKSPACE"
           touch build/web/.nojekyll
           echo "Web export files:"
@@ -116,7 +151,7 @@ jobs:
           from pathlib import Path
           path = Path("project.godot")
           text = path.read_text(encoding="utf-8")
-          src = 'run/main_scene="res://scenes/house_garden_stage1.tscn"'
+          src = 'run/main_scene="res://scenes/rumah_ladang_psd_camera3d.tscn"'
           dst = 'run/main_scene="res://scenes/run8_proportional_test.tscn"'
           assert src in text, "Main scene has changed; do not replace it silently"
           path.write_text(text.replace(src, dst), encoding="utf-8")
@@ -166,7 +201,7 @@ jobs:
           from pathlib import Path
           p = Path("project.godot")
           s = p.read_text(encoding="utf-8")
-          old = 'run/main_scene="res://scenes/house_garden_stage1.tscn"'
+          old = 'run/main_scene="res://scenes/rumah_ladang_psd_camera3d.tscn"'
           new = 'run/main_scene="res://scenes/rumah_ladang_run8_test.tscn"'
           assert old in s, "Old main scene must remain unchanged"
           p.write_text(s.replace(old, new), encoding="utf-8")
@@ -195,6 +230,45 @@ jobs:
           echo '7cfb92976182aa9c257954787fb7ab3f7c9cbf6298f8252944f5dc549e87d4c5  assets/art/scenes/rumah_ladang_empty.png' | sha256sum --check -
           grep -q 'background=original' build/rumah-ladang-export-check.log
           echo "RUMAH LADANG WEB EXPORT PASS: original lossless 1672x941 PNG and 74-frame RUN8 fully active"
+      - name: Validate native weather soil/river/storm before Web export
+        run: |
+          set -o pipefail
+          timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_weather_smoke.gd 2>&1 | tee native-weather-export.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE WEATHER FAIL' native-weather-export.log; then exit 1; fi
+          grep -q 'PSD NATIVE WEATHER PASS:' native-weather-export.log
+          timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_weather_render.gd 2>&1 | tee native-weather-gpu-export.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE WEATHER RENDER FAIL' native-weather-gpu-export.log; then exit 1; fi
+          grep -q 'PSD NATIVE WEATHER RENDER PASS:' native-weather-gpu-export.log
+
+      - name: Export isolated native Camera2D PSD playable preview
+        run: |
+          set -euo pipefail
+          cp project.godot /tmp/lembah-main-before-camera2d.godot
+          trap 'cp /tmp/lembah-main-before-camera2d.godot project.godot' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("project.godot")
+          text = p.read_text()
+          old = 'run/main_scene="res://scenes/rumah_ladang_psd_camera3d.tscn"'
+          new = 'run/main_scene="res://scenes/rumah_ladang_psd_camera2d.tscn"'
+          assert old in text, "Production Camera3D main was unexpectedly replaced"
+          p.write_text(text.replace(old, new))
+          PY
+          mkdir -p build/web/camera2d
+          godot --headless --path . --editor --quit
+          godot --headless --path . --export-release "Web" build/web/camera2d/index.html
+          test -s build/web/camera2d/index.html
+          test -s build/web/camera2d/index.wasm
+          test -s build/web/camera2d/index.pck
+          mkdir -p /tmp/lembah-camera2d-preview-check
+          (
+            cd /tmp/lembah-camera2d-preview-check
+            xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/camera2d/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/psd-camera2d-export-check.log"
+          )
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD CAMERA2D:' build/psd-camera2d-export-check.log; then exit 1; fi
+          grep -q 'LEMBAH ASRI PSD CAMERA2D PREVIEW READY:' build/psd-camera2d-export-check.log
+          echo "CAMERA2D PREVIEW EXPORT PASS: alternate scene, production main unchanged"
+
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:

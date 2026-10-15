@@ -1,9 +1,34 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/rumah_ladang_psd_camera3d.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/psd_player_3d.gd" id="3_player"]
 [ext_resource type="SpriteFrames" path="res://assets/characters/run8_proportional/Run8_SpriteFrames.tres" id="4_runs"]
 [ext_resource type="Script" path="res://scripts/mobile_touch_controls.gd" id="5_mobile"]
+
+[ext_resource type="Texture2D" path="res://assets/art/psd_background/01_background.png" id="6_bg"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_background/02_house.png" id="7_house"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_background/03_banana.png" id="8_banana"]
+[ext_resource type="Texture2D" path="res://assets/art/psd_background/04_foreground_tree.png" id="9_tree"]
+[ext_resource type="PackedScene" path="res://scenes/weather/rain_weather.tscn" id="10_weather"]
+[ext_resource type="Script" path="res://scripts/psd_collision_debug.gd" id="11_collision_debug"]
+[ext_resource type="Shader" path="res://shaders/psd_atmosphere.gdshader" id="12_lighting_grade"]
+[ext_resource type="Shader" path="res://shaders/psd_porch_glow.gdshader" id="13_porch_glow"]
+[ext_resource type="Script" path="res://scripts/psd_lighting_picker.gd" id="14_lighting_ui"]
+
+[ext_resource type="Shader" path="res://shaders/character_silhouette_shadow.gdshader" id="15_silhouette"]
+[ext_resource type="Script" path="res://scripts/psd_character_shadow.gd" id="16_shadow_script"]
+
+[sub_resource type="ShaderMaterial" id="PSDGradeMaterial"]
+shader = ExtResource("12_lighting_grade")
+
+[sub_resource type="ShaderMaterial" id="PSDPorchGlowMaterial"]
+shader = ExtResource("13_porch_glow")
+
+[sub_resource type="ShaderMaterial" id="CharacterSilhouetteMaterial"]
+shader = ExtResource("15_silhouette")
+
+[sub_resource type="SphereShape3D" id="PlayerFootShape"]
+radius = 0.13
 
 [node name="RumahLadangPSDCamera3D" type="Node3D"]
 script = ExtResource("1_main")
@@ -11,7 +36,7 @@ script = ExtResource("1_main")
 [node name="Camera3D" type="Camera3D" parent="."]
 position = Vector3(8, 9, 21)
 projection = 1
-size = 7.6
+size = 9.41
 near = 0.05
 far = 80.0
 current = true
@@ -23,12 +48,19 @@ position = Vector3(0, 0, -0.20)
 pixel_size = 0.01
 centered = true
 shaded = false
+texture = ExtResource("6_bg")
 
-[node name="Run8Player" type="Node3D" parent="."]
+[node name="Run8Player" type="CharacterBody3D" parent="."]
 position = Vector3(-0.16, -0.945, -0.10)
+collision_layer = 1
+collision_mask = 2
+motion_mode = 1
 script = ExtResource("3_player")
 character_height_px = 112.0
 raster_density = 0.25
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Run8Player"]
+shape = SubResource("PlayerFootShape")
 
 
 
@@ -38,20 +70,99 @@ position = Vector3(-2.635, 2.655, -0.04)
 pixel_size = 0.01
 centered = true
 shaded = false
+texture = ExtResource("7_house")
 
 [node name="PSD_Banana" type="Sprite3D" parent="."]
 position = Vector3(-6.255, 0.735, 0.04)
 pixel_size = 0.01
 centered = true
 shaded = false
+texture = ExtResource("8_banana")
 
 [node name="PSD_ForegroundTree" type="Sprite3D" parent="."]
 position = Vector3(-8.46, -3.170, 0.12)
 pixel_size = 0.01
 centered = true
 shaded = false
+texture = ExtResource("9_tree")
+
+[node name="CharacterOverlay" type="CanvasLayer" parent="."]
+layer = 1
+
+[node name="ProjectedShadow" type="AnimatedSprite2D" parent="CharacterOverlay"]
+script = ExtResource("16_shadow_script")
+material = SubResource("CharacterSilhouetteMaterial")
+z_index = -1
+
+[node name="ProjectedPlayer" type="AnimatedSprite2D" parent="CharacterOverlay"]
+texture_filter = 1
+centered = false
+
+[node name="ForegroundOverlay" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="PSD_House" type="Sprite2D" parent="ForegroundOverlay"]
+position = Vector2(157, -107)
+texture_filter = 1
+centered = false
+texture = ExtResource("7_house")
+
+[node name="PSD_Banana" type="Sprite2D" parent="ForegroundOverlay"]
+position = Vector2(63, 217)
+texture_filter = 1
+centered = false
+texture = ExtResource("8_banana")
+
+[node name="PSD_ForegroundTree" type="Sprite2D" parent="ForegroundOverlay"]
+position = Vector2(-468, 341)
+texture_filter = 1
+centered = false
+texture = ExtResource("9_tree")
+
+[node name="WeatherOverlay" type="CanvasLayer" parent="."]
+layer = 3
+
+[node name="RainWeather" parent="WeatherOverlay" instance=ExtResource("10_weather")]
+
+[node name="CollisionDebugOverlay" type="CanvasLayer" parent="."]
+visible = false
+layer = 15
+
+[node name="WalkablePolygons" type="Node2D" parent="CollisionDebugOverlay"]
+script = ExtResource("11_collision_debug")
 
 [node name="HUD" type="CanvasLayer" parent="."]
+layer = 4
+
+[node name="LightingOverlay" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="Atmosphere" type="ColorRect" parent="LightingOverlay"]
+material = SubResource("PSDGradeMaterial")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="PorchGlow" type="ColorRect" parent="LightingOverlay"]
+visible = false
+material = SubResource("PSDPorchGlowMaterial")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="LightingControls" type="CanvasLayer" parent="."]
+layer = 21
+
+[node name="LightingPicker" type="Control" parent="LightingControls"]
+script = ExtResource("14_lighting_ui")
 
 [node name="TouchOverlay" type="CanvasLayer" parent="."]
 layer = 20

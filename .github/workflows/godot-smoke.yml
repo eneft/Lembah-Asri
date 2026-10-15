@@ -54,6 +54,30 @@ jobs:
           if grep -q 'RUMAH LADANG BACKGROUND PENDING' rumah-ladang-run8-test.log; then
             echo "::notice::Approved character-free Rumah-Ladang PNG is still missing from Git; fallback visible in test only."
           fi
+      - name: Native Camera2D migration smoke - main remains Camera3D
+        run: |
+          set -o pipefail
+          timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native2d_smoke.gd 2>&1 | tee psd-native2d.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE2D FAIL' psd-native2d.log; then exit 1; fi
+          grep -q 'PSD NATIVE2D PASS:' psd-native2d.log
+      - name: Native Camera2D grounded puddles, storm and water masks
+        run: |
+          set -o pipefail
+          timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_weather_smoke.gd 2>&1 | tee psd-native-weather.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE WEATHER FAIL' psd-native-weather.log; then exit 1; fi
+          grep -q 'PSD NATIVE WEATHER PASS:' psd-native-weather.log
+      - name: GPU verify moving river, cloudy darkness and lightning
+        run: |
+          set -o pipefail
+          timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_weather_render.gd 2>&1 | tee psd-native-weather-render.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE WEATHER RENDER FAIL' psd-native-weather-render.log; then exit 1; fi
+          grep -q 'PSD NATIVE WEATHER RENDER PASS:' psd-native-weather-render.log
+      - name: Native Camera2D real GPU frame checks
+        run: |
+          set -o pipefail
+          timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native2d_render_smoke.gd 2>&1 | tee psd-native2d-render.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE2D RENDER FAIL' psd-native2d-render.log; then exit 1; fi
+          grep -q 'PSD NATIVE2D RENDER PASS:' psd-native2d-render.log
       - name: Verify 3D camera PSD scene, 4 editable planes, and RUN8 IDLE8 layering
         run: |
           set -o pipefail
@@ -62,6 +86,46 @@ jobs:
             echo "PSD Camera3D scene validation failed"; exit 1
           fi
           grep -q 'PSD CAMERA3D PASS:' psd-camera3d.log
+      - name: Verify continuous perspective character scaling and bridge correction
+        run: |
+          set -o pipefail
+          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_depth_scaling_smoke.gd 2>&1 | tee psd-depth.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD DEPTH FAIL' psd-depth.log; then
+            echo "PSD character perspective depth regression"; exit 1
+          fi
+          grep -q 'PSD DEPTH PASS:' psd-depth.log
+      - name: Verify accurate yard/fence/bridge/river foot collision
+        run: |
+          set -o pipefail
+          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_walkable_collision_smoke.gd 2>&1 | tee psd-collision.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD WALK COLLISION FAIL' psd-collision.log; then
+            echo "PSD foot collision and bridge routing failed"; exit 1
+          fi
+          grep -q 'PSD WALK COLLISION PASS:' psd-collision.log
+      - name: GPU check PSD protagonist is really visible in Camera3D
+        run: |
+          set -o pipefail
+          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_visual_regression.gd 2>&1 | tee psd-visual.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD VISUAL FAIL' psd-visual.log; then
+            echo "Camera3D protagonist GPU pixel regression"; exit 1
+          fi
+          grep -q 'PSD VISUAL PASS:' psd-visual.log
+      - name: Verify manual day dusk night illumination on real 3D/2D composite
+        run: |
+          set -o pipefail
+          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_lighting_render_smoke.gd 2>&1 | tee psd-lighting.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD LIGHTING FAIL' psd-lighting.log; then
+            echo "Lighting regression in Camera3D+PSD hybrid render"; exit 1
+          fi
+          grep -q 'PSD LIGHTING PASS:' psd-lighting.log
+      - name: Verify character silhouette cast-shadow GPU pixels
+        run: |
+          set -o pipefail
+          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_shadow_render_smoke.gd 2>&1 | tee psd-shadow.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD SHADOW FAIL' psd-shadow.log; then
+            echo "Shadow render regression"; exit 1
+          fi
+          grep -q 'PSD SHADOW PASS:' psd-shadow.log
       - name: Rain, soil splash crowns, and river RGBA ripples
         run: |
           set -o pipefail

@@ -13,6 +13,8 @@ const PUDDLE_CENTERS := [
 var last_step_time: float = -1.0
 var last_step_position: Vector2 = Vector2(-5000.0, -5000.0)
 var weather_clock: float = 0.0
+var native_masked: bool = false
+var wind_strength: float = 0.0
 
 @export var raining: bool = true
 @export_range(0.25, 1.5, 0.05) var intensity: float = 1.0
@@ -57,12 +59,43 @@ func set_raining(active: bool) -> void:
 func toggle_rain() -> void:
  set_raining(not raining)
 
+func configure_native2d_surfaces(
+ soil: Array[PackedVector2Array],
+ native_puddles: Array[Vector2],
+ river: Array[PackedVector2Array]) -> void:
+ native_masked = true
+ var no_polygons: Array[PackedVector2Array] = []
+ var no_puddles: Array[Vector2] = []
+ $GroundSplashes.call("set_native_terrain_mask", soil, no_puddles, no_polygons)
+ $GroundPuddles.call("set_native_terrain_mask", soil, native_puddles, no_polygons)
+ $RiverRipples.call("set_native_terrain_mask", no_polygons, no_puddles, river)
+ print("PSD NATIVE WEATHER MASK READY: %d soil-only puddles" % int($GroundPuddles.get("entries").size()))
+
+func set_precipitation(level: float) -> void:
+ var active: bool = level > 0.01
+ set_raining(active)
+ for child in get_children():
+  child.set("strength", maxf(0.0, level))
+  if active:
+   child.call("_update_batch")
+
+func set_wind_strength(amount: float) -> void:
+ wind_strength = clampf(amount, -1.0, 1.0)
+ for child in get_children():
+  if str(child.get("effect_kind")).begins_with("rain"):
+   child.set("wind_strength", wind_strength)
+
 func _process(delta: float) -> void:
  weather_clock += minf(delta, 0.05)
 
 func is_in_puddle(point: Vector2) -> bool:
- # Slightly smaller than painted ellipse so footsteps only trigger in water.
- for center in PUDDLE_CENTERS:
+ # Native single-image maps use ONLY the newly masked puddle centers. Old
+ # scenes keep their historic twelve footprints, preserving legacy tests.
+ var centers: Array = PUDDLE_CENTERS
+ if native_masked:
+  centers = $GroundPuddles.get("entries")
+ for entry in centers:
+  var center: Vector2 = Vector2(entry.x, entry.y) if native_masked else entry
   var dx: float = (point.x - center.x) / 29.0
   var dy: float = (point.y - center.y) / 11.0
   if dx * dx + dy * dy < 1.0:

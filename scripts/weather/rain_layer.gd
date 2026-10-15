@@ -18,6 +18,10 @@ var puddle_positions: Array = []
 var next_footstep_slot: int = 0
 # Recycled terrain impacts only. The rain, puddles, river and footprints
 # deliberately keep their existing animation/update paths unchanged.
+var native_ground_regions: Array[PackedVector2Array] = []
+var native_water_regions: Array[PackedVector2Array] = []
+var wind_strength: float = 0.0
+var wind_displacement: float = 0.0
 var yard_polygon: PackedVector2Array
 var yard_rng := RandomNumberGenerator.new()
 var yard_born: PackedFloat32Array = PackedFloat32Array()
@@ -72,6 +76,23 @@ func _seed_ground(rng: RandomNumberGenerator) -> void:
   _recycle_ground_hit(i, true)
 
 func _random_yard_point() -> Vector2:
+ if not native_ground_regions.is_empty():
+  for trial in range(80):
+   var candidate := Vector2(
+    yard_rng.randf_range(526.0, 1128.0),
+    yard_rng.randf_range(502.0, 599.0))
+   var valid: bool = false
+   for polygon in native_ground_regions:
+    if Geometry2D.is_point_in_polygon(candidate, polygon):
+     valid = true
+     for probe in [Vector2(12, 0), Vector2(-12, 0), Vector2(0, 10), Vector2(0, -10)]:
+      if not Geometry2D.is_point_in_polygon(candidate + probe, polygon):
+       valid = false
+       break
+     if valid:
+      return candidate
+  # An unquestionably clear open-soil fallback in the single-image yard.
+  return Vector2(775.0, 540.0)
  # Rejection sampling distributes impacts across the same open dirt region,
  # rather than reusing a static handful of positions every cycle.
  for trial in range(36):
@@ -117,6 +138,52 @@ func _seed_puddles(rng: RandomNumberGenerator) -> void:
   ]
  for point in coordinates:
   entries.append(Vector4(point.x, point.y, rng.randf_range(0.0, TAU), rng.randf_range(0.87, 1.13)))
+
+func set_native_terrain_mask(
+ ground: Array[PackedVector2Array],
+ puddles: Array[Vector2],
+ river: Array[PackedVector2Array]) -> void:
+ if effect_kind == "yard":
+  native_ground_regions = ground
+  for i in range(entries.size()):
+   _recycle_ground_hit(i, true)
+  _update_batch()
+ elif effect_kind == "puddle":
+  native_ground_regions = ground
+  entries.clear()
+  # Shared legacy puddle data comes from a read-only const Array: assign
+  # a new writable Array rather than trying to clear the original constant.
+  puddle_positions = []
+  for spot in puddles:
+   puddle_positions.append(spot)
+  var rng := RandomNumberGenerator.new()
+  rng.seed = 20261015
+  _seed_puddles(rng)
+  if batched_mesh != null:
+   batched_mesh.instance_count = entries.size()
+  _update_batch()
+ elif effect_kind == "water":
+  native_water_regions = river
+  entries.clear()
+  var rng := RandomNumberGenerator.new()
+  rng.seed = 20261016
+  for i in range(particle_count):
+   var polygon: PackedVector2Array = native_water_regions[i % native_water_regions.size()]
+   var rect := Rect2(polygon[0], Vector2.ZERO)
+   for pos in polygon:
+    rect = rect.expand(pos)
+   var drop: Vector2 = (rect.position + rect.size * 0.5)
+   for trial in range(75):
+    var candidate := Vector2(
+     rng.randf_range(rect.position.x, rect.end.x),
+     rng.randf_range(rect.position.y, rect.end.y))
+    if Geometry2D.is_point_in_polygon(candidate, polygon):
+     drop = candidate
+     break
+   entries.append(Vector4(drop.x, drop.y, rng.randf(), rng.randf_range(0.65, 1.35)))
+  if batched_mesh != null:
+   batched_mesh.instance_count = entries.size()
+  _update_batch()
 
 func _seed_footsteps() -> void:
  # Fixed-size ring-buffer: no new object is allocated for each footstep.
@@ -251,6 +318,9 @@ func _process(delta: float) -> void:
  # Cap cosmetic updates independently of player movement/camera.
  elapsed += minf(delta, 0.05)
  render_accumulator += minf(delta, 0.05)
+ if effect_kind.begins_with("rain"):
+  # Integrate lateral gust: no teleport when wind changes strength.
+  wind_displacement += wind_strength * minf(delta, 0.05) * 320.0
  var interval: float = 1.0 / update_fps
  if render_accumulator < interval:
   return
@@ -280,8 +350,9 @@ func _update_rain() -> void:
  for i in range(entries.size()):
   var drop: Vector4 = entries[i]
   var y: float = fposmod(drop.y + elapsed * fall_speed * drop.z + 110.0, canvas_h) - 110.0
-  var x: float = fposmod(drop.x + elapsed * wind_speed * drop.z + 80.0, canvas_w) - 80.0
-  batched_mesh.set_instance_transform_2d(i, Transform2D(-0.12, Vector2(0.86, 0.84 + drop.w * 0.20), 0.0, Vector2(x, y)))
+  var x: float = fposmod(drop.x + elapsed * wind_speed * drop.z + wind_displacement * drop.z + 80.0, canvas_w) - 80.0
+  var tilt: float = -0.12 - wind_strength * 0.35
+  batched_mesh.set_instance_transform_2d(i, Transform2D(tilt, Vector2(0.86, 0.84 + drop.w * 0.20), 0.0, Vector2(x, y)))
   batched_mesh.set_instance_color(i, Color(0.84, 0.93, 1.0, base_alpha * (0.75 + 0.25 * drop.w) * strength))
 
 func _update_puddles() -> void:

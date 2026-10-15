@@ -1,41 +1,104 @@
 extends Node3D
-## True angled Camera3D + transparent independent Sprite3D planes.
-## Camera-facing art rig avoids projecting an already-isometric illustration
-## through a second perspective and keeps the Photoshop offsets aligned.
+## Genuine Camera3D PSD layers, editable 3D colliders and existing batched weather.
 const ART_SCALE: float = 0.01
 const CANVAS_SIZE: Vector2 = Vector2(1672.0, 941.0)
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
+const GROUND_Z: float = -0.10
+const WALKABLE_LAYOUT = preload("res://scripts/psd_collision_layout.gd")
+const FOOT_CLEARANCE_PX: float = 9.0
+const MAX_MOVE_STEP_PX: float = 6.0
+
 @export var walk_speed_px: float = 220.0
 @export var run_speed_px: float = 325.0
 @export var camera_distance: float = 24.0
 @export var camera_smoothing: float = 4.0
+@export var walk_bounds: Rect2 = Rect2(65.0, 320.0, 1515.0, 540.0)
+
+# Manual ambient-light presets for painted pseudo-isometric sprites.
+# Index 1 (noon) reproduces the unmodified PSD. No automatic clock yet.
+@export_group("Painted Environment Lighting")
+@export_range(0, 3, 1) var start_lighting_preset: int = 1
+@export_range(0.25, 8.0, 0.25) var lighting_transition_speed: float = 2.25
+const LIGHTING_NAMES := ["06:00 PAGI", "12:00 SIANG", "17:00 SORE", "21:00 MALAM"]
+const LIGHTING_TINTS := [
+ Color(1.0, 0.88, 0.74),
+ Color(1.0, 1.0, 1.0),
+ Color(1.0, 0.74, 0.59),
+ Color(0.37, 0.51, 0.78)
+]
+const LIGHTING_STRENGTHS := [0.31, 0.0, 0.45, 0.81]
+const PORCH_GLOW_STRENGTHS := [0.0, 0.0, 0.075, 0.26]
+const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
+
+# The scene is hand-painted three-quarter perspective, not a physically
+# projected 3D terrain. Scale the 2D visual only; the player's 3D foot,
+# collision, movement speed, and atlas pivot never change.
+@export_group("Character Painted Perspective")
+@export_range(0.7, 1.0, 0.01) var far_character_scale: float = 0.88
+@export_range(0.9, 1.1, 0.01) var middle_character_scale: float = 1.0
+@export_range(1.0, 1.4, 0.01) var near_character_scale: float = 1.18
+@export_range(0.0, 940.0, 1.0) var far_reference_y: float = 360.0
+@export_range(0.0, 940.0, 1.0) var middle_reference_y: float = 570.0
+@export_range(0.0, 940.0, 1.0) var near_reference_y: float = 810.0
+@export_range(0.0, 0.15, 0.005) var bridge_scale_bonus: float = 0.07
+@export_range(0.0, 1672.0, 1.0) var bridge_blend_start_x: float = 1070.0
+@export_range(0.0, 1672.0, 1.0) var bridge_blend_full_x: float = 1320.0
+@export_range(0.0, 941.0, 1.0) var bridge_blend_start_y: float = 480.0
+@export_range(0.0, 941.0, 1.0) var bridge_blend_full_y: float = 625.0
+
 @onready var camera: Camera3D = $Camera3D
 @onready var art: Node3D = $ArtRig
-@onready var player: Node3D = $Run8Player
+@onready var player: CharacterBody3D = $Run8Player
 @onready var mobile: Control = $TouchOverlay/TouchControls
-var touch_direction := Vector2.ZERO
-var touch_run := false
+@onready var character_canvas: CanvasLayer = $CharacterOverlay
+@onready var projected: AnimatedSprite2D = $CharacterOverlay/ProjectedPlayer
+@onready var foreground_canvas: CanvasLayer = $ForegroundOverlay
+@onready var driver: AnimatedSprite3D = $Run8Player/AnimatedSprite3D
+@onready var collision_debug_canvas: CanvasLayer = $CollisionDebugOverlay
+@onready var collision_debug_visual: Node2D = $CollisionDebugOverlay/WalkablePolygons
+@onready var weather_canvas: CanvasLayer = $WeatherOverlay
+@onready var weather: Node2D = $WeatherOverlay/RainWeather
+@onready var atmosphere: ColorRect = $LightingOverlay/Atmosphere
+@onready var porch_light: ColorRect = $LightingOverlay/PorchGlow
+@onready var lighting_picker: Control = $LightingControls/LightingPicker
+var lighting_preset_index: int = 1
+var lighting_target_tint: Color = Color.WHITE
+var lighting_current_tint: Color = Color.WHITE
+var lighting_target_strength: float = 0.0
+var lighting_current_strength: float = 0.0
+var lighting_target_glow: float = 0.0
+var lighting_current_glow: float = 0.0
+var touch_direction: Vector2 = Vector2.ZERO
+var touch_run: bool = false
 var psd_ready: bool = false
+var walkable_regions: Dictionary = {}
 
 func _ready() -> void:
  camera.look_at(Vector3.ZERO, Vector3.UP)
  art.global_basis = camera.global_basis
- # Orient each PSD picture plane AND the player parallel to the Camera3D.
- # Flat image composition stays pixel-perfect despite genuine 3D depth.
+ # Keep PSD offsets while rotating each 2.5D plane parallel to the real Camera3D.
  for name in ["Background", "Run8Player", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
   var item: Node3D = get_node(name) as Node3D
   var source_local: Vector3 = item.position
   item.global_transform = Transform3D(art.global_basis, art.to_global(source_local))
+ walkable_regions = WALKABLE_LAYOUT.regions()
+ collision_debug_visual.set("walkable_regions", walkable_regions)
+ collision_debug_visual.set("clearance_radius", FOOT_CLEARANCE_PX)
  _refresh_psd_layers()
- mobile.connect("move_changed", Callable(self, "_on_touch_move"))
- mobile.connect("run_changed", Callable(self, "_on_touch_run"))
- var label := Label.new()
- label.text = "LEMBAH ASRI | PSD 4 LAYER | CAMERA 3D ORTHOGRAPHIC" if psd_ready else "PSD CAMERA3D: LAYER SUMBER BELUM TERSEDIA"
- label.position = Vector2(20, 20)
- label.add_theme_font_size_override("font_size", 16)
- $HUD.add_child(label)
+ _initialize_camera_projected_art()
+ mobile.move_changed.connect(_on_touch_move)
+ mobile.run_changed.connect(_on_touch_run)
+ lighting_picker.connect("preset_delta", Callable(self, "_cycle_lighting_preset"))
+ _set_lighting_preset(start_lighting_preset, true)
+ # The old large debug banner is intentionally absent in playable scenes.
  _position_camera(true)
- print("PSD CAMERA3D READY: Camera3D orthographic, 4 Sprite3D PSD planes and character after layer 1")
+ _sync_camera_overlays()
+ _sync_projected_player()
+ if psd_ready:
+  print("LEMBAH ASRI MAIN PSD READY: four original layers, orthographic Camera3D, collision and RUN8/IDLE8")
+ else:
+  push_error("PSD CAMERA3D: scene missing original exported assets")
+ print("PSD COLLISION MAP READY: polygonal yard, narrow walkable bridge, far shore; C outlines (no river rectangle)")
 
 func _refresh_psd_layers() -> void:
  psd_ready = true
@@ -45,25 +108,150 @@ func _refresh_psd_layers() -> void:
   "PSD_Banana": "03_banana.png",
   "PSD_ForegroundTree": "04_foreground_tree.png"
  }
- for name in ["Background", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
+ for name in filenames:
   var layer: Sprite3D = get_node(name) as Sprite3D
   var path: String = "res://assets/art/psd_background/" + str(filenames[name])
-  # A lossless RGBA WebP of the exact PSD background is also committed.
-  # GitHub Actions materializes its identical PNG automatically.
   if name == "Background" and not ResourceLoader.exists(path):
    path = "res://assets/art/psd_background/01_background_lossless.webp"
   layer.texture = load(path) as Texture2D if ResourceLoader.exists(path) else null
   if layer.texture == null:
    psd_ready = false
  if not psd_ready:
-  var background: Sprite3D = get_node("Background") as Sprite3D
+  # Visible fallback is for debugging only; build tests reject missing originals.
+  var background: Sprite3D = $Background
   background.texture = load("res://assets/art/scenes/rumah_ladang_empty.png") as Texture2D
   for name in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
    get_node(name).visible = false
-  push_warning("PSD Camera3D: four transparent PNG layers missing; unpack the companion ZIP at project root")
  else:
   for name in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
    get_node(name).visible = true
+
+func _initialize_camera_projected_art() -> void:
+ # Godot 4 Compatibility did not render Sprite3D children of our actor:
+ # independent GPU pixel tests gave zero protagonist pixels. Keep the genuine
+ # 3D physical player and editable PSD source nodes, but draw source sprite
+ # frames on Camera3D-aligned CanvasLayers, in original PSD occlusion order.
+ if not psd_ready:
+  return
+ projected.sprite_frames = driver.sprite_frames
+ projected.centered = false
+ projected.offset = Vector2(-256.0, -708.0) * float(player.get("raster_density"))
+ var density: float = float(player.get("raster_density"))
+ projected.scale = Vector2.ONE * (float(player.get("character_height_px")) / (640.0 * density))
+ projected.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+ driver.visible = false
+ for name in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
+  # Still individually visible/editable in native Godot 3D editor, hidden
+  # only while running to prevent duplicate layering in final compositing.
+  get_node(name).visible = false
+ _sync_projected_player()
+ print("PSD PLAYER PROJECTED READY: Camera3D world with real visible 2D sprite between background and front art")
+
+func _character_depth_multiplier(foot_pixel: Vector2) -> float:
+ # Smooth C1-continuous scaling instead of abrupt per-area scale jumps.
+ # Use the world/PSD foot position, not viewport coordinates, so camera
+ # smoothing and resizing do not make the character pulse in size.
+ var scale_factor: float
+ if foot_pixel.y <= middle_reference_y:
+  var far_blend: float = smoothstep(far_reference_y, middle_reference_y, foot_pixel.y)
+  scale_factor = lerpf(far_character_scale, middle_character_scale, far_blend)
+ else:
+  var near_blend: float = smoothstep(middle_reference_y, near_reference_y, foot_pixel.y)
+  scale_factor = lerpf(middle_character_scale, near_character_scale, near_blend)
+ # The bottom-right bridge has more foreground visual mass than the middle
+ # yard. A softly blended horizontal * vertical correction matches this art
+ # without changing character size when walking sideways across the yard.
+ var bridge_weight: float = smoothstep(bridge_blend_start_x, bridge_blend_full_x, foot_pixel.x)
+ bridge_weight *= smoothstep(bridge_blend_start_y, bridge_blend_full_y, foot_pixel.y)
+ return clampf(scale_factor + bridge_scale_bonus * bridge_weight,
+  far_character_scale, near_character_scale + bridge_scale_bonus)
+
+func _sync_projected_player() -> void:
+ if not psd_ready or projected.sprite_frames == null:
+  return
+ var foot_pixel: Vector2 = _local_to_pixel(art.to_local(player.global_position))
+ projected.position = foot_pixel
+ var density: float = float(player.get("raster_density"))
+ var native_height_px: float = float(player.get("character_height_px"))
+ var base_scale: float = native_height_px / (640.0 * density)
+ projected.scale = Vector2.ONE * (base_scale * _character_depth_multiplier(foot_pixel))
+ if projected.animation != driver.animation:
+  projected.animation = driver.animation
+ if projected.frame != driver.frame:
+  projected.set_frame_and_progress(driver.frame, driver.frame_progress)
+ # Driver controls RUN8 timing; pause the presentation clock without resetting frame 0.
+ projected.pause()
+
+func _walkable_pixel(point: Vector2) -> bool:
+ if point.x < 0.0 or point.y < 0.0 or point.x >= CANVAS_SIZE.x or point.y >= CANVAS_SIZE.y:
+  return false
+ for label in walkable_regions:
+  var polygon: PackedVector2Array = walkable_regions[label]
+  if Geometry2D.is_point_in_polygon(point, polygon):
+   return true
+ return false
+
+func _is_walkable_foot(point: Vector2) -> bool:
+ # A foot is a circle, not a mathematical zero-width point: reject narrow
+ # seams along rails, wall bases and shoreline on every side of the avatar.
+ for offset in [Vector2.ZERO, Vector2(FOOT_CLEARANCE_PX, 0), Vector2(-FOOT_CLEARANCE_PX, 0),
+  Vector2(0, FOOT_CLEARANCE_PX), Vector2(0, -FOOT_CLEARANCE_PX)]:
+  if not _walkable_pixel(point + offset):
+   return false
+ return true
+
+func _move_foot_on_map(origin: Vector2, travel: Vector2) -> Vector2:
+ # Bounded substeps stop sprinting across a thin river or fence edge on
+ # low-FPS devices. Independent X/Y probes let movement slide along borders.
+ var step_count: int = maxi(1, ceili(travel.length() / MAX_MOVE_STEP_PX))
+ var one_step: Vector2 = travel / float(step_count)
+ var current: Vector2 = origin
+ for i in range(step_count):
+  var next: Vector2 = current + one_step
+  if _is_walkable_foot(next):
+   current = next
+   continue
+  var along_x: Vector2 = current + Vector2(one_step.x, 0.0)
+  if _is_walkable_foot(along_x):
+   current = along_x
+  var along_y: Vector2 = current + Vector2(0.0, one_step.y)
+  if _is_walkable_foot(along_y):
+   current = along_y
+ return current
+
+func _set_lighting_preset(index: int, instant: bool = false) -> void:
+ lighting_preset_index = posmod(index, LIGHTING_NAMES.size())
+ lighting_target_tint = LIGHTING_TINTS[lighting_preset_index]
+ lighting_target_strength = LIGHTING_STRENGTHS[lighting_preset_index]
+ lighting_target_glow = PORCH_GLOW_STRENGTHS[lighting_preset_index]
+ lighting_picker.call("set_lighting_label", LIGHTING_NAMES[lighting_preset_index])
+ if instant:
+  lighting_current_tint = lighting_target_tint
+  lighting_current_strength = lighting_target_strength
+  lighting_current_glow = lighting_target_glow
+ _apply_lighting_material()
+ print("PSD LIGHTING: " + LIGHTING_NAMES[lighting_preset_index])
+
+func _cycle_lighting_preset(step: int) -> void:
+ _set_lighting_preset(lighting_preset_index + step)
+
+func _apply_lighting_material() -> void:
+ var grade: ShaderMaterial = atmosphere.material as ShaderMaterial
+ var glow: ShaderMaterial = porch_light.material as ShaderMaterial
+ if grade == null or glow == null:
+  push_error("PSD LIGHTING: grade / glow material unavailable")
+  return
+ grade.set_shader_parameter("scene_tint", Vector3(lighting_current_tint.r, lighting_current_tint.g, lighting_current_tint.b))
+ grade.set_shader_parameter("atmosphere", lighting_current_strength)
+ glow.set_shader_parameter("glow_strength", lighting_current_glow)
+ porch_light.visible = lighting_current_glow > 0.0005
+
+func _tick_lighting(delta: float) -> void:
+ var weight: float = 1.0 - exp(-lighting_transition_speed * maxf(0.0, delta))
+ lighting_current_tint = lighting_current_tint.lerp(lighting_target_tint, weight)
+ lighting_current_strength = lerpf(lighting_current_strength, lighting_target_strength, weight)
+ lighting_current_glow = lerpf(lighting_current_glow, lighting_target_glow, weight)
+ _apply_lighting_material()
 
 func _on_touch_move(direction: Vector2) -> void:
  touch_direction = direction
@@ -71,7 +259,20 @@ func _on_touch_move(direction: Vector2) -> void:
 func _on_touch_run(enabled: bool) -> void:
  touch_run = enabled
 
-func _process(delta: float) -> void:
+func _unhandled_input(event: InputEvent) -> void:
+ if event is InputEventKey and event.pressed and not event.echo:
+  if event.keycode == KEY_R:
+   weather.call("toggle_rain")
+   get_viewport().set_input_as_handled()
+  elif event.keycode == KEY_L:
+   _cycle_lighting_preset(-1 if event.shift_pressed else 1)
+   get_viewport().set_input_as_handled()
+  elif event.keycode == KEY_C:
+   collision_debug_canvas.visible = not collision_debug_canvas.visible
+   collision_debug_visual.queue_redraw()
+   get_viewport().set_input_as_handled()
+
+func _read_motion() -> Vector2:
  var motion := Vector2.ZERO
  if Input.is_action_pressed("ui_left") or Input.is_physical_key_pressed(KEY_A):
   motion.x -= 1.0
@@ -83,31 +284,75 @@ func _process(delta: float) -> void:
   motion.y += 1.0
  if motion.length_squared() < 0.001:
   motion = touch_direction
- if motion.length_squared() > 0.001:
-  motion = motion.normalized()
+ return motion.normalized() if motion.length_squared() > 0.001 else Vector2.ZERO
+
+func _physics_process(delta: float) -> void:
+ var motion: Vector2 = _read_motion()
+ var before: Vector2 = _local_to_pixel(art.to_local(player.global_position))
+ var moving: bool = motion.length_squared() > 0.001
+ var changed: bool = false
+ if moving:
+  var running: bool = touch_run or Input.is_key_pressed(KEY_SHIFT)
+  var speed: float = run_speed_px if running else walk_speed_px
+  var delta_px: Vector2 = motion * speed * minf(delta, 0.09)
+  var new_foot: Vector2 = _move_foot_on_map(before, delta_px)
+  changed = new_foot.distance_squared_to(before) > 0.0025
+  player.global_position = art.to_global(_pixel_to_local(new_foot, GROUND_Z))
+  player.velocity = art.global_basis * Vector3(motion.x, -motion.y, 0.0) * speed * ART_SCALE if changed else Vector3.ZERO
   var octant: int = posmod(int(round(motion.angle() / (PI * 0.25))), 8)
-  player.call("set_run_direction", DIRECTIONS[octant])
-  var speed: float = run_speed_px if touch_run or Input.is_key_pressed(KEY_SHIFT) else walk_speed_px
-  var point := _local_to_pixel(art.to_local(player.global_position))
-  point += motion * speed * minf(delta, 1.0 / 30.0)
-  point = point.clamp(Vector2(110, 355), Vector2(1535, 795))
-  player.global_position = art.to_global(_pixel_to_local(point, -0.10))
- elif str(player.get("animation_state")) != "idle":
-  player.call("set_idle_direction", str(player.get("facing")))
+  if changed:
+   player.call("set_run_direction", DIRECTIONS[octant])
+  else:
+   player.call("set_idle_direction", str(player.get("facing")))
+  weather.call("register_footstep", new_foot, changed)
+ else:
+  player.velocity = Vector3.ZERO
+  if str(player.get("animation_state")) != "idle":
+   player.call("set_idle_direction", str(player.get("facing")))
+
+func _process(delta: float) -> void:
  _position_camera(false, delta)
+ _sync_camera_overlays()
+ _tick_lighting(delta)
+ _sync_projected_player()
+ if collision_debug_canvas.visible:
+  collision_debug_visual.set("player_foot", _local_to_pixel(art.to_local(player.global_position)))
+  collision_debug_visual.queue_redraw()
 
 func _pixel_to_local(point: Vector2, z_depth: float = 0.0) -> Vector3:
- return Vector3((point.x - CANVAS_SIZE.x * 0.5) * ART_SCALE,
-  (CANVAS_SIZE.y * 0.5 - point.y) * ART_SCALE, z_depth)
+ return Vector3((point.x - CANVAS_SIZE.x * 0.5) * ART_SCALE, (CANVAS_SIZE.y * 0.5 - point.y) * ART_SCALE, z_depth)
 
 func _local_to_pixel(point: Vector3) -> Vector2:
- return Vector2(point.x / ART_SCALE + CANVAS_SIZE.x * 0.5,
-  CANVAS_SIZE.y * 0.5 - point.y / ART_SCALE)
+ return Vector2(point.x / ART_SCALE + CANVAS_SIZE.x * 0.5, CANVAS_SIZE.y * 0.5 - point.y / ART_SCALE)
 
 func _position_camera(instant: bool, delta: float = 0.0) -> void:
+ var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+ var half_height: float = camera.size * 0.5
+ var half_width: float = half_height * viewport_size.x / maxf(1.0, viewport_size.y)
+ var x_limit: float = maxf(0.0, CANVAS_SIZE.x * ART_SCALE * 0.5 - half_width)
+ var y_limit: float = maxf(0.0, CANVAS_SIZE.y * ART_SCALE * 0.5 - half_height)
  var origin_on_art: Vector3 = art.to_local(player.global_position)
- var target: Vector3 = art.to_global(Vector3(origin_on_art.x, origin_on_art.y, camera_distance))
+ var target: Vector3 = art.to_global(Vector3(clampf(origin_on_art.x, -x_limit, x_limit), clampf(origin_on_art.y, -y_limit, y_limit), camera_distance))
  if instant:
   camera.global_position = target
  else:
   camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-camera_smoothing * delta))
+
+func _sync_camera_overlays() -> void:
+ # All RGBA overlay layers share the identical Camera3D projection transform.
+ var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+ var zoom: float = viewport_size.y / (camera.size / ART_SCALE)
+ var center_pixel: Vector2 = _local_to_pixel(art.to_local(camera.global_position))
+ var offset: Vector2 = viewport_size * 0.5 - center_pixel * zoom
+ var projection := Transform2D(Vector2(zoom, 0.0), Vector2(0.0, zoom), offset)
+ character_canvas.transform = projection
+ foreground_canvas.transform = projection
+ weather_canvas.transform = projection
+ collision_debug_canvas.transform = projection
+ # Light stays screen-wide after all art/weather while its porch origin
+ # tracks original PSD pixels as the orthographic camera pans or resizes.
+ var porch_screen: Vector2 = offset + PORCH_LIGHT_PX * zoom
+ var porch_material: ShaderMaterial = porch_light.material as ShaderMaterial
+ if porch_material != null:
+  porch_material.set_shader_parameter("origin_uv", porch_screen / viewport_size)
+  porch_material.set_shader_parameter("radius_uv", Vector2(175.0, 115.0) * zoom / viewport_size)

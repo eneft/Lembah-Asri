@@ -75,8 +75,15 @@ func _check() -> void:
  weather.get_node("GroundSplashes").visible = false
  weather.get_node("FootstepSplashes").visible = true
  weather.call("register_footstep", Vector2(821, 562), true)
- var step_image: Image = await _snapshot(view)
- var step_pixels: int = _visible_pixels(step_image)
+ # The new GPU batch can become visible on a later Compatibility
+ # renderer submission than the very first captured frame. Observe a short
+ # bounded render window: the real effect must still become visible.
+ var step_pixels: int = 0
+ for render_sample in range(5):
+  var step_image: Image = await _snapshot(view)
+  step_pixels = maxi(step_pixels, _visible_pixels(step_image))
+  if step_pixels >= 4:
+   break
  if step_pixels < 4:
   _fail("footstep splash is invisible: " + str(step_pixels))
   return
