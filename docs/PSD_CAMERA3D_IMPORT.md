@@ -53,7 +53,7 @@ painted 2D walkable regions: a 9-pixel foot-radius neighborhood and swept
 6-pixel movement steps with axis sliding, preserving RUN8/IDLE8 animation,
 Camera3D, dynamic perspective scaling, original PSD layer order and weather.
 
-**F3** toggles a calibrated collision overlay (green yard, blue bridge/bank,
+**C** toggles a calibrated collision overlay (green yard, blue bridge/bank,
 red player foot circle). The overlay is hidden for normal gameplay and
 follows Camera3D projection. Adjust polygon vertices in
 `scripts/psd_collision_layout.gd` when improving terrain visuals; avoid a

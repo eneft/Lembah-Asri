@@ -70,7 +70,7 @@ func _ready() -> void:
   print("LEMBAH ASRI MAIN PSD READY: four original layers, orthographic Camera3D, collision and RUN8/IDLE8")
  else:
   push_error("PSD CAMERA3D: scene missing original exported assets")
- print("PSD COLLISION MAP READY: polygonal yard, narrow walkable bridge, far shore; F3 outlines (no river rectangle)")
+ print("PSD COLLISION MAP READY: polygonal yard, narrow walkable bridge, far shore; C outlines (no river rectangle)")
 
 func _refresh_psd_layers() -> void:
  psd_ready = true
@@ -202,7 +202,7 @@ func _unhandled_input(event: InputEvent) -> void:
   if event.keycode == KEY_R:
    weather.call("toggle_rain")
    get_viewport().set_input_as_handled()
-  elif event.keycode == KEY_F3:
+  elif event.keycode == KEY_C:
    collision_debug_canvas.visible = not collision_debug_canvas.visible
    collision_debug_visual.queue_redraw()
    get_viewport().set_input_as_handled()
