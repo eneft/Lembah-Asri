@@ -4,6 +4,9 @@ const ART_SCALE: float = 0.01
 const CANVAS_SIZE: Vector2 = Vector2(1672.0, 941.0)
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const GROUND_Z: float = -0.10
+const WALKABLE_LAYOUT = preload("res://scripts/psd_collision_layout.gd")
+const FOOT_CLEARANCE_PX: float = 9.0
+const MAX_MOVE_STEP_PX: float = 6.0
 
 @export var walk_speed_px: float = 220.0
 @export var run_speed_px: float = 325.0
@@ -35,11 +38,14 @@ const GROUND_Z: float = -0.10
 @onready var projected: AnimatedSprite2D = $CharacterOverlay/ProjectedPlayer
 @onready var foreground_canvas: CanvasLayer = $ForegroundOverlay
 @onready var driver: AnimatedSprite3D = $Run8Player/AnimatedSprite3D
+@onready var collision_debug_canvas: CanvasLayer = $CollisionDebugOverlay
+@onready var collision_debug_visual: Node2D = $CollisionDebugOverlay/WalkablePolygons
 @onready var weather_canvas: CanvasLayer = $WeatherOverlay
 @onready var weather: Node2D = $WeatherOverlay/RainWeather
 var touch_direction: Vector2 = Vector2.ZERO
 var touch_run: bool = false
 var psd_ready: bool = false
+var walkable_regions: Dictionary = {}
 
 func _ready() -> void:
  camera.look_at(Vector3.ZERO, Vector3.UP)
@@ -49,6 +55,9 @@ func _ready() -> void:
   var item: Node3D = get_node(name) as Node3D
   var source_local: Vector3 = item.position
   item.global_transform = Transform3D(art.global_basis, art.to_global(source_local))
+ walkable_regions = WALKABLE_LAYOUT.regions()
+ collision_debug_visual.set("walkable_regions", walkable_regions)
+ collision_debug_visual.set("clearance_radius", FOOT_CLEARANCE_PX)
  _refresh_psd_layers()
  _initialize_camera_projected_art()
  mobile.move_changed.connect(_on_touch_move)
@@ -61,7 +70,7 @@ func _ready() -> void:
   print("LEMBAH ASRI MAIN PSD READY: four original layers, orthographic Camera3D, collision and RUN8/IDLE8")
  else:
   push_error("PSD CAMERA3D: scene missing original exported assets")
- print("PSD CAMERA3D COLLISION READY: house, side structure, banana, foreground tree, river bank, bridge opening")
+ print("PSD COLLISION MAP READY: polygonal yard, narrow walkable bridge, far shore; F3 outlines (no river rectangle)")
 
 func _refresh_psd_layers() -> void:
  psd_ready = true
@@ -145,6 +154,43 @@ func _sync_projected_player() -> void:
  # Driver controls RUN8 timing; pause the presentation clock without resetting frame 0.
  projected.pause()
 
+func _walkable_pixel(point: Vector2) -> bool:
+ if point.x < 0.0 or point.y < 0.0 or point.x >= CANVAS_SIZE.x or point.y >= CANVAS_SIZE.y:
+  return false
+ for label in walkable_regions:
+  var polygon: PackedVector2Array = walkable_regions[label]
+  if Geometry2D.is_point_in_polygon(point, polygon):
+   return true
+ return false
+
+func _is_walkable_foot(point: Vector2) -> bool:
+ # A foot is a circle, not a mathematical zero-width point: reject narrow
+ # seams along rails, wall bases and shoreline on every side of the avatar.
+ for offset in [Vector2.ZERO, Vector2(FOOT_CLEARANCE_PX, 0), Vector2(-FOOT_CLEARANCE_PX, 0),
+  Vector2(0, FOOT_CLEARANCE_PX), Vector2(0, -FOOT_CLEARANCE_PX)]:
+  if not _walkable_pixel(point + offset):
+   return false
+ return true
+
+func _move_foot_on_map(origin: Vector2, travel: Vector2) -> Vector2:
+ # Bounded substeps stop sprinting across a thin river or fence edge on
+ # low-FPS devices. Independent X/Y probes let movement slide along borders.
+ var step_count: int = maxi(1, ceili(travel.length() / MAX_MOVE_STEP_PX))
+ var one_step: Vector2 = travel / float(step_count)
+ var current: Vector2 = origin
+ for i in range(step_count):
+  var next: Vector2 = current + one_step
+  if _is_walkable_foot(next):
+   current = next
+   continue
+  var along_x: Vector2 = current + Vector2(one_step.x, 0.0)
+  if _is_walkable_foot(along_x):
+   current = along_x
+  var along_y: Vector2 = current + Vector2(0.0, one_step.y)
+  if _is_walkable_foot(along_y):
+   current = along_y
+ return current
+
 func _on_touch_move(direction: Vector2) -> void:
  touch_direction = direction
 
@@ -152,9 +198,14 @@ func _on_touch_run(enabled: bool) -> void:
  touch_run = enabled
 
 func _unhandled_input(event: InputEvent) -> void:
- if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_R:
-  weather.call("toggle_rain")
-  get_viewport().set_input_as_handled()
+ if event is InputEventKey and event.pressed and not event.echo:
+  if event.keycode == KEY_R:
+   weather.call("toggle_rain")
+   get_viewport().set_input_as_handled()
+  elif event.keycode == KEY_F3:
+   collision_debug_canvas.visible = not collision_debug_canvas.visible
+   collision_debug_visual.queue_redraw()
+   get_viewport().set_input_as_handled()
 
 func _read_motion() -> Vector2:
  var motion := Vector2.ZERO
@@ -170,26 +221,25 @@ func _read_motion() -> Vector2:
   motion = touch_direction
  return motion.normalized() if motion.length_squared() > 0.001 else Vector2.ZERO
 
-func _physics_process(_delta: float) -> void:
- var motion := _read_motion()
- var before: Vector3 = art.to_local(player.global_position)
- if motion.length_squared() > 0.001:
-  var speed: float = run_speed_px if touch_run or Input.is_key_pressed(KEY_SHIFT) else walk_speed_px
-  player.velocity = art.global_basis * Vector3(motion.x, -motion.y, 0.0) * speed * ART_SCALE
-  player.move_and_slide()
-  var current: Vector3 = art.to_local(player.global_position)
-  var minimum: Vector2 = walk_bounds.position
-  var maximum: Vector2 = walk_bounds.end
-  current.x = clampf(current.x, (minimum.x - CANVAS_SIZE.x * 0.5) * ART_SCALE, (maximum.x - CANVAS_SIZE.x * 0.5) * ART_SCALE)
-  current.y = clampf(current.y, (CANVAS_SIZE.y * 0.5 - maximum.y) * ART_SCALE, (CANVAS_SIZE.y * 0.5 - minimum.y) * ART_SCALE)
-  current.z = GROUND_Z
-  player.global_position = art.to_global(current)
+func _physics_process(delta: float) -> void:
+ var motion: Vector2 = _read_motion()
+ var before: Vector2 = _local_to_pixel(art.to_local(player.global_position))
+ var moving: bool = motion.length_squared() > 0.001
+ var changed: bool = false
+ if moving:
+  var running: bool = touch_run or Input.is_key_pressed(KEY_SHIFT)
+  var speed: float = run_speed_px if running else walk_speed_px
+  var delta_px: Vector2 = motion * speed * minf(delta, 0.09)
+  var new_foot: Vector2 = _move_foot_on_map(before, delta_px)
+  changed = new_foot.distance_squared_to(before) > 0.0025
+  player.global_position = art.to_global(_pixel_to_local(new_foot, GROUND_Z))
+  player.velocity = art.global_basis * Vector3(motion.x, -motion.y, 0.0) * speed * ART_SCALE if changed else Vector3.ZERO
   var octant: int = posmod(int(round(motion.angle() / (PI * 0.25))), 8)
-  if current.distance_to(before) > 0.0002:
+  if changed:
    player.call("set_run_direction", DIRECTIONS[octant])
   else:
    player.call("set_idle_direction", str(player.get("facing")))
-  weather.call("register_footstep", _local_to_pixel(current), current.distance_to(before) > 0.0002)
+  weather.call("register_footstep", new_foot, changed)
  else:
   player.velocity = Vector3.ZERO
   if str(player.get("animation_state")) != "idle":
@@ -199,6 +249,9 @@ func _process(delta: float) -> void:
  _position_camera(false, delta)
  _sync_camera_overlays()
  _sync_projected_player()
+ if collision_debug_canvas.visible:
+  collision_debug_visual.set("player_foot", _local_to_pixel(art.to_local(player.global_position)))
+  collision_debug_visual.queue_redraw()
 
 func _pixel_to_local(point: Vector2, z_depth: float = 0.0) -> Vector3:
  return Vector3((point.x - CANVAS_SIZE.x * 0.5) * ART_SCALE, (CANVAS_SIZE.y * 0.5 - point.y) * ART_SCALE, z_depth)
@@ -229,3 +282,4 @@ func _sync_camera_overlays() -> void:
  character_canvas.transform = projection
  foreground_canvas.transform = projection
  weather_canvas.transform = projection
+ collision_debug_canvas.transform = projection

@@ -38,3 +38,27 @@ physical speed, and camera zoom are unchanged.
 A new Godot CI + Web-export smoke test checks far/middle/near, same-height yard
 vs bridge, smooth transitions, RUN8/IDLE8 direction inheritance, and stable foot
 pivot/physics collider.
+
+
+## Collision rebuild — mapped foot terrain, not rectangular bounding boxes
+The old oversized rectangle collisions (particularly RiverBankCollision blocking
+real bridge planks) were deliberately removed. Collision is now enforced by
+`scripts/psd_collision_layout.gd`: **three walkable polygons** in original PSD
+coordinates, covering (1) fenced home courtyard, (2) the narrow diagonal
+bridge crossing, and (3) the opposite bank exit. All other locations (the
+house/building footprint, fences, tree trunks and river) are off-limits.
+The active CharacterBody3D retains its foot SphereShape3D for later features,
+but the **authoritative static environment collision** is determined by the
+painted 2D walkable regions: a 9-pixel foot-radius neighborhood and swept
+6-pixel movement steps with axis sliding, preserving RUN8/IDLE8 animation,
+Camera3D, dynamic perspective scaling, original PSD layer order and weather.
+
+**F3** toggles a calibrated collision overlay (green yard, blue bridge/bank,
+red player foot circle). The overlay is hidden for normal gameplay and
+follows Camera3D projection. Adjust polygon vertices in
+`scripts/psd_collision_layout.gd` when improving terrain visuals; avoid a
+new large river rectangle. Geometry is estimated from the painted stage
+and should be checked at the fence/gate/bridge junction during live gameplay.
+Dedicated smoke tests verify that the real bridge deck is walkable, running
+cannot hop across water/fence, grass does not cause invisible collisions, and
+old river-blocking StaticBody3D shapes do not return.

@@ -59,27 +59,26 @@ func _check() -> void:
  if sprite.animation != &"idle_up_left" or sprite.is_playing():
   _fail("IDLE8 is not stopped correctly")
   return
- for obstacle in ["HouseWallsCollision", "HouseSideCollision", "BananaTrunkCollision", "ForegroundTreeCollision", "RiverBankCollision"]:
-  var blocker: StaticBody3D = scene.get_node_or_null("ArtRig/CollisionGeometry/" + obstacle) as StaticBody3D
-  if blocker == null or blocker.collision_layer != 2 or blocker.get_node_or_null("CollisionShape3D") == null:
-   _fail("missing editable static body: " + obstacle)
+ # Old oversized BoxShape3D colliders have been removed entirely: collision
+ # authority is now the per-foot 1672x941 walkable terrain polygons.
+ if scene.get_node_or_null("ArtRig/CollisionGeometry/RiverBankCollision") != null:
+  _fail("obsolete giant river rectangle remains, obstructing the bridge")
+  return
+ if scene.get_node_or_null("CollisionDebugOverlay/WalkablePolygons") == null:
+  _fail("visual inspection overlay for the collision polygons is missing")
+  return
+ for safe in [Vector2(700,530), Vector2(820,565), Vector2(1120,605), Vector2(1320,680), Vector2(1460,739)]:
+  if not bool(scene.call("_is_walkable_foot", safe)):
+   _fail("painted playable terrain blocked at " + str(safe))
    return
- player.global_position = rig.to_global(scene.call("_pixel_to_local", Vector2(590, 565), -0.10))
- if not player.test_move(player.global_transform, rig.global_basis * Vector3(0, 1.9, 0)):
-  _fail("house is not physically solid")
-  return
- player.global_position = rig.to_global(scene.call("_pixel_to_local", Vector2(1480, 477), -0.10))
- if not player.test_move(player.global_transform, rig.global_basis * Vector3(0, -1.7, 0)):
-  _fail("river is not physically blocked away from bridge")
-  return
- player.global_position = rig.to_global(scene.call("_pixel_to_local", Vector2(1420, 460), -0.10))
- if player.test_move(player.global_transform, rig.global_basis * Vector3(0.35, 0, 0)):
-  _fail("bridge entrance is physically obstructed")
-  return
+ for forbidden in [Vector2(660,275), Vector2(310,600), Vector2(850,725), Vector2(1050,820), Vector2(1340,833), Vector2(1540,626)]:
+  if bool(scene.call("_is_walkable_foot", forbidden)):
+   _fail("house / fence / river is penetrable at " + str(forbidden))
+   return
  var weather: Node2D = scene.get_node_or_null("WeatherOverlay/RainWeather") as Node2D
  if weather == null or not bool(weather.get("raining")) or weather.get_node_or_null("GroundPuddles") == null or weather.get_node_or_null("FootstepSplashes") == null:
   _fail("batched rain and puddles were not carried into main scene")
   return
- print("PSD CAMERA3D PASS: four PSD layers, real 3D collisions, bridge access, original RUN8/IDLE8 and weather")
+ print("PSD CAMERA3D PASS: source PSD, Camera3D player, yard/fence/shore polygon collision, bridge access and RUN8/IDLE8 weather")
  scene.queue_free()
  quit(0)

@@ -70,6 +70,14 @@ jobs:
             echo "PSD character perspective depth regression"; exit 1
           fi
           grep -q 'PSD DEPTH PASS:' psd-depth.log
+      - name: Verify accurate yard/fence/bridge/river foot collision
+        run: |
+          set -o pipefail
+          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_walkable_collision_smoke.gd 2>&1 | tee psd-collision.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD WALK COLLISION FAIL' psd-collision.log; then
+            echo "PSD foot collision and bridge routing failed"; exit 1
+          fi
+          grep -q 'PSD WALK COLLISION PASS:' psd-collision.log
       - name: GPU check PSD protagonist is really visible in Camera3D
         run: |
           set -o pipefail
