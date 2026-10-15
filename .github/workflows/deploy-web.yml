@@ -99,7 +99,7 @@ jobs:
           # Verify that the actual main pack initializes the approved RUN8/IDLE8 3D sprite.
           # The approved proportional RUN8 asset remains the authoritative game character.
           grep -q 'PSD 3D CHARACTER READY: RUN8+IDLE8' "$GITHUB_WORKSPACE/build/web-export-check.log"
-          grep -q 'PSD CAMERA3D COLLISION READY:' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          grep -q 'PSD COLLISION MAP READY: polygonal yard, narrow walkable bridge, far shore' "$GITHUB_WORKSPACE/build/web-export-check.log"
           cd "$GITHUB_WORKSPACE"
           touch build/web/.nojekyll
           echo "Web export files:"
