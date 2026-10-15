@@ -151,7 +151,9 @@ func set_native_terrain_mask(
  elif effect_kind == "puddle":
   native_ground_regions = ground
   entries.clear()
-  puddle_positions.clear()
+  # Shared legacy puddle data comes from a read-only const Array: assign
+  # a new writable Array rather than trying to clear the original constant.
+  puddle_positions = []
   for spot in puddles:
    puddle_positions.append(spot)
   var rng := RandomNumberGenerator.new()
