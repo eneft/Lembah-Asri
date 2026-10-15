@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scripts/rumah_ladang_psd_camera2d.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/psd_player_2d.gd" id="2_player"]
@@ -12,6 +12,10 @@
 [ext_resource type="Script" path="res://scripts/mobile_touch_controls.gd" id="13_mobile"]
 [ext_resource type="Script" path="res://scripts/psd_collision_debug.gd" id="14_collision_debug"]
 [ext_resource type="Script" path="res://scripts/psd_foot_contact_shadow_2d.gd" id="15_contact_shadow"]
+[ext_resource type="Script" path="res://scripts/weather/psd_weather_picker.gd" id="16_weather_picker"]
+[ext_resource type="Script" path="res://scripts/weather/native_river_current.gd" id="17_river_current"]
+[ext_resource type="Script" path="res://scripts/weather/native_storm_bolt.gd" id="18_lightning_bolt"]
+[ext_resource type="Script" path="res://scripts/weather/native_wind_gust.gd" id="19_wind_gust"]
 
 [sub_resource type="CircleShape2D" id="FootCircle"]
 radius = 9.0
@@ -25,6 +29,9 @@ shader = ExtResource("10_grade")
 [sub_resource type="ShaderMaterial" id="PorchMaterial"]
 shader = ExtResource("11_porch")
 
+[sub_resource type="ShaderMaterial" id="CloudMaterial"]
+shader = ExtResource("10_grade")
+
 [node name="RumahLadangPSDNative2D" type="Node2D"]
 script = ExtResource("1_main")
 
@@ -35,6 +42,14 @@ texture = ExtResource("3_bg")
 z_index = 0
 
 [node name="RainWeather" parent="." instance=ExtResource("7_weather")]
+
+[node name="AnimatedRiverCurrent" type="Node2D" parent="."]
+script = ExtResource("17_river_current")
+z_index = 1
+
+[node name="StormWindGusts" type="Node2D" parent="."]
+script = ExtResource("19_wind_gust")
+z_index = 9
 
 [node name="ProjectedShadow" type="AnimatedSprite2D" parent="."]
 z_index = 2
@@ -105,11 +120,44 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(1, 1, 1, 1)
 
+[node name="WeatherAtmosphere" type="CanvasLayer" parent="."]
+layer = 6
+
+[node name="CloudTint" type="ColorRect" parent="WeatherAtmosphere"]
+material = SubResource("CloudMaterial")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="StormLightning" type="CanvasLayer" parent="."]
+layer = 8
+
+[node name="Flash" type="ColorRect" parent="StormLightning"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.89, 0.95, 1, 0)
+
+[node name="LightningBolt" type="Node2D" parent="StormLightning"]
+script = ExtResource("18_lightning_bolt")
+visible = false
+
 [node name="LightingControls" type="CanvasLayer" parent="."]
 layer = 21
 
 [node name="LightingPicker" type="Control" parent="LightingControls"]
 script = ExtResource("12_light_control")
+
+[node name="WeatherPicker" type="Control" parent="LightingControls"]
+script = ExtResource("16_weather_picker")
 
 [node name="TouchOverlay" type="CanvasLayer" parent="."]
 layer = 20

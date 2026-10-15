@@ -3,6 +3,14 @@ extends Node2D
 ## Preserves stage1/PSD Camera3D and every original source asset unchanged.
 const CANVAS_SIZE := Vector2(1672.0, 941.0)
 const WALKABLE_LAYOUT = preload("res://scripts/psd_collision_layout.gd")
+const NATIVE_SURFACES = preload("res://scripts/weather/native_surface_zones.gd")
+const WEATHER_NAMES := ["CERAH", "MENDUNG", "HUJAN RINGAN", "HUJAN DERAS", "BADAI"]
+const WEATHER_TINTS := [
+ Color.WHITE, Color(0.71, 0.75, 0.78),
+ Color(0.64, 0.71, 0.78), Color(0.55, 0.64, 0.73),
+ Color(0.42, 0.53, 0.66)]
+const PRECIPITATION_LEVELS := [0.0, 0.0, 0.48, 1.0, 1.22]
+const WIND_LEVELS := [0.0, 0.13, 0.22, 0.40, 0.82]
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const FOOT_CLEARANCE_PX := 9.0
 const MAX_MOVE_STEP_PX := 6.0
@@ -37,6 +45,10 @@ const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
 @export_group("Painted Environment Lighting")
 @export_range(0, 3, 1) var start_lighting_preset: int = 1
 @export_range(0.25, 8.0, 0.25) var lighting_transition_speed: float = 2.25
+@export_group("Manual Weather and Storm")
+@export_range(0, 4, 1) var start_weather_mode: int = 3
+@export_range(0.5, 8.0, 0.25) var weather_transition_speed: float = 2.4
+@export_range(7.0, 40.0, 1.0) var lightning_min_interval: float = 10.0
 
 @onready var player: CharacterBody2D = $Run8Player
 @onready var visual: AnimatedSprite2D = $Run8Player/AnimatedSprite2D
@@ -49,6 +61,12 @@ const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
 @onready var lighting_picker: Control = $LightingControls/LightingPicker
 @onready var atmosphere: ColorRect = $LightingOverlay/Atmosphere
 @onready var porch_light: ColorRect = $LightingOverlay/PorchGlow
+@onready var weather_picker: Control = $LightingControls/WeatherPicker
+@onready var cloud_tint: ColorRect = $WeatherAtmosphere/CloudTint
+@onready var lightning_flash: ColorRect = $StormLightning/Flash
+@onready var lightning_bolt: Node2D = $StormLightning/LightningBolt
+@onready var river_current: Node2D = $AnimatedRiverCurrent
+@onready var wind_gusts: Node2D = $StormWindGusts
 
 var psd_ready: bool = false
 var walkable_regions: Dictionary = {}
@@ -61,6 +79,17 @@ var lighting_target_strength: float = 0.0
 var lighting_current_strength: float = 0.0
 var lighting_target_glow: float = 0.0
 var lighting_current_glow: float = 0.0
+var weather_mode_index: int = 3
+var weather_tint_current: Color = Color.WHITE
+var weather_tint_target: Color = Color.WHITE
+var weather_strength_current: float = 0.0
+var weather_strength_target: float = 0.0
+var wind_clock: float = 0.0
+var storm_clock: float = 0.0
+var next_lightning_time: float = 10.0
+var lightning_elapsed: float = -10.0
+var lightning_active: bool = false
+var storm_rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
  psd_ready = true
@@ -74,6 +103,12 @@ func _ready() -> void:
  _build_native_collision()
  collision_visual.set("walkable_regions", walkable_regions)
  collision_visual.set("clearance_radius", FOOT_CLEARANCE_PX)
+ # The single-baked PNG contains roof/rocks/bridge: opt into conservative
+ # soil/water footprint masks without changing shared legacy RainWeather.
+ weather.call("configure_native2d_surfaces",
+  NATIVE_SURFACES.bare_soil(),
+  NATIVE_SURFACES.puddle_spots(),
+  NATIVE_SURFACES.river_water())
  # Explicit global z ordering, independent of scene-tree sibling positions.
  # Back rain above background, front rain and impacts above character.
  for key in {"RainBack":1, "RainFront":10, "GroundPuddles":1,
@@ -89,6 +124,9 @@ func _ready() -> void:
  mobile.run_changed.connect(_on_touch_run)
  lighting_picker.connect("preset_delta", Callable(self, "_cycle_lighting_preset"))
  _set_lighting_preset(start_lighting_preset, true)
+ weather_picker.connect("weather_delta", Callable(self, "_cycle_weather_mode"))
+ storm_rng.seed = 20261015
+ _set_weather_mode(start_weather_mode, true)
  if not _is_walkable_foot(player.position):
   push_error("PSD CAMERA2D: player spawn outside original walk polygon")
  print("LEMBAH ASRI PSD CAMERA2D PREVIEW READY: ONE original 1672x941 background, anchored RUN8/IDLE8, native collision, weather, lighting and shadow")
@@ -251,6 +289,7 @@ func _process(delta: float) -> void:
  _sync_visual_scale()
  _move_camera_to_player()
  _tick_lighting(delta)
+ _tick_weather(delta)
  _sync_porch_glow()
  if collision_visual.visible:
   collision_visual.set("player_foot", player.position)
@@ -295,6 +334,71 @@ func _tick_lighting(delta: float) -> void:
  lighting_current_glow = lerpf(lighting_current_glow, lighting_target_glow, weight)
  _apply_lighting_material()
 
+func _set_weather_mode(index: int, instant: bool = false) -> void:
+ weather_mode_index = posmod(index, WEATHER_NAMES.size())
+ weather_picker.call("set_weather_label", WEATHER_NAMES[weather_mode_index])
+ weather_tint_target = WEATHER_TINTS[weather_mode_index]
+ weather_strength_target = 0.0 if weather_mode_index == 0 else 1.0
+ weather.call("set_precipitation", PRECIPITATION_LEVELS[weather_mode_index])
+ river_current.call("set_rain_boost", weather_mode_index >= 2)
+ if weather_mode_index != 4:
+  lightning_active = false
+  lightning_flash.visible = false
+  lightning_bolt.call("set_flash", 0.0)
+ else:
+  storm_clock = 0.0
+  next_lightning_time = lightning_min_interval
+ if instant:
+  weather_tint_current = weather_tint_target
+  weather_strength_current = weather_strength_target
+ _apply_weather_tint()
+ print("PSD NATIVE2D WEATHER: " + WEATHER_NAMES[weather_mode_index])
+
+func _cycle_weather_mode(step: int) -> void:
+ _set_weather_mode(weather_mode_index + step)
+
+func _apply_weather_tint() -> void:
+ var grade: ShaderMaterial = cloud_tint.material as ShaderMaterial
+ grade.set_shader_parameter("scene_tint",
+  Vector3(weather_tint_current.r, weather_tint_current.g, weather_tint_current.b))
+ grade.set_shader_parameter("atmosphere", weather_strength_current)
+
+func _trigger_lightning() -> void:
+ if weather_mode_index != 4:
+  return
+ lightning_active = true
+ lightning_elapsed = 0.0
+ lightning_flash.visible = true
+
+func _tick_weather(delta: float) -> void:
+ var step: float = minf(delta, 0.05)
+ var blend: float = 1.0 - exp(-weather_transition_speed * step)
+ weather_tint_current = weather_tint_current.lerp(weather_tint_target, blend)
+ weather_strength_current = lerpf(weather_strength_current, weather_strength_target, blend)
+ _apply_weather_tint()
+ wind_clock += step
+ var gust_base: float = WIND_LEVELS[weather_mode_index]
+ var gust: float = gust_base * (0.77 + 0.23 * sin(wind_clock * 1.7))
+ weather.call("set_wind_strength", gust)
+ wind_gusts.call("set_gust", gust)
+ if weather_mode_index == 4:
+  storm_clock += step
+  if not lightning_active and storm_clock >= next_lightning_time:
+   _trigger_lightning()
+   next_lightning_time = storm_clock + storm_rng.randf_range(lightning_min_interval, lightning_min_interval + 11.0)
+ if lightning_active:
+  lightning_elapsed += step
+  # Two quick, asymmetric pulses over ~0.30s, followed by darkness.
+  var primary: float = maxf(0.0, 1.0 - absf(lightning_elapsed - 0.065) / 0.065)
+  var bounce: float = maxf(0.0, 1.0 - absf(lightning_elapsed - 0.205) / 0.065)
+  var brightness: float = clampf(primary * 0.75 + bounce * 0.35, 0.0, 0.78)
+  lightning_flash.color = Color(0.86, 0.93, 1.0, brightness)
+  lightning_bolt.call("set_flash", brightness)
+  if lightning_elapsed > 0.32:
+   lightning_active = false
+   lightning_flash.visible = false
+   lightning_bolt.call("set_flash", 0.0)
+
 func _on_touch_move(direction: Vector2) -> void:
  touch_direction = direction
 
@@ -304,7 +408,9 @@ func _on_touch_run(active: bool) -> void:
 func _unhandled_input(event: InputEvent) -> void:
  if event is InputEventKey and event.pressed and not event.echo:
   if event.keycode == KEY_R:
-   weather.call("toggle_rain")
+   _set_weather_mode(3 if weather_mode_index < 2 else 0)
+  elif event.keycode == KEY_T:
+   _cycle_weather_mode(1)
   elif event.keycode == KEY_C:
    collision_visual.visible = not collision_visual.visible
    collision_visual.queue_redraw()

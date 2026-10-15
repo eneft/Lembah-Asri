@@ -61,8 +61,13 @@ func _process(delta: float) -> void:
  weather_clock += minf(delta, 0.05)
 
 func is_in_puddle(point: Vector2) -> bool:
- # Slightly smaller than painted ellipse so footsteps only trigger in water.
- for center in PUDDLE_CENTERS:
+ # Native single-image maps use ONLY the newly masked puddle centers. Old
+ # scenes keep their historic twelve footprints, preserving legacy tests.
+ var centers: Array = PUDDLE_CENTERS
+ if native_masked:
+  centers = $GroundPuddles.get("entries")
+ for entry in centers:
+  var center: Vector2 = Vector2(entry.x, entry.y) if native_masked else entry
   var dx: float = (point.x - center.x) / 29.0
   var dy: float = (point.y - center.y) / 11.0
   if dx * dx + dy * dy < 1.0:

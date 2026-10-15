@@ -230,6 +230,16 @@ jobs:
           echo '7cfb92976182aa9c257954787fb7ab3f7c9cbf6298f8252944f5dc549e87d4c5  assets/art/scenes/rumah_ladang_empty.png' | sha256sum --check -
           grep -q 'background=original' build/rumah-ladang-export-check.log
           echo "RUMAH LADANG WEB EXPORT PASS: original lossless 1672x941 PNG and 74-frame RUN8 fully active"
+      - name: Validate native weather soil/river/storm before Web export
+        run: |
+          set -o pipefail
+          timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_weather_smoke.gd 2>&1 | tee native-weather-export.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE WEATHER FAIL' native-weather-export.log; then exit 1; fi
+          grep -q 'PSD NATIVE WEATHER PASS:' native-weather-export.log
+          timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_weather_render.gd 2>&1 | tee native-weather-gpu-export.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE WEATHER RENDER FAIL' native-weather-gpu-export.log; then exit 1; fi
+          grep -q 'PSD NATIVE WEATHER RENDER PASS:' native-weather-gpu-export.log
+
       - name: Export isolated native Camera2D PSD playable preview
         run: |
           set -euo pipefail

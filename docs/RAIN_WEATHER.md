@@ -31,3 +31,34 @@ Scene utama dan Rumah-Ladang test: **12 genangan** berbentuk elips pseudo-isomet
 ## Dynamic ground rain impacts
 
 GroundSplashes now recycles each pooled impact at a different random ground coordinate after a short independent lifetime. Three size categories (micro 65%, medium 25%, accent 10%) and independent fade timing create natural non-repeating rainfall. GPU MultiMesh instancing and the 20 Hz effect update remain unchanged. Roof exclusions use the existing exposed-soil polygon. River ripples, puddles and footstep splashes are unchanged. CI checks position recycling and real rendered-frame differences.
+
+
+## Single-background Camera2D: weather and river pass (15 October 2026)
+Only the `/camera2d/` preview opts into this weather system; legacy scenes
+still keep their original GPU-batched rainfall and twelve puddle sites.
+Use the top-right WEATHER control or keyboard **T** to switch CERAH,
+MENDUNG, HUJAN RINGAN, HUJAN DERAS, BADAI. **R** toggles clear/heavy rain.
+The new Camera2D default is HUJAN DERAS. Weather cloud grading stacks with
+the existing manually selected time of day: overcast has a visibly darker
+blue-grey tint, heavy rain is darker still and storm deepest. Storm adds
+slowly varying gusts to the diagonal rain, faint wind trails and occasional
+double-pulse lightning with a brief screen flash; no new audio assets.
+
+Because the landscape is now **one baked sprite**, random reflections over
+objects were unacceptable. `native_surface_zones.gd` defines small safe
+bare-earth polygons, **eight** new puddle sites and three separate water
+corridors. `rain_weather.configure_native2d_surfaces()` opts in only from
+the 2D scene and re-seeds batched raindrop impacts inside the appropriate
+region. Every puddle is validated across its FULL elliptical footprint,
+not merely at its center. The old wall-side coordinates are not used for
+native footstep detection. The open courtyard's painted rock, bridge,
+roof and walls are excluded. These shapes are conservative artist-pass
+estimates and should be checked in gameplay against the original image.
+
+`AnimatedRiverCurrent` is a shader-driven polygon overlay: low-alpha
+moving current lines/foam on three water-only regions, independent from
+hujan and active even when sky is clear. Since the backdrop is a single
+flattened image, this is animated **specular/current detail**, not physically
+warping or reflowing the original painted water beneath every rock.
+Mask corners can be adjusted by editing `native_surface_zones.gd` later.
+The original Camera3D and all source PSD layers remain unchanged.
