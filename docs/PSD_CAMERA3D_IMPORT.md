@@ -156,3 +156,33 @@ uses an identical constant (256,708) foot pivot for every frame, and keeps
 the already working contact shadow. This reduces allocations, GPU swaps and
 frame-to-frame pivot jitter. Original RUN8 poses and authored playback FPS,
 mobile controls, terrain bounds and the independent Camera3D main are intact.
+
+
+## Genuine 11-layer Photoshop scene and author-painted collision (October 2026)
+The latest authored source is `assets/source_psd/Lembah asri tes scene`,
+verified PSD (8BPS), 1672×941 px. A dedicated GitHub Actions importer creates
+**eleven native layers** in `assets/art/psd_layered_scene/` by compositing
+Photoshop Smart Objects with **original bounding boxes** and no generative
+reconstruction, plus `manifest.json` for faithful order. The original
+Background stays **at the bottom**, followed by split fences, stone walls,
+bridge, and vegetation in their PSD order. The placeholder Smart Object
+`Posisi layer karakter utama disini` is NOT rendered; the actual Godot
+CharacterBody2D/AnimatedSprite2D RUN8/IDLE8 stands at its bounding-box bottom
+center (1040,505), between the authored bridge and banana layers.
+
+The PSD Collision group is semi-transparent RED painted obstacle geometry,
+not a walkable-area polygon or artwork to display. `collision_polygons.json`
+contains five original blocked-color component contours, simplified to ~2px
+without repositioning. These load as native StaticBody2D **SOLID** polygons,
+with a separate canvas-boundary segment collision and a circle physics foot.
+Press **C** to show red collision polygons. All controls, weather, rain,
+light/shadow, Camera2D, and old Camera3D scenes are retained; `/camera2d/`
+remains the preview until visual/gameplay approval.
+
+**Source image limitation:** the Photoshop Background pixel layer already
+includes much of the scenery that is also present in the separated overlays.
+Those additional layers correctly align and can be edited in Godot, but
+**turning off an overlay will still show its old baked counterpart below**.
+Producing a genuinely empty base underneath those objects requires Photoshop
+inpainting/manual background cleanup, not auto-generated substitutes. PSD
+pixels are deliberately untouched by this importer.

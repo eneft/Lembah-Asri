@@ -2,7 +2,8 @@ extends Node2D
 ## Native Camera2D, original PSD pixel coordinates, no 3D transforms.
 ## Preserves stage1/PSD Camera3D and every original source asset unchanged.
 const CANVAS_SIZE := Vector2(1672.0, 941.0)
-const WALKABLE_LAYOUT = preload("res://scripts/psd_collision_layout.gd")
+const PSD_COLLISION_JSON := "res://assets/art/psd_layered_scene/collision_polygons.json"
+const PSD_MANIFEST_JSON := "res://assets/art/psd_layered_scene/manifest.json"
 const NATIVE_SURFACES = preload("res://scripts/weather/native_surface_zones.gd")
 const WEATHER_NAMES := ["CERAH", "MENDUNG", "HUJAN RINGAN", "HUJAN DERAS", "BADAI"]
 const WEATHER_TINTS := [
@@ -50,6 +51,7 @@ const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
 @export_range(0.5, 8.0, 0.25) var weather_transition_speed: float = 2.4
 @export_range(7.0, 40.0, 1.0) var lightning_min_interval: float = 10.0
 
+@onready var psd_layer_stack: Node2D = $PSDLayerStack
 @onready var player: CharacterBody2D = $Run8Player
 @onready var visual: AnimatedSprite2D = $Run8Player/AnimatedSprite2D
 @onready var shadow: AnimatedSprite2D = $ProjectedShadow
@@ -96,10 +98,16 @@ func _ready() -> void:
  var background: Sprite2D = $Background
  if background.texture == null or background.texture.get_size() != CANVAS_SIZE:
   psd_ready = false
-  push_error("PSD CAMERA2D: original single background missing or wrong dimensions")
- # Only one scenery sprite in this scene. The separated PSD components
- # remain available in the repo but are not layered on this Camera2D stage.
- walkable_regions = WALKABLE_LAYOUT.regions()
+  push_error("PSD CAMERA2D: authentic layered PSD background missing")
+ if psd_layer_stack.get_child_count() != 10:
+  psd_ready = false
+  push_error("PSD CAMERA2D: expected precisely ten authentic editable overlay objects")
+ for art_node in psd_layer_stack.get_children():
+  var sprite: Sprite2D = art_node as Sprite2D
+  if sprite == null or sprite.texture == null or sprite.centered:
+   psd_ready = false
+   push_error("PSD CAMERA2D: missing or incorrectly positioned editable PSD sprite")
+ _load_psd_authored_collision()
  _build_native_collision()
  collision_visual.set("walkable_regions", walkable_regions)
  collision_visual.set("clearance_radius", FOOT_CLEARANCE_PX)
@@ -129,78 +137,104 @@ func _ready() -> void:
  _set_weather_mode(start_weather_mode, true)
  if not _is_walkable_foot(player.position):
   push_error("PSD CAMERA2D: player spawn outside original walk polygon")
- print("LEMBAH ASRI PSD CAMERA2D PREVIEW READY: ONE original 1672x941 background, anchored RUN8/IDLE8, native collision, weather, lighting and shadow")
+ print("LEMBAH ASRI PSD CAMERA2D PREVIEW READY: 11 AUTHENTIC PSD LAYERS, five red-authored collision solids, RUN8+IDLE8 at Photoshop marker, Camera2D and weather")
+
+func _load_psd_authored_collision() -> void:
+ # Red translucent pixels from the author's Photoshop Collision group are
+ # impassable SOLIDS, not the green legacy walkable polygons. Exported contours
+ # are aligned with exactly the same 1672x941 Photoshop image coordinates.
+ var raw: String = FileAccess.get_file_as_string(PSD_COLLISION_JSON)
+ var parsed: Variant = JSON.parse_string(raw)
+ if not (parsed is Dictionary):
+  push_error("PSD CAMERA2D: authored Collision mask JSON missing or invalid")
+  psd_ready = false
+  return
+ if parsed.get("type", "") != "solid_blocked":
+  push_error("PSD CAMERA2D: Collision Photoshop mask is not a blocked zone")
+  psd_ready = false
+  return
+ var regions: Array = parsed.get("polygons", [])
+ if regions.size() != 5:
+  push_error("PSD CAMERA2D: expected five collision masks from the Photoshop group")
+  psd_ready = false
+  return
+ walkable_regions.clear()
+ for i in range(regions.size()):
+  var points := PackedVector2Array()
+  for coordinate in regions[i]:
+   points.append(Vector2(float(coordinate[0]), float(coordinate[1])))
+  if points.size() < 3:
+   psd_ready = false
+   push_error("PSD CAMERA2D: empty Photoshop Collision polygon")
+   return
+  walkable_regions["PSD BLOCK %02d" % i] = points
+ var marker: Array = parsed.get("hero_spawn_foot", [])
+ if marker.size() == 2:
+  player.position = Vector2(float(marker[0]), float(marker[1]))
+ print("PSD NATIVE2D AUTHOR COLLISION READY: %d masked obstacles; hero foot=%s" % [walkable_regions.size(), player.position])
 
 func _build_native_collision() -> void:
- # Geometry2D merges intersecting polygon footprints BEFORE constructing
- # segmented physics edges; otherwise bridge/yard seams turn into invisible walls.
- var islands: Array[PackedVector2Array] = []
- for label in walkable_regions:
-  var proposed: PackedVector2Array = walkable_regions[label]
-  var pending: Array[PackedVector2Array] = [proposed]
-  var i: int = 0
-  while i < islands.size():
-   var changed: bool = false
-   for poly in pending:
-    var overlap: Array[PackedVector2Array] = Geometry2D.intersect_polygons(islands[i], poly)
-    if not overlap.is_empty():
-     pending.erase(poly)
-     var merged: Array[PackedVector2Array] = Geometry2D.merge_polygons(islands[i], poly)
-     for piece in merged:
-      pending.append(piece)
-     islands.remove_at(i)
-     changed = true
-     break
-   if not changed:
-    i += 1
-  for polygon in pending:
-   islands.append(polygon)
- for idx in range(islands.size()):
-  var land: StaticBody2D = StaticBody2D.new()
-  land.name = "PlayableBoundary_%d" % idx
-  land.collision_layer = 2
-  land.collision_mask = 0
-  var shape: CollisionPolygon2D = CollisionPolygon2D.new()
-  shape.name = "WalkableEdge"
-  shape.build_mode = CollisionPolygon2D.BUILD_SEGMENTS
-  shape.polygon = islands[idx]
-  land.add_child(shape)
-  collision_container.add_child(land)
- print("PSD CAMERA2D COLLISION READY: ", islands.size(), " merged native StaticBody2D boundary polygons")
+ # Solid blocked areas: move_and_slide() now collides with exactly the authored
+ # red shape. Never transform the art or infer an arbitrary rectangle.
+ for key in walkable_regions:
+  var obstacle := StaticBody2D.new()
+  obstacle.name = str(key).replace(" ", "_")
+  obstacle.collision_layer = 2
+  obstacle.collision_mask = 0
+  var shape := CollisionPolygon2D.new()
+  shape.name = "PSD_RedBlockedArea"
+  shape.build_mode = CollisionPolygon2D.BUILD_SOLIDS
+  shape.polygon = walkable_regions[key]
+  obstacle.add_child(shape)
+  collision_container.add_child(obstacle)
+ # Close edges outside the Photoshop 1672x941 canvas.
+ var border := StaticBody2D.new()
+ border.name = "CanvasBoundary"
+ border.collision_layer = 2
+ border.collision_mask = 0
+ var loop := CollisionPolygon2D.new()
+ loop.name = "CanvasEdge"
+ loop.build_mode = CollisionPolygon2D.BUILD_SEGMENTS
+ loop.polygon = PackedVector2Array([
+  Vector2.ZERO, Vector2(CANVAS_SIZE.x, 0.0),
+  CANVAS_SIZE, Vector2(0.0, CANVAS_SIZE.y)
+ ])
+ border.add_child(loop)
+ collision_container.add_child(border)
+ print("PSD CAMERA2D COLLISION READY: %d original red solids + outer boundary" % walkable_regions.size())
 
 func _walkable_pixel(foot: Vector2) -> bool:
  if foot.x < 0.0 or foot.y < 0.0 or foot.x >= CANVAS_SIZE.x or foot.y >= CANVAS_SIZE.y:
   return false
  for key in walkable_regions:
   if Geometry2D.is_point_in_polygon(foot, walkable_regions[key]):
-   return true
- return false
+   return false
+ return true
 
 func _is_walkable_foot(foot: Vector2) -> bool:
- for delta in [Vector2.ZERO, Vector2(FOOT_CLEARANCE_PX, 0.0),
-  Vector2(-FOOT_CLEARANCE_PX, 0.0), Vector2(0.0, FOOT_CLEARANCE_PX),
-  Vector2(0.0, -FOOT_CLEARANCE_PX)]:
-  if not _walkable_pixel(foot + delta):
+ # Sweep a circle-foot with clearance from authored Photoshop edges.
+ for delta in [Vector2.ZERO, Vector2(FOOT_CLEARANCE_PX,0),
+  Vector2(-FOOT_CLEARANCE_PX,0), Vector2(0,FOOT_CLEARANCE_PX),
+  Vector2(0,-FOOT_CLEARANCE_PX)]:
+  if not _walkable_pixel(foot+delta):
    return false
  return true
 
 func _move_foot_on_map(origin: Vector2, travel: Vector2) -> Vector2:
- # The same swept-circle safety limit as the Camera3D prototype, now in native
- # image coordinates. CircleShape2D + merged StaticBody2D provide physics.
- var steps: int = maxi(1, ceili(travel.length() / MAX_MOVE_STEP_PX))
+ var steps: int = maxi(1,ceili(travel.length()/MAX_MOVE_STEP_PX))
  var step: Vector2 = travel / float(steps)
  var current: Vector2 = origin
  for i in range(steps):
-  var next: Vector2 = current + step
-  if _is_walkable_foot(next):
-   current = next
-  else:
-   var along_x: Vector2 = current + Vector2(step.x, 0.0)
-   if _is_walkable_foot(along_x):
-    current = along_x
-   var along_y: Vector2 = current + Vector2(0.0, step.y)
-   if _is_walkable_foot(along_y):
-    current = along_y
+  var proposed: Vector2 = current + step
+  if _is_walkable_foot(proposed):
+   current = proposed
+   continue
+  var x_only: Vector2 = current + Vector2(step.x,0)
+  if _is_walkable_foot(x_only):
+   current = x_only
+  var y_only: Vector2 = current + Vector2(0,step.y)
+  if _is_walkable_foot(y_only):
+   current = y_only
  return current
 
 func _read_motion() -> Vector2:
