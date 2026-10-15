@@ -141,3 +141,18 @@ Manual lighting, rain and mobile input remain available.
 Legacy `/rumah-ladang-test/`, `/camera2d/`, the original main Camera3D
 scene and source PSD layers remain independent. Validate with
 `tests/psd_native2d_smoke.gd` and `tests/psd_native2d_render_smoke.gd`.
+
+
+## Camera2D follow and RUN8 smoothness hotfix (15 October 2026)
+The previous native preview used a complete-fit Camera2D zoom, leaving no
+camera travel on either axis. `camera_follow_zoom` now defaults to **1.45×
+the aspect-correct canvas fit**; a 1280×720 viewport sees only part of the
+1672×941 original canvas, with smoothing and world limits still enabled.
+Native 2D character sprites no longer bake every run/idle animation pose into
+its own GPU ImageTexture (a Sprite3D-only workaround), and no longer read back
+one frame texture via `get_image()` / `get_used_rect()` during gameplay.
+Instead native AnimatedSprite2D shares the three imported reduced atlases,
+uses an identical constant (256,708) foot pivot for every frame, and keeps
+the already working contact shadow. This reduces allocations, GPU swaps and
+frame-to-frame pivot jitter. Original RUN8 poses and authored playback FPS,
+mobile controls, terrain bounds and the independent Camera3D main are intact.

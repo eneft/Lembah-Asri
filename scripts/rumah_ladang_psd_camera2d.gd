@@ -19,6 +19,9 @@ const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
 @export var walk_speed_px: float = 220.0
 @export var run_speed_px: float = 325.0
 @export var camera_smoothing: float = 4.0
+# 100% original canvas means no camera travel. Crop modestly for true
+# follow movement; 1.45x retains the homestead's painted perspective.
+@export_range(1.10, 1.85, 0.05) var camera_follow_zoom: float = 1.45
 @export_group("Character Painted Perspective")
 @export_range(0.7, 1.0, 0.01) var far_character_scale: float = 0.88
 @export_range(0.9, 1.1, 0.01) var middle_character_scale: float = 1.0
@@ -219,7 +222,11 @@ func _sync_visual_scale() -> void:
 
 func _configure_camera() -> void:
  var viewport_size: Vector2 = get_viewport().get_visible_rect().size
- camera.zoom = Vector2.ONE * (viewport_size.y / CANVAS_SIZE.y)
+ # Fit source artwork to both viewport axes, then zoom in enough that the
+ # playfield exceeds the viewport. Camera boundaries can now move in X & Y.
+ var fit_zoom: float = minf(viewport_size.x / CANVAS_SIZE.x,
+  viewport_size.y / CANVAS_SIZE.y)
+ camera.zoom = Vector2.ONE * fit_zoom * camera_follow_zoom
  camera.position_smoothing_speed = camera_smoothing
  _move_camera_to_player(true)
 

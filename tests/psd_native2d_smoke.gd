@@ -34,8 +34,24 @@ func _check() -> void:
  if not hero.position.is_equal_approx(Vector2(820, 565)):
   _fail("original physical spawn was changed")
   return
- if absf(cam.zoom.y - 720.0 / 941.0) > 0.005:
-  _fail("Camera2D zoom no longer fits the original canvas")
+ var full_fit: float = minf(1280.0 / 1672.0, 720.0 / 941.0)
+ var expected_zoom: float = full_fit * float(stage.get("camera_follow_zoom"))
+ if absf(cam.zoom.y - expected_zoom) > 0.005 or cam.zoom.y < full_fit * 1.20:
+  _fail("Camera2D does not crop enough to follow the character")
+  return
+ # The camera target must actually move when the avatar walks; a fit-all
+ # camera's clamping used to lock this position at world center.
+ var base_position: Vector2 = hero.position
+ hero.position = Vector2(610, 465)
+ stage.call("_move_camera_to_player", true)
+ var first_camera: Vector2 = cam.position
+ hero.position = Vector2(1100, 615)
+ stage.call("_move_camera_to_player", true)
+ var second_camera: Vector2 = cam.position
+ hero.position = base_position
+ stage.call("_move_camera_to_player", true)
+ if second_camera.x - first_camera.x < 150.0 or second_camera.y - first_camera.y < 30.0:
+  _fail("Camera2D still locked to center instead of following movement")
   return
  var background: Sprite2D = stage.get_node("Background") as Sprite2D
  if background.texture == null or background.texture.get_size() != Vector2(1672, 941):
@@ -71,6 +87,20 @@ func _check() -> void:
    if sprite.sprite_frames == null or not sprite.sprite_frames.has_animation(state + direction):
     _fail("RUN8/IDLE8 lost animation " + state + direction)
     return
+ var sprite_atlas: Texture2D = sprite.sprite_frames.get_frame_texture("run_down", 0)
+ if not (sprite_atlas is AtlasTexture):
+  _fail("GPU-costly single-frame textures returned: 2D must share atlases")
+  return
+ if int(hero.get("generated_atlas_count")) != 3:
+  _fail("RUN8/IDLE8 must use the same three reduced shared atlases")
+  return
+ var original_offset: Vector2 = sprite.offset
+ hero.call("set_run_direction", "down")
+ sprite.set_frame_and_progress(3, 0.0)
+ await process_frame
+ if not sprite.offset.is_equal_approx(original_offset):
+  _fail("per-frame foot offset jumps remain and cause RUN stutter")
+  return
  hero.call("set_run_direction", "down_left")
  if sprite.animation != &"run_down_left" or not sprite.is_playing():
   _fail("native RUN8 not playing")
@@ -111,6 +141,6 @@ func _check() -> void:
  if not stage.get_node("LightingOverlay/PorchGlow").visible:
   _fail("night lighting / porch shader not working")
   return
- print("PSD NATIVE2D PASS: one complete legacy background, foot-locked RUN8/IDLE8, grounded contact, Camera2D and collision/weather/lighting")
+ print("PSD NATIVE2D PASS: camera truly follows, shared GPU atlases, stable animation pivot, one background, grounded contact, collisions and lighting")
  stage.queue_free()
  quit(0)
