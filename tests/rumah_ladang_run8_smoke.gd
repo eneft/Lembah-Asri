@@ -1,5 +1,5 @@
 extends SceneTree
-## Isolated test: new scene exists; old startup scene remains unchanged.
+## Isolated test: older Godot stages remain playable as separate regression scenes.
 const EXPECTED := {
  "right": 8, "down_right": 10, "down": 10, "down_left": 10,
  "left": 8, "up_left": 10, "up": 8, "up_right": 10
@@ -13,8 +13,11 @@ func _fail(message: String) -> void:
  quit(1)
 
 func _check() -> void:
- if str(ProjectSettings.get_setting("application/run/main_scene")) != "res://scenes/house_garden_stage1.tscn":
-  _fail("existing main scene was replaced")
+ if str(ProjectSettings.get_setting("application/run/main_scene")) != "res://scenes/rumah_ladang_psd_camera3d.tscn":
+  _fail("new approved PSD Camera3D main scene is not selected")
+  return
+ if not ResourceLoader.exists("res://scenes/house_garden_stage1.tscn"):
+  _fail("legacy Stage 1 scene was removed")
   return
  var packed := load("res://scenes/rumah_ladang_run8_test.tscn") as PackedScene
  if packed == null:
