@@ -66,6 +66,15 @@ jobs:
           fi
           grep -q 'PSD DEPTH PASS:' psd-depth-web.log
 
+      - name: Check 2.5D lighting presets and real GPU frame differences
+        run: |
+          set -o pipefail
+          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_lighting_render_smoke.gd 2>&1 | tee psd-lighting-web.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD LIGHTING FAIL' psd-lighting-web.log; then
+            echo "Lighting breakage in web-export candidate"; exit 1
+          fi
+          grep -q 'PSD LIGHTING PASS:' psd-lighting-web.log
+
       - name: Verify weather effects before Web export
         run: |
           set -o pipefail

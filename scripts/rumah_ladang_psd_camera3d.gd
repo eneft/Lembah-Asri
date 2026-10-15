@@ -14,6 +14,22 @@ const MAX_MOVE_STEP_PX: float = 6.0
 @export var camera_smoothing: float = 4.0
 @export var walk_bounds: Rect2 = Rect2(65.0, 320.0, 1515.0, 540.0)
 
+# Manual ambient-light presets for painted pseudo-isometric sprites.
+# Index 1 (noon) reproduces the unmodified PSD. No automatic clock yet.
+@export_group("Painted Environment Lighting")
+@export_range(0, 3, 1) var start_lighting_preset: int = 1
+@export_range(0.25, 8.0, 0.25) var lighting_transition_speed: float = 2.25
+const LIGHTING_NAMES := ["06:00 PAGI", "12:00 SIANG", "17:00 SORE", "21:00 MALAM"]
+const LIGHTING_TINTS := [
+ Color(1.0, 0.88, 0.74),
+ Color(1.0, 1.0, 1.0),
+ Color(1.0, 0.74, 0.59),
+ Color(0.37, 0.51, 0.78)
+]
+const LIGHTING_STRENGTHS := [0.31, 0.0, 0.45, 0.81]
+const PORCH_GLOW_STRENGTHS := [0.0, 0.0, 0.075, 0.26]
+const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
+
 # The scene is hand-painted three-quarter perspective, not a physically
 # projected 3D terrain. Scale the 2D visual only; the player's 3D foot,
 # collision, movement speed, and atlas pivot never change.
@@ -42,6 +58,16 @@ const MAX_MOVE_STEP_PX: float = 6.0
 @onready var collision_debug_visual: Node2D = $CollisionDebugOverlay/WalkablePolygons
 @onready var weather_canvas: CanvasLayer = $WeatherOverlay
 @onready var weather: Node2D = $WeatherOverlay/RainWeather
+@onready var atmosphere: ColorRect = $LightingOverlay/Atmosphere
+@onready var porch_light: ColorRect = $LightingOverlay/PorchGlow
+@onready var lighting_picker: Control = $LightingControls/LightingPicker
+var lighting_preset_index: int = 1
+var lighting_target_tint: Color = Color.WHITE
+var lighting_current_tint: Color = Color.WHITE
+var lighting_target_strength: float = 0.0
+var lighting_current_strength: float = 0.0
+var lighting_target_glow: float = 0.0
+var lighting_current_glow: float = 0.0
 var touch_direction: Vector2 = Vector2.ZERO
 var touch_run: bool = false
 var psd_ready: bool = false
@@ -62,6 +88,8 @@ func _ready() -> void:
  _initialize_camera_projected_art()
  mobile.move_changed.connect(_on_touch_move)
  mobile.run_changed.connect(_on_touch_run)
+ lighting_picker.connect("preset_delta", Callable(self, "_cycle_lighting_preset"))
+ _set_lighting_preset(start_lighting_preset, true)
  # The old large debug banner is intentionally absent in playable scenes.
  _position_camera(true)
  _sync_camera_overlays()
@@ -191,6 +219,40 @@ func _move_foot_on_map(origin: Vector2, travel: Vector2) -> Vector2:
    current = along_y
  return current
 
+func _set_lighting_preset(index: int, instant: bool = false) -> void:
+ lighting_preset_index = posmod(index, LIGHTING_NAMES.size())
+ lighting_target_tint = LIGHTING_TINTS[lighting_preset_index]
+ lighting_target_strength = LIGHTING_STRENGTHS[lighting_preset_index]
+ lighting_target_glow = PORCH_GLOW_STRENGTHS[lighting_preset_index]
+ lighting_picker.call("set_lighting_label", LIGHTING_NAMES[lighting_preset_index])
+ if instant:
+  lighting_current_tint = lighting_target_tint
+  lighting_current_strength = lighting_target_strength
+  lighting_current_glow = lighting_target_glow
+ _apply_lighting_material()
+ print("PSD LIGHTING: " + LIGHTING_NAMES[lighting_preset_index])
+
+func _cycle_lighting_preset(step: int) -> void:
+ _set_lighting_preset(lighting_preset_index + step)
+
+func _apply_lighting_material() -> void:
+ var grade: ShaderMaterial = atmosphere.material as ShaderMaterial
+ var glow: ShaderMaterial = porch_light.material as ShaderMaterial
+ if grade == null or glow == null:
+  push_error("PSD LIGHTING: grade / glow material unavailable")
+  return
+ grade.set_shader_parameter("scene_tint", Vector3(lighting_current_tint.r, lighting_current_tint.g, lighting_current_tint.b))
+ grade.set_shader_parameter("atmosphere", lighting_current_strength)
+ glow.set_shader_parameter("glow_strength", lighting_current_glow)
+ porch_light.visible = lighting_current_glow > 0.0005
+
+func _tick_lighting(delta: float) -> void:
+ var weight: float = 1.0 - exp(-lighting_transition_speed * maxf(0.0, delta))
+ lighting_current_tint = lighting_current_tint.lerp(lighting_target_tint, weight)
+ lighting_current_strength = lerpf(lighting_current_strength, lighting_target_strength, weight)
+ lighting_current_glow = lerpf(lighting_current_glow, lighting_target_glow, weight)
+ _apply_lighting_material()
+
 func _on_touch_move(direction: Vector2) -> void:
  touch_direction = direction
 
@@ -201,6 +263,9 @@ func _unhandled_input(event: InputEvent) -> void:
  if event is InputEventKey and event.pressed and not event.echo:
   if event.keycode == KEY_R:
    weather.call("toggle_rain")
+   get_viewport().set_input_as_handled()
+  elif event.keycode == KEY_L:
+   _cycle_lighting_preset(-1 if event.shift_pressed else 1)
    get_viewport().set_input_as_handled()
   elif event.keycode == KEY_C:
    collision_debug_canvas.visible = not collision_debug_canvas.visible
@@ -248,6 +313,7 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
  _position_camera(false, delta)
  _sync_camera_overlays()
+ _tick_lighting(delta)
  _sync_projected_player()
  if collision_debug_canvas.visible:
   collision_debug_visual.set("player_foot", _local_to_pixel(art.to_local(player.global_position)))
@@ -283,3 +349,10 @@ func _sync_camera_overlays() -> void:
  foreground_canvas.transform = projection
  weather_canvas.transform = projection
  collision_debug_canvas.transform = projection
+ # Light stays screen-wide after all art/weather while its porch origin
+ # tracks original PSD pixels as the orthographic camera pans or resizes.
+ var porch_screen: Vector2 = offset + PORCH_LIGHT_PX * zoom
+ var porch_material: ShaderMaterial = porch_light.material as ShaderMaterial
+ if porch_material != null:
+  porch_material.set_shader_parameter("origin_uv", porch_screen / viewport_size)
+  porch_material.set_shader_parameter("radius_uv", Vector2(175.0, 115.0) * zoom / viewport_size)

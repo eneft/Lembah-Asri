@@ -62,3 +62,24 @@ and should be checked at the fence/gate/bridge junction during live gameplay.
 Dedicated smoke tests verify that the real bridge deck is walkable, running
 cannot hop across water/fence, grass does not cause invisible collisions, and
 old river-blocking StaticBody3D shapes do not return.
+
+
+## Manual light atmosphere (15 October 2026)
+The main PSD scene now uses a **hybrid painted-2.5D lighting pass**, not real
+DirectionalLight3D (which would not affect the source 2D CanvasLayers and
+unshaded Sprite3D). `LightingOverlay/Atmosphere` composites a light-weight
+multiplicative grade across Camera3D, house/trees, RUN8/IDLE8 and rain; a
+second optional, low-strength radial shader follows the porch in world-source
+PSD pixel coordinates, shown only at 17:00 and 21:00. The original noon grade
+has **zero modification** to the supplied art. No texture or collision, camera,
+player scaling, animated sprites, weather effects or current deployment workflow
+is replaced.
+
+Choose a preset with the top-right arrow buttons (also touch-friendly) or
+press **L** for next / **Shift+L** for previous. Slots: 06:00 PAGI,
+12:00 SIANG (original), 17:00 SORE, 21:00 MALAM. Smooth fades are
+visual only. The manual preset is exported as `start_lighting_preset` (default
+1/siang) and `lighting_transition_speed` on the Godot main scene.
+No automatic in-game time progression has been activated yet. The ambient tint
+is not physically accurate cast shadows; those would require custom masks or
+separated 2D geometry with directional normals in a future step.

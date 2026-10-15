@@ -86,6 +86,14 @@ jobs:
             echo "Camera3D protagonist GPU pixel regression"; exit 1
           fi
           grep -q 'PSD VISUAL PASS:' psd-visual.log
+      - name: Verify manual day dusk night illumination on real 3D/2D composite
+        run: |
+          set -o pipefail
+          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_lighting_render_smoke.gd 2>&1 | tee psd-lighting.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD LIGHTING FAIL' psd-lighting.log; then
+            echo "Lighting regression in Camera3D+PSD hybrid render"; exit 1
+          fi
+          grep -q 'PSD LIGHTING PASS:' psd-lighting.log
       - name: Rain, soil splash crowns, and river RGBA ripples
         run: |
           set -o pipefail

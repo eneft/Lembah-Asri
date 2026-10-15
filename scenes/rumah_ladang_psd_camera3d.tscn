@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/rumah_ladang_psd_camera3d.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/psd_player_3d.gd" id="3_player"]
@@ -11,6 +11,15 @@
 [ext_resource type="Texture2D" path="res://assets/art/psd_background/04_foreground_tree.png" id="9_tree"]
 [ext_resource type="PackedScene" path="res://scenes/weather/rain_weather.tscn" id="10_weather"]
 [ext_resource type="Script" path="res://scripts/psd_collision_debug.gd" id="11_collision_debug"]
+[ext_resource type="Shader" path="res://shaders/psd_atmosphere.gdshader" id="12_lighting_grade"]
+[ext_resource type="Shader" path="res://shaders/psd_porch_glow.gdshader" id="13_porch_glow"]
+[ext_resource type="Script" path="res://scripts/psd_lighting_picker.gd" id="14_lighting_ui"]
+
+[sub_resource type="ShaderMaterial" id="PSDGradeMaterial"]
+shader = ExtResource("12_lighting_grade")
+
+[sub_resource type="ShaderMaterial" id="PSDPorchGlowMaterial"]
+shader = ExtResource("13_porch_glow")
 
 [sub_resource type="SphereShape3D" id="PlayerFootShape"]
 radius = 0.13
@@ -113,6 +122,36 @@ script = ExtResource("11_collision_debug")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 layer = 4
+
+[node name="LightingOverlay" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="Atmosphere" type="ColorRect" parent="LightingOverlay"]
+material = SubResource("PSDGradeMaterial")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="PorchGlow" type="ColorRect" parent="LightingOverlay"]
+visible = false
+material = SubResource("PSDPorchGlowMaterial")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="LightingControls" type="CanvasLayer" parent="."]
+layer = 21
+
+[node name="LightingPicker" type="Control" parent="LightingControls"]
+script = ExtResource("14_lighting_ui")
 
 [node name="TouchOverlay" type="CanvasLayer" parent="."]
 layer = 20
