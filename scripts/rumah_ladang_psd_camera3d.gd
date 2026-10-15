@@ -15,6 +15,10 @@ const GROUND_Z: float = -0.10
 @onready var art: Node3D = $ArtRig
 @onready var player: CharacterBody3D = $Run8Player
 @onready var mobile: Control = $TouchOverlay/TouchControls
+@onready var character_canvas: CanvasLayer = $CharacterOverlay
+@onready var projected: AnimatedSprite2D = $CharacterOverlay/ProjectedPlayer
+@onready var foreground_canvas: CanvasLayer = $ForegroundOverlay
+@onready var driver: AnimatedSprite3D = $Run8Player/AnimatedSprite3D
 @onready var weather_canvas: CanvasLayer = $WeatherOverlay
 @onready var weather: Node2D = $WeatherOverlay/RainWeather
 var touch_direction: Vector2 = Vector2.ZERO
@@ -30,11 +34,13 @@ func _ready() -> void:
   var source_local: Vector3 = item.position
   item.global_transform = Transform3D(art.global_basis, art.to_global(source_local))
  _refresh_psd_layers()
+ _initialize_camera_projected_art()
  mobile.move_changed.connect(_on_touch_move)
  mobile.run_changed.connect(_on_touch_run)
  # The old large debug banner is intentionally absent in playable scenes.
  _position_camera(true)
- _sync_weather_canvas()
+ _sync_camera_overlays()
+ _sync_projected_player()
  if psd_ready:
   print("LEMBAH ASRI MAIN PSD READY: four original layers, orthographic Camera3D, collision and RUN8/IDLE8")
  else:
@@ -66,6 +72,38 @@ func _refresh_psd_layers() -> void:
  else:
   for name in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
    get_node(name).visible = true
+
+func _initialize_camera_projected_art() -> void:
+ # Godot 4 Compatibility did not render Sprite3D children of our actor:
+ # independent GPU pixel tests gave zero protagonist pixels. Keep the genuine
+ # 3D physical player and editable PSD source nodes, but draw source sprite
+ # frames on Camera3D-aligned CanvasLayers, in original PSD occlusion order.
+ if not psd_ready:
+  return
+ projected.sprite_frames = driver.sprite_frames
+ projected.centered = false
+ projected.offset = Vector2(-256.0, -708.0) * float(player.get("raster_density"))
+ var density: float = float(player.get("raster_density"))
+ projected.scale = Vector2.ONE * (float(player.get("character_height_px")) / (640.0 * density))
+ projected.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+ driver.visible = false
+ for name in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
+  # Still individually visible/editable in native Godot 3D editor, hidden
+  # only while running to prevent duplicate layering in final compositing.
+  get_node(name).visible = false
+ _sync_projected_player()
+ print("PSD PLAYER PROJECTED READY: Camera3D world with real visible 2D sprite between background and front art")
+
+func _sync_projected_player() -> void:
+ if not psd_ready or projected.sprite_frames == null:
+  return
+ projected.position = _local_to_pixel(art.to_local(player.global_position))
+ if projected.animation != driver.animation:
+  projected.animation = driver.animation
+ if projected.frame != driver.frame:
+  projected.set_frame_and_progress(driver.frame, driver.frame_progress)
+ # Driver controls RUN8 timing, but the 2D sprite is a render-only mirror.
+ projected.stop()
 
 func _on_touch_move(direction: Vector2) -> void:
  touch_direction = direction
@@ -119,7 +157,8 @@ func _physics_process(_delta: float) -> void:
 
 func _process(delta: float) -> void:
  _position_camera(false, delta)
- _sync_weather_canvas()
+ _sync_camera_overlays()
+ _sync_projected_player()
 
 func _pixel_to_local(point: Vector2, z_depth: float = 0.0) -> Vector3:
  return Vector3((point.x - CANVAS_SIZE.x * 0.5) * ART_SCALE, (CANVAS_SIZE.y * 0.5 - point.y) * ART_SCALE, z_depth)
@@ -140,10 +179,13 @@ func _position_camera(instant: bool, delta: float = 0.0) -> void:
  else:
   camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-camera_smoothing * delta))
 
-func _sync_weather_canvas() -> void:
- # Orthographic 3D view rendered behind the original lightweight 2D GPU effects.
+func _sync_camera_overlays() -> void:
+ # All RGBA overlay layers share the identical Camera3D projection transform.
  var viewport_size: Vector2 = get_viewport().get_visible_rect().size
  var zoom: float = viewport_size.y / (camera.size / ART_SCALE)
  var center_pixel: Vector2 = _local_to_pixel(art.to_local(camera.global_position))
  var offset: Vector2 = viewport_size * 0.5 - center_pixel * zoom
- weather_canvas.transform = Transform2D(Vector2(zoom, 0.0), Vector2(0.0, zoom), offset)
+ var projection := Transform2D(Vector2(zoom, 0.0), Vector2(0.0, zoom), offset)
+ character_canvas.transform = projection
+ foreground_canvas.transform = projection
+ weather_canvas.transform = projection

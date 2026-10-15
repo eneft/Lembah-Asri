@@ -127,13 +127,41 @@ centered = true
 shaded = false
 texture = ExtResource("9_tree")
 
-[node name="WeatherOverlay" type="CanvasLayer" parent="."]
+[node name="CharacterOverlay" type="CanvasLayer" parent="."]
 layer = 1
+
+[node name="ProjectedPlayer" type="AnimatedSprite2D" parent="CharacterOverlay"]
+texture_filter = 1
+centered = false
+
+[node name="ForegroundOverlay" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="PSD_House" type="Sprite2D" parent="ForegroundOverlay"]
+position = Vector2(157, -107)
+texture_filter = 1
+centered = false
+texture = ExtResource("7_house")
+
+[node name="PSD_Banana" type="Sprite2D" parent="ForegroundOverlay"]
+position = Vector2(63, 217)
+texture_filter = 1
+centered = false
+texture = ExtResource("8_banana")
+
+[node name="PSD_ForegroundTree" type="Sprite2D" parent="ForegroundOverlay"]
+position = Vector2(-468, 341)
+texture_filter = 1
+centered = false
+texture = ExtResource("9_tree")
+
+[node name="WeatherOverlay" type="CanvasLayer" parent="."]
+layer = 3
 
 [node name="RainWeather" parent="WeatherOverlay" instance=ExtResource("10_weather")]
 
 [node name="HUD" type="CanvasLayer" parent="."]
-layer = 2
+layer = 4
 
 [node name="TouchOverlay" type="CanvasLayer" parent="."]
 layer = 20
