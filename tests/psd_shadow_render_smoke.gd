@@ -31,6 +31,7 @@ func _check() -> void:
  var player: CharacterBody3D = stage.get_node("Run8Player") as CharacterBody3D
  var driver: AnimatedSprite3D = player.get_node("AnimatedSprite3D") as AnimatedSprite3D
  var camera: Camera3D = stage.get_node("Camera3D") as Camera3D
+ shadow.call("_sync_shadow", 0.0, true)
  if shadow == null or shadow.material == null or shadow.sprite_frames == null:
   _fail("silhouette not initialized")
   return
