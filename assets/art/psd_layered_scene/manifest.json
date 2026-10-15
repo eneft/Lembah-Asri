@@ -119,6 +119,19 @@
       "visible": true
     },
     {
+      "name": "forground",
+      "filename": "11_foreground.png",
+      "bbox": [
+        0,
+        476,
+        613,
+        941
+      ],
+      "source_order": 10,
+      "opacity_already_baked": true,
+      "visible": true
+    },
+    {
       "name": "banana-tree",
       "filename": "06_banana.png",
       "bbox": [
