@@ -7,6 +7,13 @@ out=Path("assets/art/psd_layered_scene")
 out.mkdir(parents=True,exist_ok=True)
 psd=PSDImage.open(src)
 assert psd.size==(1672,941)
+print("FULL_PSD_LAYER_INVENTORY_START",flush=True)
+for i,layer in enumerate(psd):
+ print("FULL_PSD_LAYER:",json.dumps({"source_order":i,"name":str(layer.name),"group":bool(layer.is_group()),"visible":bool(layer.is_visible()),"kind":str(layer.kind),"bbox":list(map(int,layer.bbox))},ensure_ascii=False),flush=True)
+ if layer.is_group():
+  for j,sub in enumerate(layer):
+   print("FULL_PSD_CHILD:",json.dumps({"source_order":i,"child_order":j,"name":str(sub.name),"bbox":list(map(int,sub.bbox))},ensure_ascii=False),flush=True)
+print("FULL_PSD_LAYER_INVENTORY_END",flush=True)
 rename={
 "Background":"00_background",
 "layer-wooden-fence 2":"01_fence_right",
