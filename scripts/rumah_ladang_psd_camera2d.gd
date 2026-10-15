@@ -115,10 +115,17 @@ func _ready() -> void:
  collision_visual.set("clearance_radius", FOOT_CLEARANCE_PX)
  # The single-baked PNG contains roof/rocks/bridge: opt into conservative
  # soil/water footprint masks without changing shared legacy RainWeather.
+ # Blocked polygons come directly from the latest Photoshop Collision mask.
+ # Reject FULL puddle footprints touching house, fence, stone wall or river.
+ var puddle_obstacles: Array[PackedVector2Array] = []
+ for blocked in walkable_regions.values():
+  puddle_obstacles.append(blocked)
+ var unused_fixed_puddles: Array[Vector2] = []
  weather.call("configure_native2d_surfaces",
   NATIVE_SURFACES.bare_soil(),
-  NATIVE_SURFACES.puddle_spots(),
-  NATIVE_SURFACES.river_water())
+  unused_fixed_puddles,
+  NATIVE_SURFACES.river_water(),
+  puddle_obstacles)
  # Explicit global z ordering, independent of scene-tree sibling positions.
  # Back rain above background, front rain and impacts above character.
  for key in {"RainBack":1, "RainFront":10, "GroundPuddles":1,

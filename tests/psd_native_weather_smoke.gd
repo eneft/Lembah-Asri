@@ -23,16 +23,66 @@ func _check() -> void:
   _fail("baked one-image artwork unexpectedly split")
   return
  var puddle_entries: Array = puddles.get("entries")
- if puddle_entries.size() != 8:
-  _fail("expected eight grounded puddles, not twelve generic puddles")
+ var layout: Array = puddles.get("native_puddle_details")
+ if layout.size() < 7 or layout.size() > 11 or layout.size() != puddle_entries.size():
+  _fail("random puddle count must be 7-11: got " + str(layout.size()))
   return
- for entry in puddle_entries:
-  var spot := Vector2(entry.x, entry.y)
-  if not SURFACES.ellipse_on_soil(spot, soil):
-   _fail("puddle overlaps a wall or prop: " + str(spot))
+ var blocked: Array[PackedVector2Array] = []
+ var hand_collision: Dictionary = stage.get("walkable_regions")
+ for original in hand_collision.values():
+  blocked.append(original)
+ var widths: Dictionary = {}
+ var heights: Dictionary = {}
+ var unique_rows: Dictionary = {}
+ for i in range(layout.size()):
+  var detail: Dictionary = layout[i]
+  var spot: Vector2 = detail["center"]
+  var size: Vector2 = detail["size"]
+  var angle: float = float(detail["rotation"])
+  if not SURFACES.puddle_ellipse_on_soil(spot,size,angle,soil,blocked):
+   _fail("rotated puddle footprint over wall, rock, fence or river: " + str(spot))
    return
+  if not spot.is_equal_approx(Vector2(puddle_entries[i].x,puddle_entries[i].y)):
+   _fail("puddle visual and physics positions diverged")
+   return
+  if not bool(weather.call("is_in_puddle",spot)):
+   _fail("puddle is visible but cannot produce footstep water contact")
+   return
+  widths[roundi(size.x)] = true
+  heights[roundi(size.y)] = true
+  unique_rows[roundi(spot.y)] = true
+ if widths.size() < 4 or heights.size() < 3 or unique_rows.size() < 4:
+  _fail("puddles still look like uniformly spaced identical ellipses")
+  return
  if bool(weather.call("is_in_puddle",Vector2(378,568))):
-  _fail("wall-adjacent legacy puddle still creates footsteps")
+  _fail("legacy wall-adjacent puddle still active on single-image map")
+  return
+ var first_layout: Array = layout.duplicate(true)
+ puddles.call("regenerate_native_puddles",1234)
+ var fixed_layout_a: Array = (puddles.get("native_puddle_details") as Array).duplicate(true)
+ puddles.call("regenerate_native_puddles",1234)
+ var fixed_layout_b: Array = (puddles.get("native_puddle_details") as Array).duplicate(true)
+ if fixed_layout_a != fixed_layout_b:
+  _fail("explicit seed does not reproduce the same natural puddle layout")
+  return
+ puddles.call("regenerate_native_puddles",4567)
+ var next_layout: Array = puddles.get("native_puddle_details")
+ if next_layout == fixed_layout_a:
+  _fail("different rainy episode seed returned identical layout")
+  return
+ var count_before_weather: int = int(puddles.get("native_puddle_generation"))
+ # No repositioning while already raining (light -> heavy -> storm).
+ stage.call("_set_weather_mode",2,true)
+ var stable_rain: Array = (puddles.get("native_puddle_details") as Array).duplicate(true)
+ stage.call("_set_weather_mode",3,true)
+ stage.call("_set_weather_mode",4,true)
+ if stable_rain != (puddles.get("native_puddle_details") as Array) or int(puddles.get("native_puddle_generation")) != count_before_weather:
+  _fail("puddles teleported while rain intensity changed")
+  return
+ stage.call("_set_weather_mode",0,true)
+ stage.call("_set_weather_mode",2,true)
+ if int(puddles.get("native_puddle_generation")) != count_before_weather + 1:
+  _fail("new rain event failed to choose another distribution")
   return
  for entry in ground.get("entries"):
   if not SURFACES.point_in_any(Vector2(entry.x, entry.y),soil):
@@ -91,6 +141,6 @@ func _check() -> void:
  if not stage.get_node("StormWindGusts").visible:
   _fail("wind trails missing in heavy gusts")
   return
- print("PSD NATIVE WEATHER PASS: five presets, dark storm, gusts, lightning, 8 soil puddles, moving current and masked splashes")
+ print("PSD NATIVE WEATHER PASS: five presets, dark storm, gusts, lightning, randomized sized earth-only puddles, stable rainy episodes, moving river and masked splashes")
  stage.queue_free()
  quit(0)

@@ -61,3 +61,35 @@ static func ellipse_on_soil(point: Vector2, ground: Array[PackedVector2Array]) -
   if not point_in_any(point + delta, ground):
    return false
  return true
+
+static func puddle_ellipse_on_soil(
+ center: Vector2,
+ full_size: Vector2,
+ angle: float,
+ ground: Array[PackedVector2Array],
+ blocked: Array[PackedVector2Array] = []
+) -> bool:
+ # Test complete visible extent, not just the center. A 5% margin also
+ # accounts for irregular rims and texture antialiasing.
+ if not point_in_any(center, ground):
+  return false
+ for polygon in blocked:
+  if Geometry2D.is_point_in_polygon(center, polygon):
+   return false
+ var cosine: float = cos(angle)
+ var sine: float = sin(angle)
+ for radial in [0.55, 1.06]:
+  for index in range(24):
+   var theta: float = TAU * float(index) / 24.0
+   var local := Vector2(
+    cos(theta) * full_size.x * 0.5 * radial,
+    sin(theta) * full_size.y * 0.5 * radial)
+   var point := center + Vector2(
+    local.x * cosine - local.y * sine,
+    local.x * sine + local.y * cosine)
+   if not point_in_any(point, ground):
+    return false
+   for polygon in blocked:
+    if Geometry2D.is_point_in_polygon(point, polygon):
+     return false
+ return true

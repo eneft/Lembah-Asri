@@ -68,6 +68,12 @@ jobs:
           timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_weather_smoke.gd 2>&1 | tee psd-native-weather.log
           if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE WEATHER FAIL' psd-native-weather.log; then exit 1; fi
           grep -q 'PSD NATIVE WEATHER PASS:' psd-native-weather.log
+      - name: GPU verify randomized puddles on original Photoshop soil
+        run: |
+          set -o pipefail
+          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_puddle_render.gd 2>&1 | tee natural-puddles.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATURAL PUDDLES RENDER FAIL' natural-puddles.log; then exit 1; fi
+          grep -q 'PSD NATURAL PUDDLES RENDER PASS:' natural-puddles.log
       - name: GPU verify moving river, cloudy darkness and lightning
         run: |
           set -o pipefail

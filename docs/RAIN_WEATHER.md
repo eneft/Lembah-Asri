@@ -62,3 +62,24 @@ flattened image, this is animated **specular/current detail**, not physically
 warping or reflowing the original painted water beneath every rock.
 Mask corners can be adjusted by editing `native_surface_zones.gd` later.
 The original Camera3D and all source PSD layers remain unchanged.
+
+
+## Natural, collision-safe puddles in layered Camera2D (October 2026)
+The first wetland pass mistakenly hardcoded eight nearly identical circles
+in rows. Native Camera2D now chooses **7–11 different irregular puddles**
+from polygon-constrained open soil on **each new rain episode**, not every
+frame. `native_puddle_layout.gd` tests 48 probes per ellipse, rejects any
+intersections with the 8 Photoshop-authored red collision obstacle zones,
+and enforces loose separation. Width, height, rotation, reflection brightness,
+phase, and position vary. Same-rain light/heavy/storm changes keep the exact
+positions; returning from clear/mendung to rain creates a fresh layout.
+Pools start at 66% size and grow slowly, staying stationary once placed.
+`rain_layer.gd` still renders all pools in one GPU MultiMesh and preserves
+the old static Camera3D layout. The native footstep splash now uses the
+actual rotated variable ellipse rather than a hardcoded 29×11 oval.
+Physical player movement, rain particle count, PSD layer order, bridge
+collision, and other weather states are unchanged. Soil masks are
+conservative estimates: they require visual verification against the art.
+`tests/psd_native_weather_smoke.gd` tests area containment, seed stability,
+weather lifecycle and variable dimensions, while
+`tests/psd_native_puddle_render.gd` checks distinct rendered GPU pixels.

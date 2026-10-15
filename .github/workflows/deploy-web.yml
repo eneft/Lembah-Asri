@@ -242,6 +242,13 @@ jobs:
           if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE WEATHER RENDER FAIL' native-weather-gpu-export.log; then exit 1; fi
           grep -q 'PSD NATIVE WEATHER RENDER PASS:' native-weather-gpu-export.log
 
+      - name: Verify natural earth puddles are visible before Web export
+        run: |
+          set -o pipefail
+          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_puddle_render.gd 2>&1 | tee natural-puddles-export.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATURAL PUDDLES RENDER FAIL' natural-puddles-export.log; then exit 1; fi
+          grep -q 'PSD NATURAL PUDDLES RENDER PASS:' natural-puddles-export.log
+
       - name: Export isolated native Camera2D PSD playable preview
         run: |
           set -euo pipefail

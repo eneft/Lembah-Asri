@@ -1,4 +1,5 @@
 extends Node2D
+const NATIVE_PUDDLE_LAYOUT = preload("res://scripts/weather/native_puddle_layout.gd")
 ## Lightweight world-space illustrated rain + true ground/water impacts.
 ## Drawn on the render clock; does not touch character motion or physics.
 var effect_kind: String = "rain_back"
@@ -20,6 +21,10 @@ var next_footstep_slot: int = 0
 # deliberately keep their existing animation/update paths unchanged.
 var native_ground_regions: Array[PackedVector2Array] = []
 var native_water_regions: Array[PackedVector2Array] = []
+var native_blocked_regions: Array[PackedVector2Array] = []
+var native_puddle_details: Array[Dictionary] = []
+var native_puddle_generation: int = 0
+var native_puddle_growth: float = 1.0
 var wind_strength: float = 0.0
 var wind_displacement: float = 0.0
 var yard_polygon: PackedVector2Array
@@ -142,7 +147,8 @@ func _seed_puddles(rng: RandomNumberGenerator) -> void:
 func set_native_terrain_mask(
  ground: Array[PackedVector2Array],
  puddles: Array[Vector2],
- river: Array[PackedVector2Array]) -> void:
+ river: Array[PackedVector2Array],
+ blocked: Array[PackedVector2Array] = []) -> void:
  if effect_kind == "yard":
   native_ground_regions = ground
   for i in range(entries.size()):
@@ -150,18 +156,11 @@ func set_native_terrain_mask(
   _update_batch()
  elif effect_kind == "puddle":
   native_ground_regions = ground
-  entries.clear()
-  # Shared legacy puddle data comes from a read-only const Array: assign
-  # a new writable Array rather than trying to clear the original constant.
-  puddle_positions = []
-  for spot in puddles:
-   puddle_positions.append(spot)
-  var rng := RandomNumberGenerator.new()
-  rng.seed = 20261015
-  _seed_puddles(rng)
-  if batched_mesh != null:
-   batched_mesh.instance_count = entries.size()
-  _update_batch()
+  native_blocked_regions = blocked
+  if native_ground_regions.is_empty():
+   push_error("Native puddles require an explicit earth mask")
+   return
+  regenerate_native_puddles()
  elif effect_kind == "water":
   native_water_regions = river
   entries.clear()
@@ -184,6 +183,37 @@ func set_native_terrain_mask(
   if batched_mesh != null:
    batched_mesh.instance_count = entries.size()
   _update_batch()
+
+func regenerate_native_puddles(seed: int = -1) -> void:
+ if effect_kind != "puddle" or native_ground_regions.is_empty():
+  return
+ native_puddle_details = NATIVE_PUDDLE_LAYOUT.generate(
+  native_ground_regions, native_blocked_regions, seed)
+ entries.clear()
+ puddle_positions = []
+ for detail in native_puddle_details:
+  var center: Vector2 = detail["center"]
+  puddle_positions.append(center)
+  entries.append(Vector4(center.x, center.y, float(detail["phase"]), 1.0))
+ native_puddle_generation += 1
+ native_puddle_growth = 0.66
+ if batched_mesh != null:
+  batched_mesh.instance_count = entries.size()
+ _update_batch()
+ print("PSD NATURAL PUDDLES READY: %d soil-only pools (rain cycle %d)" % [
+  entries.size(), native_puddle_generation])
+
+func native_puddle_contains(point: Vector2) -> bool:
+ for detail in native_puddle_details:
+  var center: Vector2 = detail["center"]
+  var diff: Vector2 = point - center
+  var local: Vector2 = diff.rotated(-float(detail["rotation"]))
+  var size: Vector2 = detail["size"]
+  var rx: float = maxf(1.0, size.x * native_puddle_growth * 0.43)
+  var ry: float = maxf(1.0, size.y * native_puddle_growth * 0.43)
+  if (local.x / rx) ** 2 + (local.y / ry) ** 2 <= 1.0:
+   return true
+ return false
 
 func _seed_footsteps() -> void:
  # Fixed-size ring-buffer: no new object is allocated for each footstep.
@@ -297,7 +327,11 @@ func _puddle_texture() -> Texture2D:
   for x in range(96):
    var fx: float = (float(x) - 47.5) / 46.0
    var fy: float = (float(y) - 23.5) / 20.0
-   var d: float = sqrt(fx * fx + fy * fy)
+   var theta: float = atan2(fy, fx)
+   # Irregular softly worn edge, not a repeated oval template.
+   var edge: float = 1.0 + 0.065 * sin(3.0 * theta + 0.8)
+   edge += 0.043 * sin(5.0 * theta - 1.1) + 0.022 * sin(8.0 * theta + 0.3)
+   var d: float = sqrt(fx * fx + fy * fy) / edge
    var fill: float = clampf((1.03 - d) / 0.24, 0.0, 1.0)
    if fill < 0.002:
     continue
@@ -306,7 +340,7 @@ func _puddle_texture() -> Texture2D:
    if fx > -0.57 and fx < 0.38 and fy < -0.10 and fy > -0.32:
     highlight = (1.0 - absf(fy + 0.21) / 0.12) * 0.58
    var shade: float = 0.18 + 0.13 * (1.0 - fy)
-   var alpha: float = minf(0.85, (0.43 + 0.2 * rim) * fill + highlight * fill)
+   var alpha: float = minf(0.68, (0.32 + 0.14 * rim) * fill + highlight * fill * 0.65)
    var tint := Color(0.39 + shade, 0.57 + shade * 0.58, 0.68 + shade * 0.45, alpha)
    if highlight > 0.0:
     tint = tint.lerp(Color(0.96, 0.99, 1.0, alpha), highlight * 0.7)
@@ -318,6 +352,8 @@ func _process(delta: float) -> void:
  # Cap cosmetic updates independently of player movement/camera.
  elapsed += minf(delta, 0.05)
  render_accumulator += minf(delta, 0.05)
+ if effect_kind == "puddle" and not native_puddle_details.is_empty():
+  native_puddle_growth = move_toward(native_puddle_growth, 1.0, minf(delta, 0.05) * 0.12)
  if effect_kind.begins_with("rain"):
   # Integrate lateral gust: no teleport when wind changes strength.
   wind_displacement += wind_strength * minf(delta, 0.05) * 320.0
@@ -356,15 +392,27 @@ func _update_rain() -> void:
   batched_mesh.set_instance_color(i, Color(0.84, 0.93, 1.0, base_alpha * (0.75 + 0.25 * drop.w) * strength))
 
 func _update_puddles() -> void:
- # Subtle glimmer animates the painted water surface, never the landscape.
+ # One GPU batch; pool positions and shape remain fixed throughout the rain.
  for i in range(entries.size()):
   var drop: Vector4 = entries[i]
-  var shimmer: float = sin(elapsed * 2.2 + drop.z)
-  var sx: float = drop.w * (0.77 + 0.015 * shimmer)
-  var sy: float = drop.w * 0.53
-  batched_mesh.set_instance_transform_2d(i,
-   Transform2D(0.0, Vector2(sx, sy), 0.0, Vector2(drop.x, drop.y)))
-  batched_mesh.set_instance_color(i, Color(0.92, 0.99, 1.0, (0.77 + 0.12 * shimmer) * strength))
+  var shimmer: float = sin(elapsed * 1.6 + drop.z)
+  if i < native_puddle_details.size():
+   var detail: Dictionary = native_puddle_details[i]
+   var size: Vector2 = detail["size"]
+   var angle: float = float(detail["rotation"])
+   var scale_xy: Vector2 = Vector2(size.x / 96.0, size.y / 48.0) * native_puddle_growth
+   batched_mesh.set_instance_transform_2d(i,
+    Transform2D(angle, scale_xy, 0.0, Vector2(drop.x, drop.y)))
+   var alpha: float = float(detail["opacity"]) * (0.91 + 0.09 * shimmer)
+   batched_mesh.set_instance_color(i, Color(0.88, 0.96, 1.0, alpha * strength))
+  else:
+   # Legacy Camera3D and existing tests retain their original appearance.
+   var sx: float = drop.w * (0.77 + 0.015 * shimmer)
+   var sy: float = drop.w * 0.53
+   batched_mesh.set_instance_transform_2d(i,
+    Transform2D(0.0, Vector2(sx, sy), 0.0, Vector2(drop.x, drop.y)))
+   batched_mesh.set_instance_color(i,
+    Color(0.92, 0.99, 1.0, (0.77 + 0.12 * shimmer) * strength))
 
 func _update_ground_impacts() -> void:
  # CPU updates a bounded pool at 20 Hz; the GPU still draws ONE MultiMesh.

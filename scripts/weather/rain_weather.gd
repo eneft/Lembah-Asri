@@ -50,7 +50,12 @@ func _make_pass(node_name: String, kind: String, depth: int, base_count: int) ->
  add_child(layer)
 
 func set_raining(active: bool) -> void:
+ var was_raining: bool = raining
  raining = active
+ # Stable during light/heavy/storm switches, fresh natural distribution
+ # only when a new rainy episode starts after clear/cloudy weather.
+ if native_masked and active and not was_raining:
+  $GroundPuddles.call("regenerate_native_puddles")
  for child in get_children():
   if child is CanvasItem:
    child.visible = active
@@ -62,12 +67,13 @@ func toggle_rain() -> void:
 func configure_native2d_surfaces(
  soil: Array[PackedVector2Array],
  native_puddles: Array[Vector2],
- river: Array[PackedVector2Array]) -> void:
+ river: Array[PackedVector2Array],
+ blocked: Array[PackedVector2Array] = []) -> void:
  native_masked = true
  var no_polygons: Array[PackedVector2Array] = []
  var no_puddles: Array[Vector2] = []
  $GroundSplashes.call("set_native_terrain_mask", soil, no_puddles, no_polygons)
- $GroundPuddles.call("set_native_terrain_mask", soil, native_puddles, no_polygons)
+ $GroundPuddles.call("set_native_terrain_mask", soil, native_puddles, no_polygons, blocked)
  $RiverRipples.call("set_native_terrain_mask", no_polygons, no_puddles, river)
  print("PSD NATIVE WEATHER MASK READY: %d soil-only puddles" % int($GroundPuddles.get("entries").size()))
 
@@ -89,13 +95,10 @@ func _process(delta: float) -> void:
  weather_clock += minf(delta, 0.05)
 
 func is_in_puddle(point: Vector2) -> bool:
- # Native single-image maps use ONLY the newly masked puddle centers. Old
- # scenes keep their historic twelve footprints, preserving legacy tests.
- var centers: Array = PUDDLE_CENTERS
+ # Match actual oriented/variable-sized native water, not old fixed circles.
  if native_masked:
-  centers = $GroundPuddles.get("entries")
- for entry in centers:
-  var center: Vector2 = Vector2(entry.x, entry.y) if native_masked else entry
+  return bool($GroundPuddles.call("native_puddle_contains", point))
+ for center in PUDDLE_CENTERS:
   var dx: float = (point.x - center.x) / 29.0
   var dy: float = (point.y - center.y) / 11.0
   if dx * dx + dy * dy < 1.0:
