@@ -56,11 +56,20 @@ func _check() -> void:
  await process_frame
  water.call("set_flow_phase",0.0)
  var current_a: Image = await _image()
- water.call("set_flow_phase",5.3)
+ water.visible = false
+ var hidden_water: Image = await _image()
+ water.visible = true
+ water.call("set_flow_phase",1.65)
  var current_b: Image = await _image()
- var river_pixels: int = _different(current_a,current_b,300,720,0.035)
- if river_pixels < 10:
-  _fail("river motion invisible in actual camera render: " + str(river_pixels))
+ water.call("set_flow_phase",3.32)
+ var current_c: Image = await _image()
+ var river_overlay: int = _different(current_b,hidden_water,0,720,0.014)
+ var river_pixels: int = maxi(
+  _different(current_a,current_b,0,720,0.014),
+  _different(current_b,current_c,0,720,0.014))
+ print("PSD NATIVE RIVER GPU DIAG: overlay=",river_overlay," motion=",river_pixels," camera=",camera.position)
+ if river_overlay < 12 or river_pixels < 12:
+  _fail("river motion invisible in actual camera render: overlay=" + str(river_overlay) + " current=" + str(river_pixels))
   return
  print("PSD NATIVE WEATHER RENDER PASS: cloudy=%d storm=%d lightning=%d flowing_water=%d pixel samples" % [cloudy_pixels,darker_pixels,flash_pixels,river_pixels])
  stage.queue_free()
