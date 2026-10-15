@@ -29,7 +29,11 @@ jobs:
           d=Path('assets/art/psd_layered_scene')
           m=json.loads((d/'manifest.json').read_text())
           c=json.loads((d/'collision_polygons.json').read_text())
-          assert len(m['layers'])==11 and len(c['polygons'])==5
+          assert len(m['layers'])==11, "Expected the 11 independently editable painted assets"
+          assert 1 <= len(c['polygons']) <= 128, "Collision count must follow authored PSD mask"
+          assert c['obstacle_count']==len(c['polygons'])
+          assert m['hero_marker_source_order'] is not None
+          assert m['layers'][0]['source_order']==0
           assert m['layers'][0]['name']=='Background'
           assert m['source_sha256']==hashlib.sha256(Path(m['source']).read_bytes()).hexdigest()
           for layer in m['layers']:

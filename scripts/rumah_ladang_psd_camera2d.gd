@@ -107,8 +107,10 @@ func _ready() -> void:
   if sprite == null or sprite.texture == null or sprite.centered:
    psd_ready = false
    push_error("PSD CAMERA2D: missing or incorrectly positioned editable PSD sprite")
+ _apply_psd_layer_manifest()
  _load_psd_authored_collision()
- _build_native_collision()
+ if psd_ready:
+  _build_native_collision()
  collision_visual.set("walkable_regions", walkable_regions)
  collision_visual.set("clearance_radius", FOOT_CLEARANCE_PX)
  # The single-baked PNG contains roof/rocks/bridge: opt into conservative
@@ -137,7 +139,70 @@ func _ready() -> void:
  _set_weather_mode(start_weather_mode, true)
  if not _is_walkable_foot(player.position):
   push_error("PSD CAMERA2D: player spawn outside original walk polygon")
- print("LEMBAH ASRI PSD CAMERA2D PREVIEW READY: 11 AUTHENTIC PSD LAYERS, five red-authored collision solids, RUN8+IDLE8 at Photoshop marker, Camera2D and weather")
+ print("LEMBAH ASRI PSD CAMERA2D PREVIEW READY: %d AUTHENTIC PSD LAYERS, %d red-authored collision solids, RUN8+IDLE8 at Photoshop marker, Camera2D and weather" % [psd_layer_stack.get_child_count() + 1, walkable_regions.size()])
+
+func _apply_psd_layer_manifest() -> void:
+ # The PSD itself defines the draw order. Never hardcode which foliage or
+ # fence goes before/after the hero: each Photoshop edit may change order.
+ var raw: String = FileAccess.get_file_as_string(PSD_MANIFEST_JSON)
+ var manifest: Variant = JSON.parse_string(raw)
+ if not (manifest is Dictionary):
+  psd_ready = false
+  push_error("PSD CAMERA2D: missing layer manifest")
+  return
+ var layers: Array = manifest.get("layers", [])
+ if layers.size() != psd_layer_stack.get_child_count() + 1 or layers.is_empty():
+  psd_ready = false
+  push_error("PSD CAMERA2D: scene artwork count does not match Photoshop manifest")
+  return
+ var art_by_file: Dictionary = {}
+ for child in psd_layer_stack.get_children():
+  var sprite: Sprite2D = child as Sprite2D
+  if sprite == null or sprite.texture == null:
+   psd_ready = false
+   return
+  art_by_file[sprite.texture.resource_path.get_file()] = sprite
+ var seen: Dictionary = {}
+ for layer_data in layers:
+  if not (layer_data is Dictionary):
+   psd_ready = false
+   return
+  var filename: String = str(layer_data.get("filename", ""))
+  var coordinates: Array = layer_data.get("bbox", [])
+  var source_order: int = int(layer_data.get("source_order", -1))
+  if coordinates.size() != 4 or source_order < 0 or seen.has(source_order):
+   psd_ready = false
+   push_error("PSD CAMERA2D: invalid or duplicate Photoshop layer metadata")
+   return
+  seen[source_order] = true
+  var offset := Vector2(float(coordinates[0]), float(coordinates[1]))
+  var expected_size := Vector2(float(coordinates[2]) - float(coordinates[0]), float(coordinates[3]) - float(coordinates[1]))
+  var target: Sprite2D
+  if filename == "00_background.png":
+   target = $Background
+   if source_order != 0:
+    psd_ready = false
+    push_error("PSD CAMERA2D: Background must remain the bottom PSD layer")
+    return
+  else:
+   target = art_by_file.get(filename) as Sprite2D
+  if target == null or target.texture == null or target.texture.get_size() != expected_size:
+   psd_ready = false
+   push_error("PSD CAMERA2D: PSD layer texture missing/mismatched for " + filename)
+   return
+  target.position = offset
+  target.z_index = source_order * 2
+  target.visible = bool(layer_data.get("visible", true))
+ var marker_order: int = int(manifest.get("hero_marker_source_order", -1))
+ if marker_order < 1 or seen.has(marker_order):
+  psd_ready = false
+  push_error("PSD CAMERA2D: character placeholder order absent/overlaps image")
+  return
+ # Shadows sit immediately below the player, with source ordering unchanged.
+ player.z_index = marker_order * 2
+ shadow.z_index = player.z_index - 1
+ $FootContactShadow.z_index = player.z_index - 1
+ print("PSD LAYER STACK READY: Background bottom; %d overlays and player at Photoshop source order %d" % [art_by_file.size(), marker_order])
 
 func _load_psd_authored_collision() -> void:
  # Red translucent pixels from the author's Photoshop Collision group are
@@ -154,8 +219,12 @@ func _load_psd_authored_collision() -> void:
   psd_ready = false
   return
  var regions: Array = parsed.get("polygons", [])
- if regions.size() != 5:
-  push_error("PSD CAMERA2D: expected five collision masks from the Photoshop group")
+ if regions.is_empty() or regions.size() > 128:
+  push_error("PSD CAMERA2D: Photoshop Collision layer has no valid solid areas or too many")
+  psd_ready = false
+  return
+ if int(parsed.get("obstacle_count", regions.size())) != regions.size():
+  push_error("PSD CAMERA2D: Photoshop Collision count inconsistent with mask metadata")
   psd_ready = false
   return
  walkable_regions.clear()

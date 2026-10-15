@@ -186,3 +186,23 @@ Those additional layers correctly align and can be edited in Godot, but
 Producing a genuinely empty base underneath those objects requires Photoshop
 inpainting/manual background cleanup, not auto-generated substitutes. PSD
 pixels are deliberately untouched by this importer.
+
+
+## Photoshop source updates and automatic layer/collision resync (15 October 2026)
+The user updated `assets/source_psd/Lembah asri tes scene`. New red Collision
+mask contains **eight** distinct blocked shapes instead of five. The old
+importer stopped on `len(polygons)==5`, leaving the Web preview using older
+PNG and JSON exports even though unrelated Godot tests passed. This is now
+fixed: the importer accepts the actual PSD obstruction count (1–128), records
+`obstacle_count` in the collision JSON, and records
+`hero_marker_source_order` alongside the placeholder bounding box.
+
+At scene entry, `_apply_psd_layer_manifest()` reads the **current exported
+Photoshop order, bounds, visibility, and pixel size** to place and stack all
+PSD sprites. `Background` must be source order zero and visually lowest;
+RUN8/IDLE8 and shadows occupy the placeholder's exact PSD layer position.
+The runtime and smoke test dynamically build as many native StaticBody2D
+polygon solids as the collision source defines, plus one edge boundary.
+The exporter does NOT repaint or reposition assets. If the PSD changes, its
+GitHub Actions export must pass and commit matching PNG/manifest/collision
+before any Web build using that update is considered current.

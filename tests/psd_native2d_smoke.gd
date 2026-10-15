@@ -31,8 +31,11 @@ func _check() -> void:
  if not bool(stage.get("psd_ready")):
   _fail("original PSD assets did not load")
   return
- if not hero.position.is_equal_approx(Vector2(1040, 505)):
-  _fail("physical foot must match the authored Photoshop character placeholder (1040,505)")
+ var authored_collision: Dictionary = JSON.parse_string(
+  FileAccess.get_file_as_string("res://assets/art/psd_layered_scene/collision_polygons.json"))
+ var marker: Array = authored_collision.get("hero_spawn_foot", [])
+ if marker.size() != 2 or not hero.position.is_equal_approx(Vector2(float(marker[0]), float(marker[1]))):
+  _fail("character must spawn at current Photoshop marker, not a stale fixed coordinate")
   return
  var full_fit: float = minf(1280.0 / 1672.0, 720.0 / 941.0)
  var expected_zoom: float = full_fit * float(stage.get("camera_follow_zoom"))
@@ -64,29 +67,42 @@ func _check() -> void:
  if stack == null or stack.get_child_count() != 10:
   _fail("not all ten individually editable PSD overlays imported")
   return
- var image_nodes := {
-  "FenceRight":[Vector2(1218,426),2],
-  "StoneWallLeft":[Vector2(261,520),3],
-  "FenceLeft":[Vector2(13,421),4],
-  "StoneWallBottom":[Vector2(500,663),5],
-  "WoodenBridge":[Vector2(1166,563),6],
-  "BananaTree":[Vector2(0,261),9],
-  "FenceFront":[Vector2(543,573),10],
-  "RoofTiles":[Vector2(138,109),11],
-  "Bush":[Vector2(600,597),12],
-  "PalmTree":[Vector2(0,0),13]
- }
- for name in image_nodes:
-  var layer: Sprite2D = stack.get_node_or_null(name) as Sprite2D
-  var expected: Array = image_nodes[name]
-  if layer == null or layer.texture == null or layer.centered:
-   _fail("PSD original layer missing: " + name)
+ var psd_manifest: Dictionary = JSON.parse_string(
+  FileAccess.get_file_as_string("res://assets/art/psd_layered_scene/manifest.json"))
+ var layers: Array = psd_manifest.get("layers", [])
+ if layers.size() != stack.get_child_count() + 1:
+  _fail("PSDs and Godot scene missing authentic layers")
+  return
+ var drawn_files: Dictionary = {}
+ for node in stack.get_children():
+  var art: Sprite2D = node as Sprite2D
+  if art == null or art.texture == null or art.centered:
+   _fail("missing real PSD layer image")
    return
-  if layer.position != expected[0] or layer.z_index != expected[1]:
-   _fail("Photoshop original position/stack corrupted: " + name)
+  drawn_files[art.texture.resource_path.get_file()] = art
+ for info in layers:
+  var bounds: Array = info["bbox"]
+  var filename: String = str(info["filename"])
+  var original_order: int = int(info["source_order"])
+  var item: Sprite2D = background if filename == "00_background.png" else drawn_files.get(filename) as Sprite2D
+  if item == null or item.texture == null:
+   _fail("Photoshop source layer missing: " + filename)
    return
- if hero.z_index != 8 or shadow.z_index != 7:
-  _fail("character is not at the authored Photoshop layer between bridge and banana")
+  if item.position != Vector2(float(bounds[0]),float(bounds[1])):
+   _fail("Photoshop world coordinate drift: " + filename)
+   return
+  if item.z_index != original_order * 2:
+   _fail("Photoshop layer order lost: " + filename)
+   return
+  if item.texture.get_size() != Vector2(float(bounds[2]) - float(bounds[0]),float(bounds[3]) - float(bounds[1])):
+   _fail("Photoshop pixel dimensions changed: " + filename)
+   return
+ if background.z_index != 0:
+  _fail("Background must be the bottom-most layer")
+  return
+ var hero_order: int = int(psd_manifest.get("hero_marker_source_order", -1))
+ if hero_order < 1 or hero.z_index != hero_order * 2 or shadow.z_index != hero.z_index - 1:
+  _fail("original Photoshop placeholder z order not applied to RUN8/IDLE8")
   return
  if stage.get_node_or_null("Collision") != null:
   _fail("Photoshop red collision paint was rendered as actual scenery")
@@ -134,29 +150,37 @@ func _check() -> void:
   _fail("native circular physical foot radius lost")
   return
  var container: Node2D = stage.get_node("CollisionBodies") as Node2D
+ var authored_shapes: Array = authored_collision.get("polygons", [])
+ if authored_shapes.is_empty() or authored_shapes.size() > 128:
+  _fail("source PSD collision contours missing")
+  return
  var solid_count: int = 0
  var boundary_count: int = 0
  for child in container.get_children():
   if not (child is StaticBody2D) or child.collision_layer != 2:
-   _fail("non-authoritative physics obstacle in map")
+   _fail("invalid collision body found")
    return
   var solid: CollisionPolygon2D = child.get_node_or_null("PSD_RedBlockedArea") as CollisionPolygon2D
-  var edge: CollisionPolygon2D = child.get_node_or_null("CanvasEdge") as CollisionPolygon2D
-  if solid != null and solid.build_mode == CollisionPolygon2D.BUILD_SOLIDS:
+  var border: CollisionPolygon2D = child.get_node_or_null("CanvasEdge") as CollisionPolygon2D
+  if solid != null:
+   if solid.build_mode != CollisionPolygon2D.BUILD_SOLIDS or solid_count >= authored_shapes.size():
+    _fail("collision body shape mismatch")
+    return
+   var points: PackedVector2Array = PackedVector2Array()
+   for pair in authored_shapes[solid_count]:
+    points.append(Vector2(float(pair[0]),float(pair[1])))
+   if solid.polygon != points:
+    _fail("Godot polygon differs from exact authored PSD collision contour")
+    return
    solid_count += 1
-  if edge != null and edge.build_mode == CollisionPolygon2D.BUILD_SEGMENTS:
+  if border != null and border.build_mode == CollisionPolygon2D.BUILD_SEGMENTS:
    boundary_count += 1
- if solid_count != 5 or boundary_count != 1:
-  _fail("must use exactly 5 authored PSD red collision areas and one outer boundary")
+ if solid_count != authored_shapes.size() or boundary_count != 1:
+  _fail("Godot collision count stale: got %d, expected %d" % [solid_count, authored_shapes.size()])
   return
- for safe in [Vector2(700,530),Vector2(820,565),Vector2(1040,505),Vector2(1320,680),Vector2(1460,739)]:
-  if not bool(stage.call("_is_walkable_foot",safe)):
-   _fail("PSD author intentionally left point walkable: " + str(safe))
-   return
- for blocked in [Vector2(600,290),Vector2(300,480),Vector2(840,735),Vector2(900,700),Vector2(1380,480)]:
-  if bool(stage.call("_is_walkable_foot",blocked)):
-   _fail("hand-painted Photoshop blocked region leaked: " + str(blocked))
-   return
+ if not bool(stage.call("_is_walkable_foot",hero.position)):
+  _fail("Photoshop character marker collides with newly painted obstacles")
+  return
  if stage.get_node_or_null("RainWeather/GroundPuddles") == null or stage.get_node_or_null("TouchOverlay/TouchControls") == null:
   _fail("weather and mobile input weren't migrated")
   return
@@ -164,6 +188,6 @@ func _check() -> void:
  if not stage.get_node("LightingOverlay/PorchGlow").visible:
   _fail("night lighting / porch shader not working")
   return
- print("PSD NATIVE2D PASS: original PSD 11 layers, hero at user marker, 5 authored collision solids, Camera2D, native RUN8/IDLE8 and weather")
+ print("PSD NATIVE2D PASS: %d original PSD art layers, %d hand-painted collision solids, hero at current marker, Camera2D, native RUN8/IDLE8 and weather" % [layers.size(),solid_count])
  stage.queue_free()
  quit(0)
