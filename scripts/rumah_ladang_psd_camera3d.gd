@@ -11,6 +11,22 @@ const GROUND_Z: float = -0.10
 @export var camera_smoothing: float = 4.0
 @export var walk_bounds: Rect2 = Rect2(65.0, 320.0, 1515.0, 540.0)
 
+# The scene is hand-painted three-quarter perspective, not a physically
+# projected 3D terrain. Scale the 2D visual only; the player's 3D foot,
+# collision, movement speed, and atlas pivot never change.
+@export_group("Character Painted Perspective")
+@export_range(0.7, 1.0, 0.01) var far_character_scale: float = 0.88
+@export_range(0.9, 1.1, 0.01) var middle_character_scale: float = 1.0
+@export_range(1.0, 1.4, 0.01) var near_character_scale: float = 1.18
+@export_range(0.0, 940.0, 1.0) var far_reference_y: float = 360.0
+@export_range(0.0, 940.0, 1.0) var middle_reference_y: float = 570.0
+@export_range(0.0, 940.0, 1.0) var near_reference_y: float = 810.0
+@export_range(0.0, 0.15, 0.005) var bridge_scale_bonus: float = 0.07
+@export_range(0.0, 1672.0, 1.0) var bridge_blend_start_x: float = 1070.0
+@export_range(0.0, 1672.0, 1.0) var bridge_blend_full_x: float = 1320.0
+@export_range(0.0, 941.0, 1.0) var bridge_blend_start_y: float = 480.0
+@export_range(0.0, 941.0, 1.0) var bridge_blend_full_y: float = 625.0
+
 @onready var camera: Camera3D = $Camera3D
 @onready var art: Node3D = $ArtRig
 @onready var player: CharacterBody3D = $Run8Player
@@ -94,10 +110,34 @@ func _initialize_camera_projected_art() -> void:
  _sync_projected_player()
  print("PSD PLAYER PROJECTED READY: Camera3D world with real visible 2D sprite between background and front art")
 
+func _character_depth_multiplier(foot_pixel: Vector2) -> float:
+ # Smooth C1-continuous scaling instead of abrupt per-area scale jumps.
+ # Use the world/PSD foot position, not viewport coordinates, so camera
+ # smoothing and resizing do not make the character pulse in size.
+ var scale_factor: float
+ if foot_pixel.y <= middle_reference_y:
+  var far_blend: float = smoothstep(far_reference_y, middle_reference_y, foot_pixel.y)
+  scale_factor = lerpf(far_character_scale, middle_character_scale, far_blend)
+ else:
+  var near_blend: float = smoothstep(middle_reference_y, near_reference_y, foot_pixel.y)
+  scale_factor = lerpf(middle_character_scale, near_character_scale, near_blend)
+ # The bottom-right bridge has more foreground visual mass than the middle
+ # yard. A softly blended horizontal * vertical correction matches this art
+ # without changing character size when walking sideways across the yard.
+ var bridge_weight: float = smoothstep(bridge_blend_start_x, bridge_blend_full_x, foot_pixel.x)
+ bridge_weight *= smoothstep(bridge_blend_start_y, bridge_blend_full_y, foot_pixel.y)
+ return clampf(scale_factor + bridge_scale_bonus * bridge_weight,
+  far_character_scale, near_character_scale + bridge_scale_bonus)
+
 func _sync_projected_player() -> void:
  if not psd_ready or projected.sprite_frames == null:
   return
- projected.position = _local_to_pixel(art.to_local(player.global_position))
+ var foot_pixel: Vector2 = _local_to_pixel(art.to_local(player.global_position))
+ projected.position = foot_pixel
+ var density: float = float(player.get("raster_density"))
+ var native_height_px: float = float(player.get("character_height_px"))
+ var base_scale: float = native_height_px / (640.0 * density)
+ projected.scale = Vector2.ONE * (base_scale * _character_depth_multiplier(foot_pixel))
  if projected.animation != driver.animation:
   projected.animation = driver.animation
  if projected.frame != driver.frame:

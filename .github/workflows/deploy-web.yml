@@ -48,6 +48,15 @@ jobs:
           fi
           grep -q 'PSD CAMERA3D PASS:' psd-camera3d-deploy.log
 
+      - name: Verify PSD character Y-depth and bridge scale before Web export
+        run: |
+          set -o pipefail
+          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_depth_scaling_smoke.gd 2>&1 | tee psd-depth-web.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD DEPTH FAIL' psd-depth-web.log; then
+            echo "PSD character bridge perspective scale failed"; exit 1
+          fi
+          grep -q 'PSD DEPTH PASS:' psd-depth-web.log
+
       - name: Verify weather effects before Web export
         run: |
           set -o pipefail

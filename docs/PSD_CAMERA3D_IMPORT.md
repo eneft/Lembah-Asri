@@ -22,3 +22,19 @@ The former main scene and original 2D rain/weather scripts are preserved; the PS
 - Existing GPU-batched six-layer rainfall, puddles and footstep splashes are reused in an orthographically aligned CanvasLayer. Press R to toggle the rain; mobile controls remain enabled on touch devices.
 - The legacy Stage 1, rain scripts and separate RUN8 scenes remain unchanged for regression tests.
 - CI verifies the playable default scene, Photoshop layer dimensions, z-order, 3D physics blockers, open bridge route, RUN8/IDLE8 and the weather overlay. Deployment checks that the exported main Web pack starts this PSD scene, not the legacy one.
+
+
+## Character perspective on painted 3/4 art (15 October 2026)
+The **world feet** of the avatar remain at their true Camera3D/CharacterBody3D location.
+Only `CharacterOverlay/ProjectedPlayer.scale` changes, with uniform x/y scale to
+preserve all RUN8/IDLE8 anatomy and the unmodified source atlas/pivot. The curve
+uses the source PSD foot **Y**, not viewport Y, preventing camera-follow pulsing:
+far at Y=360: 0.88×; yard middle at Y=570: 1.00×; near at Y=810: 1.18×.
+Two smoothstep segments make transitions continuous. A maximum +0.07 additional
+scale is blended only approaching the lower-right bridge (X=1070→1320,
+Y=480→625). Calibration parameters are exposed under `Character Painted Perspective`
+in the main scene's Inspector; collision size, sprite offsets, layer order,
+physical speed, and camera zoom are unchanged.
+A new Godot CI + Web-export smoke test checks far/middle/near, same-height yard
+vs bridge, smooth transitions, RUN8/IDLE8 direction inheritance, and stable foot
+pivot/physics collider.

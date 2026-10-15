@@ -62,6 +62,14 @@ jobs:
             echo "PSD Camera3D scene validation failed"; exit 1
           fi
           grep -q 'PSD CAMERA3D PASS:' psd-camera3d.log
+      - name: Verify continuous perspective character scaling and bridge correction
+        run: |
+          set -o pipefail
+          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_depth_scaling_smoke.gd 2>&1 | tee psd-depth.log
+          if grep -E 'SCRIPT ERROR|ERROR:|PSD DEPTH FAIL' psd-depth.log; then
+            echo "PSD character perspective depth regression"; exit 1
+          fi
+          grep -q 'PSD DEPTH PASS:' psd-depth.log
       - name: GPU check PSD protagonist is really visible in Camera3D
         run: |
           set -o pipefail
