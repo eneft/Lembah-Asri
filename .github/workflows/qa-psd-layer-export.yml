@@ -1,0 +1,26 @@
+name: QA extract split Lembah Asri PSD
+on:
+  push:
+    branches: [audit/lembah-asri-psd-oct15]
+    paths:
+      - tools/export_psd_layered_scene.py
+      - .github/workflows/qa-psd-layer-export.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psd-tools
+        run: python -m pip install --disable-pip-version-check "psd-tools>=1.10,<2" "Pillow>=10,<13"
+      - name: Extract original pixels and collision layer
+        run: python tools/export_psd_layered_scene.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: latest-scene-psd-layers
+          path: assets/art/psd_layered_scene/
+          if-no-files-found: error
