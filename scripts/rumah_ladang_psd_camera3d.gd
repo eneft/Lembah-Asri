@@ -32,11 +32,7 @@ func _ready() -> void:
  _refresh_psd_layers()
  mobile.move_changed.connect(_on_touch_move)
  mobile.run_changed.connect(_on_touch_run)
- var label := Label.new()
- label.text = "LEMBAH ASRI | PSD 4 LAYER | CAMERA3D | R: HUJAN" if psd_ready else "PSD CAMERA3D: ASET LAYER TIDAK LENGKAP"
- label.position = Vector2(20, 20)
- label.add_theme_font_size_override("font_size", 16)
- $HUD.add_child(label)
+ # The old large debug banner is intentionally absent in playable scenes.
  _position_camera(true)
  _sync_weather_canvas()
  if psd_ready:
