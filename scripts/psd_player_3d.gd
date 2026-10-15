@@ -1,4 +1,4 @@
-extends Node3D
+extends CharacterBody3D
 ## Approved native RUN8 + IDLE8 displayed on a genuine 3D animated sprite.
 const RUN8: SpriteFrames = preload("res://assets/characters/run8_proportional/Run8_SpriteFrames.tres")
 const IDLE8: SpriteFrames = preload("res://assets/characters/idle8_new/Idle8_SpriteFrames.tres")

@@ -11,4 +11,14 @@ The three smaller PNG files are committed directly. To avoid GitHub's large-requ
 Open `scenes/rumah_ladang_psd_camera3d.tscn` in Godot 4.3 and press F6. Order back to front: background -> player -> house -> banana -> foreground tree. Desktop controls WASD/arrow, Shift; touch controls mobile.
 
 The uploaded original PSD is preserved separately in `LembahAsri_PSD_Camera3D_Original_Layers.zip` in this conversation, including the four PNGs. The large binary PSD itself is **not stored in this Git repository** as part of this asset commit.
-The legacy default main scene and 2D rain/weather were not changed.
+The former main scene and original 2D rain/weather scripts are preserved; the PSD scene is now the game's default entry.
+
+
+## Godot main scene and collision integration (15 October 2026)
+- Run F5 to open the four-layer PSD scene. Each Sprite3D has an assigned PNG texture so it can be moved in the Godot editor.
+- Camera3D is orthographic. Camera bounds keep the source canvas in view, while RUN8+IDLE8 remains visually between background and house layers.
+- Physical character movement uses a CharacterBody3D with a SphereShape3D centered on the foot contact point. StaticBody3D colliders under ArtRig/CollisionGeometry block the house walls, extension, banana trunk, foreground trunk, and lower river bank. The upper bridge corridor is not blocked.
+- These collision dimensions are conservative editable proxies, not pixel-perfect shoreline tracing. Adjust them in the Godot editor after reviewing the exact art.
+- Existing GPU-batched six-layer rainfall, puddles and footstep splashes are reused in an orthographically aligned CanvasLayer. Press R to toggle the rain; mobile controls remain enabled on touch devices.
+- The legacy Stage 1, rain scripts and separate RUN8 scenes remain unchanged for regression tests.
+- CI verifies the playable default scene, Photoshop layer dimensions, z-order, 3D physics blockers, open bridge route, RUN8/IDLE8 and the weather overlay. Deployment checks that the exported main Web pack starts this PSD scene, not the legacy one.

@@ -1,41 +1,49 @@
 extends Node3D
-## True angled Camera3D + transparent independent Sprite3D planes.
-## Camera-facing art rig avoids projecting an already-isometric illustration
-## through a second perspective and keeps the Photoshop offsets aligned.
+## Genuine Camera3D PSD layers, editable 3D colliders and existing batched weather.
 const ART_SCALE: float = 0.01
 const CANVAS_SIZE: Vector2 = Vector2(1672.0, 941.0)
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
+const GROUND_Z: float = -0.10
+
 @export var walk_speed_px: float = 220.0
 @export var run_speed_px: float = 325.0
 @export var camera_distance: float = 24.0
 @export var camera_smoothing: float = 4.0
+@export var walk_bounds: Rect2 = Rect2(65.0, 320.0, 1515.0, 540.0)
+
 @onready var camera: Camera3D = $Camera3D
 @onready var art: Node3D = $ArtRig
-@onready var player: Node3D = $Run8Player
+@onready var player: CharacterBody3D = $Run8Player
 @onready var mobile: Control = $TouchOverlay/TouchControls
-var touch_direction := Vector2.ZERO
-var touch_run := false
+@onready var weather_canvas: CanvasLayer = $WeatherOverlay
+@onready var weather: Node2D = $WeatherOverlay/RainWeather
+var touch_direction: Vector2 = Vector2.ZERO
+var touch_run: bool = false
 var psd_ready: bool = false
 
 func _ready() -> void:
  camera.look_at(Vector3.ZERO, Vector3.UP)
  art.global_basis = camera.global_basis
- # Orient each PSD picture plane AND the player parallel to the Camera3D.
- # Flat image composition stays pixel-perfect despite genuine 3D depth.
+ # Keep PSD offsets while rotating each 2.5D plane parallel to the real Camera3D.
  for name in ["Background", "Run8Player", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
   var item: Node3D = get_node(name) as Node3D
   var source_local: Vector3 = item.position
   item.global_transform = Transform3D(art.global_basis, art.to_global(source_local))
  _refresh_psd_layers()
- mobile.connect("move_changed", Callable(self, "_on_touch_move"))
- mobile.connect("run_changed", Callable(self, "_on_touch_run"))
+ mobile.move_changed.connect(_on_touch_move)
+ mobile.run_changed.connect(_on_touch_run)
  var label := Label.new()
- label.text = "LEMBAH ASRI | PSD 4 LAYER | CAMERA 3D ORTHOGRAPHIC" if psd_ready else "PSD CAMERA3D: LAYER SUMBER BELUM TERSEDIA"
+ label.text = "LEMBAH ASRI | PSD 4 LAYER | CAMERA3D | R: HUJAN" if psd_ready else "PSD CAMERA3D: ASET LAYER TIDAK LENGKAP"
  label.position = Vector2(20, 20)
  label.add_theme_font_size_override("font_size", 16)
  $HUD.add_child(label)
  _position_camera(true)
- print("PSD CAMERA3D READY: Camera3D orthographic, 4 Sprite3D PSD planes and character after layer 1")
+ _sync_weather_canvas()
+ if psd_ready:
+  print("LEMBAH ASRI MAIN PSD READY: four original layers, orthographic Camera3D, collision and RUN8/IDLE8")
+ else:
+  push_error("PSD CAMERA3D: scene missing original exported assets")
+ print("PSD CAMERA3D COLLISION READY: house, side structure, banana, foreground tree, river bank, bridge opening")
 
 func _refresh_psd_layers() -> void:
  psd_ready = true
@@ -45,22 +53,20 @@ func _refresh_psd_layers() -> void:
   "PSD_Banana": "03_banana.png",
   "PSD_ForegroundTree": "04_foreground_tree.png"
  }
- for name in ["Background", "PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
+ for name in filenames:
   var layer: Sprite3D = get_node(name) as Sprite3D
   var path: String = "res://assets/art/psd_background/" + str(filenames[name])
-  # A lossless RGBA WebP of the exact PSD background is also committed.
-  # GitHub Actions materializes its identical PNG automatically.
   if name == "Background" and not ResourceLoader.exists(path):
    path = "res://assets/art/psd_background/01_background_lossless.webp"
   layer.texture = load(path) as Texture2D if ResourceLoader.exists(path) else null
   if layer.texture == null:
    psd_ready = false
  if not psd_ready:
-  var background: Sprite3D = get_node("Background") as Sprite3D
+  # Visible fallback is for debugging only; build tests reject missing originals.
+  var background: Sprite3D = $Background
   background.texture = load("res://assets/art/scenes/rumah_ladang_empty.png") as Texture2D
   for name in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
    get_node(name).visible = false
-  push_warning("PSD Camera3D: four transparent PNG layers missing; unpack the companion ZIP at project root")
  else:
   for name in ["PSD_House", "PSD_Banana", "PSD_ForegroundTree"]:
    get_node(name).visible = true
@@ -71,7 +77,12 @@ func _on_touch_move(direction: Vector2) -> void:
 func _on_touch_run(enabled: bool) -> void:
  touch_run = enabled
 
-func _process(delta: float) -> void:
+func _unhandled_input(event: InputEvent) -> void:
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_R:
+  weather.call("toggle_rain")
+  get_viewport().set_input_as_handled()
+
+func _read_motion() -> Vector2:
  var motion := Vector2.ZERO
  if Input.is_action_pressed("ui_left") or Input.is_physical_key_pressed(KEY_A):
   motion.x -= 1.0
@@ -83,31 +94,60 @@ func _process(delta: float) -> void:
   motion.y += 1.0
  if motion.length_squared() < 0.001:
   motion = touch_direction
+ return motion.normalized() if motion.length_squared() > 0.001 else Vector2.ZERO
+
+func _physics_process(_delta: float) -> void:
+ var motion := _read_motion()
+ var before: Vector3 = art.to_local(player.global_position)
  if motion.length_squared() > 0.001:
-  motion = motion.normalized()
-  var octant: int = posmod(int(round(motion.angle() / (PI * 0.25))), 8)
-  player.call("set_run_direction", DIRECTIONS[octant])
   var speed: float = run_speed_px if touch_run or Input.is_key_pressed(KEY_SHIFT) else walk_speed_px
-  var point := _local_to_pixel(art.to_local(player.global_position))
-  point += motion * speed * minf(delta, 1.0 / 30.0)
-  point = point.clamp(Vector2(110, 355), Vector2(1535, 795))
-  player.global_position = art.to_global(_pixel_to_local(point, -0.10))
- elif str(player.get("animation_state")) != "idle":
-  player.call("set_idle_direction", str(player.get("facing")))
+  player.velocity = art.global_basis * Vector3(motion.x, -motion.y, 0.0) * speed * ART_SCALE
+  player.move_and_slide()
+  var current: Vector3 = art.to_local(player.global_position)
+  var minimum: Vector2 = walk_bounds.position
+  var maximum: Vector2 = walk_bounds.end
+  current.x = clampf(current.x, (minimum.x - CANVAS_SIZE.x * 0.5) * ART_SCALE, (maximum.x - CANVAS_SIZE.x * 0.5) * ART_SCALE)
+  current.y = clampf(current.y, (CANVAS_SIZE.y * 0.5 - maximum.y) * ART_SCALE, (CANVAS_SIZE.y * 0.5 - minimum.y) * ART_SCALE)
+  current.z = GROUND_Z
+  player.global_position = art.to_global(current)
+  var octant: int = posmod(int(round(motion.angle() / (PI * 0.25))), 8)
+  if current.distance_to(before) > 0.0002:
+   player.call("set_run_direction", DIRECTIONS[octant])
+  else:
+   player.call("set_idle_direction", str(player.get("facing")))
+  weather.call("register_footstep", _local_to_pixel(current), current.distance_to(before) > 0.0002)
+ else:
+  player.velocity = Vector3.ZERO
+  if str(player.get("animation_state")) != "idle":
+   player.call("set_idle_direction", str(player.get("facing")))
+
+func _process(delta: float) -> void:
  _position_camera(false, delta)
+ _sync_weather_canvas()
 
 func _pixel_to_local(point: Vector2, z_depth: float = 0.0) -> Vector3:
- return Vector3((point.x - CANVAS_SIZE.x * 0.5) * ART_SCALE,
-  (CANVAS_SIZE.y * 0.5 - point.y) * ART_SCALE, z_depth)
+ return Vector3((point.x - CANVAS_SIZE.x * 0.5) * ART_SCALE, (CANVAS_SIZE.y * 0.5 - point.y) * ART_SCALE, z_depth)
 
 func _local_to_pixel(point: Vector3) -> Vector2:
- return Vector2(point.x / ART_SCALE + CANVAS_SIZE.x * 0.5,
-  CANVAS_SIZE.y * 0.5 - point.y / ART_SCALE)
+ return Vector2(point.x / ART_SCALE + CANVAS_SIZE.x * 0.5, CANVAS_SIZE.y * 0.5 - point.y / ART_SCALE)
 
 func _position_camera(instant: bool, delta: float = 0.0) -> void:
+ var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+ var half_height: float = camera.size * 0.5
+ var half_width: float = half_height * viewport_size.x / maxf(1.0, viewport_size.y)
+ var x_limit: float = maxf(0.0, CANVAS_SIZE.x * ART_SCALE * 0.5 - half_width)
+ var y_limit: float = maxf(0.0, CANVAS_SIZE.y * ART_SCALE * 0.5 - half_height)
  var origin_on_art: Vector3 = art.to_local(player.global_position)
- var target: Vector3 = art.to_global(Vector3(origin_on_art.x, origin_on_art.y, camera_distance))
+ var target: Vector3 = art.to_global(Vector3(clampf(origin_on_art.x, -x_limit, x_limit), clampf(origin_on_art.y, -y_limit, y_limit), camera_distance))
  if instant:
   camera.global_position = target
  else:
   camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-camera_smoothing * delta))
+
+func _sync_weather_canvas() -> void:
+ # Orthographic 3D view rendered behind the original lightweight 2D GPU effects.
+ var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+ var zoom: float = viewport_size.y / (camera.size / ART_SCALE)
+ var center_pixel: Vector2 = _local_to_pixel(art.to_local(camera.global_position))
+ var offset: Vector2 = viewport_size * 0.5 - center_pixel * zoom
+ weather_canvas.transform = Transform2D(Vector2(zoom, 0.0), Vector2(0.0, zoom), offset)
