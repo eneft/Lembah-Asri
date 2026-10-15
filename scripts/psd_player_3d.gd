@@ -35,6 +35,10 @@ func _ready() -> void:
   bank.add_frame(key, IDLE8.get_frame_texture(key, 0))
  if raster_density < 0.999:
   bank = _reduce_sprite_bank(bank)
+ # SpriteBase3D renders direct ImageTexture frames reliably. AtlasTexture
+ # regions worked in AnimatedSprite2D but produced ZERO visible pixels in
+ # this Camera3D scene despite loaded, nonblank frames.
+ bank = _bake_native_sprite3d_frames(bank)
  sprite.sprite_frames = bank
  sprite.pixel_size = PX_TO_UNIT * character_height_px / (BODY_NATIVE * raster_density)
  sprite.position = Vector3(0.0, (FOOT_Y - IMAGE_HEIGHT * 0.5) * raster_density * sprite.pixel_size, 0.0)
@@ -42,6 +46,7 @@ func _ready() -> void:
  sprite.flip_h = false
  sprite.shaded = false
  sprite.transparent = true
+ sprite.double_sided = true
  set_idle_direction("down")
  print("PSD 3D CHARACTER READY: RUN8+IDLE8, 112px world, 8 directions, atlas_count=" + str(generated_atlas_count))
 
@@ -69,6 +74,27 @@ func _reduce_sprite_bank(source_bank: SpriteFrames) -> SpriteFrames:
    frame.filter_clip = source_frame.filter_clip
    bank.set_frame(animation, i, frame, source_bank.get_frame_duration(animation, i))
  generated_atlas_count = cache.size()
+ return bank
+
+func _bake_native_sprite3d_frames(source_bank: SpriteFrames) -> SpriteFrames:
+ # Small independent 128x192 / cropped ImageTexture frames, generated once.
+ # Avoids AtlasTexture region/margin state being invisible in Godot Sprite3D.
+ var bank: SpriteFrames = source_bank.duplicate(false) as SpriteFrames
+ var count: int = 0
+ for animation in source_bank.get_animation_names():
+  for i in range(source_bank.get_frame_count(animation)):
+   var source_texture: Texture2D = source_bank.get_frame_texture(animation, i)
+   var frame_image: Image = source_texture.get_image()
+   if frame_image == null or frame_image.is_empty():
+    push_error("PSD character missing GPU source frame: " + str(animation) + " / " + str(i))
+    continue
+   if frame_image.is_compressed() and frame_image.decompress() != OK:
+    push_error("PSD character could not decode " + str(animation) + " frame " + str(i))
+    continue
+   var direct_frame: ImageTexture = ImageTexture.create_from_image(frame_image)
+   bank.set_frame(animation, i, direct_frame, source_bank.get_frame_duration(animation, i))
+   count += 1
+ print("PSD 3D TEXTURES BAKED: ", count, " native ImageTexture frames; no runtime AtlasTexture geometry")
  return bank
 
 func set_idle_direction(direction: String) -> void:
