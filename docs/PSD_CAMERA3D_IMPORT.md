@@ -206,3 +206,16 @@ polygon solids as the collision source defines, plus one edge boundary.
 The exporter does NOT repaint or reposition assets. If the PSD changes, its
 GitHub Actions export must pass and commit matching PNG/manifest/collision
 before any Web build using that update is considered current.
+
+
+## Foreground from latest Photoshop document
+The latest edited Photoshop source contains an additional pixel layer **`forground`**
+(spelled exactly that way in Photoshop). It has authored bounds
+`[0,476,613,941]`, full opacity, source layer index 10, immediately in
+front of the real RUN8/IDLE8 protagonist at source layer index 9. The
+PSD importer exports its original pixels as `11_foreground.png` and the
+Godot Camera2D preview loads it as a separate `Foreground` Sprite2D.
+All positions and stacking derive from `manifest.json`, never from
+generated image guesses. Unknown authored Photoshop layers now raise an
+import error instead of silently disappearing. Keep the PSD layer name
+unchanged or update the explicit importer mapping deliberately.
