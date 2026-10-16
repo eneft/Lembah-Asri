@@ -279,6 +279,51 @@ func _check() -> void:
   _fail("door must not open when player is far from entrance")
   return
  hero.position = Vector2(float(marker[0]),float(marker[1]))
+ # RPG HUD: actual scene-bound character, weather/time, six-slot hotbar,
+ # functional journal/inventory/map/menu and mobile input modal isolation.
+ var hud: Control = stage.get_node_or_null("RPGHUD/HUDCanvas") as Control
+ if hud == null:
+  _fail("RPG HUD V1 missing from live Camera2D scene")
+  return
+ if hud.get("hero") != hero or str(hud.get("weather_label")) != "HUJAN DERAS":
+  _fail("RPG HUD not bound to real hero/current weather")
+  return
+ if str(hud.get("phase_label")) != "SIANG":
+  _fail("RPG HUD not bound to actual lighting preset")
+  return
+ if int(hud.get("health")) >= 0 or int(hud.get("level")) >= 0:
+  _fail("HUD may not invent an active HP/level system")
+  return
+ hud.call("select_slot",1)
+ if str(hud.get("open_panel")) != "Jurnal":
+  _fail("journal hotbar slot does not open its interactive panel")
+  return
+ if touch.visible:
+  _fail("touch controls must not collide with an opened RPG modal")
+  return
+ hud.call("toggle_panel","Inventori")
+ if str(hud.get("open_panel")) != "Inventori":
+  _fail("inventory panel does not open")
+  return
+ hud.call("toggle_panel","Peta")
+ if str(hud.get("open_panel")) != "Peta":
+  _fail("RPG atlas map does not open")
+  return
+ hud.call("close_panel")
+ if bool(hud.call("is_modal_open")):
+  _fail("RPG panels cannot be closed")
+  return
+ if bool(touch.get("force_show_for_testing")) and not touch.visible:
+  _fail("mobile touch controls not restored after closing HUD")
+  return
+ hud.emit_signal("weather_delta",1)
+ if str(hud.get("weather_label")) != "BADAI":
+  _fail("RPG weather control does not change real game state")
+  return
+ hud.emit_signal("lighting_delta",1)
+ if str(hud.get("phase_label")) != "SORE":
+  _fail("RPG time control does not change real lighting")
+  return
  if stage.get_node_or_null("RainWeather/GroundPuddles") == null or stage.get_node_or_null("TouchOverlay/TouchControls") == null:
   _fail("weather and mobile input weren't migrated")
   return

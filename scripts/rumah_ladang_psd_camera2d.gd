@@ -75,6 +75,7 @@ const FRONT_DOOR_REACH: float = 145.0
 @onready var collision_visual: Node2D = $WalkablePolygons
 @onready var weather: Node2D = $RainWeather
 @onready var mobile: Control = $TouchOverlay/TouchControls
+@onready var rpg_hud: Control = $RPGHUD/HUDCanvas
 @onready var lighting_picker: Control = $LightingControls/LightingPicker
 @onready var atmosphere: ColorRect = $LightingOverlay/Atmosphere
 @onready var porch_light: ColorRect = $LightingOverlay/PorchGlow
@@ -86,6 +87,7 @@ const FRONT_DOOR_REACH: float = 145.0
 @onready var wind_gusts: Node2D = $StormWindGusts
 
 var psd_ready: bool = false
+var touch_pre_modal_visible: bool = false
 var bridge_wetness_current: float = 0.0
 var walkable_regions: Dictionary = {}
 # Additional known open-water exclusion; keeps authored PSD red polygons intact.
@@ -178,6 +180,16 @@ func _ready() -> void:
  mobile.run_changed.connect(_on_touch_run)
  mobile.interact_requested.connect(_on_action_requested)
  mobile.action_enabled = false
+ rpg_hud.call("bind_player", player)
+ rpg_hud.call("set_area", "RUMAH MASA KECIL")
+ rpg_hud.call("set_objective", "Jelajahi rumah masa kecilmu")
+ rpg_hud.connect("weather_delta", Callable(self, "_cycle_weather_mode"))
+ rpg_hud.connect("lighting_delta", Callable(self, "_cycle_lighting_preset"))
+ rpg_hud.connect("modal_changed", Callable(self, "_on_hud_modal_changed"))
+ # Existing manual weather/time logic remains. The new RPG panel replaces
+ # the two old floating debug widgets without changing their signals.
+ lighting_picker.visible = false
+ weather_picker.visible = false
  lighting_picker.connect("preset_delta", Callable(self, "_cycle_lighting_preset"))
  _set_lighting_preset(start_lighting_preset, true)
  weather_picker.connect("weather_delta", Callable(self, "_cycle_weather_mode"))
@@ -391,6 +403,11 @@ func _read_motion() -> Vector2:
  return input.normalized() if input.length_squared() > 0.001 else Vector2.ZERO
 
 func _physics_process(delta: float) -> void:
+ if bool(rpg_hud.call("is_modal_open")):
+  player.velocity = Vector2.ZERO
+  if str(player.get("animation_state")) != "idle":
+   player.call("set_idle_direction", str(player.get("facing")))
+  return
  var motion: Vector2 = _read_motion()
  var origin: Vector2 = player.position
  if motion.length_squared() < 0.001:
@@ -514,6 +531,7 @@ func _set_lighting_preset(index: int, instant: bool = false) -> void:
  lighting_target_strength = LIGHTING_STRENGTHS[lighting_preset_index]
  lighting_target_glow = PORCH_GLOW_STRENGTHS[lighting_preset_index]
  lighting_picker.call("set_lighting_label", LIGHTING_NAMES[lighting_preset_index])
+ rpg_hud.call("set_phase", ["PAGI","SIANG","SORE","MALAM"][lighting_preset_index])
  if instant:
   lighting_current_tint = lighting_target_tint
   lighting_current_strength = lighting_target_strength
@@ -542,6 +560,7 @@ func _tick_lighting(delta: float) -> void:
 func _set_weather_mode(index: int, instant: bool = false) -> void:
  weather_mode_index = posmod(index, WEATHER_NAMES.size())
  weather_picker.call("set_weather_label", WEATHER_NAMES[weather_mode_index])
+ rpg_hud.call("set_weather", WEATHER_NAMES[weather_mode_index])
  weather_tint_target = WEATHER_TINTS[weather_mode_index]
  weather_strength_target = 0.0 if weather_mode_index == 0 else 1.0
  weather.call("set_precipitation", PRECIPITATION_LEVELS[weather_mode_index])
@@ -623,6 +642,11 @@ func _can_use_front_door() -> bool:
 
 func _update_door_action_ui() -> void:
  var nearby: bool = _can_use_front_door()
+ if nearby:
+  var door_open: bool = bool(house_door.get("is_open"))
+  rpg_hud.call("set_context", "AKSI • Tutup pintu" if door_open else "AKSI • Buka pintu")
+ else:
+  rpg_hud.call("set_context", "")
  if mobile.action_enabled != nearby:
   mobile.action_enabled = nearby
   mobile.queue_redraw()
@@ -631,6 +655,20 @@ func _on_action_requested() -> void:
  if _can_use_front_door():
   house_door.call("toggle")
 
+func _on_hud_modal_changed(opened: bool) -> void:
+ # Keep touch move/run/Action untouched when in normal exploration.
+ # Hide them only behind a full-screen menu, restoring their exact state.
+ if opened:
+  touch_pre_modal_visible = mobile.visible
+  mobile.call("cancel_touches")
+  touch_direction = Vector2.ZERO
+  touch_run = false
+  mobile.visible = false
+  mobile.set_process_input(false)
+ else:
+  mobile.visible = touch_pre_modal_visible
+  mobile.set_process_input(mobile.visible)
+
 func _on_touch_move(direction: Vector2) -> void:
  touch_direction = direction
 
@@ -638,6 +676,8 @@ func _on_touch_run(active: bool) -> void:
  touch_run = active
 
 func _unhandled_input(event: InputEvent) -> void:
+ if bool(rpg_hud.call("is_modal_open")):
+  return
  if event is InputEventKey and event.pressed and not event.echo:
   if event.keycode == KEY_E or event.keycode == KEY_F:
    _on_action_requested()
