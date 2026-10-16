@@ -13,8 +13,8 @@ func _fail(message: String) -> void:
  quit(1)
 
 func _check() -> void:
- if str(ProjectSettings.get_setting("application/run/main_scene")) != "res://scenes/rumah_ladang_psd_camera3d.tscn":
-  _fail("new approved PSD Camera3D main scene is not selected")
+ if str(ProjectSettings.get_setting("application/run/main_scene")) != "res://scenes/rumah_ladang_psd_camera2d.tscn":
+  _fail("production must run approved responsive Camera2D; older scenes remain separate")
   return
  if not ResourceLoader.exists("res://scenes/house_garden_stage1.tscn"):
   _fail("legacy Stage 1 scene was removed")
