@@ -135,6 +135,11 @@ func _ready() -> void:
   if item != null:
    item.z_index = int({"RainBack":1, "RainFront":10, "GroundPuddles":1,
     "GroundSplashes":7, "RiverRipples":7, "FootstepSplashes":8}[key])
+ # Mobile browser only: let the Godot canvas use the real screen aspect.
+ # The actual 1672x941 painted scene remains a uniformly scaled inset.
+ # Main Camera3D and desktop project settings are unaffected.
+ if _is_mobile_screen():
+  get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
  _configure_camera()
  get_viewport().size_changed.connect(_configure_camera)
  _sync_visual_scale()
