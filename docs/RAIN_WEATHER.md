@@ -157,3 +157,18 @@ Water-only pixel gating, PSD collision masks, character ordering, the bridge,
 the original artwork and the Camera3D version remain unchanged. GPU rendering
 and Web export checks are still authoritative; the final iPhone impression
 should be reviewed after publishing.
+
+## Preferred current restored; loop-seam flicker fix (16 October 2026)
+Mobile visual feedback confirmed that the long traveling current in the
+previous shader looked better than the later short oscillating displacement.
+The stronger downstream texture scroll has therefore been restored from
+the previously approved commit. Only its cycle blending was changed:
+the triangular mixing weight at the two offset reset points is replaced
+with smoothstep easing to remove visible abrupt transitions. The moving
+foam retains the same downstream patterns, but the brightest foam threshold
+is widened and rain glints toned down to avoid white blinking.
+
+The collision, PSD layers, player, river coverage/color gate, weather
+selection and legacy Camera3D remain unchanged. Native GPU regression
+now samples both sides of BOTH seam points while the shader clock is
+frozen; ordinary movement and rainy-weather visibility tests still run.
