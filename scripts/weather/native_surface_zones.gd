@@ -16,6 +16,14 @@ static func bare_soil() -> Array[PackedVector2Array]:
   ])
  ]
 
+static func bridge_deck() -> Array[PackedVector2Array]:
+ # Painted plank-face-only rain contacts, in original 1672x941 PSD pixels.
+ # Does not include handrails, river or the far-bank soil.
+ return [PackedVector2Array([
+  Vector2(1226, 684), Vector2(1326, 625),
+  Vector2(1479, 734), Vector2(1382, 773)
+ ])]
+
 static func rain_contact_soil() -> Array[PackedVector2Array]:
  # Impacts belong to the two original yard zones AND the exposed far-bank
  # footpath beyond the wooden bridge. Puddles remain only in bare_soil().

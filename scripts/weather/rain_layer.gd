@@ -42,7 +42,7 @@ func _ready() -> void:
  rng.seed = 20261014 + int(abs(effect_kind.hash()))
  if effect_kind.begins_with("rain"):
   _seed_rain(rng)
- elif effect_kind == "yard":
+ elif effect_kind == "yard" or effect_kind == "bridge":
   _seed_ground(rng)
  elif effect_kind == "water":
   _seed_water(rng)
@@ -160,7 +160,7 @@ func set_native_terrain_mask(
  puddles: Array[Vector2],
  river: Array[PackedVector2Array],
  blocked: Array[PackedVector2Array] = []) -> void:
- if effect_kind == "yard":
+ if effect_kind == "yard" or effect_kind == "bridge":
   native_ground_regions = ground
   native_ground_bounds.clear()
   native_ground_total_weight = 0.0
@@ -413,7 +413,7 @@ func _update_batch() -> void:
   _update_rain()
  elif effect_kind == "puddle":
   _update_puddles()
- elif effect_kind == "yard":
+ elif effect_kind == "yard" or effect_kind == "bridge":
   _update_ground_impacts()
  else:
   _update_impacts()
@@ -483,6 +483,10 @@ func _update_ground_impacts() -> void:
   else:
    spread = (0.42 + 0.29 * age) * size
    opacity = 0.87
+  if effect_kind == "bridge":
+   # Plank contacts are fine raindrop impact flecks, not pond-size rings.
+   spread *= 0.59
+   opacity *= 0.85
   var sx: float = spread
   var sy: float = spread * (0.89 + 0.11 * size)
   batched_mesh.set_instance_transform_2d(i,

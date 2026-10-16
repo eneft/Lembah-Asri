@@ -117,6 +117,21 @@ func _check() -> void:
   return
  print("PSD RIVER CONTINUITY PASS: phase deltas=%d, %d" % [
   jump_a, jump_b])
+ # GPU verify actual wooden planks visibly darken (not only the
+ # wetness shader uniform value). Cloud grading and all rain are disabled.
+ stage.call("_set_weather_mode",0,true)
+ var bridge: Sprite2D = stage.get_node("PSDLayerStack/WoodenBridge") as Sprite2D
+ var wet_mat: ShaderMaterial = bridge.material as ShaderMaterial
+ wet_mat.set_shader_parameter("rain_intensity",0.0)
+ wet_mat.set_shader_parameter("wetness",0.0)
+ var dry_frame: Image = await _image()
+ wet_mat.set_shader_parameter("wetness",1.0)
+ var wet_frame: Image = await _image()
+ var wet_pixel_count: int = _different(dry_frame,wet_frame,90,720,0.13)
+ if wet_pixel_count < 100:
+  _fail("rain-wet wooden bridge not visible in actual GPU render: " + str(wet_pixel_count))
+  return
+ print("PSD BRIDGE WET RENDER PASS: ",wet_pixel_count," affected pixels")
  print("PSD RIVER RAIN MOTION PASS: %d moving storm-tinted pixels" % rainy_flow)
  print("PSD NATIVE WEATHER RENDER PASS: cloudy=%d storm=%d lightning=%d flowing_water=%d pixel samples" % [cloudy_pixels,darker_pixels,flash_pixels,river_pixels])
  stage.queue_free()

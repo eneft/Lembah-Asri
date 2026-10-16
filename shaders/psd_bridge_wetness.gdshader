@@ -14,8 +14,11 @@ void fragment() {
     vec4 wood = texture(TEXTURE, UV);
     float amount = clamp(wetness, 0.0, 1.0);
     // Dampened, slightly darker wood with restrained cool-sky sheen.
-    vec3 soaked = wood.rgb * vec3(0.69, 0.76, 0.83) + vec3(0.020, 0.023, 0.026);
-    vec3 result = mix(wood.rgb, soaked, amount * 0.80);
+    vec3 soaked = wood.rgb * vec3(0.51, 0.59, 0.68) + vec3(0.015, 0.019, 0.025);
+    vec3 result = mix(wood.rgb, soaked, amount * 0.95);
+    // Restrained sky sheen across wet wood, no vertex movement.
+    float sheen = pow(max(0.0,sin(UV.y*95.0 + UV.x*10.0)),14.0);
+    result += vec3(0.035,0.046,0.057)*sheen*amount;
 
     // Sparse short-lived rain contact rings ON bridge pixels, never below.
     // UV-anchored pattern stays stable when Camera2D pans or zooms.

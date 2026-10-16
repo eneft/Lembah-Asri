@@ -71,10 +71,16 @@ func configure_native2d_surfaces(
  blocked: Array[PackedVector2Array] = [],
  impact_soil: Array[PackedVector2Array] = []) -> void:
  native_masked = true
+ # Only native layered scenes get bridge impacts. Legacy previews are intact.
+ if get_node_or_null("BridgeSplashes") == null:
+  _make_pass("BridgeSplashes", "bridge", 15, 70)
  var no_polygons: Array[PackedVector2Array] = []
  var no_puddles: Array[Vector2] = []
  var contact_soil: Array[PackedVector2Array] = impact_soil if not impact_soil.is_empty() else soil
  $GroundSplashes.call("set_native_terrain_mask", contact_soil, no_puddles, no_polygons)
+ $BridgeSplashes.call("set_native_terrain_mask",
+  preload("res://scripts/weather/native_surface_zones.gd").bridge_deck(),
+  no_puddles, no_polygons)
  $GroundPuddles.call("set_native_terrain_mask", soil, native_puddles, no_polygons, blocked)
  # Native PSD water impacts become denser without changing legacy scenes.
  # Still GPU MultiMesh instancing, not individual splash nodes.

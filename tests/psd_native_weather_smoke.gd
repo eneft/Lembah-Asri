@@ -65,6 +65,19 @@ func _check() -> void:
  if SURFACES.point_in_any(Vector2(1618, 872), river):
   _fail("painted far-bank trail was incorrectly treated as water")
   return
+ var impact_layer: Node2D = weather.get_node_or_null("BridgeSplashes") as Node2D
+ if impact_layer == null or impact_layer.z_index <= 12 or impact_layer.z_index >= 18:
+  _fail("wood-deck rain impacts missing or drawn in wrong layer")
+  return
+ var bridge_deck_mask: Array[PackedVector2Array] = SURFACES.bridge_deck()
+ var wood_hits: Array = impact_layer.get("entries")
+ if wood_hits.size() < 40:
+  _fail("too few raindrops actually hitting wooden planks")
+  return
+ for mark in wood_hits:
+  if not SURFACES.point_in_any(Vector2(mark.x,mark.y),bridge_deck_mask):
+   _fail("bridge rain contacts escaped plank-only area")
+   return
  var wooden_bridge: Sprite2D = stage.get_node("PSDLayerStack/WoodenBridge") as Sprite2D
  if wooden_bridge.material == null or (wooden_bridge.material as ShaderMaterial).shader == null:
   _fail("bridge lacks a material that responds to rain")
@@ -77,6 +90,10 @@ func _check() -> void:
  var bridge_wet_mat: ShaderMaterial = wooden_bridge.material as ShaderMaterial
  if float(bridge_wet_mat.get_shader_parameter("wetness")) < 0.80:
   _fail("bridge must become wet during heavy rainfall")
+  return
+ var river_materials: Array = stage.get_node("AnimatedRiverCurrent").get("material_instances")
+ if river_materials.is_empty() or (river_materials[0] as ShaderMaterial).get_shader_parameter("bridge_cutout") == null:
+  _fail("river current has no original PNG alpha protection for bridge")
   return
  stage.call("_set_weather_mode", 0, true)
  if float(bridge_wet_mat.get_shader_parameter("wetness")) > 0.01:

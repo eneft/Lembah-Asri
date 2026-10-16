@@ -158,11 +158,11 @@ func _ready() -> void:
  # Explicit global z ordering, independent of scene-tree sibling positions.
  # Back rain above background, front rain and impacts above character.
  for key in {"RainBack":3, "RainFront":30, "GroundPuddles":1,
-  "GroundSplashes":7, "RiverRipples":7, "FootstepSplashes":8}:
+  "GroundSplashes":7, "RiverRipples":7, "FootstepSplashes":8, "BridgeSplashes":15}:
   var item: Node2D = weather.get_node_or_null(key) as Node2D
   if item != null:
    item.z_index = int({"RainBack":3, "RainFront":30, "GroundPuddles":1,
-    "GroundSplashes":7, "RiverRipples":7, "FootstepSplashes":8}[key])
+    "GroundSplashes":7, "RiverRipples":7, "FootstepSplashes":8, "BridgeSplashes":15}[key])
  # Mobile browser only: let the Godot canvas use the real screen aspect.
  # The actual 1672x941 painted scene remains a uniformly scaled inset.
  # Main Camera3D and desktop project settings are unaffected.
