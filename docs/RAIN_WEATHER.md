@@ -208,19 +208,20 @@ foam intensity relative to heavy rain, without switching off the current.
 CI checks this relative foam setting, the randomized 3–4 puddle count,
 seeded rerolls, water-only masks and mobile no-crop camera zoom.
 
-## Mobile adaptive full-screen rendering (16 October 2026)
-The previous blurred ambient side extensions have been **removed**.
-On mobile, Camera2D uses independent horizontal and vertical zoom
-components equal to the actual viewport size divided by the original
-1672x941 PSD dimensions. This renders the entire unchanged scene
-edge-to-edge on ultra-wide phones with no cropping, letterboxing, or
-duplicated art. The intended tradeoff is mild aspect distortion when
-the device aspect ratio differs from the original 16:9. World positions,
-PSD layers, collisions, river and player movement are unchanged; touch
-controls remain in viewport coordinates. On desktop, the previous
-uniform follow zoom is retained. The viewport resize signal reapplies
-the correct camera zoom after rotation. The native weather smoke checks
-the full-screen viewport/world dimensions and absence of MobileAmbient.
+## Mobile adaptive full-screen follow camera (16 October 2026)
+The previous blurred ambient side extensions and non-uniform stretching
+have been **removed**. Mobile Camera2D uses one uniform zoom value:
+`max(viewport_width / 1672, viewport_height / 941) * mobile_follow_zoom`
+(default 1.12). The rendered viewport fills the phone's screen without
+distorting characters, trees, or the original PSD. The camera follows
+the player's world position with smoothing and clamps its viewport
+inside the original map boundaries. Areas outside the current viewport
+remain intact and become visible as the player walks; the art is not
+permanently cropped. Original PSD layers, physics and world coordinates
+are untouched. Touch controls remain in screen-space CanvasLayers.
+Desktop preserves its previous uniform 1.45x follow zoom. Rotation
+recalculates the camera framing. Native smoke tests validate uniform
+zoom, coverage, camera movement and edge clamping.
 
 ### Storm river visibility regression
 The Web export GPU check caught the river disappearing in heavy rain:
