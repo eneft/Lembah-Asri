@@ -18,6 +18,14 @@ func _check() -> void:
  if not scene_camera.zoom.is_equal_approx(Vector2.ONE * expected_zoom):
   _fail("mobile fit crops full PSD canvas instead of containing it")
   return
+ var ambient: CanvasLayer = stage.get_node("MobileAmbient") as CanvasLayer
+ var fill: TextureRect = ambient.get_node("AmbientFill") as TextureRect
+ if not ambient.visible or ambient.layer >= 0 or fill.texture != stage.get_node("Background").texture:
+  _fail("mobile ambient must use same PSD art in a lower canvas layer")
+  return
+ if fill.stretch_mode != TextureRect.STRETCH_KEEP_ASPECT_COVERED or fill.material == null:
+  _fail("mobile margins must be blurred and cover the entire device viewport")
+  return
  if scene_camera.limit_left >= 0 or scene_camera.limit_top >= 0 or scene_camera.limit_right <= 1672 or scene_camera.limit_bottom <= 941:
   _fail("mobile Camera2D limits pin the fitted background to one edge")
   return
@@ -26,6 +34,9 @@ func _check() -> void:
   return
  stage.set("force_mobile_fit_for_testing",false)
  stage.call("_configure_camera")
+ if ambient.visible:
+  _fail("desktop must not show mobile ambient margins")
+  return
  if scene_camera.limit_left != 0 or scene_camera.limit_right != 1672 or scene_camera.limit_top != 0 or scene_camera.limit_bottom != 941:
   _fail("desktop camera lost original follow boundaries")
   return
