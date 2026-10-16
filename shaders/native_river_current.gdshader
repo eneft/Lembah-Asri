@@ -9,6 +9,7 @@ uniform float flow_speed : hint_range(0.0, 3.0) = 0.84;
 uniform float current_strength : hint_range(0.0, 1.5) = 0.86;
 uniform float foam_strength : hint_range(0.0, 1.5) = 0.44;
 uniform float phase_offset = 0.0;
+uniform float rain_visibility = 0.0;
 
 float is_painted_water(vec3 rgb) {
  // Painted water is cyan/blue: B is clearly above R and near G.
@@ -42,7 +43,7 @@ void fragment() {
  sample_a = mix(still, sample_a, is_painted_water(sample_a));
  sample_b = mix(still, sample_b, is_painted_water(sample_b));
  vec3 traveling_paint = mix(sample_a, sample_b, blend_alt);
- float flow_mix = clamp(current_strength * 0.76, 0.0, 0.97);
+ float flow_mix = clamp(current_strength * 0.88, 0.0, 0.98);
  vec3 moving_water = mix(still, traveling_paint, flow_mix);
 
  // Narrow, advected whitewater veins move DOWNSTREAM on the same vector.
@@ -55,7 +56,9 @@ void fragment() {
  float bubbles = smoothstep(0.76, 0.99, crest2) * (1.0 - lane * 0.45);
  float crests = clamp(streaks * 0.65 + bubbles * foam_strength * 0.62, 0.0, 1.0);
  vec3 foam_tint = vec3(0.77, 0.94, 0.95);
- moving_water = mix(moving_water, foam_tint, crests * 0.42);
+ // Brighter traveling water streaks survive the heavy-rain darkening pass.
+ float crest_contrast = mix(0.47, 0.88, rain_visibility);
+ moving_water = mix(moving_water, foam_tint, crests * crest_contrast);
  // Alpha is FIXED at each water-colored pixel; only texture travels.
  COLOR = vec4(moving_water, water_mask * 0.97);
 }
