@@ -41,12 +41,12 @@ jobs:
           fi
           grep -q 'MAIN RUN8 INTEGRATION PASS' main-run8-integration.log
 
-      - name: Check layered PSD main Camera3D and physics
+      - name: Check preserved legacy Camera3D scene and physics
         run: |
           set -o pipefail
           timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_camera3d_smoke.gd 2>&1 | tee psd-camera3d-deploy.log
           if grep -E 'SCRIPT ERROR|ERROR:|PSD CAMERA3D FAIL' psd-camera3d-deploy.log; then
-            echo "PSD main scene validation failed"; exit 1
+            echo "Legacy Camera3D scene regression failed"; exit 1
           fi
           grep -q 'PSD CAMERA3D PASS:' psd-camera3d-deploy.log
 
@@ -95,7 +95,7 @@ jobs:
           test -s build/web/index.html
           test -s build/web/index.wasm
           test -s build/web/index.pck
-          # Run the exported 3D pack with a graphical Compatibility renderer, not the dummy headless mesh server.
+          # Run the EXPORTED DEFAULT Camera2D pack with a real graphical Compatibility renderer.
           mkdir -p /tmp/lembah-export-check
           cd /tmp/lembah-export-check
           xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/web-export-check.log"
@@ -103,14 +103,15 @@ jobs:
             echo "Exported pack reported a runtime problem"
             exit 1
           fi
-          # PSD Camera3D playable main scene announces its source-layer startup marker.
-          # 'ART LOADED:' belonged to the retired stage and produced a false
-          # deployment failure despite successful export and runtime startup.
-          grep -q 'LEMBAH ASRI MAIN PSD READY: four original layers, orthographic Camera3D, collision and RUN8/IDLE8' "$GITHUB_WORKSPACE/build/web-export-check.log"
-          # Verify that the actual main pack initializes the approved RUN8/IDLE8 3D sprite.
-          # The approved proportional RUN8 asset remains the authoritative game character.
-          grep -q 'PSD 3D CHARACTER READY: RUN8+IDLE8' "$GITHUB_WORKSPACE/build/web-export-check.log"
-          grep -q 'PSD COLLISION MAP READY: polygonal yard, narrow walkable bridge, far shore' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          # Inspect the ROOT pack itself. An isolated /camera2d/ export does
+          # not count as correct unless opening / starts the approved camera.
+          grep -q 'LEMBAH ASRI PSD CAMERA2D PREVIEW READY:' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          grep -q 'PSD NATIVE2D PLAYER READY: RUN8+IDLE8' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          grep -q 'PSD CAMERA2D COLLISION READY:' "$GITHUB_WORKSPACE/build/web-export-check.log"
+          if grep -q 'LEMBAH ASRI MAIN PSD READY: four original layers, orthographic Camera3D' "$GITHUB_WORKSPACE/build/web-export-check.log"; then
+            echo "Wrong main scene: legacy Camera3D exported at site root"
+            exit 1
+          fi
           cd "$GITHUB_WORKSPACE"
           touch build/web/.nojekyll
           echo "Web export files:"
@@ -153,7 +154,7 @@ jobs:
           from pathlib import Path
           path = Path("project.godot")
           text = path.read_text(encoding="utf-8")
-          src = 'run/main_scene="res://scenes/rumah_ladang_psd_camera3d.tscn"'
+          src = 'run/main_scene="res://scenes/rumah_ladang_psd_camera2d.tscn"'
           dst = 'run/main_scene="res://scenes/run8_proportional_test.tscn"'
           assert src in text, "Main scene has changed; do not replace it silently"
           path.write_text(text.replace(src, dst), encoding="utf-8")
@@ -203,7 +204,7 @@ jobs:
           from pathlib import Path
           p = Path("project.godot")
           s = p.read_text(encoding="utf-8")
-          old = 'run/main_scene="res://scenes/rumah_ladang_psd_camera3d.tscn"'
+          old = 'run/main_scene="res://scenes/rumah_ladang_psd_camera2d.tscn"'
           new = 'run/main_scene="res://scenes/rumah_ladang_run8_test.tscn"'
           assert old in s, "Old main scene must remain unchanged"
           p.write_text(s.replace(old, new), encoding="utf-8")
@@ -249,34 +250,18 @@ jobs:
           if grep -E 'SCRIPT ERROR|ERROR:|PSD NATURAL PUDDLES RENDER FAIL' natural-puddles-export.log; then exit 1; fi
           grep -q 'PSD NATURAL PUDDLES RENDER PASS:' natural-puddles-export.log
 
-      - name: Export isolated native Camera2D PSD playable preview
+      - name: Publish /camera2d/ compatibility route matching the playable root
         run: |
           set -euo pipefail
-          cp project.godot /tmp/lembah-main-before-camera2d.godot
-          trap 'cp /tmp/lembah-main-before-camera2d.godot project.godot' EXIT
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("project.godot")
-          text = p.read_text()
-          old = 'run/main_scene="res://scenes/rumah_ladang_psd_camera3d.tscn"'
-          new = 'run/main_scene="res://scenes/rumah_ladang_psd_camera2d.tscn"'
-          assert old in text, "Production Camera3D main was unexpectedly replaced"
-          p.write_text(text.replace(old, new))
-          PY
+          # Main export is ALREADY Camera2D. Do not rewrite project settings,
+          # reimport sprites or swap the correct production entrypoint.
           mkdir -p build/web/camera2d
-          godot --headless --path . --editor --quit
-          godot --headless --path . --export-release "Web" build/web/camera2d/index.html
+          cp build/web/index.* build/web/camera2d/
           test -s build/web/camera2d/index.html
           test -s build/web/camera2d/index.wasm
           test -s build/web/camera2d/index.pck
-          mkdir -p /tmp/lembah-camera2d-preview-check
-          (
-            cd /tmp/lembah-camera2d-preview-check
-            xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/camera2d/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/psd-camera2d-export-check.log"
-          )
-          if grep -E 'SCRIPT ERROR|ERROR:|PSD CAMERA2D:' build/psd-camera2d-export-check.log; then exit 1; fi
-          grep -q 'LEMBAH ASRI PSD CAMERA2D PREVIEW READY:' build/psd-camera2d-export-check.log
-          echo "CAMERA2D PREVIEW EXPORT PASS: alternate scene, production main unchanged"
+          cmp build/web/index.pck build/web/camera2d/index.pck
+          echo "CAMERA2D ROOT AND COMPATIBILITY PATH MATCH: same validated pack"
 
       - name: Upload browser build
         uses: actions/upload-artifact@v4

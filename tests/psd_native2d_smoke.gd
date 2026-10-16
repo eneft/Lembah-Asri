@@ -8,8 +8,8 @@ func _fail(reason: String) -> void:
  quit(1)
 
 func _check() -> void:
- if str(ProjectSettings.get_setting("application/run/main_scene")) != "res://scenes/rumah_ladang_psd_camera3d.tscn":
-  _fail("production main scene was switched before approval")
+ if str(ProjectSettings.get_setting("application/run/main_scene")) != "res://scenes/rumah_ladang_psd_camera2d.tscn":
+  _fail("published main scene must run the approved mobile-follow Camera2D")
   return
  var packed: PackedScene = load("res://scenes/rumah_ladang_psd_camera2d.tscn") as PackedScene
  if packed == null:

@@ -56,7 +56,7 @@ jobs:
           if grep -q 'RUMAH LADANG BACKGROUND PENDING' rumah-ladang-run8-test.log; then
             echo "::notice::Approved character-free Rumah-Ladang PNG is still missing from Git; fallback visible in test only."
           fi
-      - name: Native Camera2D migration smoke - main remains Camera3D
+      - name: Published Camera2D main scene and responsive mobile-follow smoke
         run: |
           set -o pipefail
           timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native2d_smoke.gd 2>&1 | tee psd-native2d.log
@@ -86,7 +86,7 @@ jobs:
           timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native2d_render_smoke.gd 2>&1 | tee psd-native2d-render.log
           if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE2D RENDER FAIL' psd-native2d-render.log; then exit 1; fi
           grep -q 'PSD NATIVE2D RENDER PASS:' psd-native2d-render.log
-      - name: Verify 3D camera PSD scene, 4 editable planes, and RUN8 IDLE8 layering
+      - name: Verify archived legacy Camera3D PSD scene remains intact
         run: |
           set -o pipefail
           timeout 60s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_camera3d_smoke.gd 2>&1 | tee psd-camera3d.log

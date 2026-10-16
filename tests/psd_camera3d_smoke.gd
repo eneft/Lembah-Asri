@@ -8,11 +8,9 @@ func _fail(reason: String) -> void:
  quit(1)
 
 func _check() -> void:
- var main_path: String = str(ProjectSettings.get_setting("application/run/main_scene"))
- if main_path != "res://scenes/rumah_ladang_psd_camera3d.tscn":
-  _fail("PSD Camera3D scene is not the playable main scene")
-  return
- var packed: PackedScene = load(main_path) as PackedScene
+ # Camera3D is preserved as a legacy standalone scene, never the game's
+ # default entrypoint. Keep its 3D and collision regression tests working.
+ var packed: PackedScene = load("res://scenes/rumah_ladang_psd_camera3d.tscn") as PackedScene
  if packed == null:
   _fail("scene cannot load")
   return
