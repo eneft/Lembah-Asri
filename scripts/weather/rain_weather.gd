@@ -74,6 +74,9 @@ func configure_native2d_surfaces(
  var no_puddles: Array[Vector2] = []
  $GroundSplashes.call("set_native_terrain_mask", soil, no_puddles, no_polygons)
  $GroundPuddles.call("set_native_terrain_mask", soil, native_puddles, no_polygons, blocked)
+ # Native PSD water impacts become denser without changing legacy scenes.
+ # Still GPU MultiMesh instancing, not individual splash nodes.
+ $RiverRipples.set("particle_count", 110)
  $RiverRipples.call("set_native_terrain_mask", no_polygons, no_puddles, river)
  print("PSD NATIVE WEATHER MASK READY: %d soil-only puddles" % int($GroundPuddles.get("entries").size()))
 
