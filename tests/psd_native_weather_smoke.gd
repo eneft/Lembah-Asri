@@ -82,6 +82,9 @@ func _check() -> void:
  if float(bridge_wet_mat.get_shader_parameter("wetness")) > 0.01:
   _fail("bridge must dry in clear weather")
   return
+ # Restore original raining state before existing puddle-episode tests;
+ # otherwise their first light-rain transition intentionally rerolls pools.
+ stage.call("_set_weather_mode", 3, true)
  if not bool(weather.get("native_masked")):
   _fail("single-background custom ground and water masks not installed")
   return
