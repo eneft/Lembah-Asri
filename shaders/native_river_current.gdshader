@@ -43,7 +43,7 @@ void fragment() {
  sample_a = mix(still, sample_a, is_painted_water(sample_a));
  sample_b = mix(still, sample_b, is_painted_water(sample_b));
  vec3 traveling_paint = mix(sample_a, sample_b, blend_alt);
- float flow_mix = clamp(current_strength * 0.68, 0.0, 0.90);
+ float flow_mix = clamp(current_strength * 0.82, 0.0, 0.95);
  vec3 moving_water = mix(still, traveling_paint, flow_mix);
 
  // Narrow, advected whitewater veins move DOWNSTREAM on the same vector.
@@ -57,7 +57,7 @@ void fragment() {
  float crests = clamp(streaks * 0.65 + bubbles * foam_strength * 0.62, 0.0, 1.0);
  vec3 foam_tint = vec3(0.70, 0.85, 0.89);
  // Brighter traveling water streaks survive the heavy-rain darkening pass.
- float crest_contrast = mix(0.26, 0.38, rain_visibility);
+ float crest_contrast = mix(0.30, 0.66, rain_visibility);
  moving_water = mix(moving_water, foam_tint, crests * crest_contrast);
  // Alpha is FIXED at each water-colored pixel; only texture travels.
  COLOR = vec4(moving_water, water_mask * 0.97);
