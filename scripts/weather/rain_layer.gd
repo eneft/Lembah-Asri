@@ -198,7 +198,7 @@ func regenerate_native_puddles(seed: int = -1) -> void:
   entries.append(Vector4(center.x, center.y, float(detail["phase"]), 1.0))
 
  native_puddle_generation += 1
- native_puddle_growth = 0.66
+ native_puddle_growth = 0.82
  if batched_mesh != null:
   batched_mesh.instance_count = entries.size()
   for i in range(native_puddle_details.size()):
@@ -413,10 +413,9 @@ func _update_rain() -> void:
   batched_mesh.set_instance_color(i, Color(0.84, 0.93, 1.0, base_alpha * (0.75 + 0.25 * drop.w) * strength))
 
 func _update_puddles() -> void:
- # One GPU batch; pool positions and shape remain fixed throughout the rain.
+ # Keep native puddles visible, with fixed shores and moving internal glints.
  for i in range(entries.size()):
   var drop: Vector4 = entries[i]
-  var shimmer: float = sin(elapsed * 1.6 + drop.z)
   if i < native_puddle_details.size():
    var detail: Dictionary = native_puddle_details[i]
    var size: Vector2 = detail["size"]
@@ -424,10 +423,12 @@ func _update_puddles() -> void:
    var scale_xy: Vector2 = Vector2(size.x / 96.0, size.y / 48.0) * native_puddle_growth
    batched_mesh.set_instance_transform_2d(i,
     Transform2D(angle, scale_xy, 0.0, Vector2(drop.x, drop.y)))
-   var alpha: float = float(detail["opacity"]) * (0.91 + 0.09 * shimmer)
-   batched_mesh.set_instance_color(i, Color(0.88, 0.96, 1.0, alpha * strength))
+   var alpha: float = clampf(float(detail["opacity"]) * 1.20, 0.82, 1.0)
+   batched_mesh.set_instance_color(i,
+    Color(1.0, 1.0, 1.0, alpha * maxf(0.85, strength)))
   else:
-   # Legacy Camera3D and existing tests retain their original appearance.
+   # Preserve the legacy Camera3D water behavior.
+   var shimmer: float = sin(elapsed * 1.6 + drop.z)
    var sx: float = drop.w * (0.77 + 0.015 * shimmer)
    var sy: float = drop.w * 0.53
    batched_mesh.set_instance_transform_2d(i,
