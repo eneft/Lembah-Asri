@@ -172,3 +172,29 @@ The collision, PSD layers, player, river coverage/color gate, weather
 selection and legacy Camera3D remain unchanged. Native GPU regression
 now samples both sides of BOTH seam points while the shader clock is
 frozen; ordinary movement and rainy-weather visibility tests still run.
+
+## Sparse puddles, storm-water stability and mobile contain (16 October 2026)
+The single-PSD Camera2D preview now has **3–4 visible puddles** chosen
+from eight approved soil pockets, with small location/size/shape variation.
+The collision validator rejects full footprints hitting wall, stones, house,
+bridge or river. Each rainy episode randomly reshuffles the pockets (with
+seeded deterministic tests); switching from rain to heavy rain or storm
+does not relocate an existing pool. If a Photoshop collision edit blocks
+a pocket, rejection sampling on the current soil mask fills remaining slots.
+Legacy 3D weather and existing PSD layer/collision geometry are unchanged.
+
+The preferred long downstream river motion is kept, but texture travel
+is limited to 28 rather than 46 screen pixels per scroll pass, bright foam
+is softer, and storm uses its own subdued foam/highlight parameters. Rain
+remains flowing, not strobing. Existing seam, rendered water-motion, storm
+visibility and GPU-batched weather tests remain in place.
+
+For mobile/touch screens **only**, the native PSD Camera2D preview expands
+the Godot logical viewport to the device aspect then fits the ENTIRE
+original 1672×941 artwork with uniform camera scaling (contain, zoom 1.0
+relative to full scene). Desktop retains its existing 1.45× follow zoom,
+and main Camera3D project settings are not changed. The image is never
+cropped, stretched non-uniformly, reflowed or edited. On portrait phones
+the unavoidable unused area outside the landscape artwork remains visible;
+turning the phone landscape makes the artwork significantly larger.
+The touch UI remains anchored to the real viewport.
