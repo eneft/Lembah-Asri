@@ -18,8 +18,17 @@ func _check() -> void:
  if not scene_camera.zoom.is_equal_approx(Vector2.ONE * expected_zoom):
   _fail("mobile fit crops full PSD canvas instead of containing it")
   return
+ if scene_camera.limit_left >= 0 or scene_camera.limit_top >= 0 or scene_camera.limit_right <= 1672 or scene_camera.limit_bottom <= 941:
+  _fail("mobile Camera2D limits pin the fitted background to one edge")
+  return
+ if not scene_camera.position.is_equal_approx(Vector2(836.0,470.5)):
+  _fail("mobile contained camera must center the entire original PSD")
+  return
  stage.set("force_mobile_fit_for_testing",false)
  stage.call("_configure_camera")
+ if scene_camera.limit_left != 0 or scene_camera.limit_right != 1672 or scene_camera.limit_top != 0 or scene_camera.limit_bottom != 941:
+  _fail("desktop camera lost original follow boundaries")
+  return
  var weather: Node2D = stage.get_node("RainWeather") as Node2D
  var ground: Node2D = weather.get_node("GroundSplashes") as Node2D
  var puddles: Node2D = weather.get_node("GroundPuddles") as Node2D
