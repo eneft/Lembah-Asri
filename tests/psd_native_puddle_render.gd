@@ -45,6 +45,14 @@ func _check() -> void:
  water.set("native_puddle_growth",1.0)
  water.call("_update_batch")
  var first: Image = await _frame()
+ # Verify contrast against the real painted terrain, not only layout metadata.
+ water.visible = false
+ var dry_soil: Image = await _frame()
+ water.visible = true
+ var puddle_visibility: int = _difference(first, dry_soil)
+ if puddle_visibility < 45:
+  _fail("rain puddles are still nearly invisible over painted dirt: " + str(puddle_visibility))
+  return
  var fixed_layout: Array = (water.get("native_puddle_details") as Array).duplicate(true)
  water.call("_update_batch")
  var steady: Image = await _frame()
@@ -59,7 +67,7 @@ func _check() -> void:
   _fail("different random seeds did not change placement")
   return
  # Strong layout difference from two real rendered images, not only metadata.
- if changed < 35:
+ if changed < 45:
   _fail("layout changes were not visible in GPU render: " + str(changed))
   return
  if steadiness > changed * 0.75:
