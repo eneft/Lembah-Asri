@@ -129,11 +129,11 @@ func _ready() -> void:
  # Explicit global z ordering, independent of scene-tree sibling positions.
  # Back rain above background, front rain and impacts above character.
  for key in {"RainBack":1, "RainFront":10, "GroundPuddles":1,
-  "GroundSplashes":7, "RiverRipples":6, "FootstepSplashes":8}:
+  "GroundSplashes":7, "RiverRipples":7, "FootstepSplashes":8}:
   var item: Node2D = weather.get_node_or_null(key) as Node2D
   if item != null:
    item.z_index = int({"RainBack":1, "RainFront":10, "GroundPuddles":1,
-    "GroundSplashes":7, "RiverRipples":6, "FootstepSplashes":8}[key])
+    "GroundSplashes":7, "RiverRipples":7, "FootstepSplashes":8}[key])
  _configure_camera()
  get_viewport().size_changed.connect(_configure_camera)
  _sync_visual_scale()
