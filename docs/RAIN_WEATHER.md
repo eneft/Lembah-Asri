@@ -221,3 +221,12 @@ there is room. This layer has no collision, no parallax, no input, and
 does not affect PSD layering, river, player coordinates, or Camera3D.
 Desktop leaves the ambient canvas hidden. Native weather smoke checks
 the containment zoom and backdrop configuration.
+
+### Storm river visibility regression
+The Web export GPU check caught the river disappearing in heavy rain:
+the previous shader classified water using the *already weather-tinted*
+screen sample. The water-only color mask now comes from the untinted,
+unchanged original PSD background, and the displaced samples are gated
+against that same original. The animated colors still sample the rendered
+scene, so the weather grading is preserved while dark storm light cannot
+turn the river mask off. The GPU rainy-motion check remains mandatory.
