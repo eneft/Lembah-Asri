@@ -88,6 +88,7 @@ const FRONT_DOOR_REACH: float = 145.0
 
 var psd_ready: bool = false
 var touch_pre_modal_visible: bool = false
+var hud_modal_controls_hidden: bool = false
 var bridge_wetness_current: float = 0.0
 var walkable_regions: Dictionary = {}
 # Additional known open-water exclusion; keeps authored PSD red polygons intact.
@@ -659,15 +660,18 @@ func _on_hud_modal_changed(opened: bool) -> void:
  # Keep touch move/run/Action untouched when in normal exploration.
  # Hide them only behind a full-screen menu, restoring their exact state.
  if opened:
-  touch_pre_modal_visible = mobile.visible
-  mobile.call("cancel_touches")
-  touch_direction = Vector2.ZERO
-  touch_run = false
-  mobile.visible = false
-  mobile.set_process_input(false)
- else:
+  if not hud_modal_controls_hidden:
+   touch_pre_modal_visible = mobile.visible
+   mobile.call("cancel_touches")
+   touch_direction = Vector2.ZERO
+   touch_run = false
+   mobile.visible = false
+   mobile.set_process_input(false)
+   hud_modal_controls_hidden = true
+ elif hud_modal_controls_hidden:
   mobile.visible = touch_pre_modal_visible
   mobile.set_process_input(mobile.visible)
+  hud_modal_controls_hidden = false
 
 func _on_touch_move(direction: Vector2) -> void:
  touch_direction = direction
