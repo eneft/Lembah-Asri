@@ -198,6 +198,19 @@ func _check() -> void:
  if not bool(stage.call("_is_walkable_foot",hero.position)):
   _fail("Photoshop character marker collides with newly painted obstacles")
   return
+ # Exact authored red obstacles stay unchanged; also block explicit water
+ # regions, without sacrificing the crossing on the wooden bridge.
+ for blocked_water in [Vector2(1100, 820), Vector2(1610, 615)]:
+  if bool(stage.call("_is_walkable_foot",blocked_water)):
+   _fail("native character can stand in river away from bridge: " + str(blocked_water))
+   return
+ for bridge_foot in [Vector2(1320, 678), Vector2(1400, 711)]:
+  if not bool(stage.call("_is_walkable_foot",bridge_foot)):
+   _fail("river guard incorrectly blocked the wooden crossing: " + str(bridge_foot))
+   return
+ if not bool(stage.call("_is_walkable_foot",Vector2(1618,872))):
+  _fail("far-bank rain path became an impassable water zone")
+  return
  if stage.get_node_or_null("RainWeather/GroundPuddles") == null or stage.get_node_or_null("TouchOverlay/TouchControls") == null:
   _fail("weather and mobile input weren't migrated")
   return

@@ -78,6 +78,9 @@ const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
 var psd_ready: bool = false
 var bridge_wetness_current: float = 0.0
 var walkable_regions: Dictionary = {}
+# Additional known open-water exclusion; keeps authored PSD red polygons intact.
+# Cached once; never rebuild polygon geometry during character movement.
+var river_no_walk_regions: Array[PackedVector2Array] = []
 var touch_direction: Vector2 = Vector2.ZERO
 var touch_run: bool = false
 var lighting_preset_index: int = 1
@@ -120,6 +123,7 @@ func _ready() -> void:
  bridge_material.shader = BRIDGE_WET_SHADER
  bridge_sprite.material = bridge_material
  _load_psd_authored_collision()
+ river_no_walk_regions = NATIVE_SURFACES.river_water()
  if psd_ready:
   _build_native_collision()
  collision_visual.set("walkable_regions", walkable_regions)
@@ -299,6 +303,12 @@ func _build_native_collision() -> void:
 func _walkable_pixel(foot: Vector2) -> bool:
  if foot.x < 0.0 or foot.y < 0.0 or foot.x >= CANVAS_SIZE.x or foot.y >= CANVAS_SIZE.y:
   return false
+ # A player must never step on painted water away from the bridge deck.
+ # River masks are physically excluded even when the PSD solid mask has
+ # no red paint there. The wooden bridge itself remains fully traversable.
+ for water_region in river_no_walk_regions:
+  if Geometry2D.is_point_in_polygon(foot, water_region):
+   return false
  for key in walkable_regions:
   if Geometry2D.is_point_in_polygon(foot, walkable_regions[key]):
    return false
