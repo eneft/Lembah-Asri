@@ -5,7 +5,7 @@ extends Node2D
 const CURRENT_SHADER = preload("res://shaders/native_river_current.gdshader")
 const CANVAS := Vector2(1672.0, 941.0)
 @export_range(0.0, 1.5, 0.05) var normal_strength: float = 0.86
-@export_range(0.0, 1.5, 0.05) var rainy_strength: float = 1.18
+@export_range(0.0, 1.5, 0.05) var rainy_strength: float = 1.48
 var current_strength: float = 0.86
 var material_instances: Array[ShaderMaterial] = []
 
@@ -39,8 +39,9 @@ func set_rain_boost(raining: bool) -> void:
  current_strength = rainy_strength if raining else normal_strength
  for material in material_instances:
   material.set_shader_parameter("current_strength", current_strength)
-  material.set_shader_parameter("foam_strength", 0.59 if raining else 0.44)
-  material.set_shader_parameter("flow_speed", 1.15 if raining else 0.84)
+  material.set_shader_parameter("foam_strength", 0.92 if raining else 0.44)
+  material.set_shader_parameter("rain_visibility", 1.0 if raining else 0.0)
+  material.set_shader_parameter("flow_speed", 1.35 if raining else 0.84)
 
 func set_flow_phase(phase: float) -> void:
  for material in material_instances:
