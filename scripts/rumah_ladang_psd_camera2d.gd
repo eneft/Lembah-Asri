@@ -393,7 +393,21 @@ func _configure_camera() -> void:
  # Desktop preserves the original 1.45x follow camera and controls.
  var fit_zoom: float = minf(viewport_size.x / CANVAS_SIZE.x,
   viewport_size.y / CANVAS_SIZE.y)
- var multiplier: float = 1.0 if _is_mobile_screen() else camera_follow_zoom
+ var mobile_fit: bool = _is_mobile_screen()
+ var multiplier: float = 1.0 if mobile_fit else camera_follow_zoom
+ # Camera2D's built-in 0..1672 / 0..941 limits force the map to one
+ # edge when the fitted mobile viewport is wider/taller than the map.
+ # Allow balanced letterboxing ONLY in contain mode. Keep desktop limits.
+ if mobile_fit:
+  camera.limit_left = -100000
+  camera.limit_top = -100000
+  camera.limit_right = 100000
+  camera.limit_bottom = 100000
+ else:
+  camera.limit_left = 0
+  camera.limit_top = 0
+  camera.limit_right = roundi(CANVAS_SIZE.x)
+  camera.limit_bottom = roundi(CANVAS_SIZE.y)
  camera.zoom = Vector2.ONE * fit_zoom * multiplier
  camera.position_smoothing_speed = camera_smoothing
  _move_camera_to_player(true)
