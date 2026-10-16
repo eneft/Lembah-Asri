@@ -139,6 +139,14 @@ func _check() -> void:
   if (mat.get_shader_parameter("flow_direction") as Vector2).length() < 0.9:
    _fail("river water shader has no downstream direction")
    return
+ # A storm must NOT increase foam/flash brightness over heavy rain.
+ var river_mat: ShaderMaterial = (current.get("material_instances") as Array)[0] as ShaderMaterial
+ var heavy_foam: float = float(river_mat.get_shader_parameter("foam_strength"))
+ stage.call("_set_weather_mode",4,true)
+ var storm_foam: float = float(river_mat.get_shader_parameter("foam_strength"))
+ if storm_foam >= heavy_foam:
+  _fail("storm river foam must be calmer than heavy-rain foam")
+  return
  for i in range(5):
   stage.call("_set_weather_mode",i,true)
   if bool(weather.get("raining")) != (i >= 2):
