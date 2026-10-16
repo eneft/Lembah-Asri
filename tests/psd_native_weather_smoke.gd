@@ -58,6 +58,30 @@ func _check() -> void:
  const SURFACES = preload("res://scripts/weather/native_surface_zones.gd")
  var soil: Array[PackedVector2Array] = SURFACES.bare_soil()
  var river: Array[PackedVector2Array] = SURFACES.river_water()
+ var contact_soil: Array[PackedVector2Array] = SURFACES.rain_contact_soil()
+ if river.size() != 2 or not SURFACES.point_in_any(Vector2(1618, 872), contact_soil):
+  _fail("far-bank earth must receive rain but never false river ripples")
+  return
+ if SURFACES.point_in_any(Vector2(1618, 872), river):
+  _fail("painted far-bank trail was incorrectly treated as water")
+  return
+ var wooden_bridge: Sprite2D = stage.get_node("PSDLayerStack/WoodenBridge") as Sprite2D
+ if wooden_bridge.material == null or (wooden_bridge.material as ShaderMaterial).shader == null:
+  _fail("bridge lacks a material that responds to rain")
+  return
+ var rain_front_layer: Node2D = weather.get_node("RainFront") as Node2D
+ if rain_front_layer.z_index <= wooden_bridge.z_index:
+  _fail("front rain must fall visibly over wooden bridge")
+  return
+ stage.call("_set_weather_mode", 3, true)
+ var bridge_wet_mat: ShaderMaterial = wooden_bridge.material as ShaderMaterial
+ if float(bridge_wet_mat.get_shader_parameter("wetness")) < 0.80:
+  _fail("bridge must become wet during heavy rainfall")
+  return
+ stage.call("_set_weather_mode", 0, true)
+ if float(bridge_wet_mat.get_shader_parameter("wetness")) > 0.01:
+  _fail("bridge must dry in clear weather")
+  return
  if not bool(weather.get("native_masked")):
   _fail("single-background custom ground and water masks not installed")
   return
@@ -133,13 +157,13 @@ func _check() -> void:
   _fail("new rain event failed to choose another distribution")
   return
  for entry in ground.get("entries"):
-  if not SURFACES.point_in_any(Vector2(entry.x, entry.y),soil):
+  if not SURFACES.point_in_any(Vector2(entry.x, entry.y),contact_soil):
    _fail("raindrop contact escaped bare earth")
    return
  ground.set("elapsed", float(ground.get("elapsed")) + 2.0)
  ground.call("_update_batch")
  for entry in ground.get("entries"):
-  if not SURFACES.point_in_any(Vector2(entry.x, entry.y),soil):
+  if not SURFACES.point_in_any(Vector2(entry.x, entry.y),contact_soil):
    _fail("recycled splash escaped bare earth")
    return
  for entry in water.get("entries"):
@@ -148,7 +172,7 @@ func _check() -> void:
    return
  var current: Node2D = stage.get_node("AnimatedRiverCurrent") as Node2D
  # River now uses ONE broad corridor, with blue-only color mask per pixel.
- # Rain ripple sample zones remain the three original water-safe polygons.
+ # Ripple sample zones exclude the dry far-bank footpath.
  if current.get_child_count() != 1:
   _fail("continuous river should be rendered in one GPU surface pass")
   return

@@ -16,6 +16,16 @@ static func bare_soil() -> Array[PackedVector2Array]:
   ])
  ]
 
+static func rain_contact_soil() -> Array[PackedVector2Array]:
+ # Impacts belong to the two original yard zones AND the exposed far-bank
+ # footpath beyond the wooden bridge. Puddles remain only in bare_soil().
+ var zones: Array[PackedVector2Array] = bare_soil()
+ zones.append(PackedVector2Array([
+  Vector2(1563, 844), Vector2(1669, 820),
+  Vector2(1670, 939), Vector2(1592, 939), Vector2(1563, 899)
+ ]))
+ return zones
+
 static func puddle_spots() -> Array[Vector2]:
  return [
   Vector2(605, 544), Vector2(689, 545), Vector2(775, 544),
@@ -37,10 +47,6 @@ static func river_water() -> Array[PackedVector2Array]:
   PackedVector2Array([
    Vector2(1545, 579), Vector2(1670, 585), Vector2(1670, 679),
    Vector2(1602, 661), Vector2(1554, 635)
-  ]),
-  PackedVector2Array([
-   Vector2(1563, 832), Vector2(1670, 820), Vector2(1670, 938),
-   Vector2(1614, 940), Vector2(1565, 892)
   ])
  ]
 

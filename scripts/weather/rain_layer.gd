@@ -21,6 +21,8 @@ var next_footstep_slot: int = 0
 # Recycled terrain impacts only. The rain, puddles, river and footprints
 # deliberately keep their existing animation/update paths unchanged.
 var native_ground_regions: Array[PackedVector2Array] = []
+var native_ground_bounds: Array[Rect2] = []
+var native_ground_total_weight: float = 0.0
 var native_water_regions: Array[PackedVector2Array] = []
 var native_blocked_regions: Array[PackedVector2Array] = []
 var native_puddle_details: Array[Dictionary] = []
@@ -82,30 +84,38 @@ func _seed_ground(rng: RandomNumberGenerator) -> void:
   _recycle_ground_hit(i, true)
 
 func _random_yard_point() -> Vector2:
- if not native_ground_regions.is_empty():
-  for trial in range(80):
+ if not native_ground_regions.is_empty() and native_ground_total_weight > 1.0:
+  # Weighted by exposed mask area, not fixed map coordinates. Allows rain
+  # contacts on the far-bank trail without clustering them there.
+  for trial in range(70):
+   var ticket: float = yard_rng.randf_range(0.0, native_ground_total_weight)
+   var chosen: int = native_ground_bounds.size() - 1
+   for i in range(native_ground_bounds.size()):
+    var area: float = native_ground_bounds[i].size.x * native_ground_bounds[i].size.y
+    ticket -= area
+    if ticket <= 0.0:
+     chosen = i
+     break
+   var box: Rect2 = native_ground_bounds[chosen]
    var candidate := Vector2(
-    yard_rng.randf_range(526.0, 1128.0),
-    yard_rng.randf_range(502.0, 599.0))
-   var valid: bool = false
-   for polygon in native_ground_regions:
-    if Geometry2D.is_point_in_polygon(candidate, polygon):
-     valid = true
-     for probe in [Vector2(12, 0), Vector2(-12, 0), Vector2(0, 10), Vector2(0, -10)]:
-      if not Geometry2D.is_point_in_polygon(candidate + probe, polygon):
-       valid = false
-       break
-     if valid:
-      return candidate
-  # An unquestionably clear open-soil fallback in the single-image yard.
+    yard_rng.randf_range(box.position.x, box.end.x),
+    yard_rng.randf_range(box.position.y, box.end.y))
+   var polygon: PackedVector2Array = native_ground_regions[chosen]
+   if not Geometry2D.is_point_in_polygon(candidate, polygon):
+    continue
+   var valid: bool = true
+   for probe in [Vector2(8, 0), Vector2(-8, 0), Vector2(0, 6), Vector2(0, -6)]:
+    if not Geometry2D.is_point_in_polygon(candidate + probe, polygon):
+     valid = false
+     break
+   if valid:
+    return candidate
   return Vector2(775.0, 540.0)
- # Rejection sampling distributes impacts across the same open dirt region,
- # rather than reusing a static handful of positions every cycle.
+ # Legacy weather scenes keep their original yard-only distribution.
  for trial in range(36):
   var candidate := Vector2(
    yard_rng.randf_range(275.0, 1440.0),
-   yard_rng.randf_range(488.0, 635.0)
-  )
+   yard_rng.randf_range(488.0, 635.0))
   if Geometry2D.is_point_in_polygon(candidate, yard_polygon):
    return candidate
  return Vector2(700.0, 555.0)
@@ -152,6 +162,17 @@ func set_native_terrain_mask(
  blocked: Array[PackedVector2Array] = []) -> void:
  if effect_kind == "yard":
   native_ground_regions = ground
+  native_ground_bounds.clear()
+  native_ground_total_weight = 0.0
+  for region in native_ground_regions:
+   if region.size() < 3:
+    push_error("Rain soil polygon requires at least three points")
+    return
+   var box := Rect2(region[0], Vector2.ZERO)
+   for corner in region:
+    box = box.expand(corner)
+   native_ground_bounds.append(box)
+   native_ground_total_weight += maxf(1.0, box.size.x * box.size.y)
   for i in range(entries.size()):
    _recycle_ground_hit(i, true)
   _update_batch()

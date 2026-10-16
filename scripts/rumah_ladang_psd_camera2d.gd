@@ -5,6 +5,7 @@ const CANVAS_SIZE := Vector2(1672.0, 941.0)
 const PSD_COLLISION_JSON := "res://assets/art/psd_layered_scene/collision_polygons.json"
 const PSD_MANIFEST_JSON := "res://assets/art/psd_layered_scene/manifest.json"
 const NATIVE_SURFACES = preload("res://scripts/weather/native_surface_zones.gd")
+const BRIDGE_WET_SHADER = preload("res://shaders/psd_bridge_wetness.gdshader")
 const WEATHER_NAMES := ["CERAH", "MENDUNG", "HUJAN RINGAN", "HUJAN DERAS", "BADAI"]
 const WEATHER_TINTS := [
  Color.WHITE, Color(0.71, 0.75, 0.78),
@@ -55,6 +56,7 @@ const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
 @export_range(7.0, 40.0, 1.0) var lightning_min_interval: float = 10.0
 
 @onready var psd_layer_stack: Node2D = $PSDLayerStack
+@onready var bridge_sprite: Sprite2D = $PSDLayerStack/WoodenBridge
 @onready var player: CharacterBody2D = $Run8Player
 @onready var visual: AnimatedSprite2D = $Run8Player/AnimatedSprite2D
 @onready var shadow: AnimatedSprite2D = $ProjectedShadow
@@ -74,6 +76,7 @@ const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
 @onready var wind_gusts: Node2D = $StormWindGusts
 
 var psd_ready: bool = false
+var bridge_wetness_current: float = 0.0
 var walkable_regions: Dictionary = {}
 var touch_direction: Vector2 = Vector2.ZERO
 var touch_run: bool = false
@@ -111,6 +114,11 @@ func _ready() -> void:
    psd_ready = false
    push_error("PSD CAMERA2D: missing or incorrectly positioned editable PSD sprite")
  _apply_psd_layer_manifest()
+ # A material changes wood shading only; original bridge art, layer order,
+ # pivot, collision mask and scene coordinates are intentionally unchanged.
+ var bridge_material := ShaderMaterial.new()
+ bridge_material.shader = BRIDGE_WET_SHADER
+ bridge_sprite.material = bridge_material
  _load_psd_authored_collision()
  if psd_ready:
   _build_native_collision()
@@ -128,14 +136,15 @@ func _ready() -> void:
   NATIVE_SURFACES.bare_soil(),
   unused_fixed_puddles,
   NATIVE_SURFACES.river_water(),
-  puddle_obstacles)
+  puddle_obstacles,
+  NATIVE_SURFACES.rain_contact_soil())
  # Explicit global z ordering, independent of scene-tree sibling positions.
  # Back rain above background, front rain and impacts above character.
- for key in {"RainBack":1, "RainFront":10, "GroundPuddles":1,
+ for key in {"RainBack":3, "RainFront":30, "GroundPuddles":1,
   "GroundSplashes":7, "RiverRipples":7, "FootstepSplashes":8}:
   var item: Node2D = weather.get_node_or_null(key) as Node2D
   if item != null:
-   item.z_index = int({"RainBack":1, "RainFront":10, "GroundPuddles":1,
+   item.z_index = int({"RainBack":3, "RainFront":30, "GroundPuddles":1,
     "GroundSplashes":7, "RiverRipples":7, "FootstepSplashes":8}[key])
  # Mobile browser only: let the Godot canvas use the real screen aspect.
  # The actual 1672x941 painted scene remains a uniformly scaled inset.
@@ -500,6 +509,12 @@ func _set_weather_mode(index: int, instant: bool = false) -> void:
  if instant:
   weather_tint_current = weather_tint_target
   weather_strength_current = weather_strength_target
+  bridge_wetness_current = minf(1.0, PRECIPITATION_LEVELS[weather_mode_index])
+ var wet_material: ShaderMaterial = bridge_sprite.material as ShaderMaterial
+ if wet_material != null:
+  wet_material.set_shader_parameter("wetness", bridge_wetness_current)
+  wet_material.set_shader_parameter("rain_intensity",
+   minf(1.0, PRECIPITATION_LEVELS[weather_mode_index]))
  _apply_weather_tint()
  print("PSD NATIVE2D WEATHER: " + WEATHER_NAMES[weather_mode_index])
 
@@ -521,6 +536,14 @@ func _trigger_lightning() -> void:
 
 func _tick_weather(delta: float) -> void:
  var step: float = minf(delta, 0.05)
+ # Wood wets with rain and dries more slowly once precipitation stops.
+ var rain_level: float = minf(1.0, PRECIPITATION_LEVELS[weather_mode_index])
+ var wet_rate: float = 1.6 if rain_level > bridge_wetness_current else 0.16
+ var wet_blend: float = 1.0 - exp(-wet_rate * step)
+ bridge_wetness_current = lerpf(bridge_wetness_current, rain_level, wet_blend)
+ var wet_material: ShaderMaterial = bridge_sprite.material as ShaderMaterial
+ if wet_material != null:
+  wet_material.set_shader_parameter("wetness", bridge_wetness_current)
  var blend: float = 1.0 - exp(-weather_transition_speed * step)
  weather_tint_current = weather_tint_current.lerp(weather_tint_target, blend)
  weather_strength_current = lerpf(weather_strength_current, weather_strength_target, blend)
