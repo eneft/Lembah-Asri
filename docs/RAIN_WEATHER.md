@@ -198,3 +198,12 @@ cropped, stretched non-uniformly, reflowed or edited. On portrait phones
 the unavoidable unused area outside the landscape artwork remains visible;
 turning the phone landscape makes the artwork significantly larger.
 The touch UI remains anchored to the real viewport.
+
+### Storm visibility CI calibration
+Regression testing revealed that excessively damping both flow and foam in
+heavy rain could make the rendered current disappear while it remained visible
+in sunshine. The native water now retains 28px sample travel, but has stronger
+body/crest contrast for normal and heavy rain. BADAI explicitly lowers
+foam intensity relative to heavy rain, without switching off the current.
+CI checks this relative foam setting, the randomized 3–4 puddle count,
+seeded rerolls, water-only masks and mobile no-crop camera zoom.
