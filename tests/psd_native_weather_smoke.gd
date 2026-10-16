@@ -9,29 +9,43 @@ func _check() -> void:
  var stage: Node2D = (load("res://scenes/rumah_ladang_psd_camera2d.tscn") as PackedScene).instantiate()
  root.add_child(stage)
  await process_frame
- # Mobile renders the unchanged 1672x941 PSD across the full viewport.
- # Camera zoom is independent per axis: no bars, duplicate blur or crop.
+ # Mobile viewport must cover the PSD with a UNIFORM camera zoom:
+ # no stretch, sidebars or duplicate blurred background. World coordinates
+ # and collision remain original while the camera pans after the player.
  stage.set("force_mobile_fit_for_testing",true)
  stage.call("_configure_camera")
  var scene_camera: Camera2D = stage.get_node("Camera2D") as Camera2D
  var viewport_size: Vector2 = stage.get_viewport().get_visible_rect().size
- var expected_zoom: Vector2 = viewport_size / Vector2(1672.0, 941.0)
- if not scene_camera.zoom.is_equal_approx(expected_zoom):
-  _fail("mobile world render must fill full screen in both axes")
+ var expected_cover: float = maxf(viewport_size.x / 1672.0, viewport_size.y / 941.0)
+ var expected_zoom: float = expected_cover * float(stage.get("mobile_follow_zoom"))
+ if not scene_camera.zoom.is_equal_approx(Vector2.ONE * expected_zoom):
+  _fail("mobile zoom must be uniform and cover the device without stretching")
   return
  var visible_world: Vector2 = viewport_size / scene_camera.zoom
- if not visible_world.is_equal_approx(Vector2(1672.0, 941.0)):
-  _fail("mobile render must preserve entire authored PSD without cropping")
+ if visible_world.x > 1672.01 or visible_world.y > 941.01:
+  _fail("mobile camera must fill the viewport without empty margins")
   return
  if stage.get_node_or_null("MobileAmbient") != null:
-  _fail("mobile render must not use duplicated blurred background")
+  _fail("mobile must not use duplicated blurred background")
   return
- if scene_camera.limit_left >= 0 or scene_camera.limit_top >= 0 or scene_camera.limit_right <= 1672 or scene_camera.limit_bottom <= 941:
-  _fail("mobile Camera2D limits must not shift full-screen world")
+ if scene_camera.limit_left != 0 or scene_camera.limit_top != 0 or scene_camera.limit_right != 1672 or scene_camera.limit_bottom != 941:
+  _fail("mobile camera must stay inside the original PSD boundaries")
   return
- if not scene_camera.position.is_equal_approx(Vector2(836.0,470.5)):
-  _fail("mobile camera must center the original PSD world")
+ var player: Node2D = stage.get_node("Player") as Node2D
+ var initial_player_position: Vector2 = player.position
+ player.position = Vector2(380.0, 480.0)
+ stage.call("_move_camera_to_player",true)
+ var left_camera: Vector2 = scene_camera.position
+ player.position = Vector2(1300.0, 480.0)
+ stage.call("_move_camera_to_player",true)
+ if scene_camera.position.x <= left_camera.x + 1.0:
+  _fail("mobile camera must pan horizontally to follow the player")
   return
+ var half_world: Vector2 = visible_world * 0.5
+ if scene_camera.position.x < half_world.x - 1.0 or scene_camera.position.x > 1672.0 - half_world.x + 1.0:
+  _fail("mobile camera may not reveal empty world beyond PSD edges")
+  return
+ player.position = initial_player_position
  stage.set("force_mobile_fit_for_testing",false)
  stage.call("_configure_camera")
  if scene_camera.limit_left != 0 or scene_camera.limit_right != 1672 or scene_camera.limit_top != 0 or scene_camera.limit_bottom != 941:
