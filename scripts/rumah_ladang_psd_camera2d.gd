@@ -394,6 +394,7 @@ func _configure_camera() -> void:
  var fit_zoom: float = minf(viewport_size.x / CANVAS_SIZE.x,
   viewport_size.y / CANVAS_SIZE.y)
  var mobile_fit: bool = _is_mobile_screen()
+ $MobileAmbient.visible = mobile_fit
  var multiplier: float = 1.0 if mobile_fit else camera_follow_zoom
  # Camera2D's built-in 0..1672 / 0..941 limits force the map to one
  # edge when the fitted mobile viewport is wider/taller than the map.
