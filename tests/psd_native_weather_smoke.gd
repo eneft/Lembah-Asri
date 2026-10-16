@@ -105,8 +105,20 @@ func _check() -> void:
    _fail("water rain-impact escaped river-only polygon")
    return
  var current: Node2D = stage.get_node("AnimatedRiverCurrent") as Node2D
- if current.get_child_count() != 3:
-  _fail("water current polygons cover bridge or land")
+ # River now uses ONE broad corridor, with blue-only color mask per pixel.
+ # Rain ripple sample zones remain the three original water-safe polygons.
+ if current.get_child_count() != 1:
+  _fail("continuous river should be rendered in one GPU surface pass")
+  return
+ var channel: Polygon2D = current.get_child(0) as Polygon2D
+ if channel == null or channel.polygon.size() < 6:
+  _fail("continuous downstream river corridor not present")
+  return
+ var bounds := Rect2(channel.polygon[0], Vector2.ZERO)
+ for vertex in channel.polygon:
+  bounds = bounds.expand(vertex)
+ if bounds.position.x > 600.0 or bounds.end.x < 1650.0 or bounds.end.y < 930.0:
+  _fail("river corridor misses most of visible painted stream")
   return
  stage.call("_set_weather_mode",3,true)
  for mat in current.get("material_instances"):
