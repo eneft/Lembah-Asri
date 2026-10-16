@@ -1,8 +1,10 @@
 shader_type canvas_item;
 render_mode blend_mix, unshaded;
 
-// Continuous painted-water translation, NOT a stationary image with flicker.
-// A broad polygon covers the river; cyan-pixel gating protects stone/wood/soil.
+// Steady downstream motion with NO wrap/reset/cross-fade of the painted image.
+// The earlier fract() samples returned to their origin every few seconds,
+// producing a conspicuous brightness pulse on mobile.
+// Continuous travelling phase only deforms the river locally (max ~8 pixels).
 uniform sampler2D river_behind : hint_screen_texture, repeat_disable, filter_linear;
 uniform vec2 flow_direction = vec2(-0.84, 0.54);
 uniform float flow_speed : hint_range(0.0, 3.0) = 0.84;
@@ -12,8 +14,6 @@ uniform float phase_offset = 0.0;
 uniform float rain_visibility = 0.0;
 
 float is_painted_water(vec3 rgb) {
- // Painted water is cyan/blue: B is clearly above R and near G.
- // Warm soil, grey rocks, grass and wooden bridge fail this test.
  float blue = smoothstep(0.050, 0.125, rgb.b - rgb.r);
  float not_green = 1.0 - smoothstep(0.018, 0.105, rgb.g - rgb.b);
  return blue * not_green;
@@ -28,37 +28,41 @@ void fragment() {
  float along = dot(world, direction);
  float across = dot(world, sideways);
  float time_flow = TIME * flow_speed + phase_offset;
- // Cross-fade two translating samples: neither reaches a visible looping seam.
- // Unlike the old shader, original painted water texture now physically moves.
- float cycle = fract(time_flow * 0.23);
- float cycle_alt = fract(cycle + 0.5);
- float blend_alt = abs(cycle * 2.0 - 1.0);
- vec2 offset_a = direction * (cycle * 46.0) * SCREEN_PIXEL_SIZE;
- vec2 offset_b = direction * (cycle_alt * 46.0) * SCREEN_PIXEL_SIZE;
- vec3 sample_a = texture(river_behind, clamp(
-  SCREEN_UV - offset_a, vec2(0.001), vec2(0.999))).rgb;
- vec3 sample_b = texture(river_behind, clamp(
-  SCREEN_UV - offset_b, vec2(0.001), vec2(0.999))).rgb;
- // Prevent pulling riverbank colors into the flowing surface at mask edges.
- sample_a = mix(still, sample_a, is_painted_water(sample_a));
- sample_b = mix(still, sample_b, is_painted_water(sample_b));
- vec3 traveling_paint = mix(sample_a, sample_b, blend_alt);
- float flow_mix = clamp(current_strength * 0.88, 0.0, 0.98);
- vec3 moving_water = mix(still, traveling_paint, flow_mix);
 
- // Narrow, advected whitewater veins move DOWNSTREAM on the same vector.
- // Constant speed and high spatial persistence prevent all-over blinking.
- float meander = sin(across * 0.046 + sin(along * 0.011) * 1.1);
- float crest1 = sin(along * 0.089 - time_flow * 2.25 + meander);
- float crest2 = sin(along * 0.148 - time_flow * 3.25 + across * 0.025);
- float lane = 0.55 + 0.45 * sin(across * 0.056 - 0.35 * meander);
- float streaks = smoothstep(0.38, 0.90, crest1) * lane;
- float bubbles = smoothstep(0.76, 0.99, crest2) * (1.0 - lane * 0.45);
- float crests = clamp(streaks * 0.65 + bubbles * foam_strength * 0.62, 0.0, 1.0);
- vec3 foam_tint = vec3(0.77, 0.94, 0.95);
- // Brighter traveling water streaks survive the heavy-rain darkening pass.
- float crest_contrast = mix(0.47, 0.88, rain_visibility);
- moving_water = mix(moving_water, foam_tint, crests * crest_contrast);
- // Alpha is FIXED at each water-colored pixel; only texture travels.
+ // The phase travels downstream with time. There is no fract() discontinuity
+ // and no cyclic re-seeding. Small local refraction keeps shoreline detail
+ // from jumping while the flowing painted highlights remain recognizable.
+ float meander = sin(across * 0.038 + sin(along * 0.011) * 0.90);
+ float advect1 = sin(along * 0.035 - time_flow * 1.18 + meander);
+ float advect2 = sin(along * 0.072 - time_flow * 1.85 - across * 0.014);
+ float skew = sin(along * 0.046 - time_flow * 1.35 + across * 0.031);
+ vec2 travel_pixels = direction * (3.2 + 2.8 * advect1 + 1.2 * advect2)
+  + sideways * (0.70 * skew);
+ vec3 displaced = texture(river_behind, clamp(
+  SCREEN_UV - travel_pixels * SCREEN_PIXEL_SIZE,
+  vec2(0.001), vec2(0.999))).rgb;
+ // Keep the color-key mask stable, and never reveal moving bank/bridge pixels.
+ float safe_displacement = is_painted_water(displaced);
+ float body_strength = min(current_strength * 0.80, 0.96);
+ vec3 moving_water = mix(still, displaced,
+  body_strength * safe_displacement);
+
+ // Soft, broad, coherent crest trains: *motion* without isolated strobing.
+ float crest_a = 0.5 + 0.5 * sin(
+  along * 0.087 - time_flow * 1.72 + meander * 0.85);
+ float crest_b = 0.5 + 0.5 * sin(
+  along * 0.128 - time_flow * 2.16 + across * 0.019);
+ float lane = 0.52 + 0.48 * (0.5 + 0.5 * sin(
+  across * 0.051 + sin(along * 0.019 - time_flow * 0.26)));
+ float wave = smoothstep(0.44, 0.89, crest_a) * lane;
+ float foam = smoothstep(0.60, 0.94, crest_b)
+  * (0.42 + 0.58 * lane);
+ float crest = clamp(wave * 0.61 + foam * foam_strength * 0.30,
+  0.0, 1.0);
+ // Keep enough texture contrast in rain, but avoid white flashes.
+ float softness = mix(0.34, 0.46, rain_visibility);
+ moving_water = mix(moving_water, vec3(0.70, 0.88, 0.91),
+  crest * softness);
+ // The surface mask/opacity is fixed per pixel throughout the animation.
  COLOR = vec4(moving_water, water_mask * 0.97);
 }
