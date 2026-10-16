@@ -138,10 +138,10 @@ func _ready() -> void:
  # Mobile browser only: let the Godot canvas use the real screen aspect.
  # The actual 1672x941 painted scene remains a uniformly scaled inset.
  # Main Camera3D and desktop project settings are unaffected.
+ get_viewport().size_changed.connect(_configure_camera)
  if _is_mobile_screen():
   get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
  _configure_camera()
- get_viewport().size_changed.connect(_configure_camera)
  _sync_visual_scale()
  mobile.move_changed.connect(_on_touch_move)
  mobile.run_changed.connect(_on_touch_run)
