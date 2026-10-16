@@ -103,3 +103,21 @@ painted background river underneath is still a static source image; this
 effect animates surface detail without physically distorting the original
 painting. CI checks randomized contour/gap profiles, real rendered motion in
 clear and heavy-rain lighting, and exact fixed water-region boundaries.
+
+## Visibility hotfix — stronger puddles and continuously moving river
+Puddles on the native PSD Camera2D preview now have distinct dark wet-earth
+centers, clear soft reflective rims, and subtle traveling internal ripples.
+They keep independent randomized silhouettes and positions, do not overlap
+Photoshop collision masks, and do not globally pulse in opacity. Their initial
+growth starts at 82% of full width to reduce the long barely-visible onset.
+The original Camera3D weather and player collision remain unchanged.
+
+The native river combines camera-scale screen-image refraction with strong
+continuous downstream wave streaks and moving foam. Rain increases current
+strength, flow speed, and bright foam, with 110 batched rain-on-river splashes.
+The original water-only polygons, rocks, bridge, layered Photoshop scene and
+underlying painting remain unchanged. The shader is confined to the three
+approved water masks, so water outside those masks is still static painted art.
+
+Render tests now require visibility against the original dirt background and
+motion under rainy darkening, instead of only checking that shaders compile.
