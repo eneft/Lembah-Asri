@@ -208,19 +208,19 @@ foam intensity relative to heavy rain, without switching off the current.
 CI checks this relative foam setting, the randomized 3–4 puddle count,
 seeded rerolls, water-only masks and mobile no-crop camera zoom.
 
-## Full-screen ambient backdrop for landscape mobile (16 October 2026)
-In landscape Safari the 1672×941 artwork is narrower than the phone
-viewport. Instead of grey sidebars or cropping/warping the map, Camera2D
-still **contains the entire original PSD** at its exact authored aspect
-ratio. A mobile-only CanvasLayer (-10) behind the game uses the SAME
-background texture, scaled with `KEEP_ASPECT_COVERED` and a light
-nine-tap blur/dimming shader. The enlarged copy only shows in the unused
-margins. Joystick and run controls remain in their established viewport
-positions, above the decorative backdrop, outside the active map where
-there is room. This layer has no collision, no parallax, no input, and
-does not affect PSD layering, river, player coordinates, or Camera3D.
-Desktop leaves the ambient canvas hidden. Native weather smoke checks
-the containment zoom and backdrop configuration.
+## Mobile adaptive full-screen rendering (16 October 2026)
+The previous blurred ambient side extensions have been **removed**.
+On mobile, Camera2D uses independent horizontal and vertical zoom
+components equal to the actual viewport size divided by the original
+1672x941 PSD dimensions. This renders the entire unchanged scene
+edge-to-edge on ultra-wide phones with no cropping, letterboxing, or
+duplicated art. The intended tradeoff is mild aspect distortion when
+the device aspect ratio differs from the original 16:9. World positions,
+PSD layers, collisions, river and player movement are unchanged; touch
+controls remain in viewport coordinates. On desktop, the previous
+uniform follow zoom is retained. The viewport resize signal reapplies
+the correct camera zoom after rotation. The native weather smoke checks
+the full-screen viewport/world dimensions and absence of MobileAmbient.
 
 ### Storm river visibility regression
 The Web export GPU check caught the river disappearing in heavy rain:
