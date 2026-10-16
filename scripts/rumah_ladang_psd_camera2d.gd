@@ -31,6 +31,8 @@ const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
 # 100% original canvas means no camera travel. Crop modestly for true
 # follow movement; 1.45x retains the homestead's painted perspective.
 @export_range(1.10, 1.85, 0.05) var camera_follow_zoom: float = 1.45
+# Mobile zoom keeps original image proportions; viewport follows player.
+@export_range(1.0, 1.5, 0.01) var mobile_follow_zoom: float = 1.12
 @export var force_mobile_fit_for_testing: bool = false
 @export_group("Character Painted Perspective")
 @export_range(0.7, 1.0, 0.01) var far_character_scale: float = 0.88
@@ -388,22 +390,23 @@ func _configure_camera() -> void:
  var viewport_size: Vector2 = get_viewport().get_visible_rect().size
  if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
   return
- # Mobile: stretch the *rendered world* to the actual viewport ratio.
- # Original PSD pixels, node positions, collision polygons and character
- # coordinates remain untouched. Independent X/Y camera zoom fills every
- # landscape screen without crop, letterboxing or blurred duplicate art.
- # Controls/lighting UI are CanvasLayers and retain viewport-space layout.
- # The expected tradeoff is slight visual widening on ultra-wide phones.
+ # Mobile: fill the real device viewport with UNIFORM zoom, never
+ # non-uniformly stretch the art. Only the camera's visible window crops
+ # the world; the entire original PSD and collision map remain unchanged.
+ # A little extra zoom gives the player room to move the camera on both axes.
+ # On rotation/resize the viewport signal recalculates the framing.
  var mobile_fit: bool = _is_mobile_screen()
  if mobile_fit:
-  camera.limit_left = -100000
-  camera.limit_top = -100000
-  camera.limit_right = 100000
-  camera.limit_bottom = 100000
-  camera.zoom = Vector2(viewport_size.x / CANVAS_SIZE.x,
+  var cover_zoom: float = maxf(viewport_size.x / CANVAS_SIZE.x,
    viewport_size.y / CANVAS_SIZE.y)
+  camera.zoom = Vector2.ONE * cover_zoom * mobile_follow_zoom
+  # Keep the view inside the authored PSD. Player follow is clamped below.
+  camera.limit_left = 0
+  camera.limit_top = 0
+  camera.limit_right = roundi(CANVAS_SIZE.x)
+  camera.limit_bottom = roundi(CANVAS_SIZE.y)
  else:
-  # Desktop retains the original follow zoom and unchanged world limits.
+  # Desktop retains the original uniform follow zoom.
   var fit_zoom: float = minf(viewport_size.x / CANVAS_SIZE.x,
    viewport_size.y / CANVAS_SIZE.y)
   camera.limit_left = 0
