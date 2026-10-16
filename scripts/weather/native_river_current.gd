@@ -37,13 +37,13 @@ func _ready() -> void:
 
 func set_rain_boost(raining: bool, storm: bool = false) -> void:
  # Heavy storms still move downstream; don't increase brightness/foam flashes.
- current_strength = (1.03 if storm else 1.08) if raining else normal_strength
+ current_strength = (1.03 if storm else 1.30) if raining else normal_strength
  for material in material_instances:
   material.set_shader_parameter("current_strength", current_strength)
   material.set_shader_parameter("foam_strength",
-   (0.34 if storm else 0.42) if raining else 0.30)
+   (0.34 if storm else 0.49) if raining else 0.30)
   material.set_shader_parameter("rain_visibility",
-   (0.28 if storm else 0.45) if raining else 0.0)
+   (0.28 if storm else 0.90) if raining else 0.0)
   material.set_shader_parameter("flow_speed",
    (1.06 if storm else 1.08) if raining else 0.84)
 
