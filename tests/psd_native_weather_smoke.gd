@@ -9,34 +9,31 @@ func _check() -> void:
  var stage: Node2D = (load("res://scenes/rumah_ladang_psd_camera2d.tscn") as PackedScene).instantiate()
  root.add_child(stage)
  await process_frame
- # Mobile must fit the entire original PSD without changing authored pixels.
+ # Mobile renders the unchanged 1672x941 PSD across the full viewport.
+ # Camera zoom is independent per axis: no bars, duplicate blur or crop.
  stage.set("force_mobile_fit_for_testing",true)
  stage.call("_configure_camera")
  var scene_camera: Camera2D = stage.get_node("Camera2D") as Camera2D
  var viewport_size: Vector2 = stage.get_viewport().get_visible_rect().size
- var expected_zoom: float = minf(viewport_size.x / 1672.0, viewport_size.y / 941.0)
- if not scene_camera.zoom.is_equal_approx(Vector2.ONE * expected_zoom):
-  _fail("mobile fit crops full PSD canvas instead of containing it")
+ var expected_zoom: Vector2 = viewport_size / Vector2(1672.0, 941.0)
+ if not scene_camera.zoom.is_equal_approx(expected_zoom):
+  _fail("mobile world render must fill full screen in both axes")
   return
- var ambient: CanvasLayer = stage.get_node("MobileAmbient") as CanvasLayer
- var fill: TextureRect = ambient.get_node("AmbientFill") as TextureRect
- if not ambient.visible or ambient.layer >= 0 or fill.texture != stage.get_node("Background").texture:
-  _fail("mobile ambient must use same PSD art in a lower canvas layer")
+ var visible_world: Vector2 = viewport_size / scene_camera.zoom
+ if not visible_world.is_equal_approx(Vector2(1672.0, 941.0)):
+  _fail("mobile render must preserve entire authored PSD without cropping")
   return
- if fill.stretch_mode != TextureRect.STRETCH_KEEP_ASPECT_COVERED or fill.material == null:
-  _fail("mobile margins must be blurred and cover the entire device viewport")
+ if stage.get_node_or_null("MobileAmbient") != null:
+  _fail("mobile render must not use duplicated blurred background")
   return
  if scene_camera.limit_left >= 0 or scene_camera.limit_top >= 0 or scene_camera.limit_right <= 1672 or scene_camera.limit_bottom <= 941:
-  _fail("mobile Camera2D limits pin the fitted background to one edge")
+  _fail("mobile Camera2D limits must not shift full-screen world")
   return
  if not scene_camera.position.is_equal_approx(Vector2(836.0,470.5)):
-  _fail("mobile contained camera must center the entire original PSD")
+  _fail("mobile camera must center the original PSD world")
   return
  stage.set("force_mobile_fit_for_testing",false)
  stage.call("_configure_camera")
- if ambient.visible:
-  _fail("desktop must not show mobile ambient margins")
-  return
  if scene_camera.limit_left != 0 or scene_camera.limit_right != 1672 or scene_camera.limit_top != 0 or scene_camera.limit_bottom != 941:
   _fail("desktop camera lost original follow boundaries")
   return
