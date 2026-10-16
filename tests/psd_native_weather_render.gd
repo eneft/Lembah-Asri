@@ -76,6 +76,18 @@ func _check() -> void:
  if river_pixels < 20:
   _fail("river flow did not change real rendered pixels: current=" + str(river_pixels))
   return
+ # Storm tint must not hide the real directed current.
+ stage.call("_set_weather_mode",3,true)
+ stage.get_node("RainWeather").visible = false
+ water.call("set_flow_phase",1.0)
+ var rainy_a: Image = await _image()
+ water.call("set_flow_phase",3.1)
+ var rainy_b: Image = await _image()
+ var rainy_flow: int = _different(rainy_a,rainy_b,0,720,0.018)
+ if rainy_flow < 20:
+  _fail("downstream river motion disappears under rainy lighting: " + str(rainy_flow))
+  return
+ print("PSD RIVER RAIN MOTION PASS: %d moving storm-tinted pixels" % rainy_flow)
  print("PSD NATIVE WEATHER RENDER PASS: cloudy=%d storm=%d lightning=%d flowing_water=%d pixel samples" % [cloudy_pixels,darker_pixels,flash_pixels,river_pixels])
  stage.queue_free()
  quit(0)

@@ -1,5 +1,6 @@
 extends Node2D
 const NATIVE_PUDDLE_LAYOUT = preload("res://scripts/weather/native_puddle_layout.gd")
+const NATIVE_PUDDLE_SHADER = preload("res://shaders/native_puddle_surface.gdshader")
 ## Lightweight world-space illustrated rain + true ground/water impacts.
 ## Drawn on the render clock; does not touch character motion or physics.
 var effect_kind: String = "rain_back"
@@ -195,10 +196,21 @@ func regenerate_native_puddles(seed: int = -1) -> void:
   var center: Vector2 = detail["center"]
   puddle_positions.append(center)
   entries.append(Vector4(center.x, center.y, float(detail["phase"]), 1.0))
+
  native_puddle_generation += 1
  native_puddle_growth = 0.66
  if batched_mesh != null:
   batched_mesh.instance_count = entries.size()
+  for i in range(native_puddle_details.size()):
+   var detail: Dictionary = native_puddle_details[i]
+   batched_mesh.set_instance_custom_data(i, Color(
+    float(detail["shape_seed"]),
+    inverse_lerp(0.075, 0.155, float(detail["edge_jag"])),
+    float(int(detail["lobes"]) - 3) / 3.0, 1.0))
+ if batched_sprites != null and batched_sprites.material == null:
+  var surface := ShaderMaterial.new()
+  surface.shader = NATIVE_PUDDLE_SHADER
+  batched_sprites.material = surface
  _update_batch()
  print("PSD NATURAL PUDDLES READY: %d soil-only pools (rain cycle %d)" % [
   entries.size(), native_puddle_generation])
@@ -209,9 +221,17 @@ func native_puddle_contains(point: Vector2) -> bool:
   var diff: Vector2 = point - center
   var local: Vector2 = diff.rotated(-float(detail["rotation"]))
   var size: Vector2 = detail["size"]
-  var rx: float = maxf(1.0, size.x * native_puddle_growth * 0.43)
-  var ry: float = maxf(1.0, size.y * native_puddle_growth * 0.43)
-  if (local.x / rx) ** 2 + (local.y / ry) ** 2 <= 1.0:
+  var rx: float = maxf(1.0, size.x * native_puddle_growth * 0.5)
+  var ry: float = maxf(1.0, size.y * native_puddle_growth * 0.5)
+  var p := Vector2(local.x / rx, local.y / ry)
+  var theta: float = atan2(p.y, p.x)
+  var phase: float = float(detail["shape_seed"]) * TAU
+  var lobes: float = float(detail["lobes"])
+  var coast: float = 1.0 + float(detail["edge_jag"]) * (
+   sin(theta * lobes + phase)
+   + 0.70 * sin(theta * (lobes + 2.0) - phase * 1.30)
+   + 0.40 * sin(theta * (lobes + 5.0) + phase * 0.80))
+  if Vector2(p.x * 1.36, p.y * 1.34).length() < coast * 0.94:
    return true
  return false
 
@@ -259,6 +279,7 @@ func _create_batch() -> void:
  batched_mesh = MultiMesh.new()
  batched_mesh.transform_format = MultiMesh.TRANSFORM_2D
  batched_mesh.use_colors = true
+ batched_mesh.use_custom_data = effect_kind == "puddle"
  var quad := QuadMesh.new()
  var is_rain: bool = effect_kind.begins_with("rain")
  if is_rain:

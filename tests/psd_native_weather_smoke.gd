@@ -34,6 +34,8 @@ func _check() -> void:
  var widths: Dictionary = {}
  var heights: Dictionary = {}
  var unique_rows: Dictionary = {}
+ var contours: Dictionary = {}
+ var gaps: Dictionary = {}
  for i in range(layout.size()):
   var detail: Dictionary = layout[i]
   var spot: Vector2 = detail["center"]
@@ -51,8 +53,12 @@ func _check() -> void:
   widths[roundi(size.x)] = true
   heights[roundi(size.y)] = true
   unique_rows[roundi(spot.y)] = true
- if widths.size() < 4 or heights.size() < 3 or unique_rows.size() < 4:
-  _fail("puddles still look like uniformly spaced identical ellipses")
+  contours["%d-%d" % [roundi(float(detail["shape_seed"]) * 1000.0),int(detail["lobes"])]] = true
+  if i > 0:
+   var separation: float = spot.distance_to(layout[i-1]["center"])
+   gaps[roundi(separation / 12.0)] = true
+ if widths.size() < 4 or heights.size() < 3 or unique_rows.size() < 4 or contours.size() < 5 or gaps.size() < 3:
+  _fail("puddles still repeat shoreline, size, rows or uniform spacing")
   return
  if bool(weather.call("is_in_puddle",Vector2(378,568))):
   _fail("legacy wall-adjacent puddle still active on single-image map")
@@ -102,6 +108,14 @@ func _check() -> void:
  if current.get_child_count() != 3:
   _fail("water current polygons cover bridge or land")
   return
+ stage.call("_set_weather_mode",3,true)
+ for mat in current.get("material_instances"):
+  if float(mat.get_shader_parameter("current_strength")) < 0.75:
+   _fail("rain fails to make moving downstream water visible")
+   return
+  if (mat.get_shader_parameter("flow_direction") as Vector2).length() < 0.9:
+   _fail("river water shader has no downstream direction")
+   return
  for i in range(5):
   stage.call("_set_weather_mode",i,true)
   if bool(weather.get("raining")) != (i >= 2):

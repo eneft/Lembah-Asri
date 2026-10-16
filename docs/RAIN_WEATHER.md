@@ -83,3 +83,23 @@ conservative estimates: they require visual verification against the art.
 `tests/psd_native_weather_smoke.gd` tests area containment, seed stability,
 weather lifecycle and variable dimensions, while
 `tests/psd_native_puddle_render.gd` checks distinct rendered GPU pixels.
+
+## Irregular puddle profiles and directional river current (16 October 2026)
+The PSD Camera2D preview now selects varying small/medium/large puddle sizes,
+random positions including occasional loose groups, unequal spacing and a
+**different shader-driven shoreline contour for each pool**. Each MultiMesh
+instance carries its own seed, coastline jaggedness and lobe count, so these
+are no longer identical ovals with different transforms. The GPU still renders
+all pools in one batch. Footstep water contact uses the same irregular
+contour formula. A rainfall episode keeps its puddles stationary, with subtle
+ripple motion inside the surfaces rather than blinking the whole pool.
+
+The 3 Photoshop-aligned river polygons now have their own fixed downstream
+directions. Two moving wave systems and drifting foam are **spatially advected**
+continuously through the water, instead of globally oscillating brightness.
+Rain raises the wave/foam visibility and downstream speed; shore and bridge
+masks, PSD layering, collision and legacy Camera3D remain untouched. The
+painted background river underneath is still a static source image; this
+effect animates surface detail without physically distorting the original
+painting. CI checks randomized contour/gap profiles, real rendered motion in
+clear and heavy-rain lighting, and exact fixed water-region boundaries.

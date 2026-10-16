@@ -1,22 +1,34 @@
 shader_type canvas_item;
 render_mode blend_mix, unshaded;
 
-// Transparent moving highlights over the *single painted background*.
-// Mesh is restricted to water-only polygons, away from bridge and buildings.
-// Unlike a duplicated alpha water atlas, the base RGB remains untouched.
-uniform float flow_speed : hint_range(0.0, 3.0) = 0.65;
-uniform float current_strength : hint_range(0.0, 0.6) = 0.26;
-uniform float foam_strength : hint_range(0.0, 0.6) = 0.15;
+// Flow runs along the water course, not a single time-based flicker.
+// Water stays confined to the original shoreline polygons / bridge cutout.
+uniform vec2 flow_direction = vec2(-0.82, 0.57);
+uniform float flow_speed : hint_range(0.0, 3.0) = 0.95;
+uniform float current_strength : hint_range(0.0, 1.0) = 0.48;
+uniform float foam_strength : hint_range(0.0, 1.0) = 0.28;
 uniform float phase_offset = 0.0;
 void fragment() {
  vec2 world = UV * vec2(1672.0, 941.0);
+ vec2 dir = normalize(flow_direction);
+ vec2 cross_dir = vec2(-dir.y, dir.x);
+ float along = dot(world, dir);
+ float across = dot(world, cross_dir);
  float tick = TIME * flow_speed + phase_offset;
- float lane = world.x * 0.078 + world.y * 0.045 - tick * 2.7;
- float ripple1 = pow(max(0.0, sin(lane + 0.43 * sin(world.y * 0.031 - tick))), 12.0);
- float ripple2 = pow(max(0.0, sin(world.x * 0.037 - world.y * 0.064 - tick * 1.25)), 16.0);
- float foam = pow(max(0.0, sin(world.x * 0.105 + world.y * 0.093 - tick * 4.1)), 23.0);
- float alpha = (ripple1 * 0.58 + ripple2 * 0.42) * current_strength;
- alpha += foam * foam_strength * 0.35;
- float cool = 0.7 + 0.3 * sin(tick * 0.7 + world.x * 0.012);
- COLOR = vec4(vec3(0.66, 0.89, 1.0) * cool, clamp(alpha, 0.0, 0.40));
+ // Three advected patterns: continuously traveling wave crests, parallel
+ // slow water lanes, and small drifting foam flecks.
+ float bend = sin(across * 0.055 + sin(along * 0.022) * 0.7);
+ float crest = sin(along * 0.116 - tick * 3.80 + bend * 0.95);
+ float wave = smoothstep(0.65, 0.96, crest);
+ float lane = sin(across * 0.074 + 0.8 * sin(along * 0.032 - tick * 1.15));
+ float threading = smoothstep(0.35, 0.92, lane);
+ float fleck = sin(along * 0.185 - tick * 5.1 + sin(across * 0.14) * 2.0);
+ float foam = smoothstep(0.80, 0.99, fleck) * threading;
+ float trail = wave * (0.55 + 0.45 * threading);
+ float alpha = 0.018 + trail * current_strength * 0.31
+  + threading * current_strength * 0.075
+  + foam * foam_strength * 0.22;
+ vec3 color = mix(vec3(0.38, 0.66, 0.71),
+  vec3(0.79, 0.95, 0.97), clamp(trail * 0.65 + foam * 0.45, 0.0, 1.0));
+ COLOR = vec4(color, clamp(alpha, 0.0, 0.56));
 }
