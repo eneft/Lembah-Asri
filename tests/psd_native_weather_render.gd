@@ -95,29 +95,28 @@ func _check() -> void:
  if rainy_flow < 40:
   _fail("downstream river motion disappears under rainy lighting: " + str(rainy_flow))
   return
- # Explicit seam regression: sample opposite sides of both texture phase
- # resets with the clock frozen. A near-zero phase change MUST NOT cause
- # a bright screen-wide pulse; this was missing from the previous GPU tests.
+ # This shader has NO texture-loop reset. Instead of treating the old
+ # 1/0.23-second period as a seam, sample two arbitrary infinitesimal
+ # changes along the continuous downstream travel coordinate.
  stage.call("_set_weather_mode",0,true)
  for mat in water.get("material_instances"):
   mat.set_shader_parameter("flow_speed",0.0)
- var loop_period: float = 1.0 / 0.23
- water.call("set_flow_phase",0.001)
- var seam_start: Image = await _image()
- water.call("set_flow_phase",loop_period - 0.001)
- var seam_end: Image = await _image()
- var restart_jump: int = _different(seam_start,seam_end,0,720,0.055)
- water.call("set_flow_phase",loop_period * 0.5 - 0.001)
- var mid_before: Image = await _image()
- water.call("set_flow_phase",loop_period * 0.5 + 0.001)
- var mid_after: Image = await _image()
- var midpoint_jump: int = _different(mid_before,mid_after,0,720,0.055)
- if restart_jump > 45 or midpoint_jump > 45:
-  _fail("river texture cycle pops between adjacent phases: %d, %d" % [
-   restart_jump, midpoint_jump])
+ water.call("set_flow_phase",2.105)
+ var phase_a: Image = await _image()
+ water.call("set_flow_phase",2.107)
+ var phase_b: Image = await _image()
+ var jump_a: int = _different(phase_a,phase_b,0,720,0.055)
+ water.call("set_flow_phase",4.346)
+ var phase_c: Image = await _image()
+ water.call("set_flow_phase",4.348)
+ var phase_d: Image = await _image()
+ var jump_b: int = _different(phase_c,phase_d,0,720,0.055)
+ if jump_a > 45 or jump_b > 45:
+  _fail("river light pattern jumps across continuous phase: %d, %d" % [
+   jump_a, jump_b])
   return
- print("PSD RIVER SEAM PASS: restart=%d, midpoint=%d changed pixels" % [
-  restart_jump, midpoint_jump])
+ print("PSD RIVER CONTINUITY PASS: phase deltas=%d, %d" % [
+  jump_a, jump_b])
  print("PSD RIVER RAIN MOTION PASS: %d moving storm-tinted pixels" % rainy_flow)
  print("PSD NATIVE WEATHER RENDER PASS: cloudy=%d storm=%d lightning=%d flowing_water=%d pixel samples" % [cloudy_pixels,darker_pixels,flash_pixels,river_pixels])
  stage.queue_free()
