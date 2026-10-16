@@ -4,6 +4,8 @@ render_mode blend_mix, unshaded;
 // Continuous painted-water translation, NOT a stationary image with flicker.
 // A broad polygon covers the river; cyan-pixel gating protects stone/wood/soil.
 uniform sampler2D river_behind : hint_screen_texture, repeat_disable, filter_linear;
+// Stable, untinted original PSD mask; screen colors change with storm lighting.
+uniform sampler2D painted_background : source_color, repeat_disable, filter_linear;
 uniform vec2 flow_direction = vec2(-0.84, 0.54);
 uniform float flow_speed : hint_range(0.0, 3.0) = 0.84;
 uniform float current_strength : hint_range(0.0, 1.5) = 0.86;
@@ -23,7 +25,7 @@ void fragment() {
  vec2 direction = normalize(flow_direction);
  vec2 sideways = vec2(-direction.y, direction.x);
  vec3 still = texture(river_behind, SCREEN_UV).rgb;
- float water_mask = is_painted_water(still);
+ float water_mask = is_painted_water(texture(painted_background, UV).rgb);
  vec2 world = UV * vec2(1672.0, 941.0);
  float along = dot(world, direction);
  float across = dot(world, sideways);
@@ -40,8 +42,10 @@ void fragment() {
  vec3 sample_b = texture(river_behind, clamp(
   SCREEN_UV - offset_b, vec2(0.001), vec2(0.999))).rgb;
  // Prevent pulling riverbank colors into the flowing surface at mask edges.
- sample_a = mix(still, sample_a, is_painted_water(sample_a));
- sample_b = mix(still, sample_b, is_painted_water(sample_b));
+ sample_a = mix(still, sample_a, is_painted_water(texture(painted_background,
+  clamp(UV - direction * (cycle * 28.0) / vec2(1672.0, 941.0), vec2(0.001), vec2(0.999))).rgb));
+ sample_b = mix(still, sample_b, is_painted_water(texture(painted_background,
+  clamp(UV - direction * (cycle_alt * 28.0) / vec2(1672.0, 941.0), vec2(0.001), vec2(0.999))).rgb));
  vec3 traveling_paint = mix(sample_a, sample_b, blend_alt);
  float flow_mix = clamp(current_strength * 0.82, 0.0, 0.95);
  vec3 moving_water = mix(still, traveling_paint, flow_mix);
