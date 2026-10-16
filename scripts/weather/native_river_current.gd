@@ -3,6 +3,7 @@ extends Node2D
 ## The old three tiny masks covered only fragments of the visible river.
 ## The underlying Photoshop image, collision and bridge stay unchanged.
 const CURRENT_SHADER = preload("res://shaders/native_river_current.gdshader")
+const ORIGINAL_PAINT = preload("res://assets/art/psd_layered_scene/00_background.png")
 const CANVAS := Vector2(1672.0, 941.0)
 @export_range(0.0, 1.5, 0.05) var normal_strength: float = 0.86
 @export_range(0.0, 1.5, 0.05) var rainy_strength: float = 1.08
@@ -29,6 +30,7 @@ func _ready() -> void:
  var material := ShaderMaterial.new()
  material.shader = CURRENT_SHADER
  material.set_shader_parameter("flow_direction", Vector2(-0.84, 0.54))
+ material.set_shader_parameter("painted_background", ORIGINAL_PAINT)
  channel.material = material
  add_child(channel)
  material_instances.append(material)
