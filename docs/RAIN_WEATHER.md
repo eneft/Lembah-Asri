@@ -143,3 +143,17 @@ raindrop contacts (and are NOT used as the broad current visibility mask).
 Smoke tests explicitly verify the continuous-channel coverage, and GPU
 render regression now fails for a too-small animated or flickering area.
 The default Camera3D and every Photoshop source asset stay untouched.
+
+## Smooth continuous downstream motion — 16 October 2026
+A mobile playtest confirmed the stream is now visibly flowing but its bright
+shimmer pulses too strongly. Root cause: the animated river shader blended two
+`fract()`-reset texture translations over each time cycle, making an obvious
+repeating intensity change in the moving water. The new native Camera2D shader
+does not reset or wrap the painted-water scroll sample. Instead it uses a
+bounded, traveling downstream refraction field and softer foam crests, so water
+detail moves continuously without a repeated snap or stark flashes. Heavy-rain
+foam amplitude is reduced while its downstream speed remains clearly visible.
+Water-only pixel gating, PSD collision masks, character ordering, the bridge,
+the original artwork and the Camera3D version remain unchanged. GPU rendering
+and Web export checks are still authoritative; the final iPhone impression
+should be reviewed after publishing.
