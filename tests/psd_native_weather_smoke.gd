@@ -9,6 +9,17 @@ func _check() -> void:
  var stage: Node2D = (load("res://scenes/rumah_ladang_psd_camera2d.tscn") as PackedScene).instantiate()
  root.add_child(stage)
  await process_frame
+ # Mobile must fit the entire original PSD without changing authored pixels.
+ stage.set("force_mobile_fit_for_testing",true)
+ stage.call("_configure_camera")
+ var scene_camera: Camera2D = stage.get_node("Camera2D") as Camera2D
+ var viewport_size: Vector2 = stage.get_viewport().get_visible_rect().size
+ var expected_zoom: float = minf(viewport_size.x / 1672.0, viewport_size.y / 941.0)
+ if not scene_camera.zoom.is_equal_approx(Vector2.ONE * expected_zoom):
+  _fail("mobile fit crops full PSD canvas instead of containing it")
+  return
+ stage.set("force_mobile_fit_for_testing",false)
+ stage.call("_configure_camera")
  var weather: Node2D = stage.get_node("RainWeather") as Node2D
  var ground: Node2D = weather.get_node("GroundSplashes") as Node2D
  var puddles: Node2D = weather.get_node("GroundPuddles") as Node2D
@@ -24,8 +35,8 @@ func _check() -> void:
   return
  var puddle_entries: Array = puddles.get("entries")
  var layout: Array = puddles.get("native_puddle_details")
- if layout.size() < 7 or layout.size() > 11 or layout.size() != puddle_entries.size():
-  _fail("random puddle count must be 7-11: got " + str(layout.size()))
+ if layout.size() < 3 or layout.size() > 4 or layout.size() != puddle_entries.size():
+  _fail("sparse rainy puddles must be 3-4: got " + str(layout.size()))
   return
  var blocked: Array[PackedVector2Array] = []
  var hand_collision: Dictionary = stage.get("walkable_regions")
@@ -57,8 +68,8 @@ func _check() -> void:
   if i > 0:
    var separation: float = spot.distance_to(layout[i-1]["center"])
    gaps[roundi(separation / 12.0)] = true
- if widths.size() < 4 or heights.size() < 3 or unique_rows.size() < 4 or contours.size() < 5 or gaps.size() < 3:
-  _fail("puddles still repeat shoreline, size, rows or uniform spacing")
+ if widths.size() < 2 or heights.size() < 2 or unique_rows.size() < 2 or contours.size() < 3 or gaps.size() < 1:
+  _fail("sparse pools still repeat shoreline, size or placement")
   return
  if bool(weather.call("is_in_puddle",Vector2(378,568))):
   _fail("legacy wall-adjacent puddle still active on single-image map")
