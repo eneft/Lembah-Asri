@@ -95,6 +95,29 @@ func _check() -> void:
  if rainy_flow < 40:
   _fail("downstream river motion disappears under rainy lighting: " + str(rainy_flow))
   return
+ # Explicit seam regression: sample opposite sides of both texture phase
+ # resets with the clock frozen. A near-zero phase change MUST NOT cause
+ # a bright screen-wide pulse; this was missing from the previous GPU tests.
+ stage.call("_set_weather_mode",0,true)
+ for mat in water.get("material_instances"):
+  mat.set_shader_parameter("flow_speed",0.0)
+ var loop_period: float = 1.0 / 0.23
+ water.call("set_flow_phase",0.001)
+ var seam_start: Image = await _image()
+ water.call("set_flow_phase",loop_period - 0.001)
+ var seam_end: Image = await _image()
+ var restart_jump: int = _different(seam_start,seam_end,0,720,0.055)
+ water.call("set_flow_phase",loop_period * 0.5 - 0.001)
+ var mid_before: Image = await _image()
+ water.call("set_flow_phase",loop_period * 0.5 + 0.001)
+ var mid_after: Image = await _image()
+ var midpoint_jump: int = _different(mid_before,mid_after,0,720,0.055)
+ if restart_jump > 45 or midpoint_jump > 45:
+  _fail("river texture cycle pops between adjacent phases: %d, %d" % [
+   restart_jump, midpoint_jump])
+  return
+ print("PSD RIVER SEAM PASS: restart=%d, midpoint=%d changed pixels" % [
+  restart_jump, midpoint_jump])
  print("PSD RIVER RAIN MOTION PASS: %d moving storm-tinted pixels" % rainy_flow)
  print("PSD NATIVE WEATHER RENDER PASS: cloudy=%d storm=%d lightning=%d flowing_water=%d pixel samples" % [cloudy_pixels,darker_pixels,flash_pixels,river_pixels])
  stage.queue_free()
