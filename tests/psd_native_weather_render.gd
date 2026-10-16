@@ -73,8 +73,13 @@ func _check() -> void:
  print("PSD NATIVE RIVER GPU DIAG: overlay=",river_overlay," motion=",river_pixels," camera=",camera.position)
  # Screen-capture buffering may make an independent visibility-toggle
  # sample stale; genuine motion between TWO phases remains authoritative.
- if river_pixels < 20:
-  _fail("river flow did not change real rendered pixels: current=" + str(river_pixels))
+ # A few flickering pixels are NOT enough. A real flowing channel must
+ # move a significant water area between phases, not just 2 tiny highlights.
+ if river_overlay < 100:
+  _fail("animated water covers too little of the visible river: " + str(river_overlay))
+  return
+ if river_pixels < 100:
+  _fail("stream still looks static/blinks instead of continuous travel: " + str(river_pixels))
   return
  # Storm tint must not hide the real directed current.
  stage.call("_set_weather_mode",3,true)
