@@ -388,28 +388,29 @@ func _configure_camera() -> void:
  var viewport_size: Vector2 = get_viewport().get_visible_rect().size
  if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
   return
- # In mobile/tablet: CONTAIN original 1672x941 without cutting, distorting,
- # reflowing or altering any Photoshop background/layer/collision coordinates.
- # Desktop preserves the original 1.45x follow camera and controls.
- var fit_zoom: float = minf(viewport_size.x / CANVAS_SIZE.x,
-  viewport_size.y / CANVAS_SIZE.y)
+ # Mobile: stretch the *rendered world* to the actual viewport ratio.
+ # Original PSD pixels, node positions, collision polygons and character
+ # coordinates remain untouched. Independent X/Y camera zoom fills every
+ # landscape screen without crop, letterboxing or blurred duplicate art.
+ # Controls/lighting UI are CanvasLayers and retain viewport-space layout.
+ # The expected tradeoff is slight visual widening on ultra-wide phones.
  var mobile_fit: bool = _is_mobile_screen()
- $MobileAmbient.visible = mobile_fit
- var multiplier: float = 1.0 if mobile_fit else camera_follow_zoom
- # Camera2D's built-in 0..1672 / 0..941 limits force the map to one
- # edge when the fitted mobile viewport is wider/taller than the map.
- # Allow balanced letterboxing ONLY in contain mode. Keep desktop limits.
  if mobile_fit:
   camera.limit_left = -100000
   camera.limit_top = -100000
   camera.limit_right = 100000
   camera.limit_bottom = 100000
+  camera.zoom = Vector2(viewport_size.x / CANVAS_SIZE.x,
+   viewport_size.y / CANVAS_SIZE.y)
  else:
+  # Desktop retains the original follow zoom and unchanged world limits.
+  var fit_zoom: float = minf(viewport_size.x / CANVAS_SIZE.x,
+   viewport_size.y / CANVAS_SIZE.y)
   camera.limit_left = 0
   camera.limit_top = 0
   camera.limit_right = roundi(CANVAS_SIZE.x)
   camera.limit_bottom = roundi(CANVAS_SIZE.y)
- camera.zoom = Vector2.ONE * fit_zoom * multiplier
+  camera.zoom = Vector2.ONE * fit_zoom * camera_follow_zoom
  camera.position_smoothing_speed = camera_smoothing
  _move_camera_to_player(true)
 
