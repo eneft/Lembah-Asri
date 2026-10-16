@@ -5,7 +5,7 @@ extends Node2D
 const CURRENT_SHADER = preload("res://shaders/native_river_current.gdshader")
 const CANVAS := Vector2(1672.0, 941.0)
 @export_range(0.0, 1.5, 0.05) var normal_strength: float = 0.86
-@export_range(0.0, 1.5, 0.05) var rainy_strength: float = 1.48
+@export_range(0.0, 1.5, 0.05) var rainy_strength: float = 1.08
 var current_strength: float = 0.86
 var material_instances: Array[ShaderMaterial] = []
 
@@ -35,13 +35,17 @@ func _ready() -> void:
  set_rain_boost(false)
  print("PSD CONTINUOUS RIVER FLOW READY: full downstream channel, blue-water-only shading")
 
-func set_rain_boost(raining: bool) -> void:
- current_strength = rainy_strength if raining else normal_strength
+func set_rain_boost(raining: bool, storm: bool = false) -> void:
+ # Heavy storms still move downstream; don't increase brightness/foam flashes.
+ current_strength = (1.03 if storm else 1.08) if raining else normal_strength
  for material in material_instances:
   material.set_shader_parameter("current_strength", current_strength)
-  material.set_shader_parameter("foam_strength", 0.74 if raining else 0.44)
-  material.set_shader_parameter("rain_visibility", 1.0 if raining else 0.0)
-  material.set_shader_parameter("flow_speed", 1.35 if raining else 0.84)
+  material.set_shader_parameter("foam_strength",
+   (0.34 if storm else 0.42) if raining else 0.30)
+  material.set_shader_parameter("rain_visibility",
+   (0.28 if storm else 0.45) if raining else 0.0)
+  material.set_shader_parameter("flow_speed",
+   (1.06 if storm else 1.08) if raining else 0.84)
 
 func set_flow_phase(phase: float) -> void:
  for material in material_instances:
