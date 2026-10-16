@@ -294,6 +294,9 @@ func _check() -> void:
  if int(hud.get("health")) >= 0 or int(hud.get("level")) >= 0:
   _fail("HUD may not invent an active HP/level system")
   return
+ # Force the actual touch UI on (CI simulates desktop) to catch lost
+ # joystick/LARI/AKSI when switching RPG tabs before closing the modal.
+ touch.call("set_test_visible",true)
  hud.call("select_slot",1)
  if str(hud.get("open_panel")) != "Jurnal":
   _fail("journal hotbar slot does not open its interactive panel")
@@ -313,9 +316,10 @@ func _check() -> void:
  if bool(hud.call("is_modal_open")):
   _fail("RPG panels cannot be closed")
   return
- if bool(touch.get("force_show_for_testing")) and not touch.visible:
-  _fail("mobile touch controls not restored after closing HUD")
+ if not touch.visible:
+  _fail("mobile joystick/LARI/AKSI not restored after switching HUD tabs")
   return
+ touch.call("set_test_visible",false)
  hud.emit_signal("weather_delta",1)
  if str(hud.get("weather_label")) != "BADAI":
   _fail("RPG weather control does not change real game state")
