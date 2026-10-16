@@ -31,7 +31,7 @@ func _check() -> void:
  if scene_camera.limit_left != 0 or scene_camera.limit_top != 0 or scene_camera.limit_right != 1672 or scene_camera.limit_bottom != 941:
   _fail("mobile camera must stay inside the original PSD boundaries")
   return
- var player: Node2D = stage.get_node("Player") as Node2D
+ var player: Node2D = stage.get_node("Run8Player") as Node2D
  var initial_player_position: Vector2 = player.position
  player.position = Vector2(380.0, 480.0)
  stage.call("_move_camera_to_player",true)
