@@ -31,6 +31,7 @@ const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
 # 100% original canvas means no camera travel. Crop modestly for true
 # follow movement; 1.45x retains the homestead's painted perspective.
 @export_range(1.10, 1.85, 0.05) var camera_follow_zoom: float = 1.45
+@export var force_mobile_fit_for_testing: bool = false
 @export_group("Character Painted Perspective")
 @export_range(0.7, 1.0, 0.01) var far_character_scale: float = 0.88
 @export_range(0.9, 1.1, 0.01) var middle_character_scale: float = 1.0
@@ -368,13 +369,27 @@ func _sync_visual_scale() -> void:
  var base_scale: float = float(player.get("character_height_px")) / (640.0 * density)
  visual.scale = Vector2.ONE * base_scale * _character_depth_multiplier(player.position)
 
+func _is_mobile_screen() -> bool:
+ if force_mobile_fit_for_testing or OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
+  return true
+ if OS.has_feature("web"):
+  var touch: Variant = JavaScriptBridge.eval(
+   "Boolean((navigator.maxTouchPoints || 0) > 0 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches))",
+   true)
+  return touch is bool and touch
+ return false
+
 func _configure_camera() -> void:
  var viewport_size: Vector2 = get_viewport().get_visible_rect().size
- # Fit source artwork to both viewport axes, then zoom in enough that the
- # playfield exceeds the viewport. Camera boundaries can now move in X & Y.
+ if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+  return
+ # In mobile/tablet: CONTAIN original 1672x941 without cutting, distorting,
+ # reflowing or altering any Photoshop background/layer/collision coordinates.
+ # Desktop preserves the original 1.45x follow camera and controls.
  var fit_zoom: float = minf(viewport_size.x / CANVAS_SIZE.x,
   viewport_size.y / CANVAS_SIZE.y)
- camera.zoom = Vector2.ONE * fit_zoom * camera_follow_zoom
+ var multiplier: float = 1.0 if _is_mobile_screen() else camera_follow_zoom
+ camera.zoom = Vector2.ONE * fit_zoom * multiplier
  camera.position_smoothing_speed = camera_smoothing
  _move_camera_to_player(true)
 
@@ -450,7 +465,7 @@ func _set_weather_mode(index: int, instant: bool = false) -> void:
  weather_tint_target = WEATHER_TINTS[weather_mode_index]
  weather_strength_target = 0.0 if weather_mode_index == 0 else 1.0
  weather.call("set_precipitation", PRECIPITATION_LEVELS[weather_mode_index])
- river_current.call("set_rain_boost", weather_mode_index >= 2)
+ river_current.call("set_rain_boost", weather_mode_index >= 2, weather_mode_index == 4)
  if weather_mode_index != 4:
   lightning_active = false
   lightning_flash.visible = false
