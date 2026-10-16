@@ -121,3 +121,25 @@ approved water masks, so water outside those masks is still static painted art.
 
 Render tests now require visibility against the original dirt background and
 motion under rainy darkening, instead of only checking that shaders compile.
+
+## River continuity correction after mobile screenshot (16 October 2026)
+The previous PSD Camera2D implementation drew three *small* clipped flow
+polygons while most visible blue river pixels were part of the static
+background, so the player mainly saw occasional shimmering/flicker.
+The old shader also displaced the painting by only about 1 screen pixel.
+
+The replacement uses ONE continuous downstream channel polygon and a
+blue/cyan color gate against the authentic background, protecting brown
+bridge planks, bank vegetation, rocks and soil without changing their art.
+It samples two different downstream-translated positions of the original
+painted water (up to 46 screen pixels), cross-fades the phases to hide wrap,
+and adds slender foam trails that *travel*, rather than pulsating the opacity
+of an otherwise static surface. The effect works under CERAH as well as
+rain; rain raises travel speed and foam intensity. All this remains one
+Polygon2D/ShaderMaterial pass without CPU water simulation.
+
+The original three precise river-water masks remain unchanged for actual
+raindrop contacts (and are NOT used as the broad current visibility mask).
+Smoke tests explicitly verify the continuous-channel coverage, and GPU
+render regression now fails for a too-small animated or flickering area.
+The default Camera3D and every Photoshop source asset stay untouched.
