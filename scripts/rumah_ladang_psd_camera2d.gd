@@ -15,6 +15,13 @@ const PRECIPITATION_LEVELS := [0.0, 0.0, 0.48, 1.0, 1.22]
 const WIND_LEVELS := [0.0, 0.13, 0.22, 0.40, 0.82]
 const DIRECTIONS := ["right", "down_right", "down", "down_left", "left", "up_left", "up", "up_right"]
 const FOOT_CLEARANCE_PX := 9.0
+# Additional close-fitting foot barrier under the left wooden fence by
+# the banana trees. Extends the authored red-mask contour across its
+# unpainted southern gap; no changes to the original Photoshop polygons.
+const BANANA_FENCE_GUARD_VERTICES := [
+ Vector2(65, 462), Vector2(292, 613),
+ Vector2(265, 652), Vector2(46, 496)
+]
 const MAX_MOVE_STEP_PX := 6.0
 const LIGHTING_NAMES := ["06:00 PAGI", "12:00 SIANG", "17:00 SORE", "21:00 MALAM"]
 const LIGHTING_TINTS := [
@@ -81,6 +88,7 @@ var walkable_regions: Dictionary = {}
 # Additional known open-water exclusion; keeps authored PSD red polygons intact.
 # Cached once; never rebuild polygon geometry during character movement.
 var river_no_walk_regions: Array[PackedVector2Array] = []
+var supplemental_barriers: Array[PackedVector2Array] = []
 var touch_direction: Vector2 = Vector2.ZERO
 var touch_run: bool = false
 var lighting_preset_index: int = 1
@@ -123,6 +131,9 @@ func _ready() -> void:
  bridge_material.shader = BRIDGE_WET_SHADER
  bridge_sprite.material = bridge_material
  _load_psd_authored_collision()
+ # Only supplementary guard in this scene: the left banana fence's lower
+ # painted edge. The original PSD mask remains authoritative everywhere else.
+ supplemental_barriers = [PackedVector2Array(BANANA_FENCE_GUARD_VERTICES)]
  river_no_walk_regions = NATIVE_SURFACES.river_water()
  if psd_ready:
   _build_native_collision()
@@ -135,6 +146,8 @@ func _ready() -> void:
  var puddle_obstacles: Array[PackedVector2Array] = []
  for blocked in walkable_regions.values():
   puddle_obstacles.append(blocked)
+ for barrier in supplemental_barriers:
+  puddle_obstacles.append(barrier)
  var unused_fixed_puddles: Array[Vector2] = []
  weather.call("configure_native2d_surfaces",
   NATIVE_SURFACES.bare_soil(),
@@ -284,6 +297,19 @@ func _build_native_collision() -> void:
   shape.polygon = walkable_regions[key]
   obstacle.add_child(shape)
   collision_container.add_child(obstacle)
+ # An explicit real collider supplements the 8 unchanged PSD solids,
+ # preventing diagonal motion or physics sliding through banana fence rails.
+ for i in range(supplemental_barriers.size()):
+  var guard := StaticBody2D.new()
+  guard.name = "LeftBananaFenceGuard"
+  guard.collision_layer = 2
+  guard.collision_mask = 0
+  var guard_shape := CollisionPolygon2D.new()
+  guard_shape.name = "SupplementalFenceFootprint"
+  guard_shape.build_mode = CollisionPolygon2D.BUILD_SOLIDS
+  guard_shape.polygon = supplemental_barriers[i]
+  guard.add_child(guard_shape)
+  collision_container.add_child(guard)
  # Close edges outside the Photoshop 1672x941 canvas.
  var border := StaticBody2D.new()
  border.name = "CanvasBoundary"
@@ -308,6 +334,11 @@ func _walkable_pixel(foot: Vector2) -> bool:
  # no red paint there. The wooden bridge itself remains fully traversable.
  for water_region in river_no_walk_regions:
   if Geometry2D.is_point_in_polygon(foot, water_region):
+   return false
+ # Paired to the real static-body guard; swept-foot checks use identical
+ # geometry so the character cannot clip the fence on low-FPS mobile.
+ for fence_region in supplemental_barriers:
+  if Geometry2D.is_point_in_polygon(foot, fence_region):
    return false
  for key in walkable_regions:
   if Geometry2D.is_point_in_polygon(foot, walkable_regions[key]):

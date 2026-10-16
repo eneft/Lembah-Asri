@@ -173,12 +173,23 @@ func _check() -> void:
   return
  var solid_count: int = 0
  var boundary_count: int = 0
+ var banana_guard_count: int = 0
  for child in container.get_children():
   if not (child is StaticBody2D) or child.collision_layer != 2:
    _fail("invalid collision body found")
    return
   var solid: CollisionPolygon2D = child.get_node_or_null("PSD_RedBlockedArea") as CollisionPolygon2D
   var border: CollisionPolygon2D = child.get_node_or_null("CanvasEdge") as CollisionPolygon2D
+  var guard: CollisionPolygon2D = child.get_node_or_null("SupplementalFenceFootprint") as CollisionPolygon2D
+  if guard != null:
+   if child.name != "LeftBananaFenceGuard" or guard.build_mode != CollisionPolygon2D.BUILD_SOLIDS:
+    _fail("supplementary banana-fence collision shape invalid")
+    return
+   var guard_regions: Array = stage.get("supplemental_barriers")
+   if guard_regions.size() != 1 or guard.polygon != guard_regions[0]:
+    _fail("banana-fence physics shape does not match swept-foot barrier")
+    return
+   banana_guard_count += 1
   if solid != null:
    if solid.build_mode != CollisionPolygon2D.BUILD_SOLIDS or solid_count >= authored_shapes.size():
     _fail("collision body shape mismatch")
@@ -192,11 +203,31 @@ func _check() -> void:
    solid_count += 1
   if border != null and border.build_mode == CollisionPolygon2D.BUILD_SEGMENTS:
    boundary_count += 1
- if solid_count != authored_shapes.size() or boundary_count != 1:
-  _fail("Godot collision count stale: got %d, expected %d" % [solid_count, authored_shapes.size()])
+ if solid_count != authored_shapes.size() or boundary_count != 1 or banana_guard_count != 1:
+  _fail("Godot collision count stale: got %d PSD solids, %d border, %d banana-fence guard" % [
+   solid_count, boundary_count, banana_guard_count])
   return
  if not bool(stage.call("_is_walkable_foot",hero.position)):
   _fail("Photoshop character marker collides with newly painted obstacles")
+  return
+ # Banana fence, near the left banana trees: these points used to be
+ # WALKABLE despite appearing directly in the wooden rail/wall footprint.
+ # Verify both sides of the unpainted gap and verify the main yard remains free.
+ for fence_foot in [Vector2(100, 525), Vector2(175, 570), Vector2(220, 608), Vector2(256, 625)]:
+  if bool(stage.call("_is_walkable_foot",fence_foot)):
+   _fail("character can still pass through banana-tree wooden fence: " + str(fence_foot))
+   return
+ for open_foot in [Vector2(190, 665), Vector2(350, 680), Vector2(630, 570)]:
+  if not bool(stage.call("_is_walkable_foot",open_foot)):
+   _fail("banana-fence fix blocked legitimate nearby footpath/yard: " + str(open_foot))
+   return
+ var left_fence_origin := Vector2(175, 590)
+ if not bool(stage.call("_is_walkable_foot",left_fence_origin)):
+  _fail("clear path just south of fence guard became blocked")
+  return
+ var blocked_move: Vector2 = stage.call("_move_foot_on_map",left_fence_origin,Vector2(0,-65))
+ if blocked_move.y < 578.0:
+  _fail("a run still crosses the banana fence, despite swept collision: " + str(blocked_move))
   return
  # Exact authored red obstacles stay unchanged; also block explicit water
  # regions, without sacrificing the crossing on the wooden bridge.
