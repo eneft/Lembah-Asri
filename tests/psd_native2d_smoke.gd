@@ -242,6 +242,43 @@ func _check() -> void:
  if not bool(stage.call("_is_walkable_foot",Vector2(1618,872))):
   _fail("far-bank rain path became an impassable water zone")
   return
+ # Door is a separate painted world overlay, never a 12th authored PSD
+ # layer or a new house collider; mobile button works only when near.
+ var front_door: Node2D = stage.get_node_or_null("HouseFrontDoor") as Node2D
+ var touch: Control = stage.get_node("TouchOverlay/TouchControls") as Control
+ if front_door == null or bool(front_door.get("is_open")):
+  _fail("house entrance must start with the wooden leaves closed")
+  return
+ if not front_door.has_method("toggle") or front_door.get_child_count() != 4:
+  _fail("house door texture hinges missing or not animated")
+  return
+ hero.position = Vector2(645.0, 460.0)
+ stage.call("_update_door_action_ui")
+ if not bool(touch.get("action_enabled")):
+  _fail("Action button must appear near the house entrance")
+  return
+ touch.emit_signal("interact_requested")
+ if not bool(front_door.get("is_open")):
+  _fail("pressing mobile Action must open the actual house door")
+  return
+ front_door.call("_process",0.22)
+ if float(front_door.get("open_progress")) <= 0.1:
+  _fail("door state changes but planks do not swing open")
+  return
+ touch.emit_signal("interact_requested")
+ if bool(front_door.get("is_open")):
+  _fail("second Action must close the same door")
+  return
+ hero.position = Vector2(1000.0, 600.0)
+ stage.call("_update_door_action_ui")
+ if bool(touch.get("action_enabled")):
+  _fail("mobile Action must hide out of interaction range")
+  return
+ touch.emit_signal("interact_requested")
+ if bool(front_door.get("is_open")):
+  _fail("door must not open when player is far from entrance")
+  return
+ hero.position = Vector2(float(marker[0]),float(marker[1]))
  if stage.get_node_or_null("RainWeather/GroundPuddles") == null or stage.get_node_or_null("TouchOverlay/TouchControls") == null:
   _fail("weather and mobile input weren't migrated")
   return

@@ -31,6 +31,8 @@ const LIGHTING_TINTS := [
 const LIGHTING_STRENGTHS := [0.31, 0.0, 0.45, 0.81]
 const PORCH_GLOW_STRENGTHS := [0.0, 0.0, 0.075, 0.26]
 const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
+const FRONT_DOOR_FOOT := Vector2(645.0, 405.0)
+const FRONT_DOOR_REACH: float = 145.0
 
 @export_group("Movement")
 @export var walk_speed_px: float = 220.0
@@ -64,6 +66,7 @@ const PORCH_LIGHT_PX := Vector2(780.0, 292.0)
 
 @onready var psd_layer_stack: Node2D = $PSDLayerStack
 @onready var bridge_sprite: Sprite2D = $PSDLayerStack/WoodenBridge
+@onready var house_door: Node2D = $HouseFrontDoor
 @onready var player: CharacterBody2D = $Run8Player
 @onready var visual: AnimatedSprite2D = $Run8Player/AnimatedSprite2D
 @onready var shadow: AnimatedSprite2D = $ProjectedShadow
@@ -173,6 +176,8 @@ func _ready() -> void:
  _sync_visual_scale()
  mobile.move_changed.connect(_on_touch_move)
  mobile.run_changed.connect(_on_touch_run)
+ mobile.interact_requested.connect(_on_action_requested)
+ mobile.action_enabled = false
  lighting_picker.connect("preset_delta", Callable(self, "_cycle_lighting_preset"))
  _set_lighting_preset(start_lighting_preset, true)
  weather_picker.connect("weather_delta", Callable(self, "_cycle_weather_mode"))
@@ -487,6 +492,7 @@ func _move_camera_to_player(instant: bool = false) -> void:
 func _process(delta: float) -> void:
  _sync_visual_scale()
  _move_camera_to_player()
+ _update_door_action_ui()
  _tick_lighting(delta)
  _tick_weather(delta)
  _sync_porch_glow()
@@ -612,6 +618,19 @@ func _tick_weather(delta: float) -> void:
    lightning_flash.visible = false
    lightning_bolt.call("set_flash", 0.0)
 
+func _can_use_front_door() -> bool:
+ return player.position.distance_to(FRONT_DOOR_FOOT) <= FRONT_DOOR_REACH
+
+func _update_door_action_ui() -> void:
+ var nearby: bool = _can_use_front_door()
+ if mobile.action_enabled != nearby:
+  mobile.action_enabled = nearby
+  mobile.queue_redraw()
+
+func _on_action_requested() -> void:
+ if _can_use_front_door():
+  house_door.call("toggle")
+
 func _on_touch_move(direction: Vector2) -> void:
  touch_direction = direction
 
@@ -620,7 +639,9 @@ func _on_touch_run(active: bool) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
  if event is InputEventKey and event.pressed and not event.echo:
-  if event.keycode == KEY_R:
+  if event.keycode == KEY_E or event.keycode == KEY_F:
+   _on_action_requested()
+  elif event.keycode == KEY_R:
    _set_weather_mode(3 if weather_mode_index < 2 else 0)
   elif event.keycode == KEY_T:
    _cycle_weather_mode(1)

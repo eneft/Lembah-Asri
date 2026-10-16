@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=3]
+[gd_scene load_steps=36 format=3]
 
 [ext_resource type="Script" path="res://scripts/rumah_ladang_psd_camera2d.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/psd_player_2d.gd" id="2_player"]
@@ -17,6 +17,7 @@
 [ext_resource type="Script" path="res://scripts/weather/native_storm_bolt.gd" id="18_lightning_bolt"]
 [ext_resource type="Script" path="res://scripts/weather/native_wind_gust.gd" id="19_wind_gust"]
 [ext_resource type="Script" path="res://scripts/psd_authored_collision_debug.gd" id="20_psd_debug"]
+[ext_resource type="Script" path="res://scripts/psd_house_door.gd" id="21_front_door"]
 [ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/01_fence_right.png" id="L_FENCE_RIGHT"]
 [ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/02_stone_wall_left.png" id="L_STONE_WALL_LEFT"]
 [ext_resource type="Texture2D" path="res://assets/art/psd_layered_scene/03_fence_left.png" id="L_FENCE_LEFT"]
@@ -132,6 +133,10 @@ centered = false
 texture_filter = 2
 texture = ExtResource("L_PALM")
 z_index = 13
+
+[node name="HouseFrontDoor" type="Node2D" parent="."]
+z_index = 16
+script = ExtResource("21_front_door")
 
 [node name="RainWeather" parent="." instance=ExtResource("7_weather")]
 
