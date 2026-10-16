@@ -221,12 +221,12 @@ func _check() -> void:
   if not bool(stage.call("_is_walkable_foot",open_foot)):
    _fail("banana-fence fix blocked legitimate nearby footpath/yard: " + str(open_foot))
    return
- var left_fence_origin := Vector2(175, 590)
+ var left_fence_origin := Vector2(175, 605)
  if not bool(stage.call("_is_walkable_foot",left_fence_origin)):
   _fail("clear path just south of fence guard became blocked")
   return
  var blocked_move: Vector2 = stage.call("_move_foot_on_map",left_fence_origin,Vector2(0,-65))
- if blocked_move.y < 578.0:
+ if blocked_move.y < 595.0:
   _fail("a run still crosses the banana fence, despite swept collision: " + str(blocked_move))
   return
  # Exact authored red obstacles stay unchanged; also block explicit water
