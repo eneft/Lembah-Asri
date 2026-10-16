@@ -84,7 +84,7 @@ func _check() -> void:
  water.call("set_flow_phase",3.1)
  var rainy_b: Image = await _image()
  var rainy_flow: int = _different(rainy_a,rainy_b,0,720,0.018)
- if rainy_flow < 20:
+ if rainy_flow < 40:
   _fail("downstream river motion disappears under rainy lighting: " + str(rainy_flow))
   return
  print("PSD RIVER RAIN MOTION PASS: %d moving storm-tinted pixels" % rainy_flow)
