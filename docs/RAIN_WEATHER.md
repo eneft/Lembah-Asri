@@ -230,3 +230,10 @@ unchanged original PSD background, and the displaced samples are gated
 against that same original. The animated colors still sample the rendered
 scene, so the weather grading is preserved while dark storm light cannot
 turn the river mask off. The GPU rainy-motion check remains mandatory.
+
+### River mask compatibility correction
+A trial to key water directly from the single original PSD layer failed
+because that layer does not alone provide the fully composited cyan river
+seen on screen. The shader again samples the rendered scene and uses a
+more tolerant blue/cyan key under rain, without replacing or moving the
+river artwork. The rainy and sunny GPU render regressions remain active.
