@@ -36,17 +36,17 @@ func _draw_png_controls() -> void:
  var s: float = _ui_scale()
  var joy: Vector2 = get_joystick_center()
  var center: Vector2 = joy+move_vector*STICK_TRAVEL*s
- var joy_side: float = 195*s
+ var joy_side: float = 163*s
  draw_texture_rect(_skin_joy,Rect2(joy-Vector2.ONE*joy_side*.5,Vector2.ONE*joy_side),false)
  var thumb_side: float = 80*s
  draw_texture_rect(_skin_thumb,Rect2(center-Vector2.ONE*thumb_side*.5,Vector2.ONE*thumb_side),false)
- var run_side: float = 118*s
+ var run_side: float = 101*s
  var run: Vector2 = get_run_center()
  draw_texture_rect(_skin_run,Rect2(run-Vector2.ONE*run_side*.5,Vector2.ONE*run_side),
   false,Color(0.78,0.92,0.72,1.0) if run_held else Color.WHITE)
  if action_enabled:
   var action: Vector2 = get_interact_center()
-  var action_side: float = 140*s
+  var action_side: float = 113*s
   draw_texture_rect(_skin_action,Rect2(action-Vector2.ONE*action_side*.5,
    Vector2.ONE*action_side),false,
    Color(0.90,0.85,0.66,1.0) if _action_finger!=-1 else Color.WHITE)

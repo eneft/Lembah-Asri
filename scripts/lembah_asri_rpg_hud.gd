@@ -9,7 +9,7 @@ signal modal_changed(is_open: bool)
 const WORLD_SIZE := Vector2(1672.0, 941.0)
 const WORLD_MAP: Texture2D = preload("res://assets/art/psd_layered_scene/00_background.png")
 const HERO_FACE: Texture2D = preload("res://assets/characters/player_base_8dir/down.png")
-const LABELS := ["Tangan", "Jurnal", "Tas", "Peta", "Kosong", "Menu"]
+const LABELS := ["Tangan", "Kosong", "Kosong", "Kosong", "Kosong", "Kosong"]
 const NUM_SLOTS := 6
 const INK := Color("#2d3027")
 const CREAM := Color("#f5e8c9")
@@ -31,6 +31,8 @@ var energy: float = -1.0
 var max_energy: float = -1.0
 var day_number: int = -1
 var selected_slot: int = 0
+var hotbar_items: Array[String] = ["Tangan", "", "", "", "", ""]
+var area_title_seconds: float = 4.5
 var open_panel: String = ""
 var inventory_items: Array[String] = []
 var journal_entries: Array[String] = []
@@ -79,6 +81,8 @@ func set_phase(text: String) -> void:
  queue_redraw()
 
 func set_area(text: String) -> void:
+ if area_label != text:
+  area_title_seconds = 4.5
  area_label = text
  queue_redraw()
 
@@ -106,6 +110,15 @@ func set_day(day: int) -> void:
 func set_inventory(items: Array[String]) -> void:
  inventory_items = items.duplicate()
  queue_redraw()
+
+func set_hotbar_item(index: int, item_name: String) -> void:
+ if index <= 0 or index >= NUM_SLOTS:
+  return
+ hotbar_items[index] = item_name
+ queue_redraw()
+
+func is_tool_equipped() -> bool:
+ return selected_slot != 0 and hotbar_items[selected_slot] != ""
 
 func set_journal(entries: Array[String]) -> void:
  journal_entries = entries.duplicate()
@@ -168,6 +181,8 @@ func _bar(box: Rect2, value: float, maximum: float, fill: Color) -> void:
 func _process(delta: float) -> void:
  if message_left > 0.0:
   message_left = maxf(0.0,message_left-delta)
+ if area_title_seconds > 0.0:
+  area_title_seconds = maxf(0.0,area_title_seconds-delta)
  # The minimap marker tracks the existing real CharacterBody2D.
  queue_redraw()
 
@@ -177,8 +192,8 @@ func _draw() -> void:
  var d: Dictionary = _layout()
  if _png_skin != null:
   _png_skin.call("paint",self,d,hero,phase_label,weather_label,day_number,
-   level,health,max_health,energy,max_energy,selected_slot,contextual_label,
-   message_text,message_left)
+   level,health,max_health,energy,max_energy,selected_slot,hotbar_items,
+   area_label,area_title_seconds,contextual_label,message_text,message_left)
   if is_modal_open():
    _draw_modal(d,d["scale"])
   return
@@ -257,11 +272,11 @@ func _draw_hotbar(slot_rects: Array[Rect2],s: float) -> void:
   var rect: Rect2 = slot_rects[i]
   draw_style_box(_skins["selected"] if i == selected_slot else _skins["slot"],rect)
   _text(rect.position+Vector2(6*s,14*s),str(i+1),maxi(10,roundi(11*s)),GOLD)
-  var symbol: String = ["✋","✎","▣","◇","·","≡"][i]
+  var symbol: String = "✋" if i == 0 else "·"
   _centered(Rect2(rect.position+Vector2(0,6*s),rect.size-Vector2(0,12*s)),
    symbol,maxi(15,roundi(24*s)),CREAM)
   _centered(Rect2(rect.position+Vector2(0,32*s),Vector2(rect.size.x,20*s)),
-   LABELS[i],maxi(8,roundi(10*s)),MUTED)
+   LABELS[i] if hotbar_items[i] == "" else hotbar_items[i],maxi(8,roundi(10*s)),MUTED)
 
 func _draw_modal(d: Dictionary,s: float) -> void:
  draw_rect(Rect2(Vector2.ZERO,size),Color(0.06,0.11,0.08,0.80),true)
@@ -344,13 +359,8 @@ func select_slot(index: int) -> void:
  if index < 0 or index >= NUM_SLOTS:
   return
  selected_slot = index
- match index:
-  1: toggle_panel("Jurnal")
-  2: toggle_panel("Inventori")
-  3: toggle_panel("Peta")
-  4: _notify("Slot belum diisi")
-  5: toggle_panel("Menu")
-  _: close_panel()
+ if hotbar_items[index] == "":
+  _notify("Slot alat belum diisi")
  queue_redraw()
 
 func _tap(at: Vector2) -> bool:
@@ -377,6 +387,15 @@ func _tap(at: Vector2) -> bool:
   return true
  if (d["minimap"] as Rect2).has_point(at):
   toggle_panel("Peta")
+  return true
+ if d.has("inventory_button") and (d["inventory_button"] as Rect2).has_point(at):
+  toggle_panel("Inventori")
+  return true
+ if d.has("journal_button") and (d["journal_button"] as Rect2).has_point(at):
+  toggle_panel("Jurnal")
+  return true
+ if d.has("menu_button") and (d["menu_button"] as Rect2).has_point(at):
+  toggle_panel("Menu")
   return true
  var slots: Array[Rect2] = d["slots"]
  for i in range(slots.size()):

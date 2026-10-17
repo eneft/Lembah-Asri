@@ -298,8 +298,15 @@ func _check() -> void:
  # joystick/LARI/AKSI when switching RPG tabs before closing the modal.
  touch.call("set_test_visible",true)
  hud.call("select_slot",1)
+ if str(hud.get("open_panel")) != "":
+  _fail("tool hotbar must not open RPG menu")
+  return
+ if int(hud.get("selected_slot")) != 1 or not touch.visible:
+  _fail("tool hotbar fails to select without hiding joystick")
+  return
+ hud.call("toggle_panel","Jurnal")
  if str(hud.get("open_panel")) != "Jurnal":
-  _fail("journal hotbar slot does not open its interactive panel")
+  _fail("separate journal shortcut failed")
   return
  if touch.visible:
   _fail("touch controls must not collide with an opened RPG modal")
