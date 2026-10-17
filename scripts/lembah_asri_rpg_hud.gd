@@ -17,6 +17,7 @@ const GOLD := Color("#d5b277")
 const MUTED := Color("#b8c6b3")
 const GREEN := Color("#4d674f")
 
+var _png_skin: RefCounted = null
 var hero: Node2D
 var phase_label: String = "SIANG"
 var weather_label: String = "CERAH"
@@ -39,6 +40,13 @@ var _skins: Dictionary = {}
 var _last_pointer_frame: int = -100
 
 func _ready() -> void:
+ var skin_path: String = "res://scripts/ui/lembah_asri_hud_png_skin.gd"
+ if ResourceLoader.exists(skin_path):
+  var skin_resource: Resource = load(skin_path)
+  if skin_resource is GDScript:
+   _png_skin = skin_resource.new()
+   if not _png_skin.call("has_all"):
+    _png_skin = null
  set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
  mouse_filter = Control.MOUSE_FILTER_IGNORE
  process_mode = Node.PROCESS_MODE_ALWAYS
@@ -110,6 +118,8 @@ func _scale() -> float:
  return clampf(minf(size.x / 1180.0, size.y / 650.0), 0.69, 1.16)
 
 func _layout() -> Dictionary:
+ if _png_skin != null:
+  return _png_skin.call("layout",size)
  var s: float = _scale()
  var card_width: float = 287.0 * s
  var top_right: Rect2 = Rect2(size.x-299*s,13*s,285*s,85*s)
@@ -165,6 +175,13 @@ func _draw() -> void:
  if size.x < 380 or size.y < 260:
   return
  var d: Dictionary = _layout()
+ if _png_skin != null:
+  _png_skin.call("paint",self,d,hero,phase_label,weather_label,day_number,
+   level,health,max_health,energy,max_energy,selected_slot,contextual_label,
+   message_text,message_left)
+  if is_modal_open():
+   _draw_modal(d,d["scale"])
+  return
  var s: float = d["scale"]
  _draw_player(d["player"],s)
  _draw_objective(d["objective"],s)
