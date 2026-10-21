@@ -1,0 +1,35 @@
+name: V21 Isolated Godot Visual Render QA
+on:
+  push:
+    branches: ['qa/v21-visual-render-test-20261021']
+permissions:
+  contents: read
+jobs:
+  godot-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Godot 4.3
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: false
+      - name: Import game assets
+        run: godot --headless --path . --editor --quit
+      - name: Render PNG with Godot using xvfb
+        run: |
+          set -o pipefail
+          xvfb-run -a -s '-screen 0 1280x720x24' timeout 90s godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/v21_visual_render_qa.gd 2>&1 | tee v21-render.log
+          if grep -E 'SCRIPT ERROR|V21 VISUAL FAIL' v21-render.log; then exit 1; fi
+          grep -q 'V21 GODOT RENDER PASS' v21-render.log
+      - name: Upload screenshot and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v21-godot-render-evidence
+          path: |
+            v21-ci-render.png
+            v21-render.log
+          if-no-files-found: warn
