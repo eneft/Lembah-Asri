@@ -1,0 +1,34 @@
+name: V24 Export Godot 4.3 Engine for Local QA
+on:
+  push:
+    branches: ['qa/v21-visual-render-test-20261021']
+permissions:
+  contents: read
+jobs:
+  export-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Godot 4.3
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: false
+      - name: Export Linux binary for isolated terrain test
+        run: |
+          set -euxo pipefail
+          godot --version
+          mkdir -p godot-v24-export
+          cp "$(command -v godot)" godot-v24-export/godot
+          chmod +x godot-v24-export/godot
+          sha256sum godot-v24-export/godot | tee godot-v24-export/SHA256SUMS.txt
+          ls -lh godot-v24-export/
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: v24-godot43-linux-binary
+          path: godot-v24-export/
+          retention-days: 1
+          if-no-files-found: error
