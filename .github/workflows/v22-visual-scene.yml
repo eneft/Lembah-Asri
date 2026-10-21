@@ -1,0 +1,35 @@
+name: V22 Godot Real Scene Rendering QA
+on:
+  push:
+    branches: ['qa/v21-visual-render-test-20261021']
+permissions:
+  contents: read
+jobs:
+  verify-visual-scene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.3
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: false
+      - name: Import project
+        run: godot --headless --path . --editor --quit
+      - name: Render actual external-texture tscn and inspect pixels
+        run: |
+          set -o pipefail
+          xvfb-run -a -s '-screen 0 1280x720x24' timeout 90s godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/v22_render_actual_scene.gd 2>&1 | tee v22-render.log
+          if grep -E 'SCRIPT ERROR|V22 DIRECT SCENE FAIL|ERROR:' v22-render.log; then exit 1; fi
+          grep -q 'V22 GODOT DIRECT SCENE PASS' v22-render.log
+      - name: Upload screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v22-real-scene-evidence
+          path: |
+            v22-scene-screenshot.png
+            v22-render.log
+          if-no-files-found: warn

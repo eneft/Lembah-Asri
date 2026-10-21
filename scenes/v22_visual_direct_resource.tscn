@@ -1,0 +1,44 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/art/concept_farm.png" id="1_terrain"]
+
+[node name="V22_Visual_Resource_Test" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.045, 0.075, 0.09, 1)
+
+[node name="Terrain" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+texture = ExtResource("1_terrain")
+expand_mode = 1
+stretch_mode = 5
+mouse_filter = 2
+
+[node name="TopBar" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 39.0
+color = Color(0.03, 0.055, 0.065, 0.92)
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 1
+offset_left = 14.0
+offset_top = 7.0
+offset_right = 1250.0
+offset_bottom = 36.0
+text = "LEMBAH ASRI V22 | GODOT DIRECT SCENE RESOURCE QA"
+theme_override_font_sizes/font_size = 17
