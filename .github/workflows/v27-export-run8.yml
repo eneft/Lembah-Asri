@@ -1,0 +1,26 @@
+name: V27 Export Existing RUN8 Character Assets
+on:
+  push:
+    branches: [qa/v27-existing-run8-asset-transfer]
+permissions:
+  contents: read
+jobs:
+  export-run8-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package original RUN8 proportional sprite and scripts
+        run: |
+          set -euo pipefail
+          mkdir -p bundle/assets/characters
+          cp -r assets/characters/run8_proportional bundle/assets/characters/
+          cp -r assets/characters/idle8_new bundle/assets/characters/
+          find bundle -type f -printf '%p %s bytes\n'
+          (cd bundle && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v27-original-run8-asset-bundle
+          path: bundle/
+          retention-days: 2
+          compression-level: 6
