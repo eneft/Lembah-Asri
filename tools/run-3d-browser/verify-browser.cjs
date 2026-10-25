@@ -36,7 +36,11 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
     console.log('MOBILE SAFARI SETTINGS PASS: menu stays open until explicit Close');
     return;
   }
-  await page.waitForFunction(()=>document.querySelector('#fileHint')?.textContent.includes('Dua animasi telah dimuat otomatis'),{timeout:105000});
+  // Check initialization failures immediately, rather than waiting for model timeout.
+  await page.waitForTimeout(600);
+  if(errors.length)throw Error('Startup JavaScript error: '+errors.join('; '));
+  await page.waitForFunction(()=>document.querySelector('#fileHint')?.textContent.includes('Dua animasi telah dimuat otomatis'),null,{timeout:105000});
+  if(errors.length)throw Error('Startup/model JavaScript error: '+errors.join('; '));
   await page.waitForTimeout(1800);
   const diagnostic=await page.evaluate(()=>window.__lembahDiagnostics?.());
   console.log('FBX PREVIEW DIAGNOSTICS:',JSON.stringify(diagnostic));

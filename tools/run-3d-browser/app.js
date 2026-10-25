@@ -175,15 +175,8 @@ function setLighting(name){
     light.color.setHex(color);
     light.position.set(...pos);
   }
-  // Move warm/cool shadow palettes together with the three original light presets.
-  const palette = name==='sunset'
-    ? {shade:[.45,.43,.59],lit:[1.28,1.08,.86],rim:0xffedcc}
-    : name==='indoor'
-    ? {shade:[.47,.51,.60],lit:[1.18,1.12,1.07],rim:0xfff8e7}
-    : {shade:[.38,.51,.70],lit:[1.22,1.11,1.01],rim:0xfff1dd};
-  painterlyUniforms.shadowTint.value.set(...palette.shade);
-  painterlyUniforms.lightTint.value.set(...palette.lit);
-  painterlyUniforms.rimTint.value.setHex(palette.rim);
+  // Lighting presets control the real directional/ambient lights directly.
+  // No shader-specific uniforms are referenced: Painterly Color is native Toon.
   renderer.toneMappingExposure = p.exposure * exposureAdjust;
   setActive(lightingButtons, 'light', name);
   $('#lightingLabel').textContent = p.name;
