@@ -124,21 +124,21 @@ scene.add(paintedShadow);
 // Keep the key/fill/rim rig for the three comparable lighting presets.
 const presets = {
   day: {
-    name: 'Day / Neutral', sky: '#deeaf0', floor: 0xadb6a5, exposure: 1.24,
+    name: 'Day / Neutral', sky: '#e0ebf1', floor: 0xb1b8aa, exposure: 1.16,
     ambient: .15, hemisphere: .38, hemiSky: 0xf7fcff, hemiGround: 0x899f8b,
     key: 2.08, keyColor: 0xfff2e3, keyPos: [3.2, 6, 4.5],
     fill: .2, fillColor: 0xe0edff, fillPos: [-3.7, 2.4, 2.7],
     rim: .32, rimColor: 0xf5f8ff, rimPos: [-3.0, 3.7, -4.1]
   },
   sunset: {
-    name: 'Warm Sunset', sky: '#f3d9c5', floor: 0xb7ac93, exposure: 1.12,
+    name: 'Warm Sunset', sky: '#f4e2d0', floor: 0xb7ac93, exposure: 1.08,
     ambient: .20, hemisphere: .45, hemiSky: 0xffe5c9, hemiGround: 0x867965,
     key: 1.92, keyColor: 0xffca9c, keyPos: [-4.3, 3.5, 4.8],
     fill: .28, fillColor: 0xd4e4ff, fillPos: [4.4, 2.6, 2.3],
     rim: .76, rimColor: 0xffe3bf, rimPos: [2.5, 3.2, -4.2]
   },
   indoor: {
-    name: 'Soft Indoor', sky: '#ece9e2', floor: 0xaea9a0, exposure: 1.24,
+    name: 'Soft Indoor', sky: '#ece9e2', floor: 0xaea9a0, exposure: 1.16,
     ambient: .28, hemisphere: .52, hemiSky: 0xfff8e9, hemiGround: 0x969c99,
     key: 1.64, keyColor: 0xffead7, keyPos: [1.1, 5.5, 3.6],
     fill: .38, fillColor: 0xe1efff, fillPos: [-3.7, 3, 1.2],
@@ -266,8 +266,15 @@ const painterlyUniforms = {
 // detail; matte roughness and soft directional lighting shape the volume.
 function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transparent=false,opacity=1,alphaTest=0}={}){
   const material=new THREE.MeshStandardMaterial({
-    map,normalMap,normalScale:new THREE.Vector2(.15,.15),
-    color,roughness:.98,metalness:0,
+    map,
+    // Imported FBX normal atlas is intentionally subtle. Unlike the game-ready
+    // albedo it can exaggerate seams on non-indexed animated geometry.
+    normalMap:normalDetail ? normalMap : null,
+    normalScale:new THREE.Vector2(.045,.045),
+    color,roughness:1,metalness:0,
+    emissive:map ? new THREE.Color(0xffffff) : new THREE.Color(0x000000),
+    emissiveMap:map,
+    emissiveIntensity:map ? .20 : 0,
     side:THREE.DoubleSide,transparent,opacity,alphaTest
   });
   material.userData.painterly=true;
@@ -280,12 +287,13 @@ const flatMaterial = new THREE.MeshBasicMaterial({
 });
 let activeMaterials = { painterly:painterlyMaterial, toon: toonMaterial, flat: flatMaterial };
 let customNormalMap = null;
-let normalDetail = true;
+let normalDetail = false;
 let sourceTextureUrls = [];
 function applyMaterial(){
   activeMaterials.toon.normalMap = normalDetail ? (customNormalMap || normalAtlas) : null;
   activeMaterials.toon.needsUpdate = true;
   activeMaterials.painterly.normalMap = normalDetail ? (customNormalMap || normalAtlas) : null;
+  activeMaterials.painterly.normalScale.set(.045,.045);
   activeMaterials.painterly.needsUpdate = true;
   for(const ins of instances){
     ins?.model.traverse(obj=>{
@@ -635,6 +643,8 @@ window.__lembahDiagnostics = () => ({
   painterlyVersion:4,
   painterlyNativeShader:true,
   painterlyImplementation:'matte-standard',
+  painterlyEmissive:.20,
+  painterlyNormalStrength:.045,
   painterlyShadowTint:[...painterlyUniforms.shadowTint.value],
   hardFloorShadow:key.castShadow,
   painterlyRamp:softGradient.image?.width,
