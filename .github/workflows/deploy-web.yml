@@ -263,6 +263,14 @@ jobs:
           cmp build/web/index.pck build/web/camera2d/index.pck
           echo "CAMERA2D ROOT AND COMPATIBILITY PATH MATCH: same validated pack"
 
+      - name: Copy independent FBX browser tester (no main game changes)
+        run: |
+          mkdir -p build/web/run-tester
+          cp -r tools/run-3d-browser/. build/web/run-tester/
+          test -s build/web/run-tester/index.html
+          test -s build/web/run-tester/app.js
+          echo "Optional standalone 3D FBX tester published under /run-tester/"
+
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:
