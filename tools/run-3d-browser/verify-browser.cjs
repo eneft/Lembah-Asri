@@ -111,7 +111,12 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   await page.screenshot({path:'/tmp/lembah-run-browser-mobile-custom-fbx.png'});
   await page.locator('#settingsToggle').click();
   if(!(await page.locator('#groundRow').isVisible())) throw Error('Ground controls not visible for uploaded FBX');
-  await page.locator('#groundOffset').fill('-0.20');
+  // Negative input[type=range] fails locator.fill() in some Playwright versions;
+  // dispatch the same native input event as dragging the range thumb.
+  await page.locator('#groundOffset').evaluate(el=>{
+    el.value='-0.20';
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+  });
   const afterOffset = (await page.evaluate(()=>window.__lembahDiagnostics())).clips[2];
   if(Math.abs(afterOffset.manualOffset + 0.2)>0.011 ||
      Math.abs(afterOffset.anchorY-afterOffset.autoGround+0.2)>0.011)
