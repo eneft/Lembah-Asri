@@ -1,0 +1,40 @@
+name: Verify Movement FBX Tester
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/movement-tester/**'
+      - '.github/workflows/verify-movement-tester.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  movement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare local preview
+        run: |
+          mkdir -p /tmp/lembah-movement/movement-tester /tmp/lembah-movement/run-tester
+          cp tools/movement-tester/index.html tools/movement-tester/app.js /tmp/lembah-movement/movement-tester/
+          unzip -q tools/run-3d-browser/assets.zip -d /tmp/lembah-movement/run-tester/
+          test -s /tmp/lembah-movement/run-tester/assets/Running_Web_UV.fbx
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browsers
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium webkit
+      - name: Verify one rig with multiple uploaded animations and WASD
+        run: |
+          python3 -m http.server 8765 --directory /tmp/lembah-movement >/tmp/movement-server.log 2>&1 &
+          node tools/movement-tester/verify.cjs
+          MOVEMENT_BROWSER=webkit node tools/movement-tester/verify.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: movement-playable-browser-captures
+          path: /tmp/lembah-movement-*.png
+          if-no-files-found: ignore
