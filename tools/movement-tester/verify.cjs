@@ -158,7 +158,7 @@ const engine=type==='webkit'?webkit:chromium;
   await page.locator('#closeUpload').click();
   await down('w');await page.keyboard.down('Shift');await delay(420);
   d=await diagnostics();
-  if(d.state!=='anime'||d.modelCount!==4||!Object.values(d.slots).every(s=>s.loaded&&s.nativeRig))
+  if(d.state!=='anime'||d.modelCount!==4||!['idle','walk','run','anime'].every(k=>d.slots[k].loaded&&d.slots[k].nativeRig))
    throw Error('Fourth manual slot failed: '+JSON.stringify(d));
   await page.keyboard.up('Shift');await up('w');
   await upload('jump','Jump_manual.fbx',fixtureB);
