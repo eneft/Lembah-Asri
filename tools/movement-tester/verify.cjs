@@ -108,6 +108,9 @@ const engine=type==='webkit'?webkit:chromium;
   let jumping=await diagnostics();
   if(!jumping.jumping||jumping.slots.jump.loaded||jumping.position[1]<.12)
    throw Error('Jump without FBX failed: '+JSON.stringify(jumping));
+  if(jumping.flightSeconds<1.17||jumping.flightSeconds>1.46||
+     jumping.jumpApexHeight>.7)
+   throw Error('Jump physics still too fast or too tall: '+JSON.stringify(jumping));
   await page.screenshot({path:'/tmp/lembah-movement-'+type+'-jump-without-fbx.png'});
   await page.waitForFunction(()=>!window.__movementDiagnostics?.().jumping,null,{timeout:3000});
   const landed=await diagnostics();
@@ -165,12 +168,22 @@ const engine=type==='webkit'?webkit:chromium;
   d=await diagnostics();
   if(d.modelCount!==5||!d.slots.jump.nativeRig||d.slots.jump.duration<.01)
    throw Error('Manual jump FBX missing its native rig: '+JSON.stringify(d));
+  // Both source assets are the same character. They must normalize from the
+  // SAME bind pose to the SAME height, not from crouched animation frames.
+  const sizes=d.avatarHeights;
+  if(!sizes.idle||!sizes.jump || Math.abs(sizes.idle.normalized-2.08)>.07 ||
+     Math.abs(sizes.jump.normalized-2.08)>.07 ||
+     Math.abs(sizes.idle.normalized-sizes.jump.normalized)>.07)
+   throw Error('Jump avatar changed body size compared to Idle: '+JSON.stringify(sizes));
+  console.log('FBX AVATAR BIND POSE HEIGHT MATCH',type,JSON.stringify({idle:sizes.idle.normalized,jump:sizes.jump.normalized}));
   await page.locator('#previewDone').click();
   await page.locator('#jumpTouch').click();
   await page.waitForFunction(()=>window.__movementDiagnostics?.().jumpHeight>.10,null,{timeout:3000});
   d=await diagnostics();
   if(!d.jumping||d.visibleSlot!=='jump'||d.state!=='jump'||!d.slots.jump.visible)
    throw Error('Uploaded Jump FBX is not displayed during jump: '+JSON.stringify(d));
+  if(d.flightSeconds<1.17||d.flightSeconds>1.46)
+   throw Error('Jump FBX playback did not preserve slow physical timing: '+JSON.stringify(d));
   await page.screenshot({path:'/tmp/lembah-movement-'+type+'-jump-with-fbx.png'});
   await page.waitForFunction(()=>!window.__movementDiagnostics?.().jumping,null,{timeout:3000});
   d=await diagnostics();
