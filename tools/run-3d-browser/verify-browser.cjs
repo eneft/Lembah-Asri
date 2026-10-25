@@ -12,10 +12,11 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
      shaderErrors.push(msg.text().slice(0,1400));
  });
  try{
+  // Set iPhone viewport BEFORE importing app.js so mobile initialization actually runs.
+  if(process.env.BROWSER_ENGINE==='webkit') await page.setViewportSize({width:390,height:844});
   await page.goto('http://127.0.0.1:8765/index.html',{waitUntil:'domcontentloaded',timeout:45000});
   // Safari/WebKit UI regression is independent of WebGL and texture loading.
   if(process.env.BROWSER_ENGINE==='webkit'){
-    await page.setViewportSize({width:390,height:844});
     const drawer=page.locator('#settingsPanel');
     const toggle=page.locator('#settingsToggle');
     if(!(await toggle.isVisible())) throw Error('Safari settings summary not visible');
