@@ -56,6 +56,9 @@ const velocity=new THREE.Vector3();
 const movement=new THREE.Vector3();
 const baseRigByName=new Map();
 let loadingSlot=null;
+let previewSlot=null;
+let previewPaused=false;
+let lastAnimationInfo='';
 function setStatus(text,error=false){status.textContent=text;status.classList.toggle('error',error);}
 function setSlotLabel(slot,text){$(slot+'Name').textContent=text;}
 function normBoneName(name){
@@ -96,10 +99,27 @@ function mapToBaseRig(original,slot){
     }
     matched.push(converted);targetNames.add(bone);
   }
+  // An FBX may have a valid skeleton but contain only a static pose.
+  // Report that honestly rather than claiming the clip is visibly animated.
+  let movingTracks=0;
+  for(const track of matched){
+    const count=track.times?.length || 0;
+    const step=track.getValueSize();
+    if(count<2 || !step)continue;
+    const values=track.values;
+    let varied=false;
+    for(let k=1;k<count && !varied;k++){
+      for(let j=0;j<step;j++){
+        if(Math.abs(values[k*step+j]-values[j])>0.004){varied=true;break;}
+      }
+    }
+    if(varied)movingTracks++;
+  }
   const fraction=matched.length/original.tracks.length;
   if(matched.length<5 || fraction<.55)throw Error('Rig tidak cocok: '+matched.length+'/'+original.tracks.length+' track cocok. Gunakan FBX dengan skeleton karakter yang sama.');
+  if(!Number.isFinite(original.duration)||original.duration<=0)throw Error('Animasi FBX tidak memiliki durasi gerak');
   const clip=new THREE.AnimationClip(slot+'_'+Date.now(),original.duration,matched);
-  clip.userData={sourceTracks:original.tracks.length,compatibleTracks:matched.length,coverage:fraction,nodes:targetNames.size,unmatched:unmatched.slice(0,4)};
+  clip.userData={sourceTracks:original.tracks.length,compatibleTracks:matched.length,coverage:fraction,nodes:targetNames.size,unmatched:unmatched.slice(0,4),movingTracks};
   return clip;
 }
 function normalizeCharacter(model){
@@ -136,6 +156,7 @@ async function loadBase(){
   mixer=new THREE.AnimationMixer(root);
   slots.run.clip=mapToBaseRig(model.animations[0],'run');
   setSlotLabel('run','Running bawaan · siap');
+  syncPreviewButtons();
   ready=true;
   window.__movementReady=true;
   setStatus('Siap · tambah Idle dan Walking lewat ＋ Animasi');
@@ -147,6 +168,7 @@ async function loadAnime(){
   const clip=mapToBaseRig(model.animations?.[0],'anime');
   slots.anime.clip=clip;
   setSlotLabel('anime','Run Anime bawaan · siap');
+  syncPreviewButtons();
   return clip;
 }
 async function assignFile(slot,file){
@@ -166,13 +188,79 @@ async function assignFile(slot,file){
     mixer.stopAllAction();
     if(slots[slot].clip)mixer.uncacheClip(slots[slot].clip);
     slots[slot].clip=clip;
-    setSlotLabel(slot,file.name+' · '+Math.round(clip.userData.coverage*100)+'% rig cocok');
-    $('uploadResult').textContent=slots[slot].label+' siap dari '+file.name+'. '+clip.userData.compatibleTracks+'/'+clip.userData.sourceTracks+' track tulang cocok.';
-    setStatus('Animasi '+slots[slot].label+' berhasil ditambahkan');
+    setSlotLabel(slot,file.name+' · '+Math.round(clip.userData.coverage*100)+'% cocok · '+clip.duration.toFixed(2)+' dtk');
+    const notice=clip.userData.movingTracks===0
+      ? 'Peringatan: semua keyframe tampak statis, jadi gerakannya mungkin tidak kelihatan.'
+      : clip.userData.movingTracks+' track memiliki perubahan gerak.';
+    lastAnimationInfo=slots[slot].label+' dari '+file.name+': '+clip.userData.compatibleTracks+'/'+clip.userData.sourceTracks+' track rig cocok. '+notice;
+    $('uploadResult').textContent=lastAnimationInfo;
+    setStatus('FBX '+slots[slot].label+' terpasang • '+notice,clip.userData.movingTracks===0);
     currently=null;
-    updateModeLabel();
+    syncPreviewButtons();
+    // Preview the freshly uploaded clip directly. In the old tester the
+    // upload drawer obscured the character, and WALK only played on WASD.
+    startPreview(slot);
+    closeUploadPanel();
   }finally{loadingSlot=null;}
 }
+const previewNames={idle:'IDLE',walk:'WALKING',run:'RUNNING',anime:'RUN ANIME'};
+function syncPreviewButtons(){
+  for(const b of document.querySelectorAll('[data-preview]')){
+    const slot=b.dataset.preview;
+    b.disabled=!(slots[slot]?.clip) && !(slot==='anime'&&ready);
+    b.title=b.disabled?'Belum ada FBX untuk slot ini':'Lihat gerakan '+previewNames[slot];
+    b.classList.toggle('active',previewSlot===slot);
+  }
+}
+function closeUploadPanel(){
+  $('uploadPanel').hidden=true;
+  $('openUpload').setAttribute('aria-expanded','false');
+}
+function stopPreview(){
+  previewSlot=null;
+  previewPaused=false;
+  $('previewBar').hidden=true;
+  $('previewPause').textContent='⏸ Pause';
+  currently=null; // allow the regular locomotion state machine to take over
+  syncPreviewButtons();
+  updateModeLabel();
+}
+function startPreview(slot){
+  if(!slots[slot]?.clip)return;
+  keys.clear();runHeld=false;stickX=0;stickZ=0;resetStick();
+  velocity.set(0,0,0);
+  movement.set(0,0,0);
+  actor.position.set(0,0,0);
+  previewSlot=slot;
+  previewPaused=false;
+  currently=null;
+  $('previewBar').hidden=false;
+  $('previewPause').textContent='⏸ Pause';
+  $('previewLabel').textContent='▶ '+previewNames[slot]+' · '+slots[slot].clip.duration.toFixed(2)+' dtk';
+  transition(slot);
+  if(slots[slot].clip.userData?.movingTracks===0){
+    $('previewHint').textContent='File terpasang, tetapi keyframe-nya tidak menunjukkan perubahan gerak.';
+  }else $('previewHint').textContent='Animasi diputar langsung pada karakter. Tekan Selesai untuk tes game.';
+  syncPreviewButtons();
+  closeUploadPanel();
+}
+for(const button of document.querySelectorAll('[data-preview]')){
+  button.addEventListener('click',async()=>{
+    const slot=button.dataset.preview;
+    if(slot==='anime'&&!slots.anime.clip){
+      try{await loadAnime();}
+      catch(err){setStatus('Run Anime gagal dimuat: '+err.message,true);return;}
+    }
+    startPreview(slot);
+  });
+}
+$('previewDone').addEventListener('click',stopPreview);
+$('previewPause').addEventListener('click',()=>{
+  if(!previewSlot)return;
+  previewPaused=!previewPaused;
+  $('previewPause').textContent=previewPaused?'▶ Lanjut':'⏸ Pause';
+});
+
 for(const input of document.querySelectorAll('input[data-slot]')){
   input.addEventListener('change',async()=>{
     const file=input.files?.[0];
@@ -247,7 +335,11 @@ document.addEventListener('keydown',event=>{
   // Buttons may retain focus after closing the upload drawer. WASD still moves.
   if(event.target.closest('input[type="text"],input[type="number"],textarea,select'))return;
   const k=normalizeKey(event.key);
-  if(['w','a','s','d','shift'].includes(k)){event.preventDefault();keys.add(k);}
+  if(['w','a','s','d','shift'].includes(k)){
+    event.preventDefault();
+    if(previewSlot)stopPreview();
+    keys.add(k);
+  }
 });
 document.addEventListener('keyup',event=>{
   const k=normalizeKey(event.key);
@@ -258,6 +350,7 @@ const pad=$('dpad'),stick=$('stick');
 let activePointer=null;
 function resetStick(){stick.style.transform='translate(0px,0px)';}
 pad.addEventListener('pointerdown',event=>{
+  if(previewSlot)stopPreview();
   if(activePointer!==null)return;
   event.preventDefault();activePointer=event.pointerId;
   try{pad.setPointerCapture(event.pointerId);}catch{} // Fallback for Safari and synthetic pointers
@@ -282,7 +375,7 @@ const releaseStick=event=>{
 pad.addEventListener('pointerup',releaseStick);pad.addEventListener('pointercancel',releaseStick);
 const runButton=$('runTouch');
 runButton.addEventListener('pointerdown',event=>{
-  event.preventDefault();runHeld=true;runButton.classList.add('pressed');
+  event.preventDefault();if(previewSlot)stopPreview();runHeld=true;runButton.classList.add('pressed');
   runButton.setPointerCapture(event.pointerId);
 });
 for(const type of ['pointerup','pointercancel'])runButton.addEventListener(type,()=>{
@@ -299,6 +392,11 @@ function updateInput(){
 function simulate(dt){
   updateInput();
   if(!ready)return;
+  if(previewSlot){
+    if(!previewPaused)mixer.update(dt);
+    $('mode').textContent='PREVIEW · '+previewNames[previewSlot];
+    return;
+  }
   const magnitude=movement.length();
   let desired='idle';
   if(magnitude>.12)desired=runningInput()?(runStyle==='anime'?'anime':'run'):'walk';
@@ -368,14 +466,17 @@ setInterval(()=>{
 $('openUpload').addEventListener('click',()=>{
   $('uploadPanel').hidden=false;$('openUpload').setAttribute('aria-expanded','true');
 });
-$('closeUpload').addEventListener('click',()=>{
-  $('uploadPanel').hidden=true;$('openUpload').setAttribute('aria-expanded','false');
-});
+$('closeUpload').addEventListener('click',closeUploadPanel);
 $('retry').addEventListener('click',()=>location.reload());
 window.__movementDiagnostics=()=>({
   ready,rigNodes:baseRigByName.size,
-  slots:Object.fromEntries(Object.entries(slots).map(([k,v])=>[k,{loaded:!!v.clip,coverage:v.clip?.userData?.coverage||0,tracks:v.clip?.tracks?.length||0}])),
-  state:currently,requested:state,position:actor.position.toArray(),
+  slots:Object.fromEntries(Object.entries(slots).map(([k,v])=>[k,{loaded:!!v.clip,coverage:v.clip?.userData?.coverage||0,tracks:v.clip?.tracks?.length||0,movingTracks:v.clip?.userData?.movingTracks ?? 0,duration:v.clip?.duration||0}])),
+  state:currently,requested:state,preview:previewSlot,previewPaused,position:actor.position.toArray(),
+  activeAction:currently&&slots[currently].clip?(()=>{
+    const action=mixer?.existingAction(slots[currently].clip,root);
+    return action?{isRunning:action.isRunning(),time:action.time,weight:action.getEffectiveWeight()}:null;
+  })():null,
+  uploadFeedback:lastAnimationInfo,
   runStyle, toon:$('toon').checked,mobile,
   facing:Math.round(rotationCorrection*180/Math.PI),joystick:[stickX,stickZ],frames:frameCounter
 });
