@@ -261,16 +261,16 @@ const painterlyUniforms = {
   rimIntensity:{value:.16},
   inkStrength:{value:.15}
 };
+// Textured stylized PBR is more reliable than custom GLSL/gradient maps
+// across browser GPU drivers. The hand-painted atlas provides illustration
+// detail; matte roughness and soft directional lighting shape the volume.
 function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transparent=false,opacity=1,alphaTest=0}={}){
-  const material=new THREE.MeshToonMaterial({
-    map,normalMap,normalScale:new THREE.Vector2(.12,.12),
-    gradientMap:softGradient,color,side:THREE.DoubleSide,
-    transparent,opacity,alphaTest
+  const material=new THREE.MeshStandardMaterial({
+    map,normalMap,normalScale:new THREE.Vector2(.15,.15),
+    color,roughness:.98,metalness:0,
+    side:THREE.DoubleSide,transparent,opacity,alphaTest
   });
   material.userData.painterly=true;
-  material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV5Stable';
-  // Native Three.js toon pipeline: keep hand-painted textures intact.
-  // No custom GLSL fragment overrides (those blackened some GPU renderers).
   return material;
 }
 const painterlyMaterial=makePainterlyMaterial({map:atlas,normalMap:normalAtlas,alphaTest:.025});
@@ -606,8 +606,9 @@ $('#groundReset').addEventListener('click',()=>{
 window.__lembahDiagnostics = () => ({
   selected, playing, material: currentMaterial, light: currentLight,
   painterlyShader:painterlyMaterial.userData.painterly,
-  painterlyVersion:3,
+  painterlyVersion:4,
   painterlyNativeShader:true,
+  painterlyImplementation:'matte-standard',
   painterlyShadowTint:[...painterlyUniforms.shadowTint.value],
   hardFloorShadow:key.castShadow,
   painterlyRamp:softGradient.image?.width,

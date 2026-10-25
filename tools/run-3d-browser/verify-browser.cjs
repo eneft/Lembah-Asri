@@ -67,8 +67,8 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
     throw Error('Anime soft toon material failed: ' + JSON.stringify(preview));
   await page.locator('[data-material="painterly"]').click();
   preview=await page.evaluate(()=>window.__lembahDiagnostics());
-  if(preview.material!=='painterly' || !preview.painterlyShader || preview.painterlyRamp!==256 || preview.painterlyVersion!==3 || !preview.painterlyNativeShader || preview.hardFloorShadow!==false ||
-     !preview.clips.every(c=>c.materialType==='MeshToonMaterial')) throw Error('Painterly anime shader not installed: '+JSON.stringify(preview));
+  if(preview.material!=='painterly' || !preview.painterlyShader || preview.painterlyRamp!==256 || preview.painterlyVersion!==4 || !preview.painterlyNativeShader || preview.hardFloorShadow!==false ||
+     !preview.clips.every(c=>c.materialType==='MeshStandardMaterial')) throw Error('Painterly anime shader not installed: '+JSON.stringify(preview));
   await page.locator('#showGrid').check();
   if(!(await page.evaluate(()=>window.__lembahDiagnostics().debugGrid)))throw Error('Grid debug toggle failed');
   await page.locator('#showGrid').uncheck();
@@ -155,7 +155,7 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   if(uploaded.names.length!==3||uploaded.names[0]!=='Running Normal'||uploaded.names[1]!=='Run Anime'||uploaded.selected!==2)
     throw Error('Upload replaced built-in animations: '+JSON.stringify(uploaded));
   if(!(await page.locator('#extrasRow').isVisible()))throw Error('Uploaded animation button is missing');
-  if(uploaded.clips[2]?.materialType !== 'MeshToonMaterial') throw Error('Painterly material not applied to uploaded FBX');
+  if(uploaded.clips[2]?.materialType !== 'MeshStandardMaterial') throw Error('Painterly material not applied to uploaded FBX');
   const grounded = uploaded.clips[2];
   if(!Number.isFinite(grounded.autoGround) || grounded.groundSamples<7 || Math.abs(grounded.contactGroundY)>0.001)
     throw Error('FBX animation was not calibrated to ground: '+JSON.stringify(grounded));
