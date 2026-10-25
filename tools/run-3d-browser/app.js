@@ -229,17 +229,21 @@ const toonMaterial = new THREE.MeshToonMaterial({
  * Vertex/fragment modifications use stable Three.js shader includes; no UV or
  * FBX animation is changed. Cache key separates this from ordinary toon.
  */
+// Colorized hand-painted light ramp: cool detailed shadows, creamy warm highlights.
+// This is a real 256-step RGB gradientMap used by the native MeshToonMaterial.
 const softRampBytes = new Uint8Array(256 * 4);
-function smooth01(lo,hi,t){
+function smooth01(lo,hi,t) {
   const v=THREE.MathUtils.clamp((t-lo)/(hi-lo),0,1);
   return v*v*(3-2*v);
 }
 for(let i=0;i<256;i++){
   const x=i/255;
-  // Painterly grayscale illumination: rich shadows, smooth midtones, pale light.
-  const value = 0.64 + .22*smooth01(.10,.58,x) + .12*smooth01(.52,.98,x);
-  const v=Math.round(255*Math.min(.99,value));
-  softRampBytes.set([v,v,v,255],i*4);
+  const f=smooth01(.08,.92,x);
+  const shadow=[.43,.56,.73],light=[1,.98,.93];
+  softRampBytes[i*4]=Math.round(255*(shadow[0]+(light[0]-shadow[0])*f));
+  softRampBytes[i*4+1]=Math.round(255*(shadow[1]+(light[1]-shadow[1])*f));
+  softRampBytes[i*4+2]=Math.round(255*(shadow[2]+(light[2]-shadow[2])*f));
+  softRampBytes[i*4+3]=255;
 }
 const softGradient = new THREE.DataTexture(softRampBytes,256,1,THREE.RGBAFormat);
 softGradient.colorSpace=THREE.NoColorSpace;
@@ -265,24 +269,8 @@ function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transpare
   });
   material.userData.painterly=true;
   material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV5Stable';
-  material.onBeforeCompile=shader=>{
-    shader.uniforms.uLembahRimStrength=painterlyUniforms.rimIntensity;
-    shader.uniforms.uLembahRimTint=painterlyUniforms.rimTint;
-    shader.vertexShader=shader.vertexShader.replace(
-      '#include <common>',
-      '#include <common>\nvarying vec3 vLembahNormal;\nvarying vec3 vLembahView;'
-    ).replace(
-      '#include <fog_vertex>',
-      'vLembahNormal = normalize(transformedNormal);\nvLembahView=normalize(-mvPosition.xyz);\n#include <fog_vertex>'
-    );
-    shader.fragmentShader=shader.fragmentShader.replace(
-      '#include <common>',
-      '#include <common>\nuniform float uLembahRimStrength;\nuniform vec3 uLembahRimTint;\nvarying vec3 vLembahNormal;\nvarying vec3 vLembahView;'
-    ).replace(
-      '#include <opaque_fragment>',
-      'float laRim=pow(1.0-abs(dot(normalize(vLembahNormal),normalize(vLembahView))),4.0);\noutgoingLight+=uLembahRimTint*(laRim*uLembahRimStrength);\n#include <opaque_fragment>'
-    );
-  };
+  // Native Three.js toon pipeline: keep hand-painted textures intact.
+  // No custom GLSL fragment overrides (those blackened some GPU renderers).
   return material;
 }
 const painterlyMaterial=makePainterlyMaterial({map:atlas,normalMap:normalAtlas,alphaTest:.025});
@@ -618,7 +606,8 @@ $('#groundReset').addEventListener('click',()=>{
 window.__lembahDiagnostics = () => ({
   selected, playing, material: currentMaterial, light: currentLight,
   painterlyShader:painterlyMaterial.userData.painterly,
-  painterlyVersion:2,
+  painterlyVersion:3,
+  painterlyNativeShader:true,
   painterlyShadowTint:[...painterlyUniforms.shadowTint.value],
   hardFloorShadow:key.castShadow,
   painterlyRamp:softGradient.image?.width,
@@ -656,10 +645,6 @@ function animate(){
   requestAnimationFrame(animate);
   const delta = Math.min(clock.getDelta(), .075);
   controls.update();
-  // Three.js fragment normals are in view space, so update key direction
-  // as the user orbits the camera around the avatar.
-  camera.updateMatrixWorld(true);
-  painterlyUniforms.keyVS.value.copy(key.position).sub(key.target.position).normalize().transformDirection(camera.matrixWorldInverse);
   instances.forEach(x => { if (x) x.mixer.update(delta); });
   renderer.render(scene, camera);
 }
