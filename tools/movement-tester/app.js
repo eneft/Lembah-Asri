@@ -545,7 +545,7 @@ function frameVisibleModel(force=false){
  const distanceForHeight=dims.y/(2*Math.tan(v)*.55);
  const distanceForWidth=Math.max(dims.x,dims.z*.7)/(2*Math.tan(horizontal)*.62);
  desiredDistance=THREE.MathUtils.clamp(
-   Math.max(8.2,distanceForHeight,distanceForWidth)*cameraZoom,6.2,32);
+   Math.max(3.2,distanceForHeight,distanceForWidth)*cameraZoom,2.7,32);
  focusY=THREE.MathUtils.clamp(box.getCenter(new THREE.Vector3()).y-actor.position.y,.85,3.5);
  framingBounds={height:dims.y,width:dims.x,depth:dims.z,
   center:box.getCenter(new THREE.Vector3()).toArray(),camera:desiredDistance};
@@ -589,10 +589,25 @@ function visibleBounds(){
  const worldBox=new THREE.Box3().setFromObject(entry.group);
  const center=worldBox.getCenter(new THREE.Vector3());
  const clip=center.clone().project(camera);
+ const corners=[];
+ for(const x of [worldBox.min.x,worldBox.max.x])
+  for(const y of [worldBox.min.y,worldBox.max.y])
+   for(const z of [worldBox.min.z,worldBox.max.z]){
+    const q=new THREE.Vector3(x,y,z).project(camera);
+    corners.push(q);
+   }
+ const screenRect={
+  left:Math.min(...corners.map(v=>v.x)),
+  right:Math.max(...corners.map(v=>v.x)),
+  top:Math.min(...corners.map(v=>v.y)),
+  bottom:Math.max(...corners.map(v=>v.y))
+ };
  return {
   height:worldBox.max.y-worldBox.min.y,
   center:[center.x,center.y,center.z],
   screen:[clip.x,clip.y,clip.z],
+  screenRect,
+  screenHeight:screenRect.bottom-screenRect.top,
   min:[worldBox.min.x,worldBox.min.y,worldBox.min.z],
   max:[worldBox.max.x,worldBox.max.y,worldBox.max.z],
   anchorY:anchor.position.y,
