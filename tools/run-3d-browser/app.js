@@ -343,9 +343,10 @@ const uploadStatus = $('#uploadStatus');
 function setUploadStatus(message, isError=false){
   uploadStatus.textContent = message;
   uploadStatus.classList.toggle('uploadError',isError);
+  if (isError) setStatus(message,true);
 }
 async function addNewFbx(files){
-  const fbxFiles = files.filter(f => /\\.fbx$/i.test(f.name));
+  const fbxFiles = files.filter(f => /\.fbx$/i.test(f.name));
   if (!fbxFiles.length) {
     setUploadStatus('Pilih minimal satu file .fbx untuk dites.',true); return;
   }
@@ -366,7 +367,7 @@ async function addNewFbx(files){
       setUploadStatus('Memuat '+file.name+' ...');
       const object = loader.parse(await file.arrayBuffer(), '');
       const index = clips.length;
-      clips.push({name:file.name.replace(/\\.fbx$/i,''),file:file.name,builtIn:false});
+      clips.push({name:file.name.replace(/\.fbx$/i,''),file:file.name,builtIn:false});
       instances.push(null);
       try {
         install(index,object,extras);
