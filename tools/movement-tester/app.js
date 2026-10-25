@@ -286,7 +286,10 @@ function stopPreview(){
   previewPaused=false;
   $('previewBar').hidden=true;
   $('previewPause').textContent='⏸ Pause';
-  currently=null; // allow the regular locomotion state machine to take over
+  // Must stop the preview action and restore the base skeleton. Previously
+  // currently=null left the uploaded action alive when Idle had no clip.
+  restoreBindPose();
+  currently=null;
   syncPreviewButtons();
   updateModeLabel();
 }
