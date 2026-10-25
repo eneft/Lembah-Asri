@@ -12,3 +12,6 @@ https://eneft.github.io/Lembah-Asri/movement-tester/
 - Import accepts files locally from browser; files are not uploaded to GitHub, not saved persistently.
 - The atlas at run-tester/assets/basecolor.webp is retained as a texture fallback for FBXs with valid UVs and no embedded texture. NO baked/default FBX models are loaded.
 - Movement Tester stays separate from the Godot Lembah Asri game and existing Run Tester.
+
+- Jump physics uses a slower 1.18–1.45 second arc (~0.62m apex) and never speeds a source FBX faster than 1× to fit the flight; imported FBX Hips Y root translation is suppressed to prevent double jumping.
+- FBX avatar scale and floor alignment are calculated from the original skeleton bind pose before animation begins, to avoid enlarging a crouched Jump frame.

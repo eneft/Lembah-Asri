@@ -43,9 +43,16 @@ const keys=new Set();
 const velocity=new THREE.Vector3(),movement=new THREE.Vector3();
 let ready=false,loadingSlot=null,currentSlot=null,previewSlot=null,previewPaused=false;
 let runStyle='run',rotationCorrection=0,runHeld=false,runToggled=false,stickX=0,stickZ=0;
-// Simple avatar capsule jump; independent of the FBX skeleton and rig.
-const jumpImpulse=5.65,jumpGravity=16.0;
+// A slower, lower, game-like jump. Physics is driven by the desired flight
+// duration and never inherits unpredictable root Y motion from an FBX.
+const jumpApexHeight=.62;
+const jumpMinSeconds=1.18,jumpMaxSeconds=1.45;
+let jumpFlightSeconds=jumpMinSeconds,jumpGravity=8*jumpApexHeight/(jumpMinSeconds*jumpMinSeconds);
 let verticalSpeed=0,jumpHeight=0,jumping=false,jumpCount=0;
+function desiredJumpDuration(){
+  const duration=slots.jump.asset?.duration||0;
+  return THREE.MathUtils.clamp(Math.max(jumpMinSeconds,duration),jumpMinSeconds,jumpMaxSeconds);
+}
 let lastTime=performance.now(),lastRafAt=performance.now(),frameCounter=0;
 let lastAnimationInfo='',visibleSlot=null,pausedRest=false;
 function setStatus(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
@@ -97,7 +104,7 @@ function motionTrackCount(clip){
  }
  return count;
 }
-function makeInPlace(clip){
+function makeInPlace(clip,slot){
  // Retain the original FBX's binding and bone structure; only freeze
  // horizontal Hips/root motion to let WASD control the actor.
  const original=clip.clone();
@@ -105,9 +112,13 @@ function makeInPlace(clip){
  for(const track of original.tracks){
   if(!/\.position$/.test(track.name)||!/(hips|pelvis|root)/i.test(track.name))continue;
   if(track.getValueSize()!==3)continue;
-  const x=track.values[0],z=track.values[2];
+  const x=track.values[0],y=track.values[1],z=track.values[2];
   for(let k=0;k<track.values.length;k+=3){
    track.values[k]=x;track.values[k+2]=z;
+   // The actor handles the vertical Jump arc once. Some source FBXs contain
+   // Hips Y displacement that would otherwise double the movement and distort
+   // grounding/centering across animation slots.
+   if(slot==='jump')track.values[k+1]=y;
   }
   frozen++;
  }
@@ -156,19 +167,22 @@ function makeSlotAsset(file,model,slot){
  if(!meshes.length)throw Error('FBX hanya berisi animasi/rig. Pilih FBX WITH SKIN yang menyertakan mesh karakter dan animasi.');
  const source=model.animations?.find(a=>a.tracks?.length && a.duration>0);
  if(!source)throw Error('FBX menyertakan model, tetapi tidak memiliki keyframe animasi.');
- const {clip,frozen}=makeInPlace(source);
- const mixer=new THREE.AnimationMixer(model);
- const action=mixer.clipAction(clip);
- if(slot==='jump'){
-  action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
- }else action.setLoop(THREE.LoopRepeat,Infinity);
- action.play();mixer.setTime(0);
- // Normalize EACH original skinned model separately. Never apply rotations
- // from another FBX's incompatible rest pose to this mesh.
- const initial=getMeshBounds(model);
- const height=initial.max.y-initial.min.y;
- if(!Number.isFinite(height)||height<.001)throw Error('Ukuran mesh FBX tidak valid.');
- model.scale.multiplyScalar(2.08/height);
+ const {clip,frozen}=makeInPlace(source,slot);
+ // Normalize the original FBX in its BIND POSE, never in a crouched or
+ // airborne animation frame. All files of the same character now get a
+ // consistent body scale regardless of where their first keyframe begins.
+ model.updateMatrixWorld(true);
+ const uniqueSkeletons=new Set();
+ for(const mesh of meshes){
+  if(mesh.isSkinnedMesh&&mesh.skeleton)uniqueSkeletons.add(mesh.skeleton);
+ }
+ for(const skeleton of uniqueSkeletons)skeleton.pose();
+ model.updateMatrixWorld(true);
+ const rest=getMeshBounds(model);
+ const restHeight=rest.max.y-rest.min.y;
+ if(!Number.isFinite(restHeight)||restHeight<.001)throw Error('Ukuran pose dasar FBX tidak valid.');
+ const unitScale=2.08/restHeight;
+ model.scale.multiplyScalar(unitScale);
  model.updateMatrixWorld(true);
  const transformed=getMeshBounds(model);
  const anchor=new THREE.Group();
@@ -180,10 +194,17 @@ function makeSlotAsset(file,model,slot){
  const group=new THREE.Group();group.add(anchor);anchor.add(model);
  group.visible=false;
  updateVisualMaterial({model});
+ const mixer=new THREE.AnimationMixer(model);
+ const action=mixer.clipAction(clip);
+ if(slot==='jump'){
+  action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
+ }else action.setLoop(THREE.LoopRepeat,Infinity);
+ action.play();
+ mixer.setTime(0);
  return {file:file.name,slot,model,group,mixer,action,clip,
   duration:clip.duration,meshCount:meshes.length,movingTracks:motionTrackCount(clip),
   frozenMotion:frozen,boneCount:(()=>{let n=0;model.traverse(x=>{if(x.isBone)n++});return n})(),
-  normalizedHeight:transformed.max.y-transformed.min.y};
+  bindPoseHeight:restHeight,unitScale,normalizedHeight:transformed.max.y-transformed.min.y};
 }
 function syncPreviewButtons(){
  for(const btn of document.querySelectorAll('[data-preview]')){
@@ -205,7 +226,7 @@ function showAsset(slot){
   }
   next.action.reset().setEffectiveWeight(1).play();
   next.mixer.setTime(0);
-  if(slot==='jump') next.action.setEffectiveTimeScale(next.duration/(2*jumpImpulse/jumpGravity));
+  if(slot==='jump')next.action.setEffectiveTimeScale(Math.min(1,next.duration/desiredJumpDuration()));
   visibleSlot=slot;
  }
  pausedRest=false;
@@ -229,7 +250,10 @@ function beginJump(){
  if(!hasAssets()||jumping)return false;
  // An upload preview takes precedence until the user explicitly jumps.
  if(previewSlot)stopPreview();
- jumping=true;verticalSpeed=jumpImpulse;jumpCount++;
+ jumpFlightSeconds=desiredJumpDuration();
+ jumpGravity=8*jumpApexHeight/(jumpFlightSeconds*jumpFlightSeconds);
+ verticalSpeed=4*jumpApexHeight/jumpFlightSeconds;
+ jumping=true;jumpCount++;
  if(slots.jump.asset)showAsset('jump');
  else if(visibleSlot)freezeCurrentPose();
  setStatus(slots.jump.asset?'Jump · animasi FBX diputar':'Jump fisik · upload FBX Jump untuk animasi khusus');
@@ -528,6 +552,10 @@ window.__movementDiagnostics=()=>({
  }:null,
  bounds:visibleBounds(),uploadFeedback:lastAnimationInfo,
  frames:frameCount,runStyle,runToggled,jumping,jumpHeight,jumpCount,verticalSpeed,
+ flightSeconds:jumpFlightSeconds,jumpApexHeight,
+ avatarHeights:Object.fromEntries(Object.entries(slots).filter(([,v])=>v.asset).map(([k,v])=>[k,{
+  bindPose:v.asset.bindPoseHeight,normalized:v.asset.normalizedHeight,scale:v.asset.unitScale
+ }])),
  mobile,joystick:[stickX,stickZ]
 });
 resize();requestAnimationFrame(frame);
