@@ -293,6 +293,14 @@ jobs:
           test -s build/web/run-tester/assets/basecolor.webp
           echo "Optional standalone 3D FBX tester published under /run-tester/"
 
+      - name: Copy independent Movement Tester with local FBX animation slots
+        run: |
+          mkdir -p build/web/movement-tester
+          cp tools/movement-tester/index.html tools/movement-tester/app.js tools/movement-tester/README.md build/web/movement-tester/
+          test -s build/web/movement-tester/index.html
+          test -s build/web/movement-tester/app.js
+          echo "Movement tester published under /movement-tester/"
+
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:

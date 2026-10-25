@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#d5e9e5">
+<title>Lembah Asri · Movement Tester</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#ecf7f1;background:#dbece6}
+*{box-sizing:border-box}body,html{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
+#stage{position:fixed;inset:0;background:#d4e7e1}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+header{position:fixed;z-index:5;left:15px;top:calc(12px + env(safe-area-inset-top));pointer-events:none;color:#23423d;text-shadow:0 1px 1px #fffd}
+header b{display:block;font-size:16px}header span{font-size:11px;opacity:.8}
+#status{position:fixed;top:calc(58px + env(safe-area-inset-top));left:15px;z-index:6;border-radius:10px;background:#193a3ee4;padding:8px 11px;max-width:min(76vw,380px);font-size:11px;line-height:1.4}
+#status.error{background:#713b3e}
+#retry[hidden],#uploadPanel[hidden],.slot input{display:none!important}
+#retry{position:fixed;top:calc(117px + env(safe-area-inset-top));left:15px;z-index:7}
+button,.pick{appearance:none;border:1px solid #88b3a9;background:#22454a;color:#f0faf5;border-radius:11px;padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation}
+button:focus-visible,.pick:focus-visible,input:focus-visible{outline:3px solid #d1eda6;outline-offset:2px}
+button.active,.pick{background:#d0e9b4;color:#234336;border-color:#d0e9b4}
+#openUpload{position:fixed;top:calc(12px + env(safe-area-inset-top));right:13px;z-index:9}
+#uploadPanel{position:fixed;z-index:12;right:12px;top:calc(61px + env(safe-area-inset-top));width:min(410px,calc(100vw - 24px));max-height:calc(100dvh - 130px);overflow-y:auto;background:#163339f7;border:1px solid #a7c9bb;border-radius:17px;padding:14px;box-shadow:0 10px 30px #17333888}
+.uploadHead{display:flex;justify-content:space-between;align-items:center;gap:10px}.uploadHead strong{font-size:15px}
+.intro{font-size:11px;color:#c8ddd3;line-height:1.5}
+.slot{display:grid;grid-template-columns:82px minmax(0,1fr) auto;align-items:center;gap:8px;padding:10px 0;border-top:1px solid #779a9450}
+.slot b{font-size:12px}.slot .filelabel{font-size:10px;overflow-wrap:anywhere;color:#d2e5d9}
+.slot .pick{font-size:11px;text-align:center;padding:9px;min-width:68px}
+#uploadResult{font-size:11px;color:#cfe4d7;line-height:1.5}
+small{color:#c5dace}.options{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;margin:12px 0}
+#runChoice{display:flex;gap:5px}#runChoice button{padding:8px;font-size:11px}
+#guide{position:fixed;z-index:4;left:50%;bottom:calc(17px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#15383ddc;color:#ecf7ee;padding:10px 13px;border-radius:13px;text-align:center;min-width:255px;pointer-events:none}
+#mode{font-size:13px;font-weight:800}#guide small{display:block;font-size:10px;margin-top:3px}
+#dpad{display:none;position:fixed;z-index:6;left:20px;bottom:calc(20px + env(safe-area-inset-bottom));height:128px;width:128px;border-radius:50%;border:2px solid #cfe6d7a6;background:#274d52ad;touch-action:none;user-select:none}
+#stick{position:absolute;left:43px;top:43px;width:42px;height:42px;border-radius:50%;background:#d1efb7;border:2px solid #edf6d8;box-shadow:0 3px 9px #0005;transform:translate(0px,0px)}
+#runTouch{display:none;position:fixed;z-index:6;right:20px;bottom:calc(35px + env(safe-area-inset-bottom));width:80px;height:80px;border-radius:50%;font-size:15px}
+#runTouch.pressed{background:#d0e9b4;color:#254536}
+@media(max-width:760px),(pointer:coarse){
+ header b{font-size:14px}
+ #guide{bottom:calc(17px + env(safe-area-inset-bottom));min-width:0;width:150px;padding:9px 6px}
+ #guide small{font-size:9px}
+ #dpad,#runTouch{display:block}
+ #uploadPanel{max-height:68dvh}
+ #status{max-width:70vw}
+}
+</style></head><body>
+<div id="stage"></div>
+<header><b>🌿 Lembah Asri</b><span>Movement Lab · satu karakter, banyak animasi</span></header>
+<div id="status" role="status" aria-live="polite">Menyiapkan karakter...</div>
+<button id="retry" hidden type="button">↻ Muat ulang</button>
+<button id="openUpload" type="button" aria-controls="uploadPanel" aria-expanded="false">＋ Animasi</button>
+<aside id="uploadPanel" hidden aria-label="Unggah animasi karakter">
+ <div class="uploadHead"><strong>Gabungkan Animasi FBX</strong><button id="closeUpload" type="button">✕ Tutup</button></div>
+ <p class="intro">Upload langsung dari HP/PC, tidak dikirim ke GitHub. Gunakan FBX karakter dengan skeleton/rig yang sama. Setiap slot hanya mengambil animasinya untuk dimainkan pada satu model.</p>
+ <div class="slot"><b>Idle</b><span class="filelabel" id="idleName">Belum diisi</span><label class="pick" for="idleFile">＋ FBX</label><input id="idleFile" type="file" accept=".fbx" data-slot="idle"></div>
+ <div class="slot"><b>Walking</b><span class="filelabel" id="walkName">Belum diisi</span><label class="pick" for="walkFile">＋ FBX</label><input id="walkFile" type="file" accept=".fbx" data-slot="walk"></div>
+ <div class="slot"><b>Running</b><span class="filelabel" id="runName">Running bawaan</span><label class="pick" for="runFile">Ganti</label><input id="runFile" type="file" accept=".fbx" data-slot="run"></div>
+ <div class="slot"><b>Run Anime</b><span class="filelabel" id="animeName">Tersedia (dimuat saat dipilih)</span><label class="pick" for="animeFile">Ganti</label><input id="animeFile" type="file" accept=".fbx" data-slot="anime"></div>
+ <div class="options">
+  <div id="runChoice"><button data-run="run" type="button" class="active">Run Normal</button><button data-run="anime" type="button">Run Anime</button></div>
+  <label><input id="toon" type="checkbox"> Shading Toon</label>
+ </div>
+ <div class="options"><label for="face">Koreksi arah depan</label><input id="face" type="range" min="-180" max="180" value="0" step="15"><output id="faceText">0°</output></div>
+ <p id="uploadResult" role="status" aria-live="polite">Idle dan Walking menunggu file FBX. Running Normal sudah tersedia.</p>
+ <p class="intro">Arah PC: WASD / tombol panah. Tahan Shift untuk lari. Di HP: joystick kiri dan tombol RUN kanan. Tidak mengubah animasi asli atau project game utama.</p>
+</aside>
+<div id="dpad" aria-label="Joystick gerak" role="group"><div id="stick"></div></div>
+<button id="runTouch" type="button" aria-label="Tahan untuk berlari">RUN</button>
+<div id="guide"><div id="mode">IDLE · menunggu FBX</div><small id="hint">WASD jalan · Shift lari</small></div>
+<script>
+(()=> {
+ const retry=document.getElementById('retry');
+ const status=document.getElementById('status');
+ function fail(msg){status.textContent=msg;status.classList.add('error');retry.hidden=false;}
+ window.__movementFail=fail;
+ retry.addEventListener('click',()=>{const u=new URL(location.href);u.searchParams.set('r',String(Date.now()));location.replace(u.href);});
+ window.addEventListener('error',e=>{if(!window.__movementReady)fail('Gagal membuka tester: '+(e.message||'error JavaScript'))});
+ window.addEventListener('unhandledrejection',e=>{if(!window.__movementReady)fail('Gagal memuat: '+(e.reason?.message||String(e.reason)))});
+ setTimeout(()=>{if(!window.__movementReady)fail('Karakter belum siap. Coba muat ulang.')},45000);
+})();
+</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"}}</script>
+<script type="module" src="./app.js"></script>
+</body></html>
