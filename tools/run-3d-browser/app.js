@@ -447,6 +447,48 @@ function ensureMeshNormals(geometry){
   if(invalid){
     geometry.computeVertexNormals();
     geometry.normalizeNormals();
+    // A non-indexed FBX assigns one normal PER triangle, creating harsh dark
+    // polygons on cheeks, jackets and trousers. Blend only coincident vertices
+    // facing broadly the same direction; keep genuine sharp silhouettes.
+    const normals=geometry.getAttribute('normal');
+    if(!geometry.index && pos.count<450000){
+      const groups=new Map();
+      for(let i=0;i<pos.count;i++){
+        const key=[
+          Math.round(pos.getX(i)*10000),
+          Math.round(pos.getY(i)*10000),
+          Math.round(pos.getZ(i)*10000)
+        ].join(',');
+        let ids=groups.get(key);
+        if(!ids){ids=[];groups.set(key,ids);}
+        ids.push(i);
+      }
+      const blended=new Float32Array(normals.array.length);
+      for(let i=0;i<pos.count;i++){
+        blended[i*3]=normals.getX(i);
+        blended[i*3+1]=normals.getY(i);
+        blended[i*3+2]=normals.getZ(i);
+      }
+      for(const ids of groups.values()){
+        if(ids.length<2 || ids.length>64) continue;
+        for(const i of ids){
+          const ax=normals.getX(i),ay=normals.getY(i),az=normals.getZ(i);
+          let sx=0,sy=0,sz=0;
+          for(const j of ids){
+            const bx=normals.getX(j),by=normals.getY(j),bz=normals.getZ(j);
+            if(ax*bx+ay*by+az*bz>.58){sx+=bx;sy+=by;sz+=bz;}
+          }
+          const length=Math.hypot(sx,sy,sz);
+          if(length>1e-7){
+            blended[i*3]=sx/length;
+            blended[i*3+1]=sy/length;
+            blended[i*3+2]=sz/length;
+          }
+        }
+      }
+      geometry.setAttribute('normal',new THREE.Float32BufferAttribute(blended,3));
+      geometry.userData.smoothedFBXNormals=true;
+    }
     geometry.getAttribute('normal').needsUpdate=true;
   }
   return invalid;
@@ -666,6 +708,7 @@ window.__lembahDiagnostics = () => ({
       normalCount:normals?.count || 0,
       normalLength:normals ? Math.hypot(normals.getX(0),normals.getY(0),normals.getZ(0)):0,
       rebuiltNormals:mesh?.userData?.rebuiltNormals||false,
+      smoothedNormals:!!mesh?.geometry?.userData?.smoothedFBXNormals,
       uv0: uv ? [uv.getX(0), uv.getY(0)] : null, materialType: mesh?.material?.type,
       autoGround:x.floorCorrection ?? null, manualOffset:x.floorOffset ?? 0,
       groundSamples:x.samples ?? 0, contactGroundY:x.contactGroundY ?? null,
