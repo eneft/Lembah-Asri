@@ -55,6 +55,8 @@ let lastTime=performance.now();
 const velocity=new THREE.Vector3();
 const movement=new THREE.Vector3();
 const baseRigByName=new Map();
+const bindRigByName=new Map();
+let discardedTranslationTracks=0;
 let loadingSlot=null;
 let previewSlot=null;
 let previewPaused=false;
@@ -71,55 +73,118 @@ function trackNameParts(name){
 }
 function buildRigIndex(model){
   baseRigByName.clear();
+  bindRigByName.clear();
   model.traverse(node=>{
     if(!node.name)return;
     const key=normBoneName(node.name);
     if(!baseRigByName.has(key))baseRigByName.set(key,node.name);
+    if(node.isBone)bindRigByName.set(key,{
+      name:node.name,
+      bone:node,
+      position:node.position.clone(),
+      quaternion:node.quaternion.clone(),
+      scale:node.scale.clone()
+    });
   });
+}
+function restoreBindPose(){
+  // 'root' is an FBX Group, not a Skeleton; root.pose?.() never did anything.
+  // The original bind transforms must be explicitly restored when Idle is absent.
+  mixer?.stopAllAction();
+  for(const rest of bindRigByName.values()){
+    rest.bone.position.copy(rest.position);
+    rest.bone.quaternion.copy(rest.quaternion);
+    rest.bone.scale.copy(rest.scale);
+  }
+  root?.updateMatrixWorld(true);
+}
+function resetCharacterPosition(){
+  previewSlot=null;previewPaused=false;
+  $('previewBar').hidden=true;
+  currently=null;velocity.set(0,0,0);movement.set(0,0,0);
+  keys.clear();stickX=0;stickZ=0;runHeld=false;resetStick();
+  actor.position.set(0,0,0);actor.rotation.y=rotationCorrection;
+  restoreBindPose();
+  followPosition.set(0,3.4,6.3);
+  lookTarget.set(0,1.05,0);
+  syncPreviewButtons();
+  setStatus('Karakter dipusatkan · rig dikembalikan ke posisi awal');
 }
 function mapToBaseRig(original,slot){
   if(!original?.tracks?.length)throw Error('FBX tidak memiliki keyframe animasi');
-  const matched=[], unmatched=[],targetNames=new Set();
+  const matched=[],unmatched=[],targetNames=new Set();
+  let rejectedPositions=0,rejectedScales=0,recenteredHips=0;
+  const modelWorldScale=Math.max(.00001,Math.abs(root?.scale.y||1));
+  // Maximum vertical animation sway in real metres, independent of whether
+  // imported FBX units are centimetres, metres or arbitrary export units.
+  const maxHipLocalDelta=.11/modelWorldScale;
   for(const track of original.tracks){
     const part=trackNameParts(track.name);
     if(!part){unmatched.push(track.name);continue;}
     const key=normBoneName(part.node);
-    const bone=baseRigByName.get(key);
-    if(!bone){unmatched.push(track.name);continue;}
-    const converted=track.clone();
-    converted.name=bone+'.'+part.prop;
-    // Make locomotion in-place: x/z from hip translation must not drift away
-    // from the controlled player capsule. Keep original vertical bounce.
-    if(/(?:hips|pelvis|root)/i.test(part.node) && part.prop==='position' && converted.getValueSize()===3){
-      const originX=converted.values[0],originZ=converted.values[2];
-      for(let i=0;i<converted.values.length;i+=3){
-        converted.values[i]=originX;
-        converted.values[i+2]=originZ;
-      }
+    const bind=bindRigByName.get(key);
+    // Animation tracks must address actual bones, not unrelated FBX scene
+    // nodes. Names alone matching is not sufficient for a compatible rig.
+    if(!bind){unmatched.push(track.name);continue;}
+    if(part.prop==='scale'){
+      rejectedScales++;
+      continue;
     }
-    matched.push(converted);targetNames.add(bone);
+    if(part.prop==='position'){
+      // Preserve only subtle vertical Hips bounce. Direct source position
+      // tracks are the cause of the disappearing avatar: their rest position
+      // and scales commonly differ drastically from the base character.
+      if(!/(?:hips|pelvis)/i.test(key) || track.getValueSize()!==3){
+        rejectedPositions++;
+        continue;
+      }
+      const converted=track.clone();
+      const originY=Number(converted.values[1]);
+      for(let i=0;i<converted.values.length;i+=3){
+        converted.values[i]=bind.position.x;
+        converted.values[i+1]=bind.position.y + THREE.MathUtils.clamp(
+          Number(converted.values[i+1])-originY,-maxHipLocalDelta,maxHipLocalDelta
+        );
+        converted.values[i+2]=bind.position.z;
+      }
+      converted.name=bind.name+'.position';
+      matched.push(converted);
+      recenteredHips++;
+      targetNames.add(bind.name);
+      continue;
+    }
+    if(!['quaternion','rotation'].includes(part.prop)){
+      unmatched.push(track.name);
+      continue;
+    }
+    const converted=track.clone();
+    converted.name=bind.name+'.'+part.prop;
+    matched.push(converted);
+    targetNames.add(bind.name);
   }
-  // An FBX may have a valid skeleton but contain only a static pose.
-  // Report that honestly rather than claiming the clip is visibly animated.
+  const recognized=matched.length+rejectedPositions+rejectedScales;
+  const fraction=recognized/original.tracks.length;
+  if(matched.length<4 || fraction<.55)
+    throw Error('Rig tidak cocok: '+recognized+'/'+original.tracks.length+' track tulang cocok. Gunakan FBX dengan skeleton karakter yang sama.');
+  if(!Number.isFinite(original.duration)||original.duration<=0)
+    throw Error('Animasi FBX tidak memiliki durasi gerak');
   let movingTracks=0;
   for(const track of matched){
-    const count=track.times?.length || 0;
-    const step=track.getValueSize();
-    if(count<2 || !step)continue;
-    const values=track.values;
+    const count=track.times?.length||0,step=track.getValueSize();
+    if(count<2||!step)continue;
     let varied=false;
-    for(let k=1;k<count && !varied;k++){
-      for(let j=0;j<step;j++){
-        if(Math.abs(values[k*step+j]-values[j])>0.004){varied=true;break;}
-      }
+    for(let i=1;i<count&&!varied;i++)for(let k=0;k<step;k++){
+      if(Math.abs(track.values[i*step+k]-track.values[k])>.004){varied=true;break;}
     }
     if(varied)movingTracks++;
   }
-  const fraction=matched.length/original.tracks.length;
-  if(matched.length<5 || fraction<.55)throw Error('Rig tidak cocok: '+matched.length+'/'+original.tracks.length+' track cocok. Gunakan FBX dengan skeleton karakter yang sama.');
-  if(!Number.isFinite(original.duration)||original.duration<=0)throw Error('Animasi FBX tidak memiliki durasi gerak');
   const clip=new THREE.AnimationClip(slot+'_'+Date.now(),original.duration,matched);
-  clip.userData={sourceTracks:original.tracks.length,compatibleTracks:matched.length,coverage:fraction,nodes:targetNames.size,unmatched:unmatched.slice(0,4),movingTracks};
+  clip.userData={
+    sourceTracks:original.tracks.length,compatibleTracks:recognized,
+    coverage:fraction,visibleMotionTracks:movingTracks,movingTracks,
+    droppedPositions:rejectedPositions,droppedScales:rejectedScales,
+    recenteredHips,nodes:targetNames.size,unmatched:unmatched.slice(0,4)
+  };
   return clip;
 }
 function normalizeCharacter(model){
@@ -190,8 +255,8 @@ async function assignFile(slot,file){
     slots[slot].clip=clip;
     setSlotLabel(slot,file.name+' · '+Math.round(clip.userData.coverage*100)+'% cocok · '+clip.duration.toFixed(2)+' dtk');
     const notice=clip.userData.movingTracks===0
-      ? 'Peringatan: semua keyframe tampak statis, jadi gerakannya mungkin tidak kelihatan.'
-      : clip.userData.movingTracks+' track memiliki perubahan gerak.';
+      ? 'Peringatan: semua keyframe tampak statis.'
+      : clip.userData.movingTracks+' track bergerak. Posisi dasar rig dilindungi ('+(clip.userData.droppedPositions+clip.userData.recenteredHips)+' translasi disesuaikan).';
     lastAnimationInfo=slots[slot].label+' dari '+file.name+': '+clip.userData.compatibleTracks+'/'+clip.userData.sourceTracks+' track rig cocok. '+notice;
     $('uploadResult').textContent=lastAnimationInfo;
     setStatus('FBX '+slots[slot].label+' terpasang • '+notice,clip.userData.movingTracks===0);
@@ -322,8 +387,7 @@ function transition(next){
     }
   }
   if(!action){
-    mixer.stopAllAction();
-    root.pose?.(); // restore skin bind pose if available when Idle has no FBX
+    restoreBindPose();
   }
   updateModeLabel();
 }
@@ -468,6 +532,7 @@ $('openUpload').addEventListener('click',()=>{
 });
 $('closeUpload').addEventListener('click',closeUploadPanel);
 $('retry').addEventListener('click',()=>location.reload());
+$('resetCharacter').addEventListener('click',resetCharacterPosition);
 function probePose(){
   const transforms=[];
   root?.traverse(node=>{
@@ -480,9 +545,12 @@ function probePose(){
 }
 window.__movementDiagnostics=()=>({
   ready,rigNodes:baseRigByName.size,
-  slots:Object.fromEntries(Object.entries(slots).map(([k,v])=>[k,{loaded:!!v.clip,coverage:v.clip?.userData?.coverage||0,tracks:v.clip?.tracks?.length||0,movingTracks:v.clip?.userData?.movingTracks ?? 0,duration:v.clip?.duration||0}])),
+  slots:Object.fromEntries(Object.entries(slots).map(([k,v])=>[k,{loaded:!!v.clip,coverage:v.clip?.userData?.coverage||0,tracks:v.clip?.tracks?.length||0,movingTracks:v.clip?.userData?.movingTracks ?? 0,duration:v.clip?.duration||0,droppedPositions:v.clip?.userData?.droppedPositions||0,recenteredHips:v.clip?.userData?.recenteredHips||0}])),
   state:currently,requested:state,preview:previewSlot,previewPaused,position:actor.position.toArray(),
   pose:probePose(),
+  hipsPosition:bindRigByName.get('hips')?.bone.position.toArray()||null,
+  restHipsPosition:bindRigByName.get('hips')?.position.toArray()||null,
+  modelScale:root?.scale.y||0,
   activeAction:currently&&slots[currently].clip?(()=>{
     const action=mixer?.existingAction(slots[currently].clip,root);
     return action?{isRunning:action.isRunning(),time:action.time,weight:action.getEffectiveWeight()}:null;

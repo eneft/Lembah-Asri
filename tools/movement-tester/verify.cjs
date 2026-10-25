@@ -63,6 +63,13 @@ const engine=type==='webkit'?webkit:chromium;
   await (await walkingChooser).setFiles({name:'Walking_Compatible.fbx',mimeType:'application/octet-stream',buffer:file});
   await page.waitForFunction(()=>window.__movementDiagnostics?.().slots.walk.loaded===true,null,{timeout:60000});
   d=await page.evaluate(()=>window.__movementDiagnostics());
+  if(d.slots.walk.tracks>53)throw Error('Unexpected excess FBX tracks');
+  if(!Number.isFinite(d.modelScale)||d.modelScale<=0)throw Error('Bad base avatar normalization');
+  // The source FBX may have been authored at a different world origin.
+  // Never apply its absolute Hips.position or the visible avatar will vanish.
+  const hipsDelta=d.hipsPosition&&d.restHipsPosition?Math.hypot(...d.hipsPosition.map((v,i)=>v-d.restHipsPosition[i]))*d.modelScale:0;
+  if(hipsDelta>.22)throw Error('Imported FBX moved avatar hips away from base rig: '+hipsDelta);
+
   if(d.slots.walk.coverage<.55 || d.slots.walk.movingTracks<5)throw Error('Uploaded Walking has no animated bone motion: '+JSON.stringify(d));
   if(d.preview!=='walk' || d.activeAction?.isRunning!==true)throw Error('Uploaded Walking was not previewed on the actor: '+JSON.stringify(d));
   if(await page.locator('#uploadPanel').isVisible())throw Error('Upload drawer hides character after Walking import');
@@ -79,6 +86,10 @@ const engine=type==='webkit'?webkit:chromium;
   console.log('VISIBLE RETARGETED FBX POSE MOTION',type,poseShift.toFixed(3));
   await page.screenshot({path:'/tmp/lembah-movement-'+type+'-walking-preview.png'});
   await page.locator('#previewDone').click();
+  await page.waitForTimeout(150);
+  const returned=await page.evaluate(()=>window.__movementDiagnostics());
+  const dist=returned.hipsPosition&&returned.restHipsPosition?Math.hypot(...returned.hipsPosition.map((v,i)=>v-returned.restHipsPosition[i])):0;
+  if(dist>0.001)throw Error('Character did not return to bind pose when Idle missing: '+dist);
   await beginDirection('d');await page.waitForTimeout(500);
   d=await page.evaluate(()=>window.__movementDiagnostics());
   if(d.state!=='walk')throw Error('Walking clip not being played: '+JSON.stringify(d));
@@ -97,6 +108,9 @@ const engine=type==='webkit'?webkit:chromium;
   await page.locator('#previewPause').click();
   await page.screenshot({path:'/tmp/lembah-movement-'+type+'-idle-preview.png'});
   await page.locator('#previewDone').click();
+  await page.locator('#resetCharacter').click();
+  const centered=await page.evaluate(()=>window.__movementDiagnostics());
+  if(centered.position.some(x=>Math.abs(x)>1e-6))throw Error('Pusatkan failed: '+JSON.stringify(centered.position));
   await page.locator('#openUpload').click();
   await page.locator('[data-run="anime"]').click();
   await page.waitForFunction(()=>window.__movementDiagnostics?.().slots.anime.loaded===true,null,{timeout:60000});
