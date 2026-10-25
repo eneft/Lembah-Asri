@@ -67,7 +67,7 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
     throw Error('Anime soft toon material failed: ' + JSON.stringify(preview));
   await page.locator('[data-material="painterly"]').click();
   preview=await page.evaluate(()=>window.__lembahDiagnostics());
-  if(preview.material!=='painterly' || !preview.painterlyShader || preview.painterlyRamp!==256 || preview.painterlyVersion!==2 || preview.hardFloorShadow!==false ||
+  if(preview.material!=='painterly' || !preview.painterlyShader || preview.painterlyRamp!==256 || preview.painterlyVersion!==3 || !preview.painterlyNativeShader || preview.hardFloorShadow!==false ||
      !preview.clips.every(c=>c.materialType==='MeshToonMaterial')) throw Error('Painterly anime shader not installed: '+JSON.stringify(preview));
   await page.locator('#showGrid').check();
   if(!(await page.evaluate(()=>window.__lembahDiagnostics().debugGrid)))throw Error('Grid debug toggle failed');
