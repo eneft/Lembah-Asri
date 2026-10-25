@@ -179,13 +179,14 @@ label,output{font-size:12px;color:#d9e9e0;white-space:nowrap}
   <b>Tambah FBX baru untuk tes</b>
   <p>Cukup 1 FBX, boleh beberapa sekaligus. PNG tekstur opsional; jika tidak ada, gunakan material bawaan FBX.</p>
   <label for="fbxFiles" class="uploadPicker">＋ Pilih FBX / Tekstur</label>
-  <input id="fbxFiles" type="file" accept=".fbx,.png,.PNG,.webp,.jpg,.jpeg" multiple aria-label="Tambah satu atau beberapa FBX animasi baru dan tekstur opsional"/>
+  
   <div id="uploadStatus" role="status" aria-live="polite">Belum ada FBX tambahan.</div>
   <button id="clearExtras" type="button">Hapus FBX tambahan</button>
   <span id="fileHint" style="display:none">Menggunakan animasi dan tekstur asli otomatis</span>
 </div>
   </div>
 </aside>
+<input id="fbxFiles" type="file" accept=".fbx,.png,.PNG,.webp,.jpg,.jpeg" multiple aria-label="Tambah satu atau beberapa FBX animasi baru dan tekstur opsional"/>
 
 <script>
 (() => {
