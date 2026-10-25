@@ -49,7 +49,14 @@ const grid = new THREE.GridHelper(12,24,0x628781,0x49665e);
 grid.position.y=-.025;grid.material.transparent=true;grid.material.opacity=.22;scene.add(grid);
 const textureLoader = new THREE.TextureLoader();
 function texture(path,asColor=false){let t=textureLoader.load(path);if(asColor)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;}
-let userMaterial = null; // Material FBX embedded remains authoritative unless custom PNG textures were selected.
+let userMaterial = new THREE.MeshStandardMaterial({
+  map: texture('./assets/basecolor.webp',true),
+  normalMap: texture('./assets/normal.webp'),
+  normalScale: new THREE.Vector2(.65,.65),
+  roughnessMap: texture('./assets/roughness.webp'),
+  metalnessMap: texture('./assets/metallic.webp'),
+  roughness: .92, metalness: .08, side: THREE.DoubleSide
+}); // Local FBX upload may override this preview material.
 const loader = new FBXLoader();
 const instances = [null,null];
 let selected=0, playing=true, playbackSpeed=1, loading=0;
@@ -142,4 +149,17 @@ chooser.addEventListener('change',async (event)=>{
    select(0);document.querySelector('#fileHint').textContent='2 animasi berhasil dimuat';
  }catch(err){console.error(err);setStatus('Gagal membaca FBX: '+err.message,true);}
 });
-setStatus('Pilih Running_Textured.fbx dan Run_Textured.fbx melalui kotak di bagian atas.');
+
+(async()=>{
+  try{
+    for(let i=0;i<clips.length;i++){
+      setStatus('Memuat '+clips[i].name+' dari GitHub ('+(i+1)+'/2)...');
+      await loadModel(i);
+    }
+    select(0);
+    document.querySelector('#fileHint').textContent='Dua animasi telah dimuat otomatis · Pilih file hanya untuk mengganti';
+  }catch(err){
+    console.error(err);
+    setStatus('Aset GitHub gagal dimuat: '+err.message+' · Bisa pilih FBX manual',true);
+  }
+})();
