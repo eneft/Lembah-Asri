@@ -260,7 +260,8 @@ function resetStick(){stick.style.transform='translate(0px,0px)';}
 pad.addEventListener('pointerdown',event=>{
   if(activePointer!==null)return;
   event.preventDefault();activePointer=event.pointerId;
-  pad.setPointerCapture(event.pointerId);moveStick(event);
+  try{pad.setPointerCapture(event.pointerId);}catch{} // Fallback for Safari and synthetic pointers
+  moveStick(event);
 });
 function moveStick(event){
   if(event.pointerId!==activePointer)return;
@@ -357,7 +358,7 @@ window.__movementDiagnostics=()=>({
   slots:Object.fromEntries(Object.entries(slots).map(([k,v])=>[k,{loaded:!!v.clip,coverage:v.clip?.userData?.coverage||0,tracks:v.clip?.tracks?.length||0}])),
   state:currently,requested:state,position:actor.position.toArray(),
   runStyle, toon:$('toon').checked,mobile,
-  facing:Math.round(rotationCorrection*180/Math.PI)
+  facing:Math.round(rotationCorrection*180/Math.PI),joystick:[stickX,stickZ]
 });
 resize();requestAnimationFrame(frame);
 loadBase().catch(err=>{
