@@ -334,9 +334,9 @@ function resize(){
   renderer.setSize(innerWidth,innerHeight);
 }
 window.addEventListener('resize',resize);
-function frame(t){
-  requestAnimationFrame(frame);
-  const dt=Math.min((t-lastTime)/1000,.055);lastTime=t;
+let lastRafAt=performance.now();
+let frameCounter=0;
+function drawStep(dt){
   simulate(dt);
   const eye=new THREE.Vector3(actor.position.x,3.4,actor.position.z+6.3);
   followPosition.lerp(eye,Math.min(1,dt*5));
@@ -345,7 +345,26 @@ function frame(t){
   camera.position.copy(followPosition);
   camera.lookAt(lookTarget);
   renderer.render(scene,camera);
+  frameCounter++;
 }
+function frame(t){
+  requestAnimationFrame(frame);
+  const dt=Math.min(Math.max((t-lastTime)/1000,0),.055);
+  lastTime=t;
+  lastRafAt=performance.now();
+  drawStep(dt);
+}
+// Some WebKit instances suspend requestAnimationFrame during FBX parsing or
+// while a file chooser has focus. Run a 10fps backup only if RAF has actually
+// stalled; it remains completely inactive during normal 60fps playback.
+setInterval(()=>{
+  if(!ready || document.visibilityState==='hidden')return;
+  const now=performance.now();
+  if(now-lastRafAt<240)return;
+  lastRafAt=now;
+  try{drawStep(.075);}
+  catch(err){console.error('Movement fallback frame:',err)}
+},100);
 $('openUpload').addEventListener('click',()=>{
   $('uploadPanel').hidden=false;$('openUpload').setAttribute('aria-expanded','true');
 });
@@ -358,7 +377,7 @@ window.__movementDiagnostics=()=>({
   slots:Object.fromEntries(Object.entries(slots).map(([k,v])=>[k,{loaded:!!v.clip,coverage:v.clip?.userData?.coverage||0,tracks:v.clip?.tracks?.length||0}])),
   state:currently,requested:state,position:actor.position.toArray(),
   runStyle, toon:$('toon').checked,mobile,
-  facing:Math.round(rotationCorrection*180/Math.PI),joystick:[stickX,stickZ]
+  facing:Math.round(rotationCorrection*180/Math.PI),joystick:[stickX,stickZ],frames:frameCounter
 });
 resize();requestAnimationFrame(frame);
 loadBase().catch(err=>{
