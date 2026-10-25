@@ -16,7 +16,27 @@ const engine=type==='webkit'?webkit:chromium;
   if(d.slots.idle.loaded || d.slots.walk.loaded)throw Error('Idle/Walking should await uploads, not invented');
   if(errors.length)throw Error('Startup error: '+errors.join(' | '));
   await page.screenshot({path:'/tmp/lembah-movement-'+type+'-idle.png'});
-  await page.keyboard.down('w');
+  // WebKit mobile uses the on-screen joystick, not a physical keyboard.
+  let joystickCenter=null;
+  async function beginDirection(direction){
+    if(type==='webkit'){
+      const box=await page.locator('#dpad').boundingBox();
+      if(!box)throw Error('Mobile joystick not visible');
+      joystickCenter={x:box.x+box.width/2,y:box.y+box.height/2};
+      await page.mouse.move(joystickCenter.x,joystickCenter.y);
+      await page.mouse.down();
+      await page.mouse.move(
+        joystickCenter.x+(direction==='d'?39:0),
+        joystickCenter.y-(direction==='w'?39:0),
+        {steps:3});
+    }else await page.keyboard.down(direction);
+  }
+  async function endDirection(direction){
+    if(type==='webkit'){
+      await page.mouse.up();
+    }else await page.keyboard.up(direction);
+  }
+  await beginDirection('w');
   await page.waitForTimeout(650);
   d=await page.evaluate(()=>window.__movementDiagnostics());
   if(d.position[2]>-.06)throw Error('W movement failed: '+JSON.stringify(d));
@@ -25,7 +45,7 @@ const engine=type==='webkit'?webkit:chromium;
   d=await page.evaluate(()=>window.__movementDiagnostics());
   if(d.state!=='run')throw Error('Shift+W did not use Running: '+JSON.stringify(d));
   await page.keyboard.up('Shift');
-  await page.keyboard.up('w');
+  await endDirection('w');
   const prev=d.position[2];
   await page.locator('#openUpload').click();
   if(!(await page.locator('#uploadPanel').isVisible()))throw Error('Upload menu did not open');
@@ -35,10 +55,10 @@ const engine=type==='webkit'?webkit:chromium;
   d=await page.evaluate(()=>window.__movementDiagnostics());
   if(d.slots.walk.coverage<.55)throw Error('Uploaded Walking bones are incompatible: '+JSON.stringify(d));
   await page.locator('#closeUpload').click();
-  await page.keyboard.down('d');await page.waitForTimeout(500);
+  await beginDirection('d');await page.waitForTimeout(500);
   d=await page.evaluate(()=>window.__movementDiagnostics());
   if(d.state!=='walk')throw Error('Walking clip not being played: '+JSON.stringify(d));
-  await page.keyboard.up('d');
+  await endDirection('d');
   await page.locator('#openUpload').click();
   await page.locator('#idleFile').setInputFiles({name:'Idle_Compatible.fbx',mimeType:'application/octet-stream',buffer:file});
   await page.waitForFunction(()=>window.__movementDiagnostics?.().slots.idle.loaded===true,null,{timeout:60000});
@@ -48,7 +68,7 @@ const engine=type==='webkit'?webkit:chromium;
   await page.locator('[data-run="anime"]').click();
   await page.waitForFunction(()=>window.__movementDiagnostics?.().slots.anime.loaded===true,null,{timeout:60000});
   await page.locator('#closeUpload').click();
-  await page.keyboard.down('Shift');await page.keyboard.down('w');
+  await page.keyboard.down('Shift');await beginDirection('w');
   await page.waitForTimeout(430);
   d=await page.evaluate(()=>window.__movementDiagnostics());
   if(d.state!=='anime')throw Error('Run Anime not combined onto single actor: '+JSON.stringify(d));
