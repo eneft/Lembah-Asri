@@ -244,7 +244,8 @@ function normalizeKey(key){
   return ({arrowup:'w',arrowleft:'a',arrowdown:'s',arrowright:'d'}[k]||k);
 }
 document.addEventListener('keydown',event=>{
-  if(event.target.closest('input,button,textarea,select'))return;
+  // Buttons may retain focus after closing the upload drawer. WASD still moves.
+  if(event.target.closest('input[type="text"],input[type="number"],textarea,select'))return;
   const k=normalizeKey(event.key);
   if(['w','a','s','d','shift'].includes(k)){event.preventDefault();keys.add(k);}
 });
