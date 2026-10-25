@@ -36,19 +36,23 @@ const slots={
  idle:{label:'Idle',asset:null},
  walk:{label:'Walking',asset:null},
  run:{label:'Running',asset:null},
- anime:{label:'Run Anime',asset:null}
+ anime:{label:'Run Anime',asset:null},
+ jump:{label:'Jump',asset:null}
 };
 const keys=new Set();
 const velocity=new THREE.Vector3(),movement=new THREE.Vector3();
 let ready=false,loadingSlot=null,currentSlot=null,previewSlot=null,previewPaused=false;
-let runStyle='run',rotationCorrection=0,runHeld=false,stickX=0,stickZ=0;
+let runStyle='run',rotationCorrection=0,runHeld=false,runToggled=false,stickX=0,stickZ=0;
+// Simple avatar capsule jump; independent of the FBX skeleton and rig.
+const jumpImpulse=5.65,jumpGravity=16.0;
+let verticalSpeed=0,jumpHeight=0,jumping=false,jumpCount=0;
 let lastTime=performance.now(),lastRafAt=performance.now(),frameCounter=0;
 let lastAnimationInfo='',visibleSlot=null,pausedRest=false;
 function setStatus(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
 function hasAssets(){return Object.values(slots).some(x=>!!x.asset);}
 function setEmptyNotice(){
  $('emptyNotice').hidden=hasAssets();
- $('hint').textContent=hasAssets()?'WASD jalan · Shift lari':'Upload FBX untuk mulai tes game';
+ $('hint').textContent=hasAssets()?'WASD · Shift/R lari · Space Jump':'Upload FBX untuk mulai tes game';
 }
 function closeUploadPanel(){$('uploadPanel').hidden=true;$('openUpload').setAttribute('aria-expanded','false');}
 function resetStick(){$('stick').style.transform='translate(0px,0px)';}
@@ -64,6 +68,8 @@ function stopAllMovement(){
 function resetCharacterPosition(){
  stopAllMovement();
  actor.position.set(0,0,0);actor.rotation.y=rotationCorrection;
+ verticalSpeed=0;jumpHeight=0;jumping=false;runToggled=false;
+ $('runToggle').classList.remove('active');$('runToggle').setAttribute('aria-pressed','false');
  followPosition.set(0,3.4,6.3);lookTarget.set(0,1,0);
  if(previewSlot)stopPreview();
  setStatus(hasAssets()?'Karakter kembali ke pusat':'Belum ada FBX · pilih ＋ Animasi');
@@ -153,7 +159,9 @@ function makeSlotAsset(file,model,slot){
  const {clip,frozen}=makeInPlace(source);
  const mixer=new THREE.AnimationMixer(model);
  const action=mixer.clipAction(clip);
- action.setLoop(THREE.LoopRepeat,Infinity);
+ if(slot==='jump'){
+  action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
+ }else action.setLoop(THREE.LoopRepeat,Infinity);
  action.play();mixer.setTime(0);
  // Normalize EACH original skinned model separately. Never apply rotations
  // from another FBX's incompatible rest pose to this mesh.
@@ -197,6 +205,7 @@ function showAsset(slot){
   }
   next.action.reset().setEffectiveWeight(1).play();
   next.mixer.setTime(0);
+  if(slot==='jump') next.action.setEffectiveTimeScale(next.duration/(2*jumpImpulse/jumpGravity));
   visibleSlot=slot;
  }
  pausedRest=false;
@@ -208,6 +217,23 @@ function freezeCurrentPose(){
   pausedRest=true;
   slots[currentSlot].asset.action.paused=true;
  }
+}
+function isRunningInput(){return runHeld||runToggled||keys.has('shift');}
+function setRunToggle(next){
+ runToggled=!!next;
+ $('runToggle').classList.toggle('active',runToggled);
+ $('runToggle').setAttribute('aria-pressed',String(runToggled));
+ $('runToggle').textContent=runToggled?'R · Lari ON':'R · Lari Toggle';
+}
+function beginJump(){
+ if(!hasAssets()||jumping)return false;
+ // An upload preview takes precedence until the user explicitly jumps.
+ if(previewSlot)stopPreview();
+ jumping=true;verticalSpeed=jumpImpulse;jumpCount++;
+ if(slots.jump.asset)showAsset('jump');
+ else if(visibleSlot)freezeCurrentPose();
+ setStatus(slots.jump.asset?'Jump · animasi FBX diputar':'Jump fisik · upload FBX Jump untuk animasi khusus');
+ return true;
 }
 function selectState(requested){
  let chosen=requested;
@@ -322,14 +348,26 @@ $('previewPause').addEventListener('click',()=>{
 });
 $('retry').addEventListener('click',()=>location.reload());
 $('resetCharacter').addEventListener('click',resetCharacterPosition);
+$('runToggle').addEventListener('click',()=>setRunToggle(!runToggled));
+$('jumpTouch').addEventListener('click',beginJump);
 function updateModeLabel(){
- const requested=movement.lengthSq()>.012?(runHeld||keys.has('shift')?'run':'walk'):'idle';
+ const requested=jumping?'jump':movement.lengthSq()>.012?(isRunningInput()?'run':'walk'):'idle';
  const state=previewSlot?('PREVIEW '+slots[previewSlot].label.toUpperCase()):currentSlot?slots[currentSlot].label.toUpperCase():'BELUM ADA MODEL';
  $('mode').textContent=state+(pausedRest?' · pose terakhir':'');
 }
 document.addEventListener('keydown',event=>{
  if(event.target.closest('input[type="text"],input[type="number"],textarea,select'))return;
  const key=normalizeKey(event.key);
+ if(key===' '||key==='space'||key==='spacebar'){
+  event.preventDefault();
+  if(!event.repeat)beginJump();
+  return;
+ }
+ if(key==='r'){
+  event.preventDefault();
+  if(!event.repeat)setRunToggle(!runToggled);
+  return;
+ }
  if(['w','a','s','d','shift'].includes(key)){
   event.preventDefault();
   if(previewSlot)stopPreview();
@@ -382,9 +420,11 @@ function simulate(dt){
  updateInput();
  if(!previewSlot){
   const amount=movement.length();
-  const running=runHeld||keys.has('shift');
-  const desired=amount>.12?(running?(runStyle==='anime'?'anime':'run'):'walk'):'idle';
-  const chosen=selectState(desired);
+  const running=isRunningInput();
+  const desired=jumping?'jump':amount>.12?(running?(runStyle==='anime'?'anime':'run'):'walk'):'idle';
+  // While airborne, do not switch out of the original Jump animation.
+  // With no Jump FBX, simply retain the previously visible original rig.
+  if(!jumping)selectState(desired);
   if(amount>.12&&hasAssets()){
    const intended=movement.clone().multiplyScalar(running?3.65:1.65);
    velocity.lerp(intended,Math.min(1,dt*8));
@@ -399,6 +439,18 @@ function simulate(dt){
   const asset=slots[previewSlot]?.asset;
   if(asset)asset.action.paused=false;
  }
+ if(jumping){
+  verticalSpeed-=jumpGravity*dt;
+  jumpHeight=Math.max(0,jumpHeight+verticalSpeed*dt);
+  if(jumpHeight===0){
+   jumping=false;verticalSpeed=0;
+   pausedRest=false;
+   // Return to the appropriate uploaded locomotion FBX on landing.
+   const moving=movement.length()>.12;
+   selectState(moving?(isRunningInput()?(runStyle==='anime'?'anime':'run'):'walk'):'idle');
+  }
+ }
+ actor.position.y=jumpHeight;
  for(const [key,slot] of Object.entries(slots)){
   if(!slot.asset||key!==visibleSlot)continue;
   if(previewPaused||pausedRest)continue;
@@ -406,6 +458,7 @@ function simulate(dt){
  }
  $('mode').textContent=previewSlot?
   'PREVIEW · '+slots[previewSlot].label.toUpperCase() :
+  jumping?('JUMP'+(slots.jump.asset?' · FBX':' · fisik')):
   currentSlot?(slots[currentSlot].label.toUpperCase()+(pausedRest?' · tunggu Idle':'')):
   'BELUM ADA FBX';
 }
@@ -474,7 +527,8 @@ window.__movementDiagnostics=()=>({
   time:slots[visibleSlot].asset.action.time
  }:null,
  bounds:visibleBounds(),uploadFeedback:lastAnimationInfo,
- frames:frameCount,runStyle,mobile,joystick:[stickX,stickZ]
+ frames:frameCount,runStyle,runToggled,jumping,jumpHeight,jumpCount,verticalSpeed,
+ mobile,joystick:[stickX,stickZ]
 });
 resize();requestAnimationFrame(frame);
 ready=true;window.__movementReady=true;

@@ -49,6 +49,9 @@ small{color:#c5dace}.options{display:flex;align-items:center;gap:12px;flex-wrap:
 #stick{position:absolute;left:43px;top:43px;width:42px;height:42px;border-radius:50%;background:#d1efb7;border:2px solid #edf6d8;box-shadow:0 3px 9px #0005;transform:translate(0px,0px)}
 #runTouch{display:none;position:fixed;z-index:6;right:20px;bottom:calc(35px + env(safe-area-inset-bottom));width:80px;height:80px;border-radius:50%;font-size:15px}
 #runTouch.pressed{background:#d0e9b4;color:#254536}
+#jumpTouch{position:fixed;z-index:6;right:20px;bottom:calc(135px + env(safe-area-inset-bottom));width:76px;height:76px;border-radius:50%;background:#cee8b4;color:#234336;font-size:13px;font-weight:800;box-shadow:0 5px 18px #28483b38}
+#runToggle.active{background:#d0e9b4;color:#234336}
+@media(min-width:761px) and (pointer:fine){#jumpTouch{right:20px;bottom:23px;width:74px;height:74px}}
 @media(max-width:760px),(pointer:coarse){
  header b{font-size:14px}
  #guide{bottom:calc(17px + env(safe-area-inset-bottom));min-width:0;width:150px;padding:9px 6px}
@@ -76,13 +79,15 @@ small{color:#c5dace}.options{display:flex;align-items:center;gap:12px;flex-wrap:
  <div class="slot"><b>Walking</b><span class="filelabel" id="walkName">Belum diisi</span><label class="pick" for="walkFile">＋ FBX</label><button class="previewButton" data-preview="walk" type="button" disabled>▶ Tes</button><input id="walkFile" type="file" accept=".fbx" data-slot="walk"></div>
  <div class="slot"><b>Running</b><span class="filelabel" id="runName">Belum diisi</span><label class="pick" for="runFile">＋ FBX</label><button class="previewButton" data-preview="run" type="button" disabled>▶ Tes</button><input id="runFile" type="file" accept=".fbx" data-slot="run"></div>
  <div class="slot"><b>Run Anime</b><span class="filelabel" id="animeName">Belum diisi</span><label class="pick" for="animeFile">＋ FBX</label><button class="previewButton" data-preview="anime" type="button" disabled>▶ Tes</button><input id="animeFile" type="file" accept=".fbx" data-slot="anime"></div>
+ <div class="slot"><b>Jump</b><span class="filelabel" id="jumpName">Opsional · belum diisi</span><label class="pick" for="jumpFile">＋ FBX</label><button class="previewButton" data-preview="jump" type="button" disabled>▶ Tes</button><input id="jumpFile" type="file" accept=".fbx" data-slot="jump"></div>
  <div class="options">
   <div id="runChoice"><button data-run="run" type="button" class="active">Run Normal</button><button data-run="anime" type="button">Run Anime</button></div>
   <label><input id="toon" type="checkbox"> Shading Toon</label>
  </div>
+ <div class="options"><button id="runToggle" type="button" aria-pressed="false">R · Lari Toggle</button><span>Space · Jump</span></div>
  <div class="options"><label for="face">Koreksi arah depan</label><input id="face" type="range" min="-180" max="180" value="0" step="15"><output id="faceText">0°</output></div>
  <p id="uploadResult" role="status" aria-live="polite">Belum ada FBX yang dipilih. Semua slot kosong dan tidak ada animasi bawaan.</p>
- <p class="intro">Kontrol: WASD untuk Walking, Shift+WASD untuk Running. HP: joystick dan tombol RUN. Saat berpindah slot, model FBX masing-masing diganti secara langsung, <b>bukan dicampur ke satu rig</b>. Gunakan karakter yang sama pada setiap FBX agar tampilan konsisten. Tidak mengubah project game utama.</p>
+ <p class="intro">Kontrol PC: WASD untuk Walking, tahan Shift untuk lari, atau tekan R untuk mengaktifkan/menonaktifkan lari. Space untuk Jump. Di HP: joystick + tombol RUN (tahan) dan JUMP (ketuk). Jump tetap berfungsi tanpa FBX Jump, tetapi animasi lompatan khusus perlu upload manual. Tiap FBX memakai rig asli, tidak dicampur ke skeleton lain.</p>
 </aside>
 <section id="previewBar" hidden aria-label="Preview animasi yang dipilih">
  <span id="previewLabel">PREVIEW</span>
@@ -91,7 +96,8 @@ small{color:#c5dace}.options{display:flex;align-items:center;gap:12px;flex-wrap:
 </section>
 <div id="dpad" aria-label="Joystick gerak" role="group"><div id="stick"></div></div>
 <button id="runTouch" type="button" aria-label="Tahan untuk berlari">RUN</button>
-<div id="guide"><div id="mode">BELUM ADA FBX</div><small id="hint">Upload FBX untuk mulai tes game</small></div>
+<button id="jumpTouch" type="button" aria-label="Lompat">JUMP</button>
+<div id="guide"><div id="mode">BELUM ADA FBX</div><small id="hint">WASD · Shift/R lari · Space Jump</small></div>
 <script>
 (()=> {
  const retry=document.getElementById('retry');
@@ -105,5 +111,5 @@ small{color:#c5dace}.options{display:flex;align-items:center;gap:12px;flex-wrap:
 })();
 </script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"}}</script>
-<script type="module" src="./app.js?v=manual-rig-20261026"></script>
+<script type="module" src="./app.js?v=jump-run-20261026"></script>
 </body></html>
