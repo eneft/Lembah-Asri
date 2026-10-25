@@ -96,6 +96,19 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
       compared++;
     }
   }
+  // A mathematically valid fragment shader can still produce a black avatar.
+  // Reject an image where a large portion of the center becomes near-black.
+  let veryDark=0,nearTotal=0;
+  for(let y=Math.floor(fresh.height*.15);y<Math.floor(fresh.height*.80);y+=2){
+    for(let x=Math.floor(fresh.width*.30);x<Math.floor(fresh.width*.70);x+=2){
+      const i=(y*fresh.width+x)*4;
+      if(Math.max(fresh.data[i],fresh.data[i+1],fresh.data[i+2])<24)veryDark++;
+      nearTotal++;
+    }
+  }
+  const blackRatio=veryDark/nearTotal;
+  console.log('PAINTERLY DARK PIXEL RATIO:',blackRatio.toFixed(4));
+  if(blackRatio>.025)throw Error('Painterly material is a black silhouette: '+blackRatio);
   const fraction=changed/compared;
   console.log('PAINTERLY V2 IMAGE DIFF:',fraction.toFixed(4),changed,'/',compared);
   if(fraction<0.012)throw Error('Painterly still visually indistinguishable from old Soft Toon: '+fraction);

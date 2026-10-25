@@ -264,37 +264,51 @@ function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transpare
     transparent,opacity,alphaTest
   });
   material.userData.painterly=true;
-  material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV2';
+  material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV2Safe';
   material.onBeforeCompile=shader=>{
-    shader.uniforms.uLaLightDirectionVS=painterlyUniforms.keyVS;
-    shader.uniforms.uLaShadowTint=painterlyUniforms.shadowTint;
-    shader.uniforms.uLaLightTint=painterlyUniforms.lightTint;
-    shader.uniforms.uLaRimTint=painterlyUniforms.rimTint;
-    shader.uniforms.uLaRimIntensity=painterlyUniforms.rimIntensity;
-    shader.uniforms.uLaInkStrength=painterlyUniforms.inkStrength;
-    shader.fragmentShader=shader.fragmentShader.replace(
+    for(const [name,uniform] of Object.entries({
+      uLaLightDirectionVS:painterlyUniforms.keyVS,
+      uLaShadowTint:painterlyUniforms.shadowTint,
+      uLaLightTint:painterlyUniforms.lightTint,
+      uLaRimTint:painterlyUniforms.rimTint,
+      uLaRimIntensity:painterlyUniforms.rimIntensity,
+      uLaInkStrength:painterlyUniforms.inkStrength
+    }))shader.uniforms[name]=uniform;
+    // Reuse the original V1's proven view-space varyings: unlike
+    // reflectedLight/diffuseColor overrides, this keeps baked albedo visible.
+    shader.vertexShader=shader.vertexShader.replace('#include <common>',[
       '#include <common>',
-      [
-        '#include <common>',
-        'uniform vec3 uLaLightDirectionVS;',
-        'uniform vec3 uLaShadowTint;',
-        'uniform vec3 uLaLightTint;',
-        'uniform vec3 uLaRimTint;',
-        'uniform float uLaRimIntensity;',
-        'uniform float uLaInkStrength;'
-      ].join('\n')
-    ).replace('#include <opaque_fragment>', [
-      'vec3 laNormal = normalize(normal);',
-      'float laLight = dot(laNormal, normalize(uLaLightDirectionVS));',
-      'float laSoftBand = smoothstep(-0.23, 0.61, laLight);',
-      'float laShade = smoothstep(0.08, 0.92, laSoftBand);',
-      'vec3 laLitColor = mix(uLaShadowTint, uLaLightTint, laShade);',
-      'float laFacing = abs(dot(laNormal, normalize(vViewPosition)));',
-      'float laEdge = 1.0 - smoothstep(0.08, 0.34, laFacing);',
-      'float laWarmRim = pow(1.0 - laFacing, 3.0) * smoothstep(-0.18,0.7,laLight);',
-      'outgoingLight = diffuseColor.rgb * laLitColor;',
+      'varying vec3 vLembahNormal;',
+      'varying vec3 vLembahView;'
+    ].join('\n')).replace('#include <fog_vertex>',[
+      'vLembahNormal=normalize(transformedNormal);',
+      'vLembahView=normalize(-mvPosition.xyz);',
+      '#include <fog_vertex>'
+    ].join('\n'));
+    shader.fragmentShader=shader.fragmentShader.replace('#include <common>',[
+      '#include <common>',
+      'varying vec3 vLembahNormal;',
+      'varying vec3 vLembahView;',
+      'uniform vec3 uLaLightDirectionVS;',
+      'uniform vec3 uLaShadowTint;',
+      'uniform vec3 uLaLightTint;',
+      'uniform vec3 uLaRimTint;',
+      'uniform float uLaRimIntensity;',
+      'uniform float uLaInkStrength;'
+    ].join('\n')).replace('#include <opaque_fragment>',[
+      'vec3 laN=normalize(vLembahNormal);',
+      'vec3 laV=normalize(vLembahView);',
+      'float laLight=dot(laN,normalize(uLaLightDirectionVS));',
+      'float laShade=smoothstep(-0.2,0.63,laLight);',
+      'float laFacing=abs(dot(laN,laV));',
+      'float laEdge=1.0-smoothstep(0.1,0.34,laFacing);',
+      'float laRim=pow(1.0-laFacing,3.0)*smoothstep(-.12,.7,laLight);',
+      'vec3 laTone=mix(uLaShadowTint,uLaLightTint,laShade);',
+      // Lit outgoingLight is the same texture-correct value as original Soft Toon.
+      // Modulate it rather than replacing it with a potentially zero color.
+      'outgoingLight *= laTone;',
       'outgoingLight *= 1.0 - laEdge * uLaInkStrength;',
-      'outgoingLight += uLaRimTint * (laWarmRim * uLaRimIntensity);',
+      'outgoingLight += uLaRimTint*(laRim*uLaRimIntensity);',
       '#include <opaque_fragment>'
     ].join('\n'));
   };
