@@ -277,14 +277,7 @@ speedSlider.addEventListener('input', () => {
   speedText.textContent = playbackSpeed.toFixed(2) + '×';
   instances.forEach(x => { if (x) x.mixer.timeScale = playing ? playbackSpeed : 0; });
 });
-const panel = $('.panel');
-const settingsToggle = $('#settingsToggle');
-settingsToggle.addEventListener('click', () => {
-  const open = panel.classList.toggle('settings-open');
-  settingsToggle.setAttribute('aria-expanded', String(open));
-  settingsToggle.setAttribute('aria-label', open ? 'Tutup pengaturan' : 'Buka pengaturan');
-});
-settingsToggle.setAttribute('aria-label', 'Buka pengaturan');
+// Settings use native HTML <details> so the gear works without JS event handlers.
 const chooser = $('#fbxFiles');
 chooser.addEventListener('change', async event => {
   const files = Array.from(event.target.files || []);

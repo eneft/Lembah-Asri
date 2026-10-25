@@ -1,6 +1,7 @@
-const {chromium}=require('playwright');
+const {chromium, webkit}=require('playwright');
+const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
 (async()=>{
- const browser=await chromium.launch({headless:true,args:['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+ const browser=await engine.launch({headless:true,args:process.env.BROWSER_ENGINE==='webkit'?[]:['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
  const page=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{
@@ -52,15 +53,16 @@ const {chromium}=require('playwright');
     return {dockHeight:p.height,dockTop:p.top,viewportHeight:innerHeight,
       dayVisible:document.querySelector('[data-light="day"]').getBoundingClientRect().height>0,
       settingsVisible:document.querySelector('#settingsToggle').getBoundingClientRect().height>0,
-      advancedHidden:getComputedStyle(advance).display==='none'};
+      advancedHidden:!document.querySelector('#settingsDrawer').open && advance.getClientRects().length===0};
   });
   if(mobileLayout.dockHeight>155 || !mobileLayout.dayVisible || !mobileLayout.settingsVisible || !mobileLayout.advancedHidden)
     throw Error('Mobile compact controls failed: '+JSON.stringify(mobileLayout));
   await page.screenshot({path:'/tmp/lembah-run-browser-mobile-minimal.png'});
   await page.locator('#settingsToggle').click();
-  if(!(await page.locator('#advancedControls').isVisible())) throw Error('Mobile settings drawer failed');
+  if(!(await page.locator('#advancedControls').isVisible()) || !(await page.locator('#settingsDrawer').evaluate(el=>el.open))) throw Error('Mobile native settings drawer failed');
+  await page.screenshot({path:'/tmp/lembah-run-browser-mobile-settings-'+(process.env.BROWSER_ENGINE || 'chromium')+'.png'});
   await page.locator('#settingsToggle').click();
-  if(await page.locator('#advancedControls').isVisible()) throw Error('Mobile settings drawer did not close');
+  if(await page.locator('#advancedControls').isVisible() || (await page.locator('#settingsDrawer').evaluate(el=>el.open))) throw Error('Mobile native settings drawer did not close');
   await page.locator('[data-light="sunset"]').click();
   if((await page.evaluate(()=>window.__lembahDiagnostics())).light!=='sunset') throw Error('Mobile lighting selection failed');
   console.log('MOBILE RUN TESTER PASS:',JSON.stringify(mobileLayout));

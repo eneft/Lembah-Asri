@@ -27,12 +27,13 @@ jobs:
       - name: Install browser test dependencies
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
       - name: Launch local preview and verify both animation buttons
         run: |
           python3 -m http.server 8765 --directory /tmp/lembah-run-web >/tmp/lembah-webserver.log 2>&1 &
           echo $! > /tmp/lembah-webserver.pid
           node tools/run-3d-browser/verify-browser.cjs
+          BROWSER_ENGINE=webkit node tools/run-3d-browser/verify-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
