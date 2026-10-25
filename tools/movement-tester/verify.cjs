@@ -102,6 +102,16 @@ const engine=type==='webkit'?webkit:chromium;
   if(!(await diagnostics()).previewPaused)throw Error('Preview pause not working');
   await page.locator('#previewPause').click();
   await page.locator('#previewDone').click();
+  await page.locator('#openUpload').click();
+  await page.locator('#cameraZoom').fill('1.5');
+  await page.locator('#closeUpload').click();
+  await delay(400);
+  d=await diagnostics();
+  if(d.cameraZoom<1.49||d.desiredDistance<10)
+   throw Error('Camera zoom-out slider did not increase distance: '+JSON.stringify(d));
+  await page.locator('#openUpload').click();
+  await page.locator('#cameraZoom').fill('1');
+  await page.locator('#closeUpload').click();
   // Space and JUMP work with physics before a dedicated Jump FBX exists.
   await page.keyboard.press('Space');
   await page.waitForFunction(()=>window.__movementDiagnostics?.().jumpHeight>.12,null,{timeout:3000});
@@ -184,6 +194,13 @@ const engine=type==='webkit'?webkit:chromium;
    throw Error('Uploaded Jump FBX is not displayed during jump: '+JSON.stringify(d));
   if(d.flightSeconds<1.17||d.flightSeconds>1.46)
    throw Error('Jump FBX playback did not preserve slow physical timing: '+JSON.stringify(d));
+  await delay(250);
+  d=await diagnostics();
+  if(!d.framingBounds||!Number.isFinite(d.desiredDistance))
+   throw Error('Automatic Jump camera framing not active: '+JSON.stringify(d));
+  if(!d.bounds||d.bounds.screen.some(x=>!Number.isFinite(x))||
+     Math.abs(d.bounds.screen[0])>.8||Math.abs(d.bounds.screen[1])>.85)
+   throw Error('Jump character drifting outside camera: '+JSON.stringify(d.bounds));
   await page.screenshot({path:'/tmp/lembah-movement-'+type+'-jump-with-fbx.png'});
   await page.waitForFunction(()=>!window.__movementDiagnostics?.().jumping,null,{timeout:3000});
   d=await diagnostics();
