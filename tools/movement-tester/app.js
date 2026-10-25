@@ -468,10 +468,21 @@ $('openUpload').addEventListener('click',()=>{
 });
 $('closeUpload').addEventListener('click',closeUploadPanel);
 $('retry').addEventListener('click',()=>location.reload());
+function probePose(){
+  const transforms=[];
+  root?.traverse(node=>{
+    if(!node.isBone)return;
+    const name=normBoneName(node.name);
+    if(!/(?:leftarm|rightarm|leftforearm|rightforearm|leftupleg|rightupleg|spine|hips)/.test(name))return;
+    transforms.push({bone:name,quat:node.quaternion.toArray().map(x=>Number(x.toFixed(5)))});
+  });
+  return transforms.slice(0,15);
+}
 window.__movementDiagnostics=()=>({
   ready,rigNodes:baseRigByName.size,
   slots:Object.fromEntries(Object.entries(slots).map(([k,v])=>[k,{loaded:!!v.clip,coverage:v.clip?.userData?.coverage||0,tracks:v.clip?.tracks?.length||0,movingTracks:v.clip?.userData?.movingTracks ?? 0,duration:v.clip?.duration||0}])),
   state:currently,requested:state,preview:previewSlot,previewPaused,position:actor.position.toArray(),
+  pose:probePose(),
   activeAction:currently&&slots[currently].clip?(()=>{
     const action=mixer?.existingAction(slots[currently].clip,root);
     return action?{isRunning:action.isRunning(),time:action.time,weight:action.getEffectiveWeight()}:null;

@@ -69,6 +69,14 @@ const engine=type==='webkit'?webkit:chromium;
   await page.waitForTimeout(240);
   d=await page.evaluate(()=>window.__movementDiagnostics());
   if(d.activeAction?.weight<.5 || d.activeAction?.time===0)throw Error('Uploaded Walking preview is not actually playing: '+JSON.stringify(d));
+  const initialPose=d.pose;
+  await page.waitForTimeout(155);
+  const changedPose=(await page.evaluate(()=>window.__movementDiagnostics())).pose;
+  let poseShift=0;
+  for(let i=0;i<Math.min(initialPose.length,changedPose.length);i++)for(let j=0;j<4;j++)
+    poseShift+=Math.abs(initialPose[i].quat[j]-changedPose[i].quat[j]);
+  if(initialPose.length<3 || poseShift<0.03) throw Error('Walking clip is playing but bones do not move: '+JSON.stringify({poseShift,initialPose,changedPose}));
+  console.log('VISIBLE RETARGETED FBX POSE MOTION',type,poseShift.toFixed(3));
   await page.screenshot({path:'/tmp/lembah-movement-'+type+'-walking-preview.png'});
   await page.locator('#previewDone').click();
   await beginDirection('d');await page.waitForTimeout(500);
