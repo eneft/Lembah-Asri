@@ -34,6 +34,21 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
     if((await drawer.isVisible()) || (await page.locator('#advancedControls').isVisible()))
       throw Error('Safari explicit close button failed');
     console.log('MOBILE SAFARI SETTINGS PASS: menu stays open until explicit Close');
+    const canWebGL=await page.evaluate(()=>{
+      const test=document.createElement('canvas');
+      try{ return !!(test.getContext('webgl2') || test.getContext('webgl')); }
+      catch {return false}
+    });
+    if(canWebGL){
+      await page.waitForFunction(()=>window.__modelLoaded || document.getElementById('retryLoad')?.hidden===false,null,{timeout:105000});
+      if(!(await page.evaluate(()=>window.__modelLoaded))){
+        const msg=await page.locator('#status').innerText();
+        throw Error('Safari mobile FBX did not load: '+msg+' | '+errors.join('; '));
+      }
+      const loaded=await page.evaluate(()=>window.__lembahDiagnostics());
+      if(!loaded.firstModelReady || !loaded.mobileLightweight)throw Error('Safari missing first FBX: '+JSON.stringify(loaded));
+      console.log('MOBILE SAFARI FBX LOAD PASS:',JSON.stringify({first:loaded.firstModelReady,second:loaded.secondModelReady}));
+    }else console.log('Safari Linux WebGL unavailable; iPhone FBX fallback is covered by Chromium mobile');
     return;
   }
   // Check initialization failures immediately, rather than waiting for model timeout.
@@ -159,6 +174,16 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   await page.screenshot({path:'/tmp/lembah-run-browser-anime.png'});
   await page.locator('#play').click();
   if(!(await page.locator('#play').innerText()).includes('Play'))throw Error('Pause toggle failed');
+  // Reload at an iPhone-size viewport to exercise the mobile-specific 1-FBX path.
+  await page.setViewportSize({width:390,height:844});
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>window.__modelLoaded===true,null,{timeout:105000});
+  const firstMobile=await page.evaluate(()=>window.__lembahDiagnostics());
+  if(!firstMobile.mobileLightweight || !firstMobile.firstModelReady || firstMobile.secondModelReady)
+    throw Error('Mobile startup loaded two heavy FBXs: '+JSON.stringify(firstMobile));
+  await page.locator('#run').click();
+  await page.waitForFunction(()=>window.__lembahDiagnostics?.().secondModelReady===true,null,{timeout:105000});
+  console.log('MOBILE LAZY FBX PASS:',JSON.stringify({first:true,second:true}));
   // Mobile: no full-height panel blocking the avatar, with lighting always accessible.
   await page.setViewportSize({width:390,height:844});
   await page.waitForTimeout(400);

@@ -24,8 +24,9 @@ const normalToggle = $('#normalDetail');
 const lightingButtons = [...document.querySelectorAll('[data-light]')];
 const materialButtons = [...document.querySelectorAll('[data-material]')];
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+const phoneEnvironment = /iPhone|iPad|iPod/i.test(navigator.userAgent) || matchMedia('(max-width:750px)').matches;
+const renderer = new THREE.WebGLRenderer({ antialias: !phoneEnvironment, alpha: false, powerPreference: 'default' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, phoneEnvironment ? 1 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 // AgX keeps the original hand-painted hues natural under warm/cool lighting.
@@ -146,7 +147,7 @@ const presets = {
   }
 };
 let currentLight = 'day';
-let currentMaterial = 'painterly';
+let currentMaterial = phoneEnvironment ? 'flat' : 'painterly';
 let exposureAdjust = 1;
 function setActive(items, attr, selected){
   items.forEach(button => {
@@ -436,7 +437,7 @@ function ensureMeshNormals(geometry){
     // polygons on cheeks, jackets and trousers. Blend only coincident vertices
     // facing broadly the same direction; keep genuine sharp silhouettes.
     const normals=geometry.getAttribute('normal');
-    if(!geometry.index && pos.count<450000){
+    if(!phoneEnvironment && !geometry.index && pos.count<450000){
       const groups=new Map();
       for(let i=0;i<pos.count;i++){
         const key=[
@@ -558,7 +559,29 @@ function select(index){
   syncFloorUI();
   setStatus(`${clips[index].name} · ${instances[index].static?'pose statis / tanpa animasi':instances[index].duration.toFixed(2)+'s per siklus'} · ${presets[currentLight].name} · ${currentMaterial==='painterly'?'Painterly Color':currentMaterial==='toon'?'Toon Lama':'Albedo'}`);
 }
-buttons.forEach((b, i) => b.addEventListener('click', () => select(i)));
+const pendingBuiltIn = new Map();
+function ensureBuiltInLoaded(index){
+  if(instances[index]) return Promise.resolve(instances[index]);
+  if(pendingBuiltIn.has(index)) return pendingBuiltIn.get(index);
+  setStatus('Memuat '+clips[index].name+' …');
+  const work = loadModel(index).then(()=>{
+    if(index===1 || (index===0 && !instances[1]))select(index);
+    window.__modelLoaded=true;
+    if(instances[0] && instances[1])$('#fileHint').textContent='Dua animasi telah dimuat otomatis';
+    return instances[index];
+  }).catch(err=>{
+    console.error('FBX',clips[index].file,err);
+    setStatus('Gagal memuat '+clips[index].name+': '+(err?.message||err),true);
+    window.__showModelRetry?.('Gagal memuat FBX: '+(err?.message||err));
+    throw err;
+  }).finally(()=>pendingBuiltIn.delete(index));
+  pendingBuiltIn.set(index,work);
+  return work;
+}
+buttons.forEach((b,i)=>b.addEventListener('click',()=>{
+  if(instances[i])select(i);
+  else ensureBuiltInLoaded(i).catch(()=>{});
+}));
 playButton.addEventListener('click', () => {
   playing = !playing;
   playButton.textContent = playing ? '⏸ Pause' : '▶ Play';
@@ -667,6 +690,9 @@ $('#groundReset').addEventListener('click',()=>{
 
 window.__lembahDiagnostics = () => ({
   selected, playing, material: currentMaterial, light: currentLight,
+  mobileLightweight:phoneEnvironment,
+  appReady:window.__appReady===true,
+  firstModelReady:!!instances[0], secondModelReady:!!instances[1],
   painterlyShader:painterlyMaterial.userData.painterly,
   painterlyVersion:5,
   painterlyNativeShader:true,
@@ -706,7 +732,7 @@ function resize(){
   if (lastCompact !== nextCompact) { homeCamera(); lastCompact = nextCompact; }
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, nextCompact ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, nextCompact ? 1 : 2));
   renderer.setSize(innerWidth, innerHeight);
 }
 addEventListener('resize', resize);
@@ -720,14 +746,24 @@ function animate(){
 }
 setLighting('day');
 applyMaterial();
+window.__appReady=true;
+renderer.domElement.addEventListener('webglcontextlost',event=>{
+  event.preventDefault();
+  setStatus('Memori grafis browser penuh. Gunakan tombol Coba Lagi.',true);
+  window.__showModelRetry?.('Memori grafis browser penuh.');
+});
 animate();
-(async () => {
-  try {
-    for (let i = 0; i < 2; i++) {
-      setStatus(`Memuat ${clips[i].name} (${i + 1}/2)...`);
-      await loadModel(i);
+(async()=>{
+  try{
+    await ensureBuiltInLoaded(0);
+    if (phoneEnvironment) {
+      $('#fileHint').textContent='Running Normal siap · Run Anime dimuat saat dipilih';
+    } else {
+      await ensureBuiltInLoaded(1);
+      select(0);
     }
-    if (selected < 2) select(0);
-    $('#fileHint').textContent = 'Dua animasi telah dimuat otomatis';
-  } catch (e) { console.error(e); setStatus('Aset otomatis gagal: ' + e.message + ' · Bisa pilih FBX manual', true); }
+  } catch(err){
+    console.error('Loading FBX failed',err);
+    window.__showModelRetry?.('Loading gagal: '+(err?.message||err));
+  }
 })();
