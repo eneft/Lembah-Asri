@@ -107,7 +107,7 @@ const engine=type==='webkit'?webkit:chromium;
   await page.locator('#closeUpload').click();
   await delay(400);
   d=await diagnostics();
-  if(d.cameraZoom<1.49||d.desiredDistance<10)
+  if(d.cameraZoom<1.49||d.desiredDistance<4.6)
    throw Error('Camera zoom-out slider did not increase distance: '+JSON.stringify(d));
   await page.locator('#openUpload').click();
   await page.locator('#cameraZoom').fill('1');
@@ -196,6 +196,10 @@ const engine=type==='webkit'?webkit:chromium;
    throw Error('Jump FBX playback did not preserve slow physical timing: '+JSON.stringify(d));
   await delay(250);
   d=await diagnostics();
+  if(!d.bounds||!Number.isFinite(d.bounds.screenHeight)||
+     d.bounds.screenHeight<.14||d.bounds.screenHeight>1.50)
+   throw Error('Jump avatar too tiny or clipped in camera: '+JSON.stringify(d.bounds));
+  console.log('JUMP CAMERA SCREEN HEIGHT',type,d.bounds.screenHeight.toFixed(3));
   if(!d.framingBounds||!Number.isFinite(d.desiredDistance))
    throw Error('Automatic Jump camera framing not active: '+JSON.stringify(d));
   if(!d.bounds||d.bounds.screen.some(x=>!Number.isFinite(x))||

@@ -15,3 +15,5 @@ https://eneft.github.io/Lembah-Asri/movement-tester/
 
 - Jump physics uses a slower 1.18–1.45 second arc (~0.62m apex) and never speeds a source FBX faster than 1× to fit the flight; imported FBX Hips Y root translation is suppressed to prevent double jumping.
 - FBX avatar scale and floor alignment are calculated from the original skeleton bind pose before animation begins, to avoid enlarging a crouched Jump frame.
+
+- Adaptive full-body camera recenters the animated mesh without modifying its FBX skeleton; camera fits large Jump poses and follows smaller-looking poses. The Jarak kamera slider controls manual distance.
