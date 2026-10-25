@@ -23,17 +23,25 @@ const engine=type==='webkit'?webkit:chromium;
       const box=await page.locator('#dpad').boundingBox();
       if(!box)throw Error('Mobile joystick not visible');
       joystickCenter={x:box.x+box.width/2,y:box.y+box.height/2};
-      await page.mouse.move(joystickCenter.x,joystickCenter.y);
-      await page.mouse.down();
-      await page.mouse.move(
-        joystickCenter.x+(direction==='d'?39:0),
-        joystickCenter.y-(direction==='w'?39:0),
-        {steps:3});
+      await page.locator('#dpad').evaluate((pad,dir)=>{
+        const bounds=pad.getBoundingClientRect();
+        const cx=bounds.left+bounds.width/2,cy=bounds.top+bounds.height/2;
+        const create=(type,x,y)=>new PointerEvent(type,{
+          bubbles:true,cancelable:true,isPrimary:true,pointerId:234,
+          pointerType:'touch',clientX:x,clientY:y,buttons:1
+        });
+        pad.dispatchEvent(create('pointerdown',cx,cy));
+        pad.dispatchEvent(create('pointermove',cx+(dir==='d'?39:0),cy-(dir==='w'?39:0)));
+      },direction);
+      const v=await page.evaluate(()=>window.__movementDiagnostics().joystick);
+      if(Math.hypot(...v)<.5)throw Error('Touch joystick input not received: '+JSON.stringify(v));
     }else await page.keyboard.down(direction);
   }
   async function endDirection(direction){
     if(type==='webkit'){
-      await page.mouse.up();
+      await page.locator('#dpad').evaluate(pad=>{
+        pad.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,isPrimary:true,pointerId:234,pointerType:'touch'}));
+      });
     }else await page.keyboard.up(direction);
   }
   await beginDirection('w');
