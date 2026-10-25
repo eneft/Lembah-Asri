@@ -9,18 +9,22 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   // Safari/WebKit UI regression is independent of WebGL and texture loading.
   if(process.env.BROWSER_ENGINE==='webkit'){
     await page.setViewportSize({width:390,height:844});
-    const drawer=page.locator('#settingsDrawer');
+    const drawer=page.locator('#settingsPanel');
     const toggle=page.locator('#settingsToggle');
     if(!(await toggle.isVisible())) throw Error('Safari settings summary not visible');
-    if(await drawer.evaluate(el=>el.open)) throw Error('Safari settings initially expanded');
+    if(await drawer.isVisible()) throw Error('Safari settings initially expanded');
     await toggle.click();
-    if(!(await drawer.evaluate(el=>el.open)) || !(await page.locator('#advancedControls').isVisible()))
+    if(!(await drawer.isVisible()) || !(await page.locator('#advancedControls').isVisible()))
       throw Error('Safari gear did not open settings drawer');
+    await page.waitForTimeout(1500);
+    if(!(await drawer.isVisible())) throw Error('Safari settings closed automatically after opening');
+    await page.locator('#normalDetail').click();
+    if(!(await drawer.isVisible())) throw Error('Safari settings closed when toggling Normal map');
     await page.screenshot({path:'/tmp/lembah-run-browser-safari-settings-open.png'});
-    await toggle.click();
-    if((await drawer.evaluate(el=>el.open)) || (await page.locator('#advancedControls').isVisible()))
-      throw Error('Safari gear did not close settings drawer');
-    console.log('MOBILE SAFARI SETTINGS PASS: native HTML details opens and closes');
+    await page.locator('#settingsClose').click();
+    if((await drawer.isVisible()) || (await page.locator('#advancedControls').isVisible()))
+      throw Error('Safari explicit close button failed');
+    console.log('MOBILE SAFARI SETTINGS PASS: menu stays open until explicit Close');
     return;
   }
   await page.waitForFunction(()=>document.querySelector('#fileHint')?.textContent.includes('Dua animasi telah dimuat otomatis'),{timeout:105000});
@@ -41,6 +45,8 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   }
   await page.locator('#settingsToggle').click();
   if(!(await page.locator('#advancedControls').isVisible())) throw Error('Desktop settings drawer failed');
+  await page.waitForTimeout(800);
+  if(!(await page.locator('#settingsPanel').isVisible())) throw Error('Desktop menu unexpectedly auto-closed');
   await page.locator('[data-material="flat"]').click();
   let preview = await page.evaluate(() => window.__lembahDiagnostics());
   if(preview.material !== 'flat' || !preview.clips.every(c=>c.materialType === 'MeshBasicMaterial'))
@@ -53,7 +59,8 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   await page.locator('#normalDetail').uncheck();
   await page.locator('#normalDetail').check();
   await page.locator('#exposure').fill('1.15');
-  await page.locator('#settingsToggle').click();
+  await page.locator('#speed').fill('1.5');
+  await page.locator('#settingsClose').click();
 
   await page.locator('#run').click();
   const anime=await page.locator('#status').innerText();
@@ -63,7 +70,6 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   await page.screenshot({path:'/tmp/lembah-run-browser-anime.png'});
   await page.locator('#play').click();
   if(!(await page.locator('#play').innerText()).includes('Play'))throw Error('Pause toggle failed');
-  await page.locator('#speed').fill('1.5');
   // Mobile: no full-height panel blocking the avatar, with lighting always accessible.
   await page.setViewportSize({width:390,height:844});
   await page.waitForTimeout(400);
@@ -73,16 +79,20 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
     return {dockHeight:p.height,dockTop:p.top,viewportHeight:innerHeight,
       dayVisible:document.querySelector('[data-light="day"]').getBoundingClientRect().height>0,
       settingsVisible:document.querySelector('#settingsToggle').getBoundingClientRect().height>0,
-      advancedHidden:!document.querySelector('#settingsDrawer').open && advance.getClientRects().length===0};
+      advancedHidden:document.querySelector('#settingsPanel').hidden && advance.getClientRects().length===0};
   });
   if(mobileLayout.dockHeight>155 || !mobileLayout.dayVisible || !mobileLayout.settingsVisible || !mobileLayout.advancedHidden)
     throw Error('Mobile compact controls failed: '+JSON.stringify(mobileLayout));
   await page.screenshot({path:'/tmp/lembah-run-browser-mobile-minimal.png'});
   await page.locator('#settingsToggle').click();
-  if(!(await page.locator('#advancedControls').isVisible()) || !(await page.locator('#settingsDrawer').evaluate(el=>el.open))) throw Error('Mobile native settings drawer failed');
+  if(!(await page.locator('#advancedControls').isVisible()) || !(await page.locator('#settingsPanel').isVisible())) throw Error('Mobile settings drawer failed');
+  await page.waitForTimeout(1000);
+  if(!(await page.locator('#settingsPanel').isVisible())) throw Error('Mobile settings closed unexpectedly');
   await page.screenshot({path:'/tmp/lembah-run-browser-mobile-settings-'+(process.env.BROWSER_ENGINE || 'chromium')+'.png'});
-  await page.locator('#settingsToggle').click();
-  if(await page.locator('#advancedControls').isVisible() || (await page.locator('#settingsDrawer').evaluate(el=>el.open))) throw Error('Mobile native settings drawer did not close');
+  await page.locator('[data-material="flat"]').click();
+  if(!(await page.locator('#settingsPanel').isVisible())) throw Error('Mobile settings closed on material switch');
+  await page.locator('#settingsClose').click();
+  if(await page.locator('#advancedControls').isVisible() || (await page.locator('#settingsPanel').isVisible())) throw Error('Mobile settings explicit close failed');
   await page.locator('[data-light="sunset"]').click();
   if((await page.evaluate(()=>window.__lembahDiagnostics())).light!=='sunset') throw Error('Mobile lighting selection failed');
   console.log('MOBILE RUN TESTER PASS:',JSON.stringify(mobileLayout));
