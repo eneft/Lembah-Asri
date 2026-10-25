@@ -29,7 +29,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 // AgX keeps the original hand-painted hues natural under warm/cool lighting.
-renderer.toneMapping = THREE.AgXToneMapping;
+renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = true;
@@ -231,19 +231,15 @@ const toonMaterial = new THREE.MeshToonMaterial({
  */
 // Colorized hand-painted light ramp: cool detailed shadows, creamy warm highlights.
 // This is a real 256-step RGB gradientMap used by the native MeshToonMaterial.
-const softRampBytes = new Uint8Array(256 * 4);
-function smooth01(lo,hi,t) {
+const softRampBytes = new Uint8Array(256*4);
+function smooth01(lo,hi,t){
   const v=THREE.MathUtils.clamp((t-lo)/(hi-lo),0,1);
   return v*v*(3-2*v);
 }
 for(let i=0;i<256;i++){
   const x=i/255;
-  const f=smooth01(.08,.92,x);
-  const shadow=[.43,.56,.73],light=[1,.98,.93];
-  softRampBytes[i*4]=Math.round(255*(shadow[0]+(light[0]-shadow[0])*f));
-  softRampBytes[i*4+1]=Math.round(255*(shadow[1]+(light[1]-shadow[1])*f));
-  softRampBytes[i*4+2]=Math.round(255*(shadow[2]+(light[2]-shadow[2])*f));
-  softRampBytes[i*4+3]=255;
+  const v=Math.round(255*(.74 + .26*smooth01(.08,.91,x)));
+  softRampBytes.set([v,v,v,255],i*4);
 }
 const softGradient = new THREE.DataTexture(softRampBytes,256,1,THREE.RGBAFormat);
 softGradient.colorSpace=THREE.NoColorSpace;
@@ -253,30 +249,26 @@ softGradient.generateMipmaps=false;
 softGradient.needsUpdate=true;
 // Painterly V2: previous rim-only modification left the stock lighting washed out.
 // New custom diffuse response preserves the input texture, UV, normal and rig.
-const painterlyUniforms = {
-  keyVS:{value:new THREE.Vector3(.4,.7,.6)},
-  shadowTint:{value:new THREE.Vector3(.38,.51,.70)},
-  lightTint:{value:new THREE.Vector3(1.22,1.11,1.01)},
-  rimTint:{value:new THREE.Color('#fff1dd')},
-  rimIntensity:{value:.16},
-  inkStrength:{value:.15}
+// The hand-painted source texture defines the character's palette.
+ // Preserve that palette in every material mode instead of greying it with PBR.
+let normalDetail=false;
+// A neutral, smooth anime ramp: colour comes from the albedo, not blue/grey
+// lighting. Emissive albedo protects subtle facial and jacket paint details.
+const painterlyLook={
+  stableTextureLight:.45,
+  normalStrength:.07
 };
-// Textured stylized PBR is more reliable than custom GLSL/gradient maps
-// across browser GPU drivers. The hand-painted atlas provides illustration
-// detail; matte roughness and soft directional lighting shape the volume.
-let normalDetail = false;
 function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transparent=false,opacity=1,alphaTest=0}={}){
-  const material=new THREE.MeshStandardMaterial({
-    map,
-    // Imported FBX normal atlas is intentionally subtle. Unlike the game-ready
-    // albedo it can exaggerate seams on non-indexed animated geometry.
+  const material=new THREE.MeshToonMaterial({
+    map, gradientMap:softGradient,
     normalMap:normalDetail ? normalMap : null,
-    normalScale:new THREE.Vector2(.045,.045),
-    color,roughness:1,metalness:0,
-    emissive:map ? new THREE.Color(0xffffff) : new THREE.Color(0x000000),
+    normalScale:new THREE.Vector2(painterlyLook.normalStrength,painterlyLook.normalStrength),
+    color,
+    emissive:map ? 0xffffff : 0x000000,
     emissiveMap:map,
-    emissiveIntensity:map ? .20 : 0,
-    side:THREE.DoubleSide,transparent,opacity,alphaTest
+    emissiveIntensity:map ? painterlyLook.stableTextureLight : 0,
+    side:THREE.DoubleSide,transparent,opacity,alphaTest,
+    toneMapped:true
   });
   material.userData.painterly=true;
   return material;
@@ -294,7 +286,7 @@ function applyMaterial(){
   activeMaterials.toon.normalMap = normalDetail ? (customNormalMap || normalAtlas) : null;
   activeMaterials.toon.needsUpdate = true;
   activeMaterials.painterly.normalMap = normalDetail ? (customNormalMap || normalAtlas) : null;
-  activeMaterials.painterly.normalScale.set(.045,.045);
+  activeMaterials.painterly.normalScale.set(painterlyLook.normalStrength,painterlyLook.normalStrength);
   activeMaterials.painterly.needsUpdate = true;
   for(const ins of instances){
     ins?.model.traverse(obj=>{
@@ -316,7 +308,7 @@ function applyMaterial(){
     obj.material = index < 2 || !looks ? chosen : looks[currentMaterial];
   }));
   setActive(materialButtons, 'material', currentMaterial);
-  $('#materialLabel').textContent = currentMaterial === 'painterly' ? 'Painterly V2 • Warna & bayangan lebih dalam' : currentMaterial === 'toon' ? 'Soft Toon Lama' : 'Albedo Original';
+  $('#materialLabel').textContent = currentMaterial === 'painterly' ? 'Painterly Color • warna tekstur terjaga' : currentMaterial === 'toon' ? 'Soft Toon Lama' : 'Albedo Asli';
   if(instances[selected]) select(selected);
 }
 materialButtons.forEach(button => button.addEventListener('click', () => {
@@ -571,7 +563,7 @@ function select(index){
   });
   clipText.textContent = index < 2 ? (index === 0 ? 'RUNNING' : 'RUN ANIME') : clips[index].name;
   syncFloorUI();
-  setStatus(`${clips[index].name} · ${instances[index].static?'pose statis / tanpa animasi':instances[index].duration.toFixed(2)+'s per siklus'} · ${presets[currentLight].name} · ${currentMaterial==='painterly'?'Painterly V2':currentMaterial==='toon'?'Toon Lama':'Albedo'}`);
+  setStatus(`${clips[index].name} · ${instances[index].static?'pose statis / tanpa animasi':instances[index].duration.toFixed(2)+'s per siklus'} · ${presets[currentLight].name} · ${currentMaterial==='painterly'?'Painterly Color':currentMaterial==='toon'?'Toon Lama':'Albedo'}`);
 }
 buttons.forEach((b, i) => b.addEventListener('click', () => select(i)));
 playButton.addEventListener('click', () => {
@@ -683,12 +675,12 @@ $('#groundReset').addEventListener('click',()=>{
 window.__lembahDiagnostics = () => ({
   selected, playing, material: currentMaterial, light: currentLight,
   painterlyShader:painterlyMaterial.userData.painterly,
-  painterlyVersion:4,
+  painterlyVersion:5,
   painterlyNativeShader:true,
-  painterlyImplementation:'matte-standard',
-  painterlyEmissive:.20,
-  painterlyNormalStrength:.045,
-  painterlyShadowTint:[...painterlyUniforms.shadowTint.value],
+  painterlyImplementation:'color-preserving-toon',
+  painterlyEmissive:painterlyLook.stableTextureLight,
+  painterlyNormalStrength:painterlyLook.normalStrength,
+  painterlyRampRange:[.74,1.0],
   hardFloorShadow:key.castShadow,
   painterlyRamp:softGradient.image?.width,
   shadowVisible:paintedShadow.visible,

@@ -68,8 +68,8 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
     throw Error('Anime soft toon material failed: ' + JSON.stringify(preview));
   await page.locator('[data-material="painterly"]').click();
   preview=await page.evaluate(()=>window.__lembahDiagnostics());
-  if(preview.material!=='painterly' || !preview.painterlyShader || preview.painterlyRamp!==256 || preview.painterlyVersion!==4 || !preview.painterlyNativeShader || preview.hardFloorShadow!==false ||
-     !preview.clips.every(c=>c.materialType==='MeshStandardMaterial')) throw Error('Painterly anime shader not installed: '+JSON.stringify(preview));
+  if(preview.material!=='painterly' || !preview.painterlyShader || preview.painterlyRamp!==256 || preview.painterlyVersion!==5 || !preview.painterlyNativeShader || preview.hardFloorShadow!==false ||
+     !preview.clips.every(c=>c.materialType==='MeshToonMaterial')) throw Error('Painterly anime shader not installed: '+JSON.stringify(preview));
   await page.locator('#showGrid').check();
   if(!(await page.evaluate(()=>window.__lembahDiagnostics().debugGrid)))throw Error('Grid debug toggle failed');
   await page.locator('#showGrid').uncheck();
@@ -82,6 +82,31 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   await page.locator('#play').click();
   await page.waitForTimeout(180);
   const freshShot=await page.locator('#stage canvas').screenshot({path:'/tmp/lembah-painterly-v2-stage.png'});
+  // Exact same pose/camera: compare color against the actual albedo source.
+  await page.locator('[data-material="flat"]').click();
+  await page.waitForTimeout(140);
+  const baseShot=await page.locator('#stage canvas').screenshot({path:'/tmp/lembah-albedo-same-pose-stage.png'});
+  await page.locator('[data-material="painterly"]').click();
+  await page.waitForTimeout(140);
+  const base=PNG.sync.read(baseShot);
+  const painted=PNG.sync.read(freshShot);
+  let originalColor=0,previewColor=0,pixels=0;
+  for(let y=Math.floor(base.height*.08);y<Math.floor(base.height*.80);y+=2) {
+    for(let x=Math.floor(base.width*.31);x<Math.floor(base.width*.69);x+=2){
+      const k=(y*base.width+x)*4;
+      const o=[base.data[k],base.data[k+1],base.data[k+2]];
+      const p=[painted.data[k],painted.data[k+1],painted.data[k+2]];
+      const chroma=Math.max(...o)-Math.min(...o);
+      if(chroma<27 || Math.max(...o)<37)continue; // Ignore grey ground / pale sky.
+      originalColor+=chroma;
+      previewColor+=Math.max(...p)-Math.min(...p);
+      pixels++;
+    }
+  }
+  if(pixels<500)throw Error('Avatar chroma comparison has too few pixels: '+pixels);
+  const colorRetention=previewColor/originalColor;
+  console.log('PAINTERLY COLOR RETENTION:',colorRetention.toFixed(4),'pixels:',pixels);
+  if(colorRetention<.76)throw Error('Painterly color too dull vs Albedo: '+colorRetention);
   await page.locator('[data-material="toon"]').click();
   await page.waitForTimeout(180);
   const oldShot=await page.locator('#stage canvas').screenshot({path:'/tmp/lembah-soft-toon-legacy-stage.png'});
@@ -156,7 +181,7 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   if(uploaded.names.length!==3||uploaded.names[0]!=='Running Normal'||uploaded.names[1]!=='Run Anime'||uploaded.selected!==2)
     throw Error('Upload replaced built-in animations: '+JSON.stringify(uploaded));
   if(!(await page.locator('#extrasRow').isVisible()))throw Error('Uploaded animation button is missing');
-  if(uploaded.clips[2]?.materialType !== 'MeshStandardMaterial') throw Error('Painterly material not applied to uploaded FBX');
+  if(uploaded.clips[2]?.materialType !== 'MeshToonMaterial') throw Error('Painterly material not applied to uploaded FBX');
   const grounded = uploaded.clips[2];
   if(!Number.isFinite(grounded.autoGround) || grounded.groundSamples<7 || Math.abs(grounded.contactGroundY)>0.001)
     throw Error('FBX animation was not calibrated to ground: '+JSON.stringify(grounded));
