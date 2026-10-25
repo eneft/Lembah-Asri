@@ -1,569 +1,484 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
+// Movement Tester v3 — MANUAL ONLY. Each uploaded FBX retains its OWN mesh,
+// skeleton, rest pose and animation. No built-in FBX, no bone retargeting.
 const $=id=>document.getElementById(id);
 const mobile=matchMedia('(max-width:760px), (pointer:coarse)').matches;
-const stage=$('stage'),status=$('status');
 const renderer=new THREE.WebGLRenderer({antialias:!mobile,powerPreference:'default'});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,mobile?1:1.6));
 renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.NeutralToneMapping;
-stage.appendChild(renderer.domElement);
-
-const scene=new THREE.Scene();
-scene.background=new THREE.Color('#d9eae7');
-const camera=new THREE.PerspectiveCamera(mobile?42:40,innerWidth/innerHeight,.08,100);
-const followPosition=new THREE.Vector3(0,3.5,6.8);
+$('stage').appendChild(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#d9eae7');
+const camera=new THREE.PerspectiveCamera(mobile?44:40,innerWidth/innerHeight,.08,120);
+const followPosition=new THREE.Vector3(0,3.4,6.3);
 const lookTarget=new THREE.Vector3(0,1,0);
-const ambient=new THREE.HemisphereLight(0xfff8ed,0x7c9d89,1.3);
-const sun=new THREE.DirectionalLight(0xffefdc,2.0);
-sun.position.set(-3,6,5);
-scene.add(ambient,sun);
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:0x8aaf90,roughness:1}));
-ground.rotation.x=-Math.PI/2;
-ground.position.y=-.025;
-scene.add(ground);
-const groundLines=new THREE.GridHelper(40,40,0x68947b,0x86aa93);
-groundLines.position.y=-.018;
-groundLines.material.transparent=true;
-groundLines.material.opacity=.23;
-scene.add(groundLines);
-const markers=new THREE.Group();
-for(let x=-8;x<=8;x+=4) for(let z=-8;z<=8;z+=4){
-  const tile=new THREE.Mesh(new THREE.CircleGeometry(.055,16),new THREE.MeshBasicMaterial({color:0xd6ebbf,transparent:true,opacity:.7,depthWrite:false}));
-  tile.rotation.x=-Math.PI/2; tile.position.set(x,.001,z); markers.add(tile);
+const ambient=new THREE.HemisphereLight(0xfff8ed,0x7c9d89,1.15);
+const sun=new THREE.DirectionalLight(0xffefdc,1.6);
+sun.position.set(-3,6,5);scene.add(ambient,sun);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(200,200),
+  new THREE.MeshStandardMaterial({color:0x8aaf90,roughness:1}));
+ground.rotation.x=-Math.PI/2;ground.position.y=-.025;scene.add(ground);
+const grid=new THREE.GridHelper(40,40,0x68947b,0x86aa93);
+grid.position.y=-.018;grid.material.transparent=true;grid.material.opacity=.23;scene.add(grid);
+for(let x=-8;x<=8;x+=4)for(let z=-8;z<=8;z+=4){
+ const marker=new THREE.Mesh(new THREE.CircleGeometry(.055,16),
+  new THREE.MeshBasicMaterial({color:0xd6ebbf,transparent:true,opacity:.7,depthWrite:false}));
+ marker.rotation.x=-Math.PI/2;marker.position.set(x,.001,z);scene.add(marker);
 }
-scene.add(markers);
-const textureLoader=new THREE.TextureLoader();
-const atlas=textureLoader.load('../run-tester/assets/basecolor.webp',undefined,undefined,e=>setStatus('Texture belum termuat, model tetap bisa dites',true));
+const atlas=new THREE.TextureLoader().load('../run-tester/assets/basecolor.webp');
 atlas.colorSpace=THREE.SRGBColorSpace;
-const flatMaterial=new THREE.MeshBasicMaterial({map:atlas,side:THREE.DoubleSide,alphaTest:.025});
-const toonMaterial=new THREE.MeshToonMaterial({map:atlas,side:THREE.DoubleSide,alphaTest:.025});
 const loader=new FBXLoader();
-const actor=new THREE.Group(); scene.add(actor);
+const actor=new THREE.Group();scene.add(actor);
 const slots={
-  idle:{clip:null,label:'Idle'},
-  walk:{clip:null,label:'Walking'},
-  run:{clip:null,label:'Running'},
-  anime:{clip:null,label:'Run Anime'}
+ idle:{label:'Idle',asset:null},
+ walk:{label:'Walking',asset:null},
+ run:{label:'Running',asset:null},
+ anime:{label:'Run Anime',asset:null}
 };
 const keys=new Set();
-let root=null,mixer=null,currently=null,state='idle',runStyle='run',ready=false;
-let rotationCorrection=0,runHeld=false,stickX=0,stickZ=0;
-let lastTime=performance.now();
-const velocity=new THREE.Vector3();
-const movement=new THREE.Vector3();
-const baseRigByName=new Map();
-const bindRigByName=new Map();
-let discardedTranslationTracks=0;
-let loadingSlot=null;
-let previewSlot=null;
-let previewPaused=false;
-let lastAnimationInfo='';
-function setStatus(text,error=false){status.textContent=text;status.classList.toggle('error',error);}
+const velocity=new THREE.Vector3(),movement=new THREE.Vector3();
+let ready=false,loadingSlot=null,currentSlot=null,previewSlot=null,previewPaused=false;
+let runStyle='run',rotationCorrection=0,runHeld=false,stickX=0,stickZ=0;
+let lastTime=performance.now(),lastRafAt=performance.now(),frameCounter=0;
+let lastAnimationInfo='',visibleSlot=null,pausedRest=false;
+function setStatus(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
+function hasAssets(){return Object.values(slots).some(x=>!!x.asset);}
+function setEmptyNotice(){
+ $('emptyNotice').hidden=hasAssets();
+ $('hint').textContent=hasAssets()?'WASD jalan · Shift lari':'Upload FBX untuk mulai tes game';
+}
+function closeUploadPanel(){$('uploadPanel').hidden=true;$('openUpload').setAttribute('aria-expanded','false');}
+function resetStick(){$('stick').style.transform='translate(0px,0px)';}
 function setSlotLabel(slot,text){$(slot+'Name').textContent=text;}
-function normBoneName(name){
-  return String(name||'').replace(/^.*:/,'').replace(/^mixamorig/i,'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
+function normalizeKey(s){
+ const k=String(s).toLowerCase();
+ return {arrowup:'w',arrowdown:'s',arrowleft:'a',arrowright:'d'}[k]||k;
 }
-function trackNameParts(name){
-  const index=name.lastIndexOf('.');
-  if(index<0)return null;
-  return {node:name.slice(0,index),prop:name.slice(index+1)};
-}
-function buildRigIndex(model){
-  baseRigByName.clear();
-  bindRigByName.clear();
-  model.traverse(node=>{
-    if(!node.name)return;
-    const key=normBoneName(node.name);
-    if(!baseRigByName.has(key))baseRigByName.set(key,node.name);
-    if(node.isBone)bindRigByName.set(key,{
-      name:node.name,
-      bone:node,
-      position:node.position.clone(),
-      quaternion:node.quaternion.clone(),
-      scale:node.scale.clone()
-    });
-  });
-}
-function restoreBindPose(){
-  // 'root' is an FBX Group, not a Skeleton; root.pose?.() never did anything.
-  // The original bind transforms must be explicitly restored when Idle is absent.
-  mixer?.stopAllAction();
-  for(const rest of bindRigByName.values()){
-    rest.bone.position.copy(rest.position);
-    rest.bone.quaternion.copy(rest.quaternion);
-    rest.bone.scale.copy(rest.scale);
-  }
-  root?.updateMatrixWorld(true);
+function stopAllMovement(){
+ keys.clear();runHeld=false;stickX=0;stickZ=0;
+ velocity.set(0,0,0);movement.set(0,0,0);resetStick();
 }
 function resetCharacterPosition(){
-  previewSlot=null;previewPaused=false;
-  $('previewBar').hidden=true;
-  currently=null;velocity.set(0,0,0);movement.set(0,0,0);
-  keys.clear();stickX=0;stickZ=0;runHeld=false;resetStick();
-  actor.position.set(0,0,0);actor.rotation.y=rotationCorrection;
-  restoreBindPose();
-  followPosition.set(0,3.4,6.3);
-  lookTarget.set(0,1.05,0);
-  syncPreviewButtons();
-  setStatus('Karakter dipusatkan · rig dikembalikan ke posisi awal');
+ stopAllMovement();
+ actor.position.set(0,0,0);actor.rotation.y=rotationCorrection;
+ followPosition.set(0,3.4,6.3);lookTarget.set(0,1,0);
+ if(previewSlot)stopPreview();
+ setStatus(hasAssets()?'Karakter kembali ke pusat':'Belum ada FBX · pilih ＋ Animasi');
 }
-function mapToBaseRig(original,slot){
-  if(!original?.tracks?.length)throw Error('FBX tidak memiliki keyframe animasi');
-  const matched=[],unmatched=[],targetNames=new Set();
-  let rejectedPositions=0,rejectedScales=0,recenteredHips=0;
-  const modelWorldScale=Math.max(.00001,Math.abs(root?.scale.y||1));
-  // Maximum vertical animation sway in real metres, independent of whether
-  // imported FBX units are centimetres, metres or arbitrary export units.
-  const maxHipLocalDelta=.11/modelWorldScale;
-  for(const track of original.tracks){
-    const part=trackNameParts(track.name);
-    if(!part){unmatched.push(track.name);continue;}
-    const key=normBoneName(part.node);
-    const bind=bindRigByName.get(key);
-    // Animation tracks must address actual bones, not unrelated FBX scene
-    // nodes. Names alone matching is not sufficient for a compatible rig.
-    if(!bind){unmatched.push(track.name);continue;}
-    if(part.prop==='scale'){
-      rejectedScales++;
-      continue;
-    }
-    if(part.prop==='position'){
-      // Preserve only subtle vertical Hips bounce. Direct source position
-      // tracks are the cause of the disappearing avatar: their rest position
-      // and scales commonly differ drastically from the base character.
-      if(!/(?:hips|pelvis)/i.test(key) || track.getValueSize()!==3){
-        rejectedPositions++;
-        continue;
-      }
-      const converted=track.clone();
-      const originY=Number(converted.values[1]);
-      for(let i=0;i<converted.values.length;i+=3){
-        converted.values[i]=bind.position.x;
-        converted.values[i+1]=bind.position.y + THREE.MathUtils.clamp(
-          Number(converted.values[i+1])-originY,-maxHipLocalDelta,maxHipLocalDelta
-        );
-        converted.values[i+2]=bind.position.z;
-      }
-      converted.name=bind.name+'.position';
-      matched.push(converted);
-      recenteredHips++;
-      targetNames.add(bind.name);
-      continue;
-    }
-    if(!['quaternion','rotation'].includes(part.prop)){
-      unmatched.push(track.name);
-      continue;
-    }
-    const converted=track.clone();
-    converted.name=bind.name+'.'+part.prop;
-    matched.push(converted);
-    targetNames.add(bind.name);
+function getMeshBounds(model){
+ model.updateMatrixWorld(true);
+ model.traverse(mesh=>{
+  if(!mesh.isSkinnedMesh)return;
+  mesh.skeleton?.update();
+  if(typeof mesh.computeBoundingBox==='function')mesh.computeBoundingBox();
+ });
+ return new THREE.Box3().setFromObject(model);
+}
+function motionTrackCount(clip){
+ let count=0;
+ for(const track of clip.tracks){
+  if(track.times.length<2)continue;
+  const size=track.getValueSize();
+  if(!size)continue;
+  let moving=false;
+  for(let i=1;i<track.times.length && !moving;i++)
+   for(let j=0;j<size;j++)
+    if(Math.abs(track.values[size*i+j]-track.values[j])>.004){moving=true;break;}
+  if(moving)count++;
+ }
+ return count;
+}
+function makeInPlace(clip){
+ // Retain the original FBX's binding and bone structure; only freeze
+ // horizontal Hips/root motion to let WASD control the actor.
+ const original=clip.clone();
+ let frozen=0;
+ for(const track of original.tracks){
+  if(!/\.position$/.test(track.name)||!/(hips|pelvis|root)/i.test(track.name))continue;
+  if(track.getValueSize()!==3)continue;
+  const x=track.values[0],z=track.values[2];
+  for(let k=0;k<track.values.length;k+=3){
+   track.values[k]=x;track.values[k+2]=z;
   }
-  const recognized=matched.length+rejectedPositions+rejectedScales;
-  const fraction=recognized/original.tracks.length;
-  if(matched.length<4 || fraction<.55)
-    throw Error('Rig tidak cocok: '+recognized+'/'+original.tracks.length+' track tulang cocok. Gunakan FBX dengan skeleton karakter yang sama.');
-  if(!Number.isFinite(original.duration)||original.duration<=0)
-    throw Error('Animasi FBX tidak memiliki durasi gerak');
-  let movingTracks=0;
-  for(const track of matched){
-    const count=track.times?.length||0,step=track.getValueSize();
-    if(count<2||!step)continue;
-    let varied=false;
-    for(let i=1;i<count&&!varied;i++)for(let k=0;k<step;k++){
-      if(Math.abs(track.values[i*step+k]-track.values[k])>.004){varied=true;break;}
-    }
-    if(varied)movingTracks++;
+  frozen++;
+ }
+ original.name='manual_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+ return {clip:original,frozen};
+}
+function makeMaterial(original,geometry,toon=false){
+ const hasUV=!!geometry.getAttribute('uv');
+ const src=Array.isArray(original)?original[0]:original;
+ const srcMap=src?.map||null;
+ const map=srcMap||(hasUV?atlas:null);
+ const color=srcMap||map?0xffffff:(src?.color?.getHex()??0xffffff);
+ const opts={
+  map,color,side:THREE.DoubleSide,
+  transparent:!!src?.transparent,opacity:src?.opacity??1,
+  alphaTest:src?.alphaTest||0
+ };
+ if(toon)return new THREE.MeshToonMaterial({...opts,normalMap:null});
+ return new THREE.MeshBasicMaterial(opts);
+}
+function updateVisualMaterial(asset){
+ asset.model.traverse(mesh=>{
+  if(!mesh.isMesh)return;
+  const choice=$('toon').checked?'toon':'flat';
+  if(!mesh.userData.movementMaterials){
+   mesh.userData.movementMaterials={
+    flat:makeMaterial(mesh.material,mesh.geometry,false),
+    toon:makeMaterial(mesh.material,mesh.geometry,true)
+   };
   }
-  const clip=new THREE.AnimationClip(slot+'_'+Date.now(),original.duration,matched);
-  clip.userData={
-    sourceTracks:original.tracks.length,compatibleTracks:recognized,
-    coverage:fraction,visibleMotionTracks:movingTracks,movingTracks,
-    droppedPositions:rejectedPositions,droppedScales:rejectedScales,
-    recenteredHips,nodes:targetNames.size,unmatched:unmatched.slice(0,4)
-  };
-  return clip;
+  mesh.material=mesh.userData.movementMaterials[choice];
+ });
 }
-function normalizeCharacter(model){
-  model.updateMatrixWorld(true);
-  const box=new THREE.Box3().setFromObject(model);
-  const height=box.max.y-box.min.y;
-  if(!Number.isFinite(height)||height<.001)throw Error('Model FBX tidak memiliki ukuran valid');
-  model.scale.multiplyScalar(2.1/height);
-  model.updateMatrixWorld(true);
-  const centered=new THREE.Box3().setFromObject(model);
-  const midpoint=centered.getCenter(new THREE.Vector3());
-  model.position.x-=midpoint.x;
-  model.position.z-=midpoint.z;
-  model.position.y-=centered.min.y;
-  model.updateMatrixWorld(true);
+function removeAsset(old){
+ if(!old)return;
+ old.action.stop();
+ old.mixer.stopAllAction();
+ actor.remove(old.group);
+ old.model.traverse(o=>{
+  if(o.userData.movementMaterials)for(const m of Object.values(o.userData.movementMaterials))m.dispose();
+  if(o.geometry?.dispose)o.geometry.dispose();
+ });
 }
-async function loadBase(){
-  setStatus('Memuat karakter 3D...');
-  const model=await new Promise((res,rej)=>loader.load('../run-tester/assets/Running_Web_UV.fbx',res,undefined,rej));
-  let meshCount=0;
-  model.traverse(node=>{
-    if(node.isMesh){
-      meshCount++;
-      node.material=$('toon').checked?toonMaterial:flatMaterial;
-      node.frustumCulled=false;
-      // No costly geometry rebuilding on iPhone; hand-painted atlas is readable unlit.
-    }
-  });
-  if(!meshCount||!model.animations?.length)throw Error('Model/animasi bawaan tidak lengkap');
-  normalizeCharacter(model);
-  actor.add(model);
-  root=model;
-  buildRigIndex(model);
-  mixer=new THREE.AnimationMixer(root);
-  slots.run.clip=mapToBaseRig(model.animations[0],'run');
-  setSlotLabel('run','Running bawaan · siap');
-  syncPreviewButtons();
-  ready=true;
-  window.__movementReady=true;
-  setStatus('Siap · tambah Idle dan Walking lewat ＋ Animasi');
-  updateModeLabel();
+function makeSlotAsset(file,model,slot){
+ const meshes=[];model.traverse(x=>{if(x.isMesh)meshes.push(x)});
+ if(!meshes.length)throw Error('FBX hanya berisi animasi/rig. Pilih FBX WITH SKIN yang menyertakan mesh karakter dan animasi.');
+ const source=model.animations?.find(a=>a.tracks?.length && a.duration>0);
+ if(!source)throw Error('FBX menyertakan model, tetapi tidak memiliki keyframe animasi.');
+ const {clip,frozen}=makeInPlace(source);
+ const mixer=new THREE.AnimationMixer(model);
+ const action=mixer.clipAction(clip);
+ action.setLoop(THREE.LoopRepeat,Infinity);
+ action.play();mixer.setTime(0);
+ // Normalize EACH original skinned model separately. Never apply rotations
+ // from another FBX's incompatible rest pose to this mesh.
+ const initial=getMeshBounds(model);
+ const height=initial.max.y-initial.min.y;
+ if(!Number.isFinite(height)||height<.001)throw Error('Ukuran mesh FBX tidak valid.');
+ model.scale.multiplyScalar(2.08/height);
+ model.updateMatrixWorld(true);
+ const transformed=getMeshBounds(model);
+ const anchor=new THREE.Group();
+ anchor.position.set(
+  -(transformed.min.x+transformed.max.x)*.5,
+  -transformed.min.y,
+  -(transformed.min.z+transformed.max.z)*.5
+ );
+ const group=new THREE.Group();group.add(anchor);anchor.add(model);
+ group.visible=false;
+ updateVisualMaterial({model});
+ return {file:file.name,slot,model,group,mixer,action,clip,
+  duration:clip.duration,meshCount:meshes.length,movingTracks:motionTrackCount(clip),
+  frozenMotion:frozen,boneCount:(()=>{let n=0;model.traverse(x=>{if(x.isBone)n++});return n})(),
+  normalizedHeight:transformed.max.y-transformed.min.y};
 }
-async function loadAnime(){
-  if(slots.anime.clip)return slots.anime.clip;
-  const model=await new Promise((resolve,reject)=>loader.load('../run-tester/assets/Run_Web_UV.fbx',resolve,undefined,reject));
-  const clip=mapToBaseRig(model.animations?.[0],'anime');
-  slots.anime.clip=clip;
-  setSlotLabel('anime','Run Anime bawaan · siap');
-  syncPreviewButtons();
-  return clip;
-}
-async function assignFile(slot,file){
-  if(!ready)throw Error('Model dasar belum siap');
-  if(loadingSlot)throw Error('Sedang memuat '+loadingSlot);
-  if(!/\.fbx$/i.test(file.name))throw Error('Pilih file .fbx');
-  loadingSlot=slot;
-  setStatus('Membaca '+file.name+' untuk '+slots[slot].label+'...');
-  try{
-    // FBX is parsed locally. No file upload, API request or persistent storage.
-    const buffer=await file.arrayBuffer();
-    const asset=loader.parse(buffer,'');
-    const original=asset.animations?.[0];
-    const clip=mapToBaseRig(original,slot);
-    // Remove the previous action before replacing a clip; otherwise the old
-    // Running action may keep influencing the skeleton during a slot upload.
-    mixer.stopAllAction();
-    if(slots[slot].clip)mixer.uncacheClip(slots[slot].clip);
-    slots[slot].clip=clip;
-    setSlotLabel(slot,file.name+' · '+Math.round(clip.userData.coverage*100)+'% cocok · '+clip.duration.toFixed(2)+' dtk');
-    const notice=clip.userData.movingTracks===0
-      ? 'Peringatan: semua keyframe tampak statis.'
-      : clip.userData.movingTracks+' track bergerak. Posisi dasar rig dilindungi ('+(clip.userData.droppedPositions+clip.userData.recenteredHips)+' translasi disesuaikan).';
-    lastAnimationInfo=slots[slot].label+' dari '+file.name+': '+clip.userData.compatibleTracks+'/'+clip.userData.sourceTracks+' track rig cocok. '+notice;
-    $('uploadResult').textContent=lastAnimationInfo;
-    setStatus('FBX '+slots[slot].label+' terpasang • '+notice,clip.userData.movingTracks===0);
-    currently=null;
-    syncPreviewButtons();
-    // Preview the freshly uploaded clip directly. In the old tester the
-    // upload drawer obscured the character, and WALK only played on WASD.
-    startPreview(slot);
-    closeUploadPanel();
-  }finally{loadingSlot=null;}
-}
-const previewNames={idle:'IDLE',walk:'WALKING',run:'RUNNING',anime:'RUN ANIME'};
 function syncPreviewButtons(){
-  for(const b of document.querySelectorAll('[data-preview]')){
-    const slot=b.dataset.preview;
-    b.disabled=!(slots[slot]?.clip) && !(slot==='anime'&&ready);
-    b.title=b.disabled?'Belum ada FBX untuk slot ini':'Lihat gerakan '+previewNames[slot];
-    b.classList.toggle('active',previewSlot===slot);
-  }
+ for(const btn of document.querySelectorAll('[data-preview]')){
+  const name=btn.dataset.preview;
+  btn.disabled=!slots[name].asset;
+  btn.classList.toggle('active',previewSlot===name);
+ }
 }
-function closeUploadPanel(){
-  $('uploadPanel').hidden=true;
-  $('openUpload').setAttribute('aria-expanded','false');
+function showAsset(slot){
+ if(!slot || !slots[slot]?.asset)return false;
+ const next=slots[slot].asset;
+ if(visibleSlot!==slot){
+  // Independent skeletons: cross-fade is intentionally OFF. Cross-fading
+  // incompatible FBXs on one skeleton destroyed the original character.
+  for(const [name,entry] of Object.entries(slots)){
+   if(!entry.asset)continue;
+   entry.asset.group.visible=(name===slot);
+   if(name!==slot)entry.asset.mixer.stopAllAction();
+  }
+  next.action.reset().setEffectiveWeight(1).play();
+  next.mixer.setTime(0);
+  visibleSlot=slot;
+ }
+ pausedRest=false;
+ currentSlot=slot;
+ return true;
+}
+function freezeCurrentPose(){
+ if(currentSlot && slots[currentSlot]?.asset){
+  pausedRest=true;
+  slots[currentSlot].asset.action.paused=true;
+ }
+}
+function selectState(requested){
+ let chosen=requested;
+ if(!slots[chosen]?.asset){
+  if(chosen==='anime'&&slots.run.asset)chosen='run';
+  else if(chosen==='run'&&slots.anime.asset)chosen='anime';
+  else if(chosen==='walk'&&slots.run.asset)chosen='run';
+  else if(chosen==='walk'&&slots.anime.asset)chosen='anime';
+  else if(chosen==='run'&&slots.walk.asset)chosen='walk';
+  else if(chosen==='anime'&&slots.walk.asset)chosen='walk';
+  else chosen=null;
+ }
+ if(!chosen){
+  // Missing Idle must not make the uploaded character disappear.
+  if(requested==='idle')freezeCurrentPose();
+  return null;
+ }
+ showAsset(chosen);
+ slots[chosen].asset.action.paused=false;
+ return chosen;
 }
 function stopPreview(){
-  previewSlot=null;
-  previewPaused=false;
-  $('previewBar').hidden=true;
-  $('previewPause').textContent='⏸ Pause';
-  // Must stop the preview action and restore the base skeleton. Previously
-  // currently=null left the uploaded action alive when Idle had no clip.
-  restoreBindPose();
-  currently=null;
-  syncPreviewButtons();
-  updateModeLabel();
+ previewSlot=null;previewPaused=false;
+ $('previewBar').hidden=true;
+ $('previewPause').textContent='⏸ Pause';
+ syncPreviewButtons();
+ const next=selectState('idle');
+ if(!next)freezeCurrentPose();
+ updateModeLabel();
 }
 function startPreview(slot){
-  if(!slots[slot]?.clip)return;
-  keys.clear();runHeld=false;stickX=0;stickZ=0;resetStick();
-  velocity.set(0,0,0);
-  movement.set(0,0,0);
-  actor.position.set(0,0,0);
-  previewSlot=slot;
-  previewPaused=false;
-  currently=null;
-  $('previewBar').hidden=false;
-  $('previewPause').textContent='⏸ Pause';
-  $('previewLabel').textContent='▶ '+previewNames[slot]+' · '+slots[slot].clip.duration.toFixed(2)+' dtk';
-  transition(slot);
-  if(slots[slot].clip.userData?.movingTracks===0){
-    $('previewHint').textContent='File terpasang, tetapi keyframe-nya tidak menunjukkan perubahan gerak.';
-  }else $('previewHint').textContent='Animasi diputar langsung pada karakter. Tekan Selesai untuk tes game.';
-  syncPreviewButtons();
-  closeUploadPanel();
+ if(!slots[slot]?.asset)return;
+ stopAllMovement();
+ actor.position.set(0,0,0);actor.rotation.y=rotationCorrection;
+ previewSlot=slot;previewPaused=false;
+ $('previewBar').hidden=false;
+ $('previewLabel').textContent='▶ '+slots[slot].label+' · '+slots[slot].asset.duration.toFixed(2)+' dtk';
+ $('previewHint').textContent='FBX dimainkan dengan mesh dan skeleton aslinya, bukan retarget ke rig lain.';
+ $('previewPause').textContent='⏸ Pause';
+ showAsset(slot);
+ const a=slots[slot].asset;
+ a.mixer.setTime(0);a.action.paused=false;
+ syncPreviewButtons();
+ closeUploadPanel();
 }
-for(const button of document.querySelectorAll('[data-preview]')){
-  button.addEventListener('click',async()=>{
-    const slot=button.dataset.preview;
-    if(slot==='anime'&&!slots.anime.clip){
-      try{await loadAnime();}
-      catch(err){setStatus('Run Anime gagal dimuat: '+err.message,true);return;}
-    }
-    startPreview(slot);
-  });
+async function assignFile(slot,file){
+ if(loadingSlot)throw Error('Sedang membaca '+slots[loadingSlot].label+'.');
+ if(!/\.fbx$/i.test(file.name))throw Error('Pilih file dengan ekstensi .fbx.');
+ loadingSlot=slot;
+ setStatus('Mengimpor '+file.name+' ke '+slots[slot].label+'...');
+ let newAsset;
+ try{
+  const buffer=await file.arrayBuffer();
+  const model=loader.parse(buffer,'');
+  newAsset=makeSlotAsset(file,model,slot);
+  const previous=slots[slot].asset;
+  if(previous){removeAsset(previous);if(visibleSlot===slot)visibleSlot=null;}
+  actor.add(newAsset.group);
+  slots[slot].asset=newAsset;
+  setSlotLabel(slot,file.name+' · '+newAsset.duration.toFixed(2)+' dtk');
+  syncPreviewButtons();setEmptyNotice();
+  lastAnimationInfo=slots[slot].label+' dari '+file.name+': '+newAsset.meshCount+
+   ' mesh, '+newAsset.boneCount+' tulang, '+newAsset.movingTracks+
+   ' track bergerak. Skeleton file asli dipertahankan.';
+  $('uploadResult').textContent=lastAnimationInfo;
+  setStatus('Berhasil: '+file.name+'. '+newAsset.movingTracks+' track animasi bergerak.',newAsset.movingTracks===0);
+  startPreview(slot);
+ }finally{loadingSlot=null;}
 }
-$('previewDone').addEventListener('click',stopPreview);
-$('previewPause').addEventListener('click',()=>{
-  if(!previewSlot)return;
-  previewPaused=!previewPaused;
-  $('previewPause').textContent=previewPaused?'▶ Lanjut':'⏸ Pause';
-});
-
 for(const input of document.querySelectorAll('input[data-slot]')){
-  input.addEventListener('change',async()=>{
-    const file=input.files?.[0];
-    input.value='';
-    if(!file)return;
-    try{await assignFile(input.dataset.slot,file);}
-    catch(err){
-      console.error(err);
-      const message='Gagal '+input.dataset.slot+': '+(err?.message||err);
-      $('uploadResult').textContent=message;
-      setStatus(message,true);
-    }
-  });
-}
-async function chooseRun(style){
-  runStyle=style;
-  for(const b of document.querySelectorAll('[data-run]'))b.classList.toggle('active',b.dataset.run===style);
-  if(style==='anime'&&!slots.anime.clip){
-    setStatus('Memuat Run Anime ...');
-    try{await loadAnime();setStatus('Run Anime siap');}
-    catch(err){setStatus('Run Anime gagal: '+err.message,true);return;}
+ input.addEventListener('change',async()=>{
+  const file=input.files?.[0];input.value='';
+  if(!file)return;
+  try{await assignFile(input.dataset.slot,file)}
+  catch(e){
+   console.error('FBX import failed',e);
+   const msg='Gagal memuat '+file.name+': '+(e.message||e);
+   $('uploadResult').textContent=msg;setStatus(msg,true);
   }
-  currently=null;
-  updateModeLabel();
+ });
 }
-for(const b of document.querySelectorAll('[data-run]'))b.addEventListener('click',()=>chooseRun(b.dataset.run));
+for(const btn of document.querySelectorAll('[data-preview]')){
+ btn.addEventListener('click',()=>startPreview(btn.dataset.preview));
+}
+for(const btn of document.querySelectorAll('[data-run]')){
+ btn.addEventListener('click',()=>{
+  runStyle=btn.dataset.run;
+  for(const b of document.querySelectorAll('[data-run]'))
+   b.classList.toggle('active',b.dataset.run===runStyle);
+  setStatus('Mode lari: '+(runStyle==='anime'?'Run Anime':'Running')+
+   (slots[runStyle].asset?' siap':' belum di-upload'));
+ });
+}
 $('toon').addEventListener('change',()=>{
-  root?.traverse(n=>{if(n.isMesh)n.material=$('toon').checked?toonMaterial:flatMaterial;});
+ for(const entry of Object.values(slots))
+  if(entry.asset)updateVisualMaterial(entry.asset);
 });
 $('face').addEventListener('input',()=>{
-  rotationCorrection=Number($('face').value)*Math.PI/180;
-  $('faceText').textContent=$('face').value+'°';
+ rotationCorrection=Number($('face').value)*Math.PI/180;
+ $('faceText').textContent=$('face').value+'°';
 });
+$('pickFirst').addEventListener('click',()=>{$('openUpload').click()});
+$('openUpload').addEventListener('click',()=>{
+ $('uploadPanel').hidden=false;$('openUpload').setAttribute('aria-expanded','true');
+});
+$('closeUpload').addEventListener('click',closeUploadPanel);
+$('previewDone').addEventListener('click',stopPreview);
+$('previewPause').addEventListener('click',()=>{
+ if(!previewSlot)return;
+ previewPaused=!previewPaused;
+ $('previewPause').textContent=previewPaused?'▶ Lanjut':'⏸ Pause';
+});
+$('retry').addEventListener('click',()=>location.reload());
+$('resetCharacter').addEventListener('click',resetCharacterPosition);
 function updateModeLabel(){
-  if(!ready)return;
-  const isMoving=movement.lengthSq()>.04;
-  const requested=isMoving?(runningInput()?(runStyle==='anime'?'anime':'run'):'walk'):'idle';
-  const hasClip=!!slots[requested].clip;
-  $('mode').textContent=(requested==='idle'?'IDLE':requested==='walk'?'WALKING':requested==='anime'?'RUN ANIME':'RUNNING')+(hasClip?'':' · FBX belum diisi');
-}
-function runningInput(){return runHeld||keys.has('shift');}
-function transition(next){
-  if(!mixer)return;
-  if(next===currently)return;
-  const prev=currently;
-  currently=next;
-  const item=slots[next];
-  const action=item?.clip?mixer.clipAction(item.clip,root):null;
-  if(action){
-    action.reset();action.setLoop(THREE.LoopRepeat,Infinity);
-    action.setEffectiveTimeScale(next==='walk'?1:next==='idle'?1:1.05);
-    action.setEffectiveWeight(1).fadeIn(.2).play();
-  }
-  if(prev&&slots[prev]?.clip){
-    const before=mixer.existingAction(slots[prev].clip,root);
-    if(before){
-      if(action)before.fadeOut(.2);
-      else before.stop();
-    }
-  }
-  if(!action){
-    restoreBindPose();
-  }
-  updateModeLabel();
-}
-function normalizeKey(key){
-  const k=String(key).toLowerCase();
-  return ({arrowup:'w',arrowleft:'a',arrowdown:'s',arrowright:'d'}[k]||k);
+ const requested=movement.lengthSq()>.012?(runHeld||keys.has('shift')?'run':'walk'):'idle';
+ const state=previewSlot?('PREVIEW '+slots[previewSlot].label.toUpperCase()):currentSlot?slots[currentSlot].label.toUpperCase():'BELUM ADA MODEL';
+ $('mode').textContent=state+(pausedRest?' · pose terakhir':'');
 }
 document.addEventListener('keydown',event=>{
-  // Buttons may retain focus after closing the upload drawer. WASD still moves.
-  if(event.target.closest('input[type="text"],input[type="number"],textarea,select'))return;
-  const k=normalizeKey(event.key);
-  if(['w','a','s','d','shift'].includes(k)){
-    event.preventDefault();
-    if(previewSlot)stopPreview();
-    keys.add(k);
-  }
+ if(event.target.closest('input[type="text"],input[type="number"],textarea,select'))return;
+ const key=normalizeKey(event.key);
+ if(['w','a','s','d','shift'].includes(key)){
+  event.preventDefault();
+  if(previewSlot)stopPreview();
+  keys.add(key);
+ }
 });
 document.addEventListener('keyup',event=>{
-  const k=normalizeKey(event.key);
-  if(['w','a','s','d','shift'].includes(k)){event.preventDefault();keys.delete(k);}
+ const k=normalizeKey(event.key);
+ if(['w','a','s','d','shift'].includes(k)){event.preventDefault();keys.delete(k);}
 });
-window.addEventListener('blur',()=>{keys.clear();stickX=0;stickZ=0;runHeld=false;resetStick();});
-const pad=$('dpad'),stick=$('stick');
-let activePointer=null;
-function resetStick(){stick.style.transform='translate(0px,0px)';}
+window.addEventListener('blur',()=>{stopAllMovement();});
+const pad=$('dpad'),stick=$('stick');let activePointer=null;
 pad.addEventListener('pointerdown',event=>{
-  if(previewSlot)stopPreview();
-  if(activePointer!==null)return;
-  event.preventDefault();activePointer=event.pointerId;
-  try{pad.setPointerCapture(event.pointerId);}catch{} // Fallback for Safari and synthetic pointers
-  moveStick(event);
+ if(previewSlot)stopPreview();
+ if(activePointer!==null)return;
+ event.preventDefault();activePointer=event.pointerId;
+ try{pad.setPointerCapture(event.pointerId)}catch{}
+ moveStick(event);
 });
 function moveStick(event){
-  if(event.pointerId!==activePointer)return;
-  const bounds=pad.getBoundingClientRect();
-  const x=event.clientX-(bounds.left+bounds.width/2);
-  const y=event.clientY-(bounds.top+bounds.height/2);
-  const limit=41,magnitude=Math.hypot(x,y);
-  const scale=magnitude>limit?limit/magnitude:1;
-  const ux=x*scale,uy=y*scale;
-  stickX=ux/limit;stickZ=uy/limit;
-  stick.style.transform='translate('+ux+'px,'+uy+'px)';
+ if(event.pointerId!==activePointer)return;
+ const r=pad.getBoundingClientRect();
+ const x=event.clientX-r.left-r.width/2,y=event.clientY-r.top-r.height/2;
+ const length=Math.hypot(x,y),scale=length>41?41/length:1;
+ const dx=x*scale,dy=y*scale;
+ stickX=dx/41;stickZ=dy/41;
+ stick.style.transform='translate('+dx+'px,'+dy+'px)';
 }
 pad.addEventListener('pointermove',moveStick);
 const releaseStick=event=>{
-  if(event.pointerId!==activePointer)return;
-  activePointer=null;stickX=0;stickZ=0;resetStick();
+ if(event.pointerId!==activePointer)return;
+ activePointer=null;stickX=0;stickZ=0;resetStick();
 };
 pad.addEventListener('pointerup',releaseStick);pad.addEventListener('pointercancel',releaseStick);
-const runButton=$('runTouch');
-runButton.addEventListener('pointerdown',event=>{
-  event.preventDefault();if(previewSlot)stopPreview();runHeld=true;runButton.classList.add('pressed');
-  runButton.setPointerCapture(event.pointerId);
+const runTouch=$('runTouch');
+runTouch.addEventListener('pointerdown',e=>{
+ e.preventDefault();if(previewSlot)stopPreview();
+ runHeld=true;runTouch.classList.add('pressed');
+ try{runTouch.setPointerCapture(e.pointerId)}catch{}
 });
-for(const type of ['pointerup','pointercancel'])runButton.addEventListener(type,()=>{
-  runHeld=false;runButton.classList.remove('pressed');
+for(const event of ['pointerup','pointercancel'])runTouch.addEventListener(event,()=>{
+ runHeld=false;runTouch.classList.remove('pressed');
 });
 function updateInput(){
-  movement.set(
-    Number(keys.has('d'))-Number(keys.has('a'))+stickX,
-    0,
-    Number(keys.has('s'))-Number(keys.has('w'))+stickZ
-  );
-  if(movement.lengthSq()>1)movement.normalize();
+ movement.set(Number(keys.has('d'))-Number(keys.has('a'))+stickX,0,
+  Number(keys.has('s'))-Number(keys.has('w'))+stickZ);
+ if(movement.lengthSq()>1)movement.normalize();
 }
 function simulate(dt){
-  updateInput();
-  if(!ready)return;
-  if(previewSlot){
-    if(!previewPaused)mixer.update(dt);
-    $('mode').textContent='PREVIEW · '+previewNames[previewSlot];
-    return;
-  }
-  const magnitude=movement.length();
-  let desired='idle';
-  if(magnitude>.12)desired=runningInput()?(runStyle==='anime'?'anime':'run'):'walk';
-  // Animate the requested state if it exists. Otherwise show honest fallback:
-  // Moving with no Walking FBX reuses the Running clip slowly.
-  const valid=slots[desired]?.clip ? desired :
-    desired==='walk'&&slots.run.clip ? 'run' :
-    desired==='anime'&&slots.run.clip ? 'run' : null;
-  if(valid)transition(valid);
-  else if(currently!==null)transition('idle');
-  const speed=runningInput()?3.7:1.65;
-  const intended=movement.clone().multiplyScalar(speed);
-  velocity.lerp(intended,Math.min(1,dt*9));
-  actor.position.addScaledVector(velocity,dt);
-  actor.position.x=THREE.MathUtils.clamp(actor.position.x,-17.5,17.5);
-  actor.position.z=THREE.MathUtils.clamp(actor.position.z,-17.5,17.5);
-  if(magnitude>.12){
-    const nextAngle=Math.atan2(movement.x,movement.z)+rotationCorrection;
-    const deltaAngle=Math.atan2(Math.sin(nextAngle-actor.rotation.y),Math.cos(nextAngle-actor.rotation.y));
-    actor.rotation.y+=deltaAngle*Math.min(1,dt*11);
-  }
-  mixer.update(dt);
-  $('mode').textContent=magnitude<=.12
-    ? (slots.idle.clip?'IDLE':'IDLE · FBX belum diisi')
-    : runningInput()?(desired==='anime'&&slots.anime.clip?'RUN ANIME':'RUNNING')
-    : (slots.walk.clip?'WALKING':'WALKING · sementara pakai Run');
+ updateInput();
+ if(!previewSlot){
+  const amount=movement.length();
+  const running=runHeld||keys.has('shift');
+  const desired=amount>.12?(running?(runStyle==='anime'?'anime':'run'):'walk'):'idle';
+  const chosen=selectState(desired);
+  if(amount>.12&&hasAssets()){
+   const intended=movement.clone().multiplyScalar(running?3.65:1.65);
+   velocity.lerp(intended,Math.min(1,dt*8));
+   actor.position.addScaledVector(velocity,dt);
+   actor.position.x=THREE.MathUtils.clamp(actor.position.x,-17.5,17.5);
+   actor.position.z=THREE.MathUtils.clamp(actor.position.z,-17.5,17.5);
+   const target=Math.atan2(movement.x,movement.z)+rotationCorrection;
+   const difference=Math.atan2(Math.sin(target-actor.rotation.y),Math.cos(target-actor.rotation.y));
+   actor.rotation.y+=difference*Math.min(1,dt*11);
+  }else velocity.multiplyScalar(Math.max(0,1-dt*14));
+ }else if(!previewPaused){
+  const asset=slots[previewSlot]?.asset;
+  if(asset)asset.action.paused=false;
+ }
+ for(const [key,slot] of Object.entries(slots)){
+  if(!slot.asset||key!==visibleSlot)continue;
+  if(previewPaused||pausedRest)continue;
+  slot.asset.mixer.update(dt);
+ }
+ $('mode').textContent=previewSlot?
+  'PREVIEW · '+slots[previewSlot].label.toUpperCase() :
+  currentSlot?(slots[currentSlot].label.toUpperCase()+(pausedRest?' · tunggu Idle':'')):
+  'BELUM ADA FBX';
 }
 function resize(){
-  camera.aspect=innerWidth/innerHeight;
-  camera.fov=innerWidth<760?44:40;
-  camera.updateProjectionMatrix();
-  renderer.setPixelRatio(Math.min(devicePixelRatio||1,innerWidth<760?1:1.6));
-  renderer.setSize(innerWidth,innerHeight);
+ camera.aspect=innerWidth/innerHeight;
+ camera.fov=innerWidth<760?44:40;camera.updateProjectionMatrix();
+ renderer.setPixelRatio(Math.min(devicePixelRatio||1,innerWidth<760?1:1.6));
+ renderer.setSize(innerWidth,innerHeight);
 }
-window.addEventListener('resize',resize);
-let lastRafAt=performance.now();
-let frameCounter=0;
-function drawStep(dt){
-  simulate(dt);
-  const eye=new THREE.Vector3(actor.position.x,3.4,actor.position.z+6.3);
-  followPosition.lerp(eye,Math.min(1,dt*5));
-  const target=new THREE.Vector3(actor.position.x,1.05,actor.position.z);
-  lookTarget.lerp(target,Math.min(1,dt*7));
-  camera.position.copy(followPosition);
-  camera.lookAt(lookTarget);
-  renderer.render(scene,camera);
-  frameCounter++;
+addEventListener('resize',resize);
+let frameCount=0;
+function renderStep(dt){
+ simulate(dt);
+ const eye=new THREE.Vector3(actor.position.x,3.4,actor.position.z+6.3);
+ followPosition.lerp(eye,Math.min(1,dt*5));
+ lookTarget.lerp(new THREE.Vector3(actor.position.x,1.05,actor.position.z),Math.min(1,dt*7));
+ camera.position.copy(followPosition);camera.lookAt(lookTarget);
+ renderer.render(scene,camera);frameCount++;
 }
 function frame(t){
-  requestAnimationFrame(frame);
-  const dt=Math.min(Math.max((t-lastTime)/1000,0),.055);
-  lastTime=t;
-  lastRafAt=performance.now();
-  drawStep(dt);
+ requestAnimationFrame(frame);
+ const dt=Math.min(Math.max((t-lastTime)/1000,0),.055);
+ lastTime=t;lastRafAt=performance.now();renderStep(dt);
 }
-// Some WebKit instances suspend requestAnimationFrame during FBX parsing or
-// while a file chooser has focus. Run a 10fps backup only if RAF has actually
-// stalled; it remains completely inactive during normal 60fps playback.
 setInterval(()=>{
-  if(!ready || document.visibilityState==='hidden')return;
-  const now=performance.now();
-  if(now-lastRafAt<240)return;
-  lastRafAt=now;
-  try{drawStep(.075);}
-  catch(err){console.error('Movement fallback frame:',err)}
+ if(!ready||document.visibilityState==='hidden')return;
+ const now=performance.now();
+ if(now-lastRafAt<240)return;
+ lastRafAt=now;
+ renderStep(.075);
 },100);
-$('openUpload').addEventListener('click',()=>{
-  $('uploadPanel').hidden=false;$('openUpload').setAttribute('aria-expanded','true');
-});
-$('closeUpload').addEventListener('click',closeUploadPanel);
-$('retry').addEventListener('click',()=>location.reload());
-$('resetCharacter').addEventListener('click',resetCharacterPosition);
-function probePose(){
-  const transforms=[];
-  root?.traverse(node=>{
-    if(!node.isBone)return;
-    const name=normBoneName(node.name);
-    if(!/(?:leftarm|rightarm|leftforearm|rightforearm|leftupleg|rightupleg|spine|hips)/.test(name))return;
-    transforms.push({bone:name,quat:node.quaternion.toArray().map(x=>Number(x.toFixed(5)))});
-  });
-  return transforms.slice(0,15);
+function visibleBounds(){
+ const entry=visibleSlot?slots[visibleSlot]?.asset:null;
+ if(!entry)return null;
+ const box=getMeshBounds(entry.model);
+ const anchor=entry.group.children[0];
+ const worldBox=new THREE.Box3().setFromObject(entry.group);
+ const center=worldBox.getCenter(new THREE.Vector3());
+ const clip=center.clone().project(camera);
+ return {
+  height:worldBox.max.y-worldBox.min.y,
+  center:[center.x,center.y,center.z],
+  screen:[clip.x,clip.y,clip.z],
+  min:[worldBox.min.x,worldBox.min.y,worldBox.min.z],
+  max:[worldBox.max.x,worldBox.max.y,worldBox.max.z],
+  anchorY:anchor.position.y,
+  localHeight:box.max.y-box.min.y
+ };
 }
 window.__movementDiagnostics=()=>({
-  ready,rigNodes:baseRigByName.size,
-  slots:Object.fromEntries(Object.entries(slots).map(([k,v])=>[k,{loaded:!!v.clip,coverage:v.clip?.userData?.coverage||0,tracks:v.clip?.tracks?.length||0,movingTracks:v.clip?.userData?.movingTracks ?? 0,duration:v.clip?.duration||0,droppedPositions:v.clip?.userData?.droppedPositions||0,recenteredHips:v.clip?.userData?.recenteredHips||0}])),
-  state:currently,requested:state,preview:previewSlot,previewPaused,position:actor.position.toArray(),
-  pose:probePose(),
-  hipsPosition:bindRigByName.get('hips')?.bone.position.toArray()||null,
-  restHipsPosition:bindRigByName.get('hips')?.position.toArray()||null,
-  modelScale:root?.scale.y||0,
-  activeAction:currently&&slots[currently].clip?(()=>{
-    const action=mixer?.existingAction(slots[currently].clip,root);
-    return action?{isRunning:action.isRunning(),time:action.time,weight:action.getEffectiveWeight()}:null;
-  })():null,
-  uploadFeedback:lastAnimationInfo,
-  runStyle, toon:$('toon').checked,mobile,
-  facing:Math.round(rotationCorrection*180/Math.PI),joystick:[stickX,stickZ],frames:frameCounter
+ ready,mode:'manual-only',builtInFBX:0,
+ modelCount:Object.values(slots).filter(x=>!!x.asset).length,
+ slots:Object.fromEntries(Object.entries(slots).map(([k,v])=>[k,{
+  loaded:!!v.asset,file:v.asset?.file||null,
+  meshCount:v.asset?.meshCount||0,
+  boneCount:v.asset?.boneCount||0,
+  movingTracks:v.asset?.movingTracks||0,
+  duration:v.asset?.duration||0,
+  visible:!!v.asset?.group.visible,
+  nativeRig:!!v.asset
+ }])),
+ visibleSlot,currentSlot,preview:previewSlot,previewPaused,
+ position:actor.position.toArray(),state:currentSlot,
+ activeAction:visibleSlot&&slots[visibleSlot].asset?{
+  isRunning:slots[visibleSlot].asset.action.isRunning(),
+  time:slots[visibleSlot].asset.action.time
+ }:null,
+ bounds:visibleBounds(),uploadFeedback:lastAnimationInfo,
+ frames:frameCount,runStyle,mobile,joystick:[stickX,stickZ]
 });
 resize();requestAnimationFrame(frame);
-loadBase().catch(err=>{
-  console.error(err);
-  window.__movementFail?.('Gagal memuat karakter utama: '+(err.message||err));
-});
+ready=true;window.__movementReady=true;
+setEmptyNotice();
+syncPreviewButtons();
+setStatus('Mode manual siap · upload FBX karakter + animasi lewat ＋ Animasi.');
+$('mode').textContent='BELUM ADA FBX';

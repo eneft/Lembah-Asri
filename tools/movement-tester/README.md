@@ -1,14 +1,13 @@
-# Lembah Asri — Movement Tester (WebGL)
+# Lembah Asri — Movement Tester (Manual FBX)
 
-Standalone prototype: https://eneft.github.io/Lembah-Asri/movement-tester/
+https://eneft.github.io/Lembah-Asri/movement-tester/
 
-- Keyboard WASD/arrow movement; hold Shift to run.
-- Mobile joystick and hold-to-run button.
-- One mesh/rig, multiple AnimationClips with 0.2-second crossfade.
-- Local FBX uploads per Idle/Walking/Running/Run Anime slot, using browser file picker.
-- Compares clip bone track names to the base Mixamo skeleton, rejects obviously incompatible rigs.
-- Only two Running FBXs currently ship as assets; Idle/Walking are **not** present as FBX and are not claimed to exist.
-- Run Normal baked into base FBX; Run Anime lazily loaded from original Run_Web_UV.fbx.
-- No remote upload or persistence of locally supplied FBX.
-- Test is not Godot gameplay and does not replace main Lembah Asri game.
-- Files live under tools/movement-tester, 3D files are reused from run-tester/assets.
+- No default 3D characters and no default FBX animations. Upload FBX manually into the Idle, Walking, Running or Run Anime slot.
+- Each FBX **must include a skinned character mesh AND an animation** (e.g. Mixamo FBX "With Skin"). Animation-only FBX is rejected with a useful explanation.
+- Each imported asset retains its own geometry, skeleton and original animation. The previous attempt to retarget clips by bone names could wreck proportions even when track names matched.
+- WASD or arrows walk; hold Shift for run. Mobile joystick and RUN button.
+- Locomotion chooses among slot assets by toggling model visibility — no skeleton retarget and **no crossfade** between different models, by design.
+- For a visually consistent character, upload the same model in each FBX; model scale and floor placement are normalized per asset.
+- Import accepts files locally from browser; files are not uploaded to GitHub, not saved persistently.
+- The atlas at run-tester/assets/basecolor.webp is retained as a texture fallback for FBXs with valid UVs and no embedded texture. NO baked/default FBX models are loaded.
+- Movement Tester stays separate from the Godot Lembah Asri game and existing Run Tester.

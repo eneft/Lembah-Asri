@@ -12,7 +12,7 @@ header{position:fixed;z-index:5;left:15px;top:calc(12px + env(safe-area-inset-to
 header b{display:block;font-size:16px}header span{font-size:11px;opacity:.8}
 #status{position:fixed;top:calc(58px + env(safe-area-inset-top));left:15px;z-index:6;border-radius:10px;background:#193a3ee4;padding:8px 11px;max-width:min(76vw,380px);font-size:11px;line-height:1.4}
 #status.error{background:#713b3e}
-#retry[hidden],#uploadPanel[hidden]{display:none!important}
+#emptyNotice[hidden],#retry[hidden],#uploadPanel[hidden]{display:none!important}
 .slot input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 #retry{position:fixed;top:calc(117px + env(safe-area-inset-top));left:15px;z-index:7}
 button,.pick{appearance:none;border:1px solid #88b3a9;background:#22454a;color:#f0faf5;border-radius:11px;padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation}
@@ -31,6 +31,9 @@ button.active,.pick{background:#d0e9b4;color:#234336;border-color:#d0e9b4}
 .slot{grid-template-columns:74px minmax(0,1fr) auto auto;gap:6px}
 .slot .previewButton{padding:9px 8px;font-size:11px;min-width:53px}
 .slot .previewButton:disabled{opacity:.38;cursor:default}
+#emptyNotice{position:fixed;z-index:3;top:42%;left:50%;transform:translate(-50%,-50%);width:min(360px,calc(100vw - 32px));background:#173d3de8;border:1px solid #b0d1c6;border-radius:20px;padding:20px;color:#eff9f0;text-align:center;box-shadow:0 6px 23px #2d433944}
+#emptyNotice strong{display:block;font-size:19px}
+#emptyNotice p{font-size:12px;line-height:1.65;color:#d2e9db}
 #previewBar{position:fixed;z-index:11;left:50%;top:calc(118px + env(safe-area-inset-top));transform:translateX(-50%);width:min(400px,calc(100vw - 28px));background:#163a40ef;color:#e9f6ef;border-radius:14px;border:1px solid #a2cbb9;padding:12px;box-shadow:0 5px 20px #0003;text-align:center}
 #previewBar[hidden]{display:none!important}
 #previewLabel{display:block;font-size:14px;font-weight:800}
@@ -56,25 +59,30 @@ small{color:#c5dace}.options{display:flex;align-items:center;gap:12px;flex-wrap:
 }
 </style></head><body>
 <div id="stage"></div>
-<header><b>🌿 Lembah Asri</b><span>Movement Lab · satu karakter, banyak animasi</span></header>
-<div id="status" role="status" aria-live="polite">Menyiapkan karakter...</div>
+<section id="emptyNotice" aria-label="Belum ada model animasi">
+ <strong>Mulai dari FBX milikmu</strong>
+ <p>Tidak ada karakter atau animasi bawaan. Isi slot Idle, Walking, atau Running dengan FBX yang sudah berisi <b>model + animasi</b>.</p>
+ <button id="pickFirst" type="button" class="active">＋ Pilih Animasi FBX</button>
+</section>
+<header><b>🌿 Lembah Asri</b><span>Movement Lab · semua FBX manual</span></header>
+<div id="status" role="status" aria-live="polite">Pilih FBX untuk mulai.</div>
 <button id="retry" hidden type="button">↻ Muat ulang</button>
 <button id="openUpload" type="button" aria-controls="uploadPanel" aria-expanded="false">＋ Animasi</button>
 <button id="resetCharacter" type="button" title="Kembalikan karakter ke kamera">◎ Pusatkan</button>
 <aside id="uploadPanel" hidden aria-label="Unggah animasi karakter">
- <div class="uploadHead"><strong>Gabungkan Animasi FBX</strong><button id="closeUpload" type="button">✕ Tutup</button></div>
- <p class="intro">Upload FBX dari HP/PC. Setelah pilih file, menu menutup dan gerakannya <b>langsung dipreview pada karakter</b>. Lu juga bisa tekan ▶ Tes kapan saja. Rig harus kompatibel dengan karakter utama; file tidak dikirim ke GitHub. Posisi asli FBX otomatis dinetralkan agar karakter tidak menghilang.</p>
+ <div class="uploadHead"><strong>Slot FBX Manual</strong><button id="closeUpload" type="button">✕ Tutup</button></div>
+ <p class="intro"><b>Semua animasi diisi manual.</b> Setiap FBX wajib punya mesh karakter dan keyframe animasi. Untuk menghindari model rusak, setiap slot mempertahankan rig dan geometri asli file tersebut. Setelah memilih FBX, langsung tampil preview. File hanya diproses di browser ini.</p>
  <div class="slot"><b>Idle</b><span class="filelabel" id="idleName">Belum diisi</span><label class="pick" for="idleFile">＋ FBX</label><button class="previewButton" data-preview="idle" type="button" disabled>▶ Tes</button><input id="idleFile" type="file" accept=".fbx" data-slot="idle"></div>
  <div class="slot"><b>Walking</b><span class="filelabel" id="walkName">Belum diisi</span><label class="pick" for="walkFile">＋ FBX</label><button class="previewButton" data-preview="walk" type="button" disabled>▶ Tes</button><input id="walkFile" type="file" accept=".fbx" data-slot="walk"></div>
- <div class="slot"><b>Running</b><span class="filelabel" id="runName">Running bawaan</span><label class="pick" for="runFile">Ganti</label><button class="previewButton" data-preview="run" type="button" >▶ Tes</button><input id="runFile" type="file" accept=".fbx" data-slot="run"></div>
- <div class="slot"><b>Run Anime</b><span class="filelabel" id="animeName">Tersedia (dimuat saat dipilih)</span><label class="pick" for="animeFile">Ganti</label><button class="previewButton" data-preview="anime" type="button" disabled>▶ Tes</button><input id="animeFile" type="file" accept=".fbx" data-slot="anime"></div>
+ <div class="slot"><b>Running</b><span class="filelabel" id="runName">Belum diisi</span><label class="pick" for="runFile">＋ FBX</label><button class="previewButton" data-preview="run" type="button" disabled>▶ Tes</button><input id="runFile" type="file" accept=".fbx" data-slot="run"></div>
+ <div class="slot"><b>Run Anime</b><span class="filelabel" id="animeName">Belum diisi</span><label class="pick" for="animeFile">＋ FBX</label><button class="previewButton" data-preview="anime" type="button" disabled>▶ Tes</button><input id="animeFile" type="file" accept=".fbx" data-slot="anime"></div>
  <div class="options">
   <div id="runChoice"><button data-run="run" type="button" class="active">Run Normal</button><button data-run="anime" type="button">Run Anime</button></div>
   <label><input id="toon" type="checkbox"> Shading Toon</label>
  </div>
  <div class="options"><label for="face">Koreksi arah depan</label><input id="face" type="range" min="-180" max="180" value="0" step="15"><output id="faceText">0°</output></div>
- <p id="uploadResult" role="status" aria-live="polite">Idle dan Walking menunggu file FBX. Running Normal sudah tersedia.</p>
- <p class="intro">Arah PC: WASD / tombol panah. Tahan Shift untuk lari. Di HP: joystick kiri dan tombol RUN kanan. Tidak mengubah animasi asli atau project game utama.</p>
+ <p id="uploadResult" role="status" aria-live="polite">Belum ada FBX yang dipilih. Semua slot kosong dan tidak ada animasi bawaan.</p>
+ <p class="intro">Kontrol: WASD untuk Walking, Shift+WASD untuk Running. HP: joystick dan tombol RUN. Saat berpindah slot, model FBX masing-masing diganti secara langsung, <b>bukan dicampur ke satu rig</b>. Gunakan karakter yang sama pada setiap FBX agar tampilan konsisten. Tidak mengubah project game utama.</p>
 </aside>
 <section id="previewBar" hidden aria-label="Preview animasi yang dipilih">
  <span id="previewLabel">PREVIEW</span>
@@ -83,7 +91,7 @@ small{color:#c5dace}.options{display:flex;align-items:center;gap:12px;flex-wrap:
 </section>
 <div id="dpad" aria-label="Joystick gerak" role="group"><div id="stick"></div></div>
 <button id="runTouch" type="button" aria-label="Tahan untuk berlari">RUN</button>
-<div id="guide"><div id="mode">IDLE · menunggu FBX</div><small id="hint">WASD jalan · Shift lari</small></div>
+<div id="guide"><div id="mode">BELUM ADA FBX</div><small id="hint">Upload FBX untuk mulai tes game</small></div>
 <script>
 (()=> {
  const retry=document.getElementById('retry');
@@ -97,5 +105,5 @@ small{color:#c5dace}.options{display:flex;align-items:center;gap:12px;flex-wrap:
 })();
 </script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"}}</script>
-<script type="module" src="./app.js?v=retarget-safe-20261026"></script>
+<script type="module" src="./app.js?v=manual-rig-20261026"></script>
 </body></html>

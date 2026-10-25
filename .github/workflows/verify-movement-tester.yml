@@ -19,6 +19,8 @@ jobs:
           mkdir -p /tmp/lembah-movement/movement-tester /tmp/lembah-movement/run-tester
           cp tools/movement-tester/index.html tools/movement-tester/app.js /tmp/lembah-movement/movement-tester/
           unzip -q tools/run-3d-browser/assets.zip -d /tmp/lembah-movement/run-tester/
+          test -s /tmp/lembah-movement/run-tester/assets/basecolor.webp
+          # The legacy FBXs are TEST FIXTURES only, never preloaded by Movement Tester.
           test -s /tmp/lembah-movement/run-tester/assets/Running_Web_UV.fbx
       - uses: actions/setup-node@v4
         with:
@@ -27,7 +29,7 @@ jobs:
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
           npx playwright install --with-deps chromium webkit
-      - name: Verify one rig with multiple uploaded animations and WASD
+      - name: Verify manual FBX slots, original independent rigs and WASD
         run: |
           python3 -m http.server 8765 --directory /tmp/lembah-movement >/tmp/movement-server.log 2>&1 &
           node tools/movement-tester/verify.cjs
