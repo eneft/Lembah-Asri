@@ -14,6 +14,26 @@ const {chromium}=require('playwright');
   const initial=await page.locator('#status').innerText();
   if(!initial.includes('Running Normal'))throw Error('Normal clip unavailable: '+initial);
   await page.screenshot({path:'/tmp/lembah-run-browser-normal.png'});
+  // Lighting look-dev controls must work without changing original animation clips.
+  for (const lighting of ['sunset','indoor','day']) {
+    await page.locator('[data-light="'+lighting+'"]').click();
+    const info = await page.evaluate(() => window.__lembahDiagnostics());
+    if(info.light !== lighting) throw Error('Lighting preset failed: ' + lighting + ' -> ' + info.light);
+    if(lighting !== 'day') await page.screenshot({path:'/tmp/lembah-run-browser-'+lighting+'.png'});
+  }
+  await page.locator('[data-material="flat"]').click();
+  let preview = await page.evaluate(() => window.__lembahDiagnostics());
+  if(preview.material !== 'flat' || !preview.clips.every(c=>c.materialType === 'MeshBasicMaterial'))
+    throw Error('Original albedo material comparison failed: ' + JSON.stringify(preview));
+  await page.screenshot({path:'/tmp/lembah-run-browser-original-albedo.png'});
+  await page.locator('[data-material="toon"]').click();
+  preview = await page.evaluate(() => window.__lembahDiagnostics());
+  if(preview.material !== 'toon' || !preview.clips.every(c=>c.materialType === 'MeshToonMaterial'))
+    throw Error('Anime soft toon material failed: ' + JSON.stringify(preview));
+  await page.locator('#normalDetail').uncheck();
+  await page.locator('#normalDetail').check();
+  await page.locator('#exposure').fill('1.15');
+
   await page.locator('#run').click();
   const anime=await page.locator('#status').innerText();
   if(!(await page.locator('#run').getAttribute('class')).includes('active'))throw Error('Anime selection active state missing');

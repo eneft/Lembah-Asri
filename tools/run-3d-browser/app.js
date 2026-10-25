@@ -353,6 +353,6 @@ animate();
       await loadModel(i);
     }
     select(0);
-    $('#fileHint').textContent = 'Dua animasi FBX sudah dimuat otomatis';
+    $('#fileHint').textContent = 'Dua animasi telah dimuat otomatis';
   } catch (e) { console.error(e); setStatus('Aset otomatis gagal: ' + e.message + ' · Bisa pilih FBX manual', true); }
 })();
