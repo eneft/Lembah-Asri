@@ -6,6 +6,23 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{
   await page.goto('http://127.0.0.1:8765/index.html',{waitUntil:'domcontentloaded',timeout:45000});
+  // Safari/WebKit UI regression is independent of WebGL and texture loading.
+  if(process.env.BROWSER_ENGINE==='webkit'){
+    await page.setViewportSize({width:390,height:844});
+    const drawer=page.locator('#settingsDrawer');
+    const toggle=page.locator('#settingsToggle');
+    if(!(await toggle.isVisible())) throw Error('Safari settings summary not visible');
+    if(await drawer.evaluate(el=>el.open)) throw Error('Safari settings initially expanded');
+    await toggle.click();
+    if(!(await drawer.evaluate(el=>el.open)) || !(await page.locator('#advancedControls').isVisible()))
+      throw Error('Safari gear did not open settings drawer');
+    await page.screenshot({path:'/tmp/lembah-run-browser-safari-settings-open.png'});
+    await toggle.click();
+    if((await drawer.evaluate(el=>el.open)) || (await page.locator('#advancedControls').isVisible()))
+      throw Error('Safari gear did not close settings drawer');
+    console.log('MOBILE SAFARI SETTINGS PASS: native HTML details opens and closes');
+    return;
+  }
   await page.waitForFunction(()=>document.querySelector('#fileHint')?.textContent.includes('Dua animasi telah dimuat otomatis'),{timeout:105000});
   await page.waitForTimeout(1800);
   const diagnostic=await page.evaluate(()=>window.__lembahDiagnostics?.());
