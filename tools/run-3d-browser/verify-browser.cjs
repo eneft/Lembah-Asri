@@ -22,6 +22,8 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
     if(info.light !== lighting) throw Error('Lighting preset failed: ' + lighting + ' -> ' + info.light);
     if(lighting !== 'day') await page.screenshot({path:'/tmp/lembah-run-browser-'+lighting+'.png'});
   }
+  await page.locator('#settingsToggle').click();
+  if(!(await page.locator('#advancedControls').isVisible())) throw Error('Desktop settings drawer failed');
   await page.locator('[data-material="flat"]').click();
   let preview = await page.evaluate(() => window.__lembahDiagnostics());
   if(preview.material !== 'flat' || !preview.clips.every(c=>c.materialType === 'MeshBasicMaterial'))
@@ -34,6 +36,7 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   await page.locator('#normalDetail').uncheck();
   await page.locator('#normalDetail').check();
   await page.locator('#exposure').fill('1.15');
+  await page.locator('#settingsToggle').click();
 
   await page.locator('#run').click();
   const anime=await page.locator('#status').innerText();
