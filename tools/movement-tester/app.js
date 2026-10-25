@@ -13,8 +13,10 @@ renderer.toneMapping=THREE.NeutralToneMapping;
 $('stage').appendChild(renderer.domElement);
 const scene=new THREE.Scene();scene.background=new THREE.Color('#d9eae7');
 const camera=new THREE.PerspectiveCamera(mobile?44:40,innerWidth/innerHeight,.08,120);
-const followPosition=new THREE.Vector3(0,3.4,6.3);
-const lookTarget=new THREE.Vector3(0,1,0);
+const followPosition=new THREE.Vector3(0,4.1,8.2);
+const lookTarget=new THREE.Vector3(0,1.15,0);
+let cameraZoom=1,followDistance=8.2,desiredDistance=8.2,focusY=1.15,lastFit=0;
+let framingBounds=null,recenterCount=0;
 const ambient=new THREE.HemisphereLight(0xfff8ed,0x7c9d89,1.15);
 const sun=new THREE.DirectionalLight(0xffefdc,1.6);
 sun.position.set(-3,6,5);scene.add(ambient,sun);
@@ -77,7 +79,8 @@ function resetCharacterPosition(){
  actor.position.set(0,0,0);actor.rotation.y=rotationCorrection;
  verticalSpeed=0;jumpHeight=0;jumping=false;runToggled=false;
  $('runToggle').classList.remove('active');$('runToggle').setAttribute('aria-pressed','false');
- followPosition.set(0,3.4,6.3);lookTarget.set(0,1,0);
+ followPosition.set(0,4.1,8.2);lookTarget.set(0,1.15,0);
+ followDistance=8.2*cameraZoom;desiredDistance=followDistance;lastFit=0;
  if(previewSlot)stopPreview();
  setStatus(hasAssets()?'Karakter kembali ke pusat':'Belum ada FBX · pilih ＋ Animasi');
 }
@@ -181,7 +184,21 @@ function makeSlotAsset(file,model,slot){
  const rest=getMeshBounds(model);
  const restHeight=rest.max.y-rest.min.y;
  if(!Number.isFinite(restHeight)||restHeight<.001)throw Error('Ukuran pose dasar FBX tidak valid.');
- const unitScale=2.08/restHeight;
+ // Estimate full animated height too: an unusual FBX Jump rest pose may be
+ // crouched and otherwise be scaled several times larger than Idle.
+ const sampleMixer=new THREE.AnimationMixer(model);
+ sampleMixer.clipAction(clip).play();
+ let referenceHeight=restHeight;
+ for(const f of [0,.25,.5,.75,1]){
+  sampleMixer.setTime(clip.duration*f);
+  const box=getMeshBounds(model),h=box.max.y-box.min.y;
+  if(Number.isFinite(h)&&h>0.001&&h<restHeight*3.5)
+   referenceHeight=Math.max(referenceHeight,h);
+ }
+ sampleMixer.stopAllAction();
+ for(const skeleton of uniqueSkeletons)skeleton.pose();
+ model.updateMatrixWorld(true);
+ const unitScale=2.08/referenceHeight;
  model.scale.multiplyScalar(unitScale);
  model.updateMatrixWorld(true);
  const transformed=getMeshBounds(model);
@@ -204,7 +221,7 @@ function makeSlotAsset(file,model,slot){
  return {file:file.name,slot,model,group,mixer,action,clip,
   duration:clip.duration,meshCount:meshes.length,movingTracks:motionTrackCount(clip),
   frozenMotion:frozen,boneCount:(()=>{let n=0;model.traverse(x=>{if(x.isBone)n++});return n})(),
-  bindPoseHeight:restHeight,unitScale,normalizedHeight:transformed.max.y-transformed.min.y};
+  bindPoseHeight:restHeight,referenceHeight,unitScale,normalizedHeight:transformed.max.y-transformed.min.y};
 }
 function syncPreviewButtons(){
  for(const btn of document.querySelectorAll('[data-preview]')){
@@ -228,6 +245,8 @@ function showAsset(slot){
   next.mixer.setTime(0);
   if(slot==='jump')next.action.setEffectiveTimeScale(Math.min(1,next.duration/desiredJumpDuration()));
   visibleSlot=slot;
+  lastFit=0;
+  frameVisibleModel(true);
  }
  pausedRest=false;
  currentSlot=slot;
@@ -372,6 +391,18 @@ $('previewPause').addEventListener('click',()=>{
 });
 $('retry').addEventListener('click',()=>location.reload());
 $('resetCharacter').addEventListener('click',resetCharacterPosition);
+$('cameraZoom').addEventListener('input',()=>{
+ cameraZoom=Number($('cameraZoom').value);
+ $('cameraZoomValue').textContent=Math.round(cameraZoom*100)+'%';
+ frameVisibleModel(true);
+});
+renderer.domElement.addEventListener('wheel',e=>{
+ e.preventDefault();
+ cameraZoom=THREE.MathUtils.clamp(cameraZoom+(e.deltaY>0?.08:-.08),.85,2);
+ $('cameraZoom').value=String(cameraZoom);
+ $('cameraZoomValue').textContent=Math.round(cameraZoom*100)+'%';
+ frameVisibleModel(true);
+},{passive:false});
 $('runToggle').addEventListener('click',()=>setRunToggle(!runToggled));
 $('jumpTouch').addEventListener('click',beginJump);
 function updateModeLabel(){
@@ -486,6 +517,39 @@ function simulate(dt){
   currentSlot?(slots[currentSlot].label.toUpperCase()+(pausedRest?' · tunggu Idle':'')):
   'BELUM ADA FBX';
 }
+// Recenter the per-slot parent, never the original skinned mesh or bones.
+function frameVisibleModel(force=false){
+ const entry=visibleSlot&&slots[visibleSlot]?.asset;
+ if(!entry)return;
+ let box=getMeshBounds(entry.group);
+ if(box.isEmpty())return;
+ const size=box.getSize(new THREE.Vector3());
+ if(!Number.isFinite(size.y)||size.y<=.01)return;
+ actor.updateMatrixWorld(true);
+ const center=actor.worldToLocal(box.getCenter(new THREE.Vector3()));
+ const offset=Math.hypot(center.x,center.z);
+ const parent=entry.group.children[0];
+ if(offset>.12){
+  const k=force||offset>.8?1:.35;
+  parent.position.x-=center.x*k;
+  parent.position.z-=center.z*k;
+  recenterCount++;
+ }
+ const feet=box.min.y-actor.position.y;
+ if(Math.abs(feet)>.24)parent.position.y-=feet*(force||Math.abs(feet)>.8?1:.25);
+ entry.group.updateMatrixWorld(true);
+ box=getMeshBounds(entry.group);
+ const dims=box.getSize(new THREE.Vector3());
+ const v=THREE.MathUtils.degToRad(camera.fov)*.5;
+ const horizontal=Math.atan(Math.tan(v)*camera.aspect);
+ const distanceForHeight=dims.y/(2*Math.tan(v)*.55);
+ const distanceForWidth=Math.max(dims.x,dims.z*.7)/(2*Math.tan(horizontal)*.62);
+ desiredDistance=THREE.MathUtils.clamp(
+   Math.max(8.2,distanceForHeight,distanceForWidth)*cameraZoom,6.2,32);
+ focusY=THREE.MathUtils.clamp(box.getCenter(new THREE.Vector3()).y-actor.position.y,.85,3.5);
+ framingBounds={height:dims.y,width:dims.x,depth:dims.z,
+  center:box.getCenter(new THREE.Vector3()).toArray(),camera:desiredDistance};
+}
 function resize(){
  camera.aspect=innerWidth/innerHeight;
  camera.fov=innerWidth<760?44:40;camera.updateProjectionMatrix();
@@ -496,9 +560,12 @@ addEventListener('resize',resize);
 let frameCount=0;
 function renderStep(dt){
  simulate(dt);
- const eye=new THREE.Vector3(actor.position.x,3.4,actor.position.z+6.3);
- followPosition.lerp(eye,Math.min(1,dt*5));
- lookTarget.lerp(new THREE.Vector3(actor.position.x,1.05,actor.position.z),Math.min(1,dt*7));
+ if(performance.now()-lastFit>150){lastFit=performance.now();frameVisibleModel();}
+ followDistance=THREE.MathUtils.lerp(followDistance,desiredDistance,Math.min(1,dt*5));
+ const d=followDistance;
+ const eye=new THREE.Vector3(actor.position.x,actor.position.y+focusY+d*.36,actor.position.z+d);
+ followPosition.lerp(eye,Math.min(1,dt*6));
+ lookTarget.lerp(new THREE.Vector3(actor.position.x,actor.position.y+focusY,actor.position.z),Math.min(1,dt*7));
  camera.position.copy(followPosition);camera.lookAt(lookTarget);
  renderer.render(scene,camera);frameCount++;
 }
@@ -552,9 +619,10 @@ window.__movementDiagnostics=()=>({
  }:null,
  bounds:visibleBounds(),uploadFeedback:lastAnimationInfo,
  frames:frameCount,runStyle,runToggled,jumping,jumpHeight,jumpCount,verticalSpeed,
+ cameraZoom,followDistance,desiredDistance,framingBounds,recenterCount,
  flightSeconds:jumpFlightSeconds,jumpApexHeight,
  avatarHeights:Object.fromEntries(Object.entries(slots).filter(([,v])=>v.asset).map(([k,v])=>[k,{
-  bindPose:v.asset.bindPoseHeight,normalized:v.asset.normalizedHeight,scale:v.asset.unitScale
+  bindPose:v.asset.bindPoseHeight,normalized:v.asset.normalizedHeight,envelope:v.asset.referenceHeight,scale:v.asset.unitScale
  }])),
  mobile,joystick:[stickX,stickZ]
 });
