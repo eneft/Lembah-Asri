@@ -6,11 +6,18 @@ const {chromium}=require('playwright');
  try{
   await page.goto('http://127.0.0.1:8765/index.html',{waitUntil:'domcontentloaded',timeout:45000});
   await page.waitForFunction(()=>document.querySelector('#fileHint')?.textContent.includes('Dua animasi telah dimuat otomatis'),{timeout:105000});
+  await page.waitForTimeout(1800);
+  const diagnostic=await page.evaluate(()=>window.__lembahDiagnostics?.());
+  console.log('FBX PREVIEW DIAGNOSTICS:',JSON.stringify(diagnostic));
+  if(!diagnostic?.textureLoaded)throw Error('Base Color texture did not load');
+  if(!diagnostic.clips.every(c=>c?.meshCount>0))throw Error('FBX UV map missing: '+JSON.stringify(diagnostic.clips));
   const initial=await page.locator('#status').innerText();
   if(!initial.includes('Running Normal'))throw Error('Normal clip unavailable: '+initial);
   await page.screenshot({path:'/tmp/lembah-run-browser-normal.png'});
   await page.locator('#run').click();
   const anime=await page.locator('#status').innerText();
+  if(!(await page.locator('#run').getAttribute('class')).includes('active'))throw Error('Anime selection active state missing');
+  await page.waitForTimeout(500);
   if(!anime.includes('Run Anime'))throw Error('Anime clip unavailable: '+anime);
   await page.screenshot({path:'/tmp/lembah-run-browser-anime.png'});
   await page.locator('#play').click();

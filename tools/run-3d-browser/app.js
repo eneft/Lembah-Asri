@@ -49,14 +49,13 @@ const grid = new THREE.GridHelper(12,24,0x628781,0x49665e);
 grid.position.y=-.025;grid.material.transparent=true;grid.material.opacity=.22;scene.add(grid);
 const textureLoader = new THREE.TextureLoader();
 function texture(path,asColor=false){let t=textureLoader.load(path);if(asColor)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;}
-let userMaterial = new THREE.MeshStandardMaterial({
+// Browser preview intentionally uses the hand-painted albedo directly.
+// PBR Normal/Roughness/Metallic maps remain bundled for Godot or later relighting.
+let userMaterial = new THREE.MeshBasicMaterial({
   map: texture('./assets/basecolor.webp',true),
-  normalMap: texture('./assets/normal.webp'),
-  normalScale: new THREE.Vector2(.65,.65),
-  roughnessMap: texture('./assets/roughness.webp'),
-  metalnessMap: texture('./assets/metallic.webp'),
-  roughness: .92, metalness: .08, side: THREE.DoubleSide
-}); // Local FBX upload may override this preview material.
+  side: THREE.DoubleSide,
+  toneMapped:false
+});
 const loader = new FBXLoader();
 const instances = [null,null];
 let selected=0, playing=true, playbackSpeed=1, loading=0;
@@ -150,6 +149,15 @@ chooser.addEventListener('change',async (event)=>{
  }catch(err){console.error(err);setStatus('Gagal membaca FBX: '+err.message,true);}
 });
 
+window.__lembahDiagnostics=()=>{
+ const result={selected,playing,textured:!!userMaterial?.map,textureLoaded:!!userMaterial?.map?.image?.width,textureWidth:userMaterial?.map?.image?.width||0,clips:[]};
+ for(const ins of instances){if(!ins){result.clips.push(null);continue;}
+ let mesh=null; ins.model.traverse(o=>{if(o.isMesh&&!mesh)mesh=o;});
+ const uv=mesh?.geometry?.getAttribute('uv');
+ result.clips.push({duration:ins.duration,meshCount:uv?.count||0,uv0:uv?[uv.getX(0),uv.getY(0)]:null,materialType:mesh?.material?.type});
+ }
+ return result;
+};
 (async()=>{
   try{
     for(let i=0;i<clips.length;i++){
