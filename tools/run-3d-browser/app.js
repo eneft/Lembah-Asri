@@ -264,51 +264,30 @@ function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transpare
     transparent,opacity,alphaTest
   });
   material.userData.painterly=true;
-  material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV2Safe';
+  material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV4KnownGood';
   material.onBeforeCompile=shader=>{
-    for(const [name,uniform] of Object.entries({
-      uLaLightDirectionVS:painterlyUniforms.keyVS,
-      uLaShadowTint:painterlyUniforms.shadowTint,
-      uLaLightTint:painterlyUniforms.lightTint,
-      uLaRimTint:painterlyUniforms.rimTint,
-      uLaRimIntensity:painterlyUniforms.rimIntensity,
-      uLaInkStrength:painterlyUniforms.inkStrength
-    }))shader.uniforms[name]=uniform;
-    // Reuse the original V1's proven view-space varyings: unlike
-    // reflectedLight/diffuseColor overrides, this keeps baked albedo visible.
-    shader.vertexShader=shader.vertexShader.replace('#include <common>',[
+    shader.uniforms.uLembahRimStrength=painterlyUniforms.rimIntensity;
+    shader.uniforms.uLembahRimTint=painterlyUniforms.rimTint;
+    shader.vertexShader=shader.vertexShader.replace(
       '#include <common>',
-      'varying vec3 vLembahNormal;',
-      'varying vec3 vLembahView;'
-    ].join('\n')).replace('#include <fog_vertex>',[
-      'vLembahNormal=normalize(transformedNormal);',
-      'vLembahView=normalize(-mvPosition.xyz);',
-      '#include <fog_vertex>'
-    ].join('\n'));
-    shader.fragmentShader=shader.fragmentShader.replace('#include <common>',[
+      '#include <common>\nvarying vec3 vLembahNormal;\nvarying vec3 vLembahView;'
+    ).replace(
+      '#include <fog_vertex>',
+      'vLembahNormal = normalize(transformedNormal);\nvLembahView=normalize(-mvPosition.xyz);\n#include <fog_vertex>'
+    );
+    shader.fragmentShader=shader.fragmentShader.replace(
       '#include <common>',
-      'varying vec3 vLembahNormal;',
-      'varying vec3 vLembahView;',
-      'uniform vec3 uLaLightDirectionVS;',
-      'uniform vec3 uLaShadowTint;',
-      'uniform vec3 uLaLightTint;',
-      'uniform vec3 uLaRimTint;',
-      'uniform float uLaRimIntensity;',
-      'uniform float uLaInkStrength;'
-    ].join('\n')).replace('#include <opaque_fragment>',[
+      '#include <common>\nuniform float uLembahRimStrength;\nuniform vec3 uLembahRimTint;\nvarying vec3 vLembahNormal;\nvarying vec3 vLembahView;'
+    ).replace('#include <opaque_fragment>', [
       'vec3 laN=normalize(vLembahNormal);',
       'vec3 laV=normalize(vLembahView);',
-      'float laLight=dot(laN,normalize(uLaLightDirectionVS));',
-      'float laShade=smoothstep(-0.2,0.63,laLight);',
-      'float laFacing=abs(dot(laN,laV));',
-      'float laEdge=1.0-smoothstep(0.1,0.34,laFacing);',
-      'float laRim=pow(1.0-laFacing,3.0)*smoothstep(-.12,.7,laLight);',
-      'vec3 laTone=mix(uLaShadowTint,uLaLightTint,laShade);',
-      // Lit outgoingLight is the same texture-correct value as original Soft Toon.
-      // Modulate it rather than replacing it with a potentially zero color.
+      'float laL=dot(laN,normalize(vec3(0.4,0.78,0.48)));',
+      'float laShade=smoothstep(-0.24,0.65,laL);',
+      'vec3 laTone=mix(vec3(0.53,0.67,0.83),vec3(1.13,1.08,1.01),laShade);',
+      // Preserve exactly the same outgoingLight as the prior working V1.
       'outgoingLight *= laTone;',
-      'outgoingLight *= 1.0 - laEdge * uLaInkStrength;',
-      'outgoingLight += uLaRimTint*(laRim*uLaRimIntensity);',
+      'float laRim=pow(1.0-abs(dot(laN,laV)),4.0);',
+      'outgoingLight+=uLembahRimTint*(laRim*uLembahRimStrength);',
       '#include <opaque_fragment>'
     ].join('\n'));
   };
