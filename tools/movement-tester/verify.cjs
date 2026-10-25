@@ -1,133 +1,153 @@
 const {chromium,webkit}=require('playwright');
+const {PNG}=require('pngjs');
 const fs=require('fs');
 const type=process.env.MOVEMENT_BROWSER||'chromium';
 const engine=type==='webkit'?webkit:chromium;
 (async()=>{
- const browser=await engine.launch({headless:true,args:type==='chromium'?['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']:[]});
- const page=await browser.newPage({viewport:type==='webkit'?{width:390,height:844}:{width:1280,height:800},deviceScaleFactor:1});
- const errors=[],shaderErrors=[];
+ const browser=await engine.launch({
+  headless:true,
+  args:type==='chromium'?['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']:[]
+ });
+ const page=await browser.newPage({
+  viewport:type==='webkit'?{width:390,height:844}:{width:1280,height:800},deviceScaleFactor:1
+ });
+ const errors=[],shaderErrors=[],assetRequests=[];
  page.on('pageerror',e=>errors.push(e.message));
  page.on('console',msg=>{if(/THREE\.WebGLProgram|Shader Error|ERROR:\s*0:/i.test(msg.text()))shaderErrors.push(msg.text());});
+ page.on('request',req=>{if(/Running_Web_UV\.fbx|Run_Web_UV\.fbx/i.test(req.url()))assetRequests.push(req.url());});
+ const diagnostics=()=>page.evaluate(()=>window.__movementDiagnostics?.());
+ const delay=ms=>page.waitForTimeout(ms);
+ const fixtureA=fs.readFileSync('/tmp/lembah-movement/run-tester/assets/Running_Web_UV.fbx');
+ const fixtureB=fs.readFileSync('/tmp/lembah-movement/run-tester/assets/Run_Web_UV.fbx');
+ async function upload(slot,name,buffer){
+  await page.locator('#openUpload').click();
+  const chooser=page.waitForEvent('filechooser');
+  await page.locator('label[for="'+slot+'File"]').click();
+  await (await chooser).setFiles({name,mimeType:'application/octet-stream',buffer});
+  await page.waitForFunction(s=>window.__movementDiagnostics?.().slots[s].loaded===true,slot,{timeout:55000});
+  await page.waitForFunction(s=>window.__movementDiagnostics?.().preview===s,slot,{timeout:20000});
+  const d=await diagnostics();
+  if(d.visibleSlot!==slot||!d.slots[slot].visible)throw Error(slot+' not visible on upload: '+JSON.stringify(d));
+  if(d.slots[slot].meshCount<1||d.slots[slot].boneCount<10||d.slots[slot].movingTracks<5)
+   throw Error(slot+' FBX missing original skinned model/animation: '+JSON.stringify(d));
+  if(await page.locator('#uploadPanel').isVisible())throw Error('Upload panel did not close after '+slot);
+  await delay(360);
+  await page.screenshot({path:'/tmp/lembah-movement-'+type+'-'+slot+'.png'});
+  return diagnostics();
+ }
+ function difference(a,b){
+  const x=PNG.sync.read(a),y=PNG.sync.read(b);
+  if(x.width!==y.width||x.height!==y.height)throw Error('Screenshot size mismatch');
+  let changed=0,total=0;
+  for(let py=Math.floor(x.height*.12);py<Math.floor(x.height*.83);py+=2)
+    for(let px=Math.floor(x.width*.27);px<Math.floor(x.width*.73);px+=2){
+      const i=(py*x.width+px)*4;
+      const amount=Math.abs(x.data[i]-y.data[i])+
+        Math.abs(x.data[i+1]-y.data[i+1])+
+        Math.abs(x.data[i+2]-y.data[i+2]);
+      if(amount>65)changed++;
+      total++;
+    }
+  return changed/total;
+ }
+ async function down(dir){
+  if(type==='webkit'){
+   await page.locator('#dpad').evaluate((pad,direction)=>{
+    const r=pad.getBoundingClientRect();
+    const x=r.left+r.width/2,y=r.top+r.height/2;
+    const e=(type,cx,cy)=>new PointerEvent(type,{bubbles:true,pointerId:234,pointerType:'touch',isPrimary:true,
+      cancelable:true,clientX:cx,clientY:cy,buttons:1});
+    pad.dispatchEvent(e('pointerdown',x,y));
+    pad.dispatchEvent(e('pointermove',x+(direction==='d'?39:0),y-(direction==='w'?39:0)));
+   },dir);
+  }else await page.keyboard.down(dir);
+ }
+ async function up(dir){
+  if(type==='webkit')await page.locator('#dpad').evaluate(el=>el.dispatchEvent(
+   new PointerEvent('pointerup',{bubbles:true,pointerId:234,pointerType:'touch',isPrimary:true})));
+  else await page.keyboard.up(dir);
+ }
  try{
-  await page.goto('http://127.0.0.1:8765/movement-tester/',{waitUntil:'domcontentloaded',timeout:60000});
-  await page.waitForFunction(()=>window.__movementDiagnostics?.().ready===true,null,{timeout:100000});
-  let d=await page.evaluate(()=>window.__movementDiagnostics());
-  if(!d.slots.run.loaded || d.rigNodes<10)throw Error('Base FBX did not bind: '+JSON.stringify(d));
-  if(d.slots.idle.loaded || d.slots.walk.loaded)throw Error('Idle/Walking should await uploads, not invented');
-  if(errors.length)throw Error('Startup error: '+errors.join(' | '));
-  await page.screenshot({path:'/tmp/lembah-movement-'+type+'-idle.png'});
-  // WebKit mobile uses the on-screen joystick, not a physical keyboard.
-  let joystickCenter=null;
-  async function beginDirection(direction){
-    if(type==='webkit'){
-      const box=await page.locator('#dpad').boundingBox();
-      if(!box)throw Error('Mobile joystick not visible');
-      joystickCenter={x:box.x+box.width/2,y:box.y+box.height/2};
-      await page.locator('#dpad').evaluate((pad,dir)=>{
-        const bounds=pad.getBoundingClientRect();
-        const cx=bounds.left+bounds.width/2,cy=bounds.top+bounds.height/2;
-        const create=(type,x,y)=>new PointerEvent(type,{
-          bubbles:true,cancelable:true,isPrimary:true,pointerId:234,
-          pointerType:'touch',clientX:x,clientY:y,buttons:1
-        });
-        pad.dispatchEvent(create('pointerdown',cx,cy));
-        pad.dispatchEvent(create('pointermove',cx+(dir==='d'?39:0),cy-(dir==='w'?39:0)));
-      },direction);
-      const v=await page.evaluate(()=>window.__movementDiagnostics().joystick);
-      if(Math.hypot(...v)<.5)throw Error('Touch joystick input not received: '+JSON.stringify(v));
-    }else await page.keyboard.down(direction);
-  }
-  async function endDirection(direction){
-    if(type==='webkit'){
-      await page.locator('#dpad').evaluate(pad=>{
-        pad.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,isPrimary:true,pointerId:234,pointerType:'touch'}));
-      });
-    }else await page.keyboard.up(direction);
-  }
-  await beginDirection('w');
-  await page.waitForTimeout(650);
-  d=await page.evaluate(()=>window.__movementDiagnostics());
-  if(d.position[2]>-.06)throw Error('W movement failed: '+JSON.stringify(d));
-  await page.keyboard.down('Shift');
-  await page.waitForTimeout(650);
-  d=await page.evaluate(()=>window.__movementDiagnostics());
-  if(d.state!=='run')throw Error('Shift+W did not use Running: '+JSON.stringify(d));
-  await page.keyboard.up('Shift');
-  await endDirection('w');
-  const prev=d.position[2];
-  await page.locator('#openUpload').click();
-  if(!(await page.locator('#uploadPanel').isVisible()))throw Error('Upload menu did not open');
-  const file=fs.readFileSync('/tmp/lembah-movement/run-tester/assets/Run_Web_UV.fbx');
-  const walkingChooser=page.waitForEvent('filechooser');
-  await page.locator('label[for="walkFile"]').click();
-  await (await walkingChooser).setFiles({name:'Walking_Compatible.fbx',mimeType:'application/octet-stream',buffer:file});
-  await page.waitForFunction(()=>window.__movementDiagnostics?.().slots.walk.loaded===true,null,{timeout:60000});
-  d=await page.evaluate(()=>window.__movementDiagnostics());
-  if(d.slots.walk.tracks>53)throw Error('Unexpected excess FBX tracks');
-  if(!Number.isFinite(d.modelScale)||d.modelScale<=0)throw Error('Bad base avatar normalization');
-  // The source FBX may have been authored at a different world origin.
-  // Never apply its absolute Hips.position or the visible avatar will vanish.
-  const hipsDelta=d.hipsPosition&&d.restHipsPosition?Math.hypot(...d.hipsPosition.map((v,i)=>v-d.restHipsPosition[i]))*d.modelScale:0;
-  if(hipsDelta>.22)throw Error('Imported FBX moved avatar hips away from base rig: '+hipsDelta);
-
-  if(d.slots.walk.coverage<.55 || d.slots.walk.movingTracks<5)throw Error('Uploaded Walking has no animated bone motion: '+JSON.stringify(d));
-  if(d.preview!=='walk' || d.activeAction?.isRunning!==true)throw Error('Uploaded Walking was not previewed on the actor: '+JSON.stringify(d));
-  if(await page.locator('#uploadPanel').isVisible())throw Error('Upload drawer hides character after Walking import');
-  await page.waitForTimeout(240);
-  d=await page.evaluate(()=>window.__movementDiagnostics());
-  if(d.activeAction?.weight<.5 || d.activeAction?.time===0)throw Error('Uploaded Walking preview is not actually playing: '+JSON.stringify(d));
-  const initialPose=d.pose;
-  await page.waitForTimeout(155);
-  const changedPose=(await page.evaluate(()=>window.__movementDiagnostics())).pose;
-  let poseShift=0;
-  for(let i=0;i<Math.min(initialPose.length,changedPose.length);i++)for(let j=0;j<4;j++)
-    poseShift+=Math.abs(initialPose[i].quat[j]-changedPose[i].quat[j]);
-  if(initialPose.length<3 || poseShift<0.03) throw Error('Walking clip is playing but bones do not move: '+JSON.stringify({poseShift,initialPose,changedPose}));
-  console.log('VISIBLE RETARGETED FBX POSE MOTION',type,poseShift.toFixed(3));
-  await page.screenshot({path:'/tmp/lembah-movement-'+type+'-walking-preview.png'});
-  await page.locator('#previewDone').click();
-  await page.waitForTimeout(150);
-  const returned=await page.evaluate(()=>window.__movementDiagnostics());
-  const dist=returned.hipsPosition&&returned.restHipsPosition?Math.hypot(...returned.hipsPosition.map((v,i)=>v-returned.restHipsPosition[i])):0;
-  if(dist>0.001)throw Error('Character did not return to bind pose when Idle missing: '+dist);
-  await beginDirection('d');await page.waitForTimeout(500);
-  d=await page.evaluate(()=>window.__movementDiagnostics());
-  if(d.state!=='walk')throw Error('Walking clip not being played: '+JSON.stringify(d));
-  await endDirection('d');
-  await page.locator('#openUpload').click();
+  await page.goto('http://127.0.0.1:8765/movement-tester/',{waitUntil:'domcontentloaded',timeout:55000});
+  await page.waitForFunction(()=>window.__movementDiagnostics?.().ready===true,null,{timeout:45000});
+  let d=await diagnostics();
+  if(d.mode!=='manual-only'||d.builtInFBX!==0||d.modelCount!==0||
+   Object.values(d.slots).some(s=>s.loaded))
+   throw Error('Movement Tester still preloads built-in FBX: '+JSON.stringify(d));
+  if(assetRequests.length)throw Error('Unexpected automatic FBX asset request: '+assetRequests.join(','));
+  if(!(await page.locator('#emptyNotice').isVisible()))
+   throw Error('Initial manual upload prompt missing');
+  const blank=await page.locator('#stage canvas').screenshot();
+  // First, upload a fully skinned FBX (in CI, existing asset is a test fixture
+  // ONLY: browser MUST NOT download it automatically).
+  await page.locator('#pickFirst').click();
   const idleChooser=page.waitForEvent('filechooser');
   await page.locator('label[for="idleFile"]').click();
-  await (await idleChooser).setFiles({name:'Idle_Compatible.fbx',mimeType:'application/octet-stream',buffer:file});
-  await page.waitForFunction(()=>window.__movementDiagnostics?.().slots.idle.loaded===true,null,{timeout:60000});
-  await page.waitForTimeout(450);
-  d=await page.evaluate(()=>window.__movementDiagnostics());
-  if(d.preview!=='idle' || d.state!=='idle' || d.activeAction?.weight<.5)
-    throw Error('Idle FBX imported but not visibly previewed: '+JSON.stringify(d));
+  await (await idleChooser).setFiles({name:'Idle_manual.fbx',mimeType:'application/octet-stream',buffer:fixtureB});
+  await page.waitForFunction(()=>window.__movementDiagnostics?.().slots.idle.loaded===true,null,{timeout:55000});
+  await delay(500);
+  d=await diagnostics();
+  if(!d.slots.idle.visible||d.preview!=='idle'||d.bounds?.height<.8)
+   throw Error('First manual FBX invisible or incorrectly scaled: '+JSON.stringify(d));
+  const fresh=await page.locator('#stage canvas').screenshot();
+  const avatarPixels=difference(blank,fresh);
+  console.log('MANUAL FIRST FBX IMAGE CHANGE',type,avatarPixels.toFixed(4));
+  if(avatarPixels<.007)throw Error('Uploaded first character did not visibly render in the browser: '+avatarPixels);
+  await page.screenshot({path:'/tmp/lembah-movement-'+type+'-first-manual.png'});
+  if(await page.locator('#emptyNotice').isVisible())throw Error('Empty notice still covers uploaded model');
+  if(d.bounds.screen.some(v=>!Number.isFinite(v))||Math.abs(d.bounds.screen[0])>1.1||Math.abs(d.bounds.screen[1])>1.1)
+   throw Error('First character is outside camera view: '+JSON.stringify(d.bounds));
+  const firstSlot=JSON.stringify(d.slots.idle);
   await page.locator('#previewPause').click();
-  if(!(await page.evaluate(()=>window.__movementDiagnostics().previewPaused)))throw Error('Preview pause failed');
+  if(!(await diagnostics()).previewPaused)throw Error('Preview pause not working');
   await page.locator('#previewPause').click();
-  await page.screenshot({path:'/tmp/lembah-movement-'+type+'-idle-preview.png'});
   await page.locator('#previewDone').click();
-  await page.locator('#resetCharacter').click();
-  const centered=await page.evaluate(()=>window.__movementDiagnostics());
-  if(centered.position.some(x=>Math.abs(x)>1e-6))throw Error('Pusatkan failed: '+JSON.stringify(centered.position));
-  await page.locator('#openUpload').click();
-  await page.locator('[data-run="anime"]').click();
-  await page.waitForFunction(()=>window.__movementDiagnostics?.().slots.anime.loaded===true,null,{timeout:60000});
+  // The next slot has a distinct FBX mesh/rig and must NOT modify Idle's rig.
+  await upload('walk','Walking_manual.fbx',fixtureA);
+  d=await diagnostics();
+  if(d.modelCount!==2||d.slots.idle.visible||!d.slots.walk.visible)
+   throw Error('FBX models not isolated by slot: '+JSON.stringify(d));
+  if(JSON.stringify(d.slots.idle)!==firstSlot.replace('"visible":true','"visible":false'))
+   throw Error('Uploading Walking mutated the original Idle slot');
+  await page.locator('#previewDone').click();
+  await down('w');await delay(600);
+  d=await diagnostics();
+  if(d.state!=='walk'||d.position[2]>-.05)
+   throw Error('Walking WASD/joystick failed: '+JSON.stringify(d));
+  await page.keyboard.down('Shift');await delay(350);
+  // Running not uploaded yet -> safe Walking fallback; no invented defaults.
+  d=await diagnostics();
+  if(d.slots.run.loaded||d.modelCount!==2)
+   throw Error('Running unexpectedly preloaded');
+  await page.keyboard.up('Shift');await up('w');
+  await upload('run','Running_manual.fbx',fixtureA);
+  await page.locator('#previewDone').click();
+  await down('w');await page.keyboard.down('Shift');await delay(420);
+  d=await diagnostics();
+  if(d.state!=='run'||d.visibleSlot!=='run')
+   throw Error('Running manual slot was not selected: '+JSON.stringify(d));
+  await page.keyboard.up('Shift');await up('w');
+  await upload('anime','Anime_manual.fbx',fixtureB);
+  await page.locator('#previewDone').click();
+  await page.locator('#openUpload').click();await page.locator('[data-run="anime"]').click();
   await page.locator('#closeUpload').click();
-  await page.keyboard.down('Shift');await beginDirection('w');
-  await page.waitForTimeout(430);
-  d=await page.evaluate(()=>window.__movementDiagnostics());
-  if(d.state!=='anime')throw Error('Run Anime not combined onto single actor: '+JSON.stringify(d));
-  await page.keyboard.up('w');await page.keyboard.up('Shift');
-  await page.screenshot({path:'/tmp/lembah-movement-'+type+'-game.png'});
-  if(errors.length||shaderErrors.length)throw Error('Browser errors: '+errors.join('; ')+' / '+shaderErrors.join('; '));
-  console.log('MOVEMENT COMBO PASS',type,JSON.stringify(d));
+  await down('w');await page.keyboard.down('Shift');await delay(420);
+  d=await diagnostics();
+  if(d.state!=='anime'||d.modelCount!==4||!Object.values(d.slots).every(s=>s.loaded&&s.nativeRig))
+   throw Error('Fourth manual slot failed: '+JSON.stringify(d));
+  await page.keyboard.up('Shift');await up('w');
+  await page.locator('#resetCharacter').click();
+  d=await diagnostics();
+  if(d.position.some(x=>Math.abs(x)>1e-5))throw Error('Reset character did not return to origin');
+  if(assetRequests.length)throw Error('FBXs should only be loaded from file inputs, not network: '+assetRequests.join(','));
+  if(errors.length||shaderErrors.length)throw Error('Browser errors: '+errors.join(' | ')+'; '+shaderErrors.join(' | '));
+  console.log('MANUAL FBX MOVEMENT PASS',type,JSON.stringify({count:d.modelCount,mode:d.mode,visible:d.visibleSlot,
+    avatarPixels:avatarPixels.toFixed(3),nativeRigs:Object.values(d.slots).every(x=>x.nativeRig)}));
  }catch(err){
-  console.error('MOVEMENT COMBO FAIL',type,err.message);
-  console.error('Page errors:',errors.join('; '));
-  console.error('Current status:',await page.locator('#status').innerText().catch(()=>'(none)'));
+  console.error('MANUAL FBX MOVEMENT FAIL',type,err.message);
+  console.error('PAGE ERRORS',errors.join(' | '));
+  console.error('CURRENT STATUS',await page.locator('#status').innerText().catch(()=>'(none)'));
   await page.screenshot({path:'/tmp/lembah-movement-'+type+'-failure.png'}).catch(()=>{});
   process.exitCode=1;
  }finally{await browser.close()}
-})().catch(err=>{console.error('MOVEMENT SCRIPT FAIL',err.message);process.exitCode=1});
+})().catch(err=>{console.error('MOVEMENT TEST CRASH:',err);process.exitCode=1});
