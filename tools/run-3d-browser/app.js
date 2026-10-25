@@ -63,7 +63,8 @@ const hemisphere = new THREE.HemisphereLight(0xf3faff, 0x789b7b, 1.08);
 const key = new THREE.DirectionalLight(0xfff4e5, 2.2);
 const fill = new THREE.DirectionalLight(0xcfedff, .82);
 const rim = new THREE.DirectionalLight(0xfdf8ec, .95);
-key.castShadow = true;
+// Painterly studio contact shadow replaces hard cast silhouette.
+key.castShadow = false;
 key.shadow.mapSize.set(2048, 2048);
 key.shadow.camera.left = -4;
 key.shadow.camera.right = 4;
@@ -174,6 +175,15 @@ function setLighting(name){
     light.color.setHex(color);
     light.position.set(...pos);
   }
+  // Move warm/cool shadow palettes together with the three original light presets.
+  const palette = name==='sunset'
+    ? {shade:[.45,.43,.59],lit:[1.28,1.08,.86],rim:0xffedcc}
+    : name==='indoor'
+    ? {shade:[.47,.51,.60],lit:[1.18,1.12,1.07],rim:0xfff8e7}
+    : {shade:[.38,.51,.70],lit:[1.22,1.11,1.01],rim:0xfff1dd};
+  painterlyUniforms.shadowTint.value.set(...palette.shade);
+  painterlyUniforms.lightTint.value.set(...palette.lit);
+  painterlyUniforms.rimTint.value.setHex(palette.rim);
   renderer.toneMappingExposure = p.exposure * exposureAdjust;
   setActive(lightingButtons, 'light', name);
   $('#lightingLabel').textContent = p.name;
@@ -237,37 +247,56 @@ softGradient.magFilter=THREE.LinearFilter;
 softGradient.minFilter=THREE.LinearFilter;
 softGradient.generateMipmaps=false;
 softGradient.needsUpdate=true;
+// Painterly V2: previous rim-only modification left the stock lighting washed out.
+// New custom diffuse response preserves the input texture, UV, normal and rig.
 const painterlyUniforms = {
-  rimIntensity:{value:.13},
-  rimTint:{value:new THREE.Color('#fff1dd')}
+  keyVS:{value:new THREE.Vector3(.4,.7,.6)},
+  shadowTint:{value:new THREE.Vector3(.38,.51,.70)},
+  lightTint:{value:new THREE.Vector3(1.22,1.11,1.01)},
+  rimTint:{value:new THREE.Color('#fff1dd')},
+  rimIntensity:{value:.16},
+  inkStrength:{value:.15}
 };
 function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transparent=false,opacity=1,alphaTest=0}={}){
   const material=new THREE.MeshToonMaterial({
-    map,normalMap,
-    normalScale:new THREE.Vector2(.13,.13),
-    gradientMap:softGradient,
-    color,side:THREE.DoubleSide,
+    map,normalMap,normalScale:new THREE.Vector2(.12,.12),
+    gradientMap:softGradient,color,side:THREE.DoubleSide,
     transparent,opacity,alphaTest
   });
   material.userData.painterly=true;
-  material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV1';
+  material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV2';
   material.onBeforeCompile=shader=>{
-    shader.uniforms.uLembahRimStrength=painterlyUniforms.rimIntensity;
-    shader.uniforms.uLembahRimTint=painterlyUniforms.rimTint;
-    shader.vertexShader=shader.vertexShader.replace(
-      '#include <common>',
-      '#include <common>\nvarying vec3 vLembahNormal;\nvarying vec3 vLembahView;'
-    ).replace(
-      '#include <fog_vertex>',
-      'vLembahNormal = normalize(transformedNormal);\nvLembahView=normalize(-mvPosition.xyz);\n#include <fog_vertex>'
-    );
+    shader.uniforms.uLaLightDirectionVS=painterlyUniforms.keyVS;
+    shader.uniforms.uLaShadowTint=painterlyUniforms.shadowTint;
+    shader.uniforms.uLaLightTint=painterlyUniforms.lightTint;
+    shader.uniforms.uLaRimTint=painterlyUniforms.rimTint;
+    shader.uniforms.uLaRimIntensity=painterlyUniforms.rimIntensity;
+    shader.uniforms.uLaInkStrength=painterlyUniforms.inkStrength;
     shader.fragmentShader=shader.fragmentShader.replace(
       '#include <common>',
-      '#include <common>\nuniform float uLembahRimStrength;\nuniform vec3 uLembahRimTint;\nvarying vec3 vLembahNormal;\nvarying vec3 vLembahView;'
-    ).replace(
-      '#include <opaque_fragment>',
-      'float laRim=pow(1.0-abs(dot(normalize(vLembahNormal),normalize(vLembahView))),4.0);\noutgoingLight+=uLembahRimTint*(laRim*uLembahRimStrength);\n#include <opaque_fragment>'
-    );
+      [
+        '#include <common>',
+        'uniform vec3 uLaLightDirectionVS;',
+        'uniform vec3 uLaShadowTint;',
+        'uniform vec3 uLaLightTint;',
+        'uniform vec3 uLaRimTint;',
+        'uniform float uLaRimIntensity;',
+        'uniform float uLaInkStrength;'
+      ].join('\n')
+    ).replace('#include <opaque_fragment>', [
+      'vec3 laNormal = normalize(normal);',
+      'float laLight = dot(laNormal, normalize(uLaLightDirectionVS));',
+      'float laSoftBand = smoothstep(-0.23, 0.61, laLight);',
+      'float laShade = smoothstep(0.08, 0.92, laSoftBand);',
+      'vec3 laLitColor = mix(uLaShadowTint, uLaLightTint, laShade);',
+      'float laFacing = abs(dot(laNormal, normalize(vViewPosition)));',
+      'float laEdge = 1.0 - smoothstep(0.08, 0.34, laFacing);',
+      'float laWarmRim = pow(1.0 - laFacing, 3.0) * smoothstep(-0.18,0.7,laLight);',
+      'outgoingLight = diffuseColor.rgb * laLitColor;',
+      'outgoingLight *= 1.0 - laEdge * uLaInkStrength;',
+      'outgoingLight += uLaRimTint * (laWarmRim * uLaRimIntensity);',
+      '#include <opaque_fragment>'
+    ].join('\n'));
   };
   return material;
 }
@@ -305,7 +334,8 @@ function applyMaterial(){
     obj.material = index < 2 || !looks ? chosen : looks[currentMaterial];
   }));
   setActive(materialButtons, 'material', currentMaterial);
-  $('#materialLabel').textContent = currentMaterial === 'painterly' ? 'Painterly Anime' : currentMaterial === 'toon' ? 'Soft Anime Toon' : 'Albedo Original';
+  $('#materialLabel').textContent = currentMaterial === 'painterly' ? 'Painterly V2 • Warna & bayangan lebih dalam' : currentMaterial === 'toon' ? 'Soft Toon Lama' : 'Albedo Original';
+  if(instances[selected]) select(selected);
 }
 materialButtons.forEach(button => button.addEventListener('click', () => {
   currentMaterial = button.dataset.material;
@@ -491,7 +521,7 @@ function select(index){
   });
   clipText.textContent = index < 2 ? (index === 0 ? 'RUNNING' : 'RUN ANIME') : clips[index].name;
   syncFloorUI();
-  setStatus(`${clips[index].name} · ${instances[index].static?'pose statis / tanpa animasi':instances[index].duration.toFixed(2)+'s per siklus'} · ${presets[currentLight].name}`);
+  setStatus(`${clips[index].name} · ${instances[index].static?'pose statis / tanpa animasi':instances[index].duration.toFixed(2)+'s per siklus'} · ${presets[currentLight].name} · ${currentMaterial==='painterly'?'Painterly V2':currentMaterial==='toon'?'Toon Lama':'Albedo'}`);
 }
 buttons.forEach((b, i) => b.addEventListener('click', () => select(i)));
 playButton.addEventListener('click', () => {
@@ -603,6 +633,9 @@ $('#groundReset').addEventListener('click',()=>{
 window.__lembahDiagnostics = () => ({
   selected, playing, material: currentMaterial, light: currentLight,
   painterlyShader:painterlyMaterial.userData.painterly,
+  painterlyVersion:2,
+  painterlyShadowTint:[...painterlyUniforms.shadowTint.value],
+  hardFloorShadow:key.castShadow,
   painterlyRamp:softGradient.image?.width,
   shadowVisible:paintedShadow.visible,
   debugGrid:grid.visible,
@@ -638,6 +671,10 @@ function animate(){
   requestAnimationFrame(animate);
   const delta = Math.min(clock.getDelta(), .075);
   controls.update();
+  // Three.js fragment normals are in view space, so update key direction
+  // as the user orbits the camera around the avatar.
+  camera.updateMatrixWorld(true);
+  painterlyUniforms.keyVS.value.copy(key.position).sub(key.target.position).normalize().transformDirection(camera.matrixWorldInverse);
   instances.forEach(x => { if (x) x.mixer.update(delta); });
   renderer.render(scene, camera);
 }

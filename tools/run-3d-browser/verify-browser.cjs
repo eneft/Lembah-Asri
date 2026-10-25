@@ -1,5 +1,6 @@
 const {chromium, webkit}=require('playwright');
 const fs=require('fs');
+const PNG=require('pngjs').PNG;
 const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
 (async()=>{
  const browser=await engine.launch({headless:true,args:process.env.BROWSER_ENGINE==='webkit'?[]:['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
@@ -66,7 +67,7 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
     throw Error('Anime soft toon material failed: ' + JSON.stringify(preview));
   await page.locator('[data-material="painterly"]').click();
   preview=await page.evaluate(()=>window.__lembahDiagnostics());
-  if(preview.material!=='painterly' || !preview.painterlyShader || preview.painterlyRamp!==256 ||
+  if(preview.material!=='painterly' || !preview.painterlyShader || preview.painterlyRamp!==256 || preview.painterlyVersion!==2 || preview.hardFloorShadow!==false ||
      !preview.clips.every(c=>c.materialType==='MeshToonMaterial')) throw Error('Painterly anime shader not installed: '+JSON.stringify(preview));
   await page.locator('#showGrid').check();
   if(!(await page.evaluate(()=>window.__lembahDiagnostics().debugGrid)))throw Error('Grid debug toggle failed');
@@ -76,6 +77,30 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   await page.locator('#showShadow').check();
   await page.waitForTimeout(300);
   if(shaderErrors.length)throw Error('Painterly shader WebGL compilation failed: '+shaderErrors.join(' | '));
+  // Freeze the same animation pose for a real old/new visual pixel check.
+  await page.locator('#play').click();
+  await page.waitForTimeout(180);
+  const freshShot=await page.locator('#stage canvas').screenshot({path:'/tmp/lembah-painterly-v2-stage.png'});
+  await page.locator('[data-material="toon"]').click();
+  await page.waitForTimeout(180);
+  const oldShot=await page.locator('#stage canvas').screenshot({path:'/tmp/lembah-soft-toon-legacy-stage.png'});
+  const fresh=PNG.sync.read(freshShot), old=PNG.sync.read(oldShot);
+  if(fresh.width!==old.width||fresh.height!==old.height)throw Error('Visual comparison dimension mismatch');
+  let changed=0, compared=0;
+  for(let y=Math.floor(fresh.height*.08);y<Math.floor(fresh.height*.78);y+=2) {
+    for(let x=Math.floor(fresh.width*.30);x<Math.floor(fresh.width*.70);x+=2) {
+      const i=(y*fresh.width+x)*4;
+      const delta=Math.abs(fresh.data[i]-old.data[i])+
+        Math.abs(fresh.data[i+1]-old.data[i+1])+Math.abs(fresh.data[i+2]-old.data[i+2]);
+      if(delta>38)changed++;
+      compared++;
+    }
+  }
+  const fraction=changed/compared;
+  console.log('PAINTERLY V2 IMAGE DIFF:',fraction.toFixed(4),changed,'/',compared);
+  if(fraction<0.012)throw Error('Painterly still visually indistinguishable from old Soft Toon: '+fraction);
+  await page.locator('[data-material="painterly"]').click();
+  await page.locator('#play').click(); // Resume original animation state.
   await page.screenshot({path:'/tmp/lembah-run-browser-painterly.png'});
   await page.locator('#normalDetail').uncheck();
   await page.locator('#normalDetail').check();
