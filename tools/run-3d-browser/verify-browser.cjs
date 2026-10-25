@@ -5,6 +5,11 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
  const browser=await engine.launch({headless:true,args:process.env.BROWSER_ENGINE==='webkit'?[]:['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
  const page=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const shaderErrors=[];
+ page.on('console',msg=>{
+   if(/(?:THREE\.WebGLProgram|Shader Error|VALIDATE_STATUS|GL_INVALID|ERROR:\s*0:)/i.test(msg.text()))
+     shaderErrors.push(msg.text().slice(0,1400));
+ });
  try{
   await page.goto('http://127.0.0.1:8765/index.html',{waitUntil:'domcontentloaded',timeout:45000});
   // Safari/WebKit UI regression is independent of WebGL and texture loading.
@@ -69,6 +74,8 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   await page.locator('#showShadow').uncheck();
   if((await page.evaluate(()=>window.__lembahDiagnostics().shadowVisible)))throw Error('Contact shadow toggle failed');
   await page.locator('#showShadow').check();
+  await page.waitForTimeout(300);
+  if(shaderErrors.length)throw Error('Painterly shader WebGL compilation failed: '+shaderErrors.join(' | '));
   await page.screenshot({path:'/tmp/lembah-run-browser-painterly.png'});
   await page.locator('#normalDetail').uncheck();
   await page.locator('#normalDetail').check();
@@ -152,6 +159,7 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   if((await page.evaluate(()=>window.__lembahDiagnostics())).light!=='sunset') throw Error('Mobile lighting selection failed');
   console.log('MOBILE RUN TESTER PASS:',JSON.stringify(mobileLayout));
   console.log('RUN 3D BROWSER PASS:',JSON.stringify({normal:initial,anime,pause:true,speed:'1.5x',errors}));
+  if(shaderErrors.length)throw Error('WebGL shader compilation failures: '+shaderErrors.join(' | '));
   if(errors.length)console.log('Nonfatal page console errors:',errors.join('; '));
  }catch(e){
   console.error('RUN 3D BROWSER FAIL:',e.message);
