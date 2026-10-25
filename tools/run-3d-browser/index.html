@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#e4f0eb" />
-<title>Lembah Asri • Anime Toon Lighting Lab</title>
+<title>Lembah Asri • Painterly Anime Lighting Lab</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#ecf5f1;background:#b8d7da;color-scheme:dark}
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden}
@@ -155,6 +155,8 @@ label,output{font-size:12px;color:#d9e9e0;white-space:nowrap}
  .panel>#extrasRow .extraClip{max-width:170px;min-width:100px;padding:7px 10px;min-height:31px}
  .panel>#extrasRow .sectionLabel{display:none}
 }
+#settingsPanel .group{flex-wrap:wrap}
+#settingsPanel [data-material]{min-width:105px}
 #groundRow[hidden]{display:none!important}
 #groundRow .groundHint{display:block;width:100%;font-size:10px;line-height:1.5;color:#b9d2ca}
 #groundRow input{max-width:230px;flex:1 1 120px}
@@ -163,7 +165,7 @@ label,output{font-size:12px;color:#d9e9e0;white-space:nowrap}
 </head>
 <body>
 <main id="stage" aria-label="Pratinjau 3D karakter Lembah Asri"></main>
-<header><div class="mark">🌿</div><div class="brand"><b>Lembah Asri</b><div>Anime Toon Lighting Lab • 3D Run Cycle</div></div></header>
+<header><div class="mark">🌿</div><div class="brand"><b>Lembah Asri</b><div>Painterly Anime Lighting Lab • 3D Run Cycle</div></div></header>
 
 <div id="status" role="status" aria-live="polite">Menyiapkan model...</div>
 <div class="hint">Geser: putar kamera · Scroll: zoom · Day/Neutral ideal untuk nilai warna tekstur</div>
@@ -177,7 +179,7 @@ label,output{font-size:12px;color:#d9e9e0;white-space:nowrap}
 <aside id="settingsPanel" role="region" aria-label="Pengaturan render karakter" hidden>
   <div class="settingsHead"><strong>Pengaturan</strong><button id="settingsClose" type="button" aria-label="Tutup pengaturan">✕ Tutup</button></div>
   <div id="advancedControls" class="advancedControls">
-  <div class="row"><span class="sectionLabel">Material</span><div class="group" role="group" aria-label="Gaya material"><button data-material="toon" class="active" type="button" aria-pressed="true">Anime Soft Toon</button><button data-material="flat" type="button" aria-pressed="false">Albedo Asli</button></div><label class="checkbox"><input type="checkbox" id="normalDetail" checked/> Normal halus</label><span id="materialLabel" style="font-size:11px;color:#c9dbd0">Soft Anime Toon</span></div>
+  <div class="row"><span class="sectionLabel">Material</span><div class="group" role="group" aria-label="Gaya material"><button data-material="painterly" class="active" type="button" aria-pressed="true">Painterly Anime</button><button data-material="toon" type="button" aria-pressed="false">Soft Toon</button><button data-material="flat" type="button" aria-pressed="false">Albedo Asli</button></div><label class="checkbox"><input type="checkbox" id="normalDetail" checked/> Normal halus</label><span id="materialLabel" style="font-size:11px;color:#c9dbd0">Painterly Anime</span><label class="checkbox"><input type="checkbox" id="showGrid"/> Grid</label><label class="checkbox"><input type="checkbox" id="showShadow" checked/> Contact shadow</label></div>
   <div class="row" id="groundRow" hidden><span class="sectionLabel">Ground / Lantai</span><label for="groundOffset">Tinggi karakter <output id="groundText">0.00 m</output></label><input type="range" id="groundOffset" min="-0.80" max="0.80" step="0.01" value="0"/><button id="groundReset" type="button">↺ Auto Ground</button><small class="groundHint">FBX tambahan otomatis sejajar lantai. Gunakan slider bila telapak sepatu masih perlu disesuaikan.</small></div>
   <div class="row"><label for="speed">Kecepatan <output id="speedText">1.00×</output></label><input id="speed" type="range" min="0.25" max="2" step="0.05" value="1"/><label for="exposure">Exposure <output id="exposureText">1.00×</output></label><input id="exposure" type="range" min="0.70" max="1.35" step="0.05" value="1"/><span id="clip">RUNNING</span></div>
   <div id="filechooser" class="uploadArea">

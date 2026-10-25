@@ -59,6 +59,17 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   preview = await page.evaluate(() => window.__lembahDiagnostics());
   if(preview.material !== 'toon' || !preview.clips.every(c=>c.materialType === 'MeshToonMaterial'))
     throw Error('Anime soft toon material failed: ' + JSON.stringify(preview));
+  await page.locator('[data-material="painterly"]').click();
+  preview=await page.evaluate(()=>window.__lembahDiagnostics());
+  if(preview.material!=='painterly' || !preview.painterlyShader || preview.painterlyRamp!==256 ||
+     !preview.clips.every(c=>c.materialType==='MeshToonMaterial')) throw Error('Painterly anime shader not installed: '+JSON.stringify(preview));
+  await page.locator('#showGrid').check();
+  if(!(await page.evaluate(()=>window.__lembahDiagnostics().debugGrid)))throw Error('Grid debug toggle failed');
+  await page.locator('#showGrid').uncheck();
+  await page.locator('#showShadow').uncheck();
+  if((await page.evaluate(()=>window.__lembahDiagnostics().shadowVisible)))throw Error('Contact shadow toggle failed');
+  await page.locator('#showShadow').check();
+  await page.screenshot({path:'/tmp/lembah-run-browser-painterly.png'});
   await page.locator('#normalDetail').uncheck();
   await page.locator('#normalDetail').check();
   await page.locator('#exposure').fill('1.15');
@@ -99,6 +110,7 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   if(uploaded.names.length!==3||uploaded.names[0]!=='Running Normal'||uploaded.names[1]!=='Run Anime'||uploaded.selected!==2)
     throw Error('Upload replaced built-in animations: '+JSON.stringify(uploaded));
   if(!(await page.locator('#extrasRow').isVisible()))throw Error('Uploaded animation button is missing');
+  if(uploaded.clips[2]?.materialType !== 'MeshToonMaterial') throw Error('Painterly material not applied to uploaded FBX');
   const grounded = uploaded.clips[2];
   if(!Number.isFinite(grounded.autoGround) || grounded.groundSamples<7 || Math.abs(grounded.contactGroundY)>0.001)
     throw Error('FBX animation was not calibrated to ground: '+JSON.stringify(grounded));

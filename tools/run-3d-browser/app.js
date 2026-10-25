@@ -28,9 +28,11 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerP
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+// AgX keeps the original hand-painted hues natural under warm/cool lighting.
+renderer.toneMapping = THREE.AgXToneMapping;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = true;
 stage.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -70,7 +72,9 @@ key.shadow.camera.bottom = -4;
 key.shadow.camera.near = .1;
 key.shadow.camera.far = 25;
 key.shadow.bias = -.00018;
-key.shadow.normalBias = .025;
+key.shadow.normalBias = .019;
+key.shadow.blurSamples = 12;
+key.shadow.intensity = 0.58;
 [key, fill, rim, ambient, hemisphere].forEach(light => scene.add(light));
 const floorMat = new THREE.MeshStandardMaterial({ color: 0x9ab3a2, roughness: 1, metalness: 0 });
 const floor = new THREE.Mesh(new THREE.CircleGeometry(7, 72), floorMat);
@@ -81,34 +85,67 @@ scene.add(floor);
 const grid = new THREE.GridHelper(12, 24, 0x91aba7, 0xb1c9bd);
 grid.material.transparent = true;
 grid.material.opacity = .14;
+grid.visible = false; // The staging grid is diagnostic, not a final-game visual.
 grid.position.y = -.018;
 scene.add(grid);
+// Soft hand-painted contact shadow, independent of skinned mesh animation.
+// This is a translucent procedural shadow, not an extra baked asset.
+const shadowResolution = 128;
+const shadowBytes = new Uint8Array(shadowResolution*shadowResolution*4);
+for(let y=0;y<shadowResolution;y++){
+  for(let x=0;x<shadowResolution;x++){
+    const dx = (x + .5 - shadowResolution/2)/(shadowResolution/2);
+    const dy = (y + .5 - shadowResolution/2)/(shadowResolution/2);
+    const r2 = dx*dx + dy*dy;
+    const falloff = Math.pow(Math.max(0,1-r2),3);
+    const pos = (y*shadowResolution+x)*4;
+    shadowBytes[pos]=56;
+    shadowBytes[pos+1]=62;
+    shadowBytes[pos+2]=52;
+    shadowBytes[pos+3]=Math.round(falloff*95);
+  }
+}
+const shadowTexture = new THREE.DataTexture(shadowBytes,shadowResolution,shadowResolution,THREE.RGBAFormat);
+shadowTexture.colorSpace=THREE.SRGBColorSpace;
+shadowTexture.minFilter=THREE.LinearFilter;
+shadowTexture.magFilter=THREE.LinearFilter;
+shadowTexture.generateMipmaps=false;
+shadowTexture.needsUpdate=true;
+const paintedShadow = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.75,1.35),
+  new THREE.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-1})
+);
+paintedShadow.rotation.x=-Math.PI/2;
+paintedShadow.position.y=0.004;
+paintedShadow.renderOrder=1;
+scene.add(paintedShadow);
 
+// Keep the key/fill/rim rig for the three comparable lighting presets.
 const presets = {
   day: {
-    name: 'Day / Neutral', sky: '#d8edf2', floor: 0x9ab3a2, exposure: 1.02,
-    ambient: .7, hemisphere: 1.15, hemiSky: 0xf7fcff, hemiGround: 0x899f8b,
-    key: 2.25, keyColor: 0xfff4e5, keyPos: [3.2, 6, 4.5],
-    fill: .82, fillColor: 0xcde5ff, fillPos: [-3.7, 2.4, 2.7],
-    rim: 1.0, rimColor: 0xf1f7ff, rimPos: [-3.0, 3.7, -4.1]
+    name: 'Day / Neutral', sky: '#deeaf0', floor: 0xadb6a5, exposure: 1.24,
+    ambient: .5, hemisphere: .94, hemiSky: 0xf7fcff, hemiGround: 0x899f8b,
+    key: 1.68, keyColor: 0xfff2e3, keyPos: [3.2, 6, 4.5],
+    fill: .46, fillColor: 0xe0edff, fillPos: [-3.7, 2.4, 2.7],
+    rim: .58, rimColor: 0xf5f8ff, rimPos: [-3.0, 3.7, -4.1]
   },
   sunset: {
-    name: 'Warm Sunset', sky: '#f3d5bc', floor: 0xa5a082, exposure: .94,
-    ambient: .76, hemisphere: 1.01, hemiSky: 0xffe5c9, hemiGround: 0x867965,
-    key: 2.05, keyColor: 0xffb56e, keyPos: [-4.3, 3.5, 4.8],
-    fill: .96, fillColor: 0xaecbff, fillPos: [4.4, 2.6, 2.3],
-    rim: 1.42, rimColor: 0xffd8a1, rimPos: [2.5, 3.2, -4.2]
+    name: 'Warm Sunset', sky: '#f3d9c5', floor: 0xb7ac93, exposure: 1.12,
+    ambient: .52, hemisphere: .92, hemiSky: 0xffe5c9, hemiGround: 0x867965,
+    key: 1.65, keyColor: 0xffca9c, keyPos: [-4.3, 3.5, 4.8],
+    fill: .52, fillColor: 0xd4e4ff, fillPos: [4.4, 2.6, 2.3],
+    rim: .76, rimColor: 0xffe3bf, rimPos: [2.5, 3.2, -4.2]
   },
   indoor: {
-    name: 'Soft Indoor', sky: '#e7e5dc', floor: 0xa8aaa2, exposure: 1.07,
-    ambient: .95, hemisphere: 1.24, hemiSky: 0xfff8e9, hemiGround: 0x969c99,
-    key: 1.55, keyColor: 0xffebd5, keyPos: [1.1, 5.5, 3.6],
-    fill: 1.24, fillColor: 0xe0eeff, fillPos: [-3.7, 3, 1.2],
-    rim: .70, rimColor: 0xffffff, rimPos: [-1.5, 3.1, -3.9]
+    name: 'Soft Indoor', sky: '#ece9e2', floor: 0xaea9a0, exposure: 1.24,
+    ambient: .7, hemisphere: 1.02, hemiSky: 0xfff8e9, hemiGround: 0x969c99,
+    key: 1.35, keyColor: 0xffead7, keyPos: [1.1, 5.5, 3.6],
+    fill: .65, fillColor: 0xe1efff, fillPos: [-3.7, 3, 1.2],
+    rim: .43, rimColor: 0xffffff, rimPos: [-1.5, 3.1, -3.9]
   }
 };
 let currentLight = 'day';
-let currentMaterial = 'toon';
+let currentMaterial = 'painterly';
 let exposureAdjust = 1;
 function setActive(items, attr, selected){
   items.forEach(button => {
@@ -176,16 +213,90 @@ const toonMaterial = new THREE.MeshToonMaterial({
   color: 0xffffff, side: THREE.DoubleSide,
   alphaTest: .025
 });
+
+/* Lembah Asri painterly renderer v1.
+ * Smooth stylized diffuse ramp with soft wrap lighting and a subtle shader rim.
+ * Vertex/fragment modifications use stable Three.js shader includes; no UV or
+ * FBX animation is changed. Cache key separates this from ordinary toon.
+ */
+const softRampBytes = new Uint8Array(256 * 4);
+function smooth01(lo,hi,t){
+  const v=THREE.MathUtils.clamp((t-lo)/(hi-lo),0,1);
+  return v*v*(3-2*v);
+}
+for(let i=0;i<256;i++){
+  const x=i/255;
+  // Painterly grayscale illumination: rich shadows, smooth midtones, pale light.
+  const value = 0.64 + .22*smooth01(.10,.58,x) + .12*smooth01(.52,.98,x);
+  const v=Math.round(255*Math.min(.99,value));
+  softRampBytes.set([v,v,v,255],i*4);
+}
+const softGradient = new THREE.DataTexture(softRampBytes,256,1,THREE.RGBAFormat);
+softGradient.colorSpace=THREE.NoColorSpace;
+softGradient.magFilter=THREE.LinearFilter;
+softGradient.minFilter=THREE.LinearFilter;
+softGradient.generateMipmaps=false;
+softGradient.needsUpdate=true;
+const painterlyUniforms = {
+  rimIntensity:{value:.13},
+  rimTint:{value:new THREE.Color('#fff1dd')}
+};
+function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transparent=false,opacity=1,alphaTest=0}={}){
+  const material=new THREE.MeshToonMaterial({
+    map,normalMap,
+    normalScale:new THREE.Vector2(.13,.13),
+    gradientMap:softGradient,
+    color,side:THREE.DoubleSide,
+    transparent,opacity,alphaTest
+  });
+  material.userData.painterly=true;
+  material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV1';
+  material.onBeforeCompile=shader=>{
+    shader.uniforms.uLembahRimStrength=painterlyUniforms.rimIntensity;
+    shader.uniforms.uLembahRimTint=painterlyUniforms.rimTint;
+    shader.vertexShader=shader.vertexShader.replace(
+      '#include <common>',
+      '#include <common>\nvarying vec3 vLembahNormal;\nvarying vec3 vLembahView;'
+    ).replace(
+      '#include <fog_vertex>',
+      'vLembahNormal = normalize(transformedNormal);\nvLembahView=normalize(-mvPosition.xyz);\n#include <fog_vertex>'
+    );
+    shader.fragmentShader=shader.fragmentShader.replace(
+      '#include <common>',
+      '#include <common>\nuniform float uLembahRimStrength;\nuniform vec3 uLembahRimTint;\nvarying vec3 vLembahNormal;\nvarying vec3 vLembahView;'
+    ).replace(
+      '#include <opaque_fragment>',
+      'float laRim=pow(1.0-abs(dot(normalize(vLembahNormal),normalize(vLembahView))),4.0);\noutgoingLight+=uLembahRimTint*(laRim*uLembahRimStrength);\n#include <opaque_fragment>'
+    );
+  };
+  return material;
+}
+const painterlyMaterial=makePainterlyMaterial({map:atlas,normalMap:normalAtlas,alphaTest:.025});
+
 const flatMaterial = new THREE.MeshBasicMaterial({
   map: atlas, side: THREE.DoubleSide, toneMapped: false, alphaTest: .025
 });
-let activeMaterials = { toon: toonMaterial, flat: flatMaterial };
+let activeMaterials = { painterly:painterlyMaterial, toon: toonMaterial, flat: flatMaterial };
 let customNormalMap = null;
 let normalDetail = true;
 let sourceTextureUrls = [];
 function applyMaterial(){
   activeMaterials.toon.normalMap = normalDetail ? (customNormalMap || normalAtlas) : null;
   activeMaterials.toon.needsUpdate = true;
+  activeMaterials.painterly.normalMap = normalDetail ? (customNormalMap || normalAtlas) : null;
+  activeMaterials.painterly.needsUpdate = true;
+  for(const ins of instances){
+    ins?.model.traverse(obj=>{
+      if(!obj.isMesh || !obj.userData.testMaterials)return;
+      const painter=obj.userData.testMaterials.painterly;
+      const materialOriginal=obj.userData.testMaterials.sourceNormal;
+      const mats=Array.isArray(painter)?painter:[painter];
+      mats.forEach((m,i)=>{
+        m.normalMap=normalDetail?(Array.isArray(materialOriginal)?materialOriginal[i]:materialOriginal):null;
+        m.needsUpdate=true;
+      });
+    });
+  }
   const chosen = activeMaterials[currentMaterial];
   instances.forEach((ins, index) => ins?.model.traverse(obj => {
     if (!obj.isMesh) return;
@@ -194,12 +305,14 @@ function applyMaterial(){
     obj.material = index < 2 || !looks ? chosen : looks[currentMaterial];
   }));
   setActive(materialButtons, 'material', currentMaterial);
-  $('#materialLabel').textContent = currentMaterial === 'toon' ? 'Soft Anime Toon' : 'Albedo Original';
+  $('#materialLabel').textContent = currentMaterial === 'painterly' ? 'Painterly Anime' : currentMaterial === 'toon' ? 'Soft Anime Toon' : 'Albedo Original';
 }
 materialButtons.forEach(button => button.addEventListener('click', () => {
   currentMaterial = button.dataset.material;
   applyMaterial();
 }));
+$('#showGrid').addEventListener('change',e=>{grid.visible=e.target.checked;});
+$('#showShadow').addEventListener('change',e=>{paintedShadow.visible=e.target.checked;});
 normalToggle.addEventListener('change', () => {
   normalDetail = normalToggle.checked;
   applyMaterial();
@@ -212,12 +325,16 @@ function customMaterialVariants(original, extraTextures){
   const input = Array.isArray(source) ? source : [source];
   const toon = [];
   const flat = [];
+  const painterly = [];
+  const normals = [];
   for (const material of input) {
     const colorMap = extraTextures.color || material?.map || null;
     const detailMap = extraTextures.normal || material?.normalMap || null;
+    normals.push(detailMap);
     const tint = colorMap ? 0xffffff : (material?.color?.clone() || new THREE.Color(0xd9dbd0));
     const transparent = !!material?.transparent;
     const alphaTest = material?.alphaTest || 0;
+    painterly.push(makePainterlyMaterial({map:colorMap,normalMap:normalDetail?detailMap:null,color:tint,side:THREE.DoubleSide,transparent,opacity:material?.opacity ?? 1,alphaTest}));
     toon.push(new THREE.MeshToonMaterial({
       map:colorMap, normalMap:normalDetail ? detailMap:null,
       normalScale:new THREE.Vector2(.2,.2), gradientMap:gradient, color:tint,
@@ -228,7 +345,7 @@ function customMaterialVariants(original, extraTextures){
       transparent, opacity:material?.opacity ?? 1, alphaTest
     }));
   }
-  return {toon:Array.isArray(source)?toon:toon[0],flat:Array.isArray(source)?flat:flat[0],normal:extraTextures.normal||null};
+  return {painterly:Array.isArray(source)?painterly:painterly[0],toon:Array.isArray(source)?toon:toon[0],flat:Array.isArray(source)?flat:flat[0],sourceNormal:Array.isArray(source)?normals:normals[0]};
 }
 
 const loader = new FBXLoader();
@@ -454,7 +571,7 @@ $('#clearExtras').addEventListener('click',()=>{
     scene.remove(item.anchor || item.model);
     item.mixer.stopAllAction();
     item.model.traverse(obj => {if(obj.isMesh && obj.userData.testMaterials) {
-      for(const kind of ['toon','flat']) {
+      for(const kind of ['painterly','toon','flat']) {
         const m=obj.userData.testMaterials[kind];
         (Array.isArray(m)?m:[m]).forEach(v=>v.dispose());
       }
@@ -485,6 +602,10 @@ $('#groundReset').addEventListener('click',()=>{
 
 window.__lembahDiagnostics = () => ({
   selected, playing, material: currentMaterial, light: currentLight,
+  painterlyShader:painterlyMaterial.userData.painterly,
+  painterlyRamp:softGradient.image?.width,
+  shadowVisible:paintedShadow.visible,
+  debugGrid:grid.visible,
   totalClips:clips.length, names:clips.map(x=>x.name), uploaded:Math.max(0,clips.length-2),
   exposure: renderer.toneMappingExposure,
   textured: !!activeMaterials[currentMaterial]?.map,
