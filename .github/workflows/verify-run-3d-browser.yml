@@ -1,0 +1,41 @@
+name: Verify 3D FBX Browser Run Tester
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/run-3d-browser/**'
+      - '.github/workflows/verify-run-3d-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare 3D assets and website
+        run: |
+          mkdir -p /tmp/lembah-run-web
+          cp tools/run-3d-browser/index.html tools/run-3d-browser/app.js /tmp/lembah-run-web/
+          unzip -q tools/run-3d-browser/assets.zip -d /tmp/lembah-run-web/
+          test -s /tmp/lembah-run-web/assets/Running_Web_UV.fbx
+          test -s /tmp/lembah-run-web/assets/Run_Web_UV.fbx
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test dependencies
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Launch local preview and verify both animation buttons
+        run: |
+          python3 -m http.server 8765 --directory /tmp/lembah-run-web >/tmp/lembah-webserver.log 2>&1 &
+          echo $! > /tmp/lembah-webserver.pid
+          node tools/run-3d-browser/verify-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: run-3d-web-browser-screenshot
+          path: /tmp/lembah-run-browser-*.png
+          if-no-files-found: ignore
