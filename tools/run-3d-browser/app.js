@@ -264,6 +264,7 @@ const painterlyUniforms = {
 // Textured stylized PBR is more reliable than custom GLSL/gradient maps
 // across browser GPU drivers. The hand-painted atlas provides illustration
 // detail; matte roughness and soft directional lighting shape the volume.
+let normalDetail = false;
 function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transparent=false,opacity=1,alphaTest=0}={}){
   const material=new THREE.MeshStandardMaterial({
     map,
@@ -287,7 +288,7 @@ const flatMaterial = new THREE.MeshBasicMaterial({
 });
 let activeMaterials = { painterly:painterlyMaterial, toon: toonMaterial, flat: flatMaterial };
 let customNormalMap = null;
-let normalDetail = false;
+
 let sourceTextureUrls = [];
 function applyMaterial(){
   activeMaterials.toon.normalMap = normalDetail ? (customNormalMap || normalAtlas) : null;
