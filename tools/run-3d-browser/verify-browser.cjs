@@ -210,7 +210,7 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   if(uploaded.names.length!==3||uploaded.names[0]!=='Running Normal'||uploaded.names[1]!=='Run Anime'||uploaded.selected!==2)
     throw Error('Upload replaced built-in animations: '+JSON.stringify(uploaded));
   if(!(await page.locator('#extrasRow').isVisible()))throw Error('Uploaded animation button is missing');
-  if(uploaded.clips[2]?.materialType !== 'MeshToonMaterial') throw Error('Painterly material not applied to uploaded FBX');
+  if(uploaded.material!=='flat' || uploaded.clips[2]?.materialType !== 'MeshBasicMaterial') throw Error('Mobile Albedo fallback not used for uploaded FBX');
   const grounded = uploaded.clips[2];
   if(!Number.isFinite(grounded.autoGround) || grounded.groundSamples<7 || Math.abs(grounded.contactGroundY)>0.001)
     throw Error('FBX animation was not calibrated to ground: '+JSON.stringify(grounded));
@@ -222,6 +222,10 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   if((await page.evaluate(()=>window.__lembahDiagnostics())).selected!==2)throw Error('Cannot reselect custom FBX');
   await page.screenshot({path:'/tmp/lembah-run-browser-mobile-custom-fbx.png'});
   await page.locator('#settingsToggle').click();
+  await page.locator('[data-material="painterly"]').click();
+  const customPainterly=await page.evaluate(()=>window.__lembahDiagnostics());
+  if(customPainterly.material!=='painterly' || customPainterly.clips[2]?.materialType!=='MeshToonMaterial')
+    throw Error('Uploaded model cannot switch to Painterly: '+JSON.stringify(customPainterly));
   if(!(await page.locator('#groundRow').isVisible())) throw Error('Ground controls not visible for uploaded FBX');
   // Negative input[type=range] fails locator.fill() in some Playwright versions;
   // dispatch the same native input event as dragging the range thumb.
