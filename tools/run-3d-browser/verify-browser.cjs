@@ -47,6 +47,17 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
     if(lighting !== 'day') await page.screenshot({path:'/tmp/lembah-run-browser-'+lighting+'.png'});
   }
   await page.locator('#settingsToggle').click();
+  if(!(await page.locator('#groundRow').isVisible())) throw Error('Ground controls not visible for uploaded FBX');
+  await page.locator('#groundOffset').fill('-0.20');
+  const afterOffset = (await page.evaluate(()=>window.__lembahDiagnostics())).clips[2];
+  if(Math.abs(afterOffset.manualOffset + 0.2)>0.011 ||
+     Math.abs(afterOffset.anchorY-afterOffset.autoGround+0.2)>0.011)
+    throw Error('Manual ground offset failed: '+JSON.stringify(afterOffset));
+  await page.locator('#groundReset').click();
+  const afterReset = (await page.evaluate(()=>window.__lembahDiagnostics())).clips[2];
+  if(Math.abs(afterReset.manualOffset)>0.001 ||
+     Math.abs(afterReset.anchorY-afterReset.autoGround)>0.001)
+    throw Error('Ground reset failed: '+JSON.stringify(afterReset));
   if(!(await page.locator('#advancedControls').isVisible())) throw Error('Desktop settings drawer failed');
   await page.waitForTimeout(800);
   if(!(await page.locator('#settingsPanel').isVisible())) throw Error('Desktop menu unexpectedly auto-closed');
@@ -99,6 +110,11 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   if(uploaded.names.length!==3||uploaded.names[0]!=='Running Normal'||uploaded.names[1]!=='Run Anime'||uploaded.selected!==2)
     throw Error('Upload replaced built-in animations: '+JSON.stringify(uploaded));
   if(!(await page.locator('#extrasRow').isVisible()))throw Error('Uploaded animation button is missing');
+  const grounded = uploaded.clips[2];
+  if(!Number.isFinite(grounded.autoGround) || grounded.groundSamples<7 || Math.abs(grounded.contactGroundY)>0.001)
+    throw Error('FBX animation was not calibrated to ground: '+JSON.stringify(grounded));
+  console.log('AUTO GROUND PASS:',JSON.stringify({offset:grounded.autoGround,samples:grounded.groundSamples}));
+
   await page.locator('#running').click();
   if((await page.evaluate(()=>window.__lembahDiagnostics())).selected!==0)throw Error('Built-in Running unavailable after upload');
   await page.locator('#extraClips button').click();

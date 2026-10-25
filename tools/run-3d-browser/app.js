@@ -251,6 +251,53 @@ function normalize(model){
   model.position.sub(new THREE.Vector3(center.x, fixed.min.y, center.z));
   model.updateMatrixWorld(true);
 }
+// Calibrate *animated* skinned bounds, not only the FBX bind pose. Importers
+// often store an animated Hips/root translation which moves the shoes well
+// above the floor after normalization. A parent anchor is not animated by FBX
+// tracks, so it is safe to correct without editing the original keyframes.
+function animatedFloorBounds(model){
+  model.updateMatrixWorld(true);
+  model.traverse(obj => {
+    if (!obj.isSkinnedMesh) return;
+    obj.skeleton?.update();
+    // SkinnedMesh's cached boundingBox is otherwise based on an earlier pose.
+    obj.computeBoundingBox();
+  });
+  return new THREE.Box3().setFromObject(model);
+}
+function groundCustomModel(model, mixer, animation, anchor){
+  const duration = animation?.duration || 0;
+  const samples = duration > 0.001 ? 9 : 1;
+  let lowest = Infinity;
+  let sampled = 0;
+  for(let i=0; i<samples; i++){
+    if(animation) mixer.setTime(duration * i / samples);
+    const box = animatedFloorBounds(model);
+    if(Number.isFinite(box.min.y)){
+      lowest = Math.min(lowest, box.min.y);
+      sampled++;
+    }
+  }
+  if(animation) mixer.setTime(0);
+  if (!sampled || !Number.isFinite(lowest)) throw new Error('Posisi kaki FBX tidak dapat diukur');
+  anchor.position.y = -lowest; // floor surface at world y = 0
+  anchor.updateMatrixWorld(true);
+  return {floorCorrection:-lowest,contactGroundY:0,samples:sampled};
+}
+function setCustomFloorOffset(instance, value){
+  if(!instance?.anchor) return;
+  instance.floorOffset = value;
+  instance.anchor.position.y = instance.floorCorrection + instance.floorOffset;
+  instance.anchor.updateMatrixWorld(true);
+}
+function syncFloorUI(){
+  const slider = $('#groundOffset'), label = $('#groundText'), row = $('#groundRow');
+  const inst=instances[selected];
+  row.hidden = !inst?.anchor;
+  slider.value = String(inst?.floorOffset || 0);
+  label.textContent = (inst?.floorOffset || 0).toFixed(2)+' m';
+}
+
 function install(index, model, suppliedTextures = {}){
   const custom = index >= 2;
   let meshCount = 0;
@@ -266,6 +313,9 @@ function install(index, model, suppliedTextures = {}){
   });
   if (!meshCount) throw new Error('FBX ini hanya berisi animasi/rig tanpa mesh karakter. Unggah FBX yang menyertakan model (with skin).');
   normalize(model);
+  // Keep the anchor separate from any animated FBX root/hips transforms.
+  const anchor = custom ? new THREE.Group() : null;
+  if(anchor) anchor.add(model);
   const mixer = new THREE.AnimationMixer(model);
   const animation = model.animations?.[0] || null;
   if (animation) {
@@ -273,10 +323,12 @@ function install(index, model, suppliedTextures = {}){
     action.setLoop(THREE.LoopRepeat, Infinity);
     action.play();
   }
+  let grounding = {floorCorrection:0,contactGroundY:null,samples:0};
+  if(custom) grounding = groundCustomModel(model,mixer,animation,anchor);
   model.visible = false;
-  scene.add(model);
-  instances[index] = { model, mixer, action:animation ? mixer.existingAction(animation) : null,
-    duration:animation?.duration || 0, static:!animation };
+  scene.add(anchor || model);
+  instances[index] = { model, anchor, mixer, action:animation ? mixer.existingAction(animation) : null,
+    duration:animation?.duration || 0, static:!animation, floorOffset:0, ...grounding };
   if (index === selected) select(index);
 }
 async function loadModel(index){
@@ -321,6 +373,7 @@ function select(index){
     b.setAttribute('aria-pressed',String(active));
   });
   clipText.textContent = index < 2 ? (index === 0 ? 'RUNNING' : 'RUN ANIME') : clips[index].name;
+  syncFloorUI();
   setStatus(`${clips[index].name} · ${instances[index].static?'pose statis / tanpa animasi':instances[index].duration.toFixed(2)+'s per siklus'} · ${presets[currentLight].name}`);
 }
 buttons.forEach((b, i) => b.addEventListener('click', () => select(i)));
@@ -398,7 +451,7 @@ chooser.addEventListener('change',event=>{
 $('#clearExtras').addEventListener('click',()=>{
   for(const item of instances.slice(2)){
     if(!item)continue;
-    scene.remove(item.model);
+    scene.remove(item.anchor || item.model);
     item.mixer.stopAllAction();
     item.model.traverse(obj => {if(obj.isMesh && obj.userData.testMaterials) {
       for(const kind of ['toon','flat']) {
@@ -415,6 +468,21 @@ $('#clearExtras').addEventListener('click',()=>{
   setUploadStatus('FBX tambahan dibersihkan. Dua animasi bawaan tetap tersedia.');
 });
 
+// Manual fine-tuning for unusual shoes/props/offsets. Does not touch bones.
+$('#groundOffset').addEventListener('input', event => {
+  const instance = instances[selected];
+  if (!instance?.anchor) return;
+  const value = Number(event.target.value);
+  setCustomFloorOffset(instance, value);
+  $('#groundText').textContent = value.toFixed(2)+' m';
+});
+$('#groundReset').addEventListener('click',()=>{
+  const instance = instances[selected];
+  if (!instance?.anchor) return;
+  setCustomFloorOffset(instance, 0);
+  syncFloorUI();
+});
+
 window.__lembahDiagnostics = () => ({
   selected, playing, material: currentMaterial, light: currentLight,
   totalClips:clips.length, names:clips.map(x=>x.name), uploaded:Math.max(0,clips.length-2),
@@ -428,7 +496,10 @@ window.__lembahDiagnostics = () => ({
     x.model.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
     const uv = mesh?.geometry?.getAttribute('uv');
     return { duration: x.duration, meshCount: uv?.count || 0, static:x.static||false,
-      uv0: uv ? [uv.getX(0), uv.getY(0)] : null, materialType: mesh?.material?.type };
+      uv0: uv ? [uv.getX(0), uv.getY(0)] : null, materialType: mesh?.material?.type,
+      autoGround:x.floorCorrection ?? null, manualOffset:x.floorOffset ?? 0,
+      groundSamples:x.samples ?? 0, contactGroundY:x.contactGroundY ?? null,
+      anchorY:x.anchor?.position.y ?? null };
   })
 });
 let lastCompact = compactView();
