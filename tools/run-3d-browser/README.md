@@ -1,12 +1,18 @@
-# Lembah Asri · FBX 3D Run Tester (Browser)
-Independent 3D preview at https://eneft.github.io/Lembah-Asri/run-tester/ deployed as a **separate static subpath** by the existing Godot Pages action.
+LEMBAH ASRI · ANIME TOON LIGHTING LAB
 
-## Usage
-Open the hosted tester: both running animations load automatically. To compare another FBX version, optionally choose two FBX files through the upload control.
-- **01 Running Normal** loads the real animation in Running_Textured.fbx
-- **02 Run Anime** loads the real animation in Run_Textured.fbx
-- Play/Pause, playback speed (0.25–2x), orbit camera, zoom and reset camera
+Tes browser independen (Three.js / WebGL, bukan ekspor native Godot):
+https://eneft.github.io/Lembah-Asri/run-tester/
 
-**Important limitation:** `assets.zip` contains the two UV-restored FBX animations and optimized color/normal/PBR image maps from the uploaded files. The existing Pages workflow extracts that ZIP under `/run-tester/assets/`. Both animations load automatically. The file picker remains optional for overriding these assets with local FBX files and texture images. Files selected in the browser remain local and are not uploaded to a server.
+- 01 Running Normal: animasi asli dari Running.fbx, UV asli dipulihkan.
+- 02 Run Anime: animasi asli dari Run.fbx, UV asli dipulihkan.
+- 3 preset: Day / Neutral, Warm Sunset, Soft Indoor.
+- Bandingkan Anime Soft Toon dengan Albedo Asli (unlit) agar lukisan sumber terbaca.
+- Normal halus dapat diaktifkan/dimatikan. Normal map sengaja dibuat lemah agar tidak plastik.
+- Exposure dan kecepatan animasi dapat disetel. Kamera orbit/zoom/reset.
+- File FBX dan tekstur lokal bisa diimpor sebagai opsi.
 
-Uses Three.js 0.168.0 over jsDelivr. This is a WebGL tester for existing Godot FBX assets; it is **not a Godot HTML5 engine export**. It is isolated from the game's project.godot.
+Model/UV dan animasi tidak diubah oleh preset lighting. Nilai gaya sebaiknya
+menggunakan Day / Neutral + Albedo Asli untuk baseline warna, lalu Anime Soft Toon.
+
+File repo: tools/run-3d-browser/ , dipublikasikan oleh workflow existing tanpa
+mengubah project.godot/game utama. Aset tetap dari assets.zip existing.

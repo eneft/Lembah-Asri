@@ -3,53 +3,55 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#101920" />
-<title>Lembah Asri • 3D Run Cycle Tester</title>
+<meta name="theme-color" content="#e4f0eb" />
+<title>Lembah Asri • Anime Toon Lighting Lab</title>
 <style>
-:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#f0f5f2;background:#0d171a; color-scheme:dark}
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#ecf5f1;background:#b8d7da;color-scheme:dark}
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden}
-#stage{position:fixed;inset:0;display:block;background:radial-gradient(ellipse at center,#314747 0%,#14262d 72%,#0d171a 100%)}
-header{position:fixed;top:21px;left:25px;z-index:3;display:flex;align-items:center;gap:12px;pointer-events:none}
-.mark{width:41px;height:41px;border-radius:12px;background:#bdd88f;display:grid;place-items:center;font-size:23px}
-.brand b{font-size:17px;letter-spacing:.01em}.brand div{font-size:12px;color:#b7c9c7;margin-top:3px}
-.panel{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);width:min(760px,calc(100vw - 32px));z-index:3;border:1px solid #657f7970;background:#15282de8;backdrop-filter:blur(17px);border-radius:20px;padding:17px 20px;box-shadow:0 16px 50px #030a0b90}
-.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-button{appearance:none;border:1px solid #6e8b8970;border-radius:12px;padding:13px 16px;background:#2a4244;color:#edf6ef;cursor:pointer;font-weight:700;font-size:14px;transition:background .15s}
-button:hover{background:#3b5e56}button.active{background:#b9d9aa;color:#14271f;border-color:transparent}button:focus-visible,input:focus-visible{outline:3px solid #b6e4ae;outline-offset:3px}
-button:disabled{opacity:.5;cursor:not-allowed}
-button.small{font-size:12px;padding:10px 13px}
-.group{display:flex;gap:9px;flex:1} .group button{flex:1}
-.controls{display:flex;align-items:center;gap:13px;margin-top:12px;border-top:1px solid #7faaa02f;padding-top:13px}
-label{font-size:12px;color:#afcbc2;font-weight:600;white-space:nowrap}
-input[type=range]{flex:1;accent-color:#baddaa;min-width:80px}
-#status{position:fixed;top:26px;right:25px;z-index:3;background:#162e30c9;border:1px solid #65857d66;border-radius:14px;padding:11px 14px;font-size:12px;color:#c8ded2;max-width:50vw}
-#status.error{background:#542a30;color:#ffe0e0}
-.hint{position:fixed;bottom:191px;left:50%;transform:translateX(-50%);z-index:2;font-size:12px;color:#bbcfc6;text-shadow:0 1px 8px #0008;white-space:nowrap}
-#fallback{position:fixed;inset:0;pointer-events:none;background-image:url('assets/preview.webp');background-position:center;background-size:contain;background-repeat:no-repeat;opacity:.13;z-index:0}
-#stage canvas{position:relative;z-index:1;width:100%;height:100%;display:block}
-@media(max-width:630px){header{top:15px;left:14px}.brand b{font-size:14px}.panel{bottom:12px;padding:13px}.group{width:100%;flex-basis:100%}button{font-size:12px;padding:12px 8px}.hint{bottom:166px;font-size:10px}#status{top:65px;right:12px;font-size:10px;max-width:70vw}.controls{gap:7px}}
-
-#filechooser{position:fixed;left:25px;top:94px;transform:none;z-index:4;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;max-width:75vw;padding:9px 13px;border:1px solid #7a9d8b80;border-radius:12px;background:#18302cf0;font-size:12px;color:#dceee2}
-#filechooser input{max-width:240px;font-size:11px}#filechooser summary{cursor:pointer;font-weight:700}#filechooser .filebox{display:flex;flex-direction:column;gap:9px;margin-top:13px}
-#filechooser b{white-space:nowrap}
-@media(max-width:740px){#filechooser{top:96px;max-width:95vw;width:calc(100vw - 24px);font-size:10px}#filechooser input{max-width:170px}}
+#stage{position:fixed;inset:0;display:block;background:#d8edf2}
+#stage canvas{width:100%;height:100%;display:block}
+header{position:fixed;top:20px;left:22px;z-index:3;display:flex;align-items:center;gap:12px;pointer-events:none;color:#183e40;text-shadow:0 1px 1px #ffffff80}
+.mark{width:42px;height:42px;border-radius:13px;background:#cee4a6;display:grid;place-items:center;font-size:22px;box-shadow:0 3px 14px #0002}
+.brand b{font-size:17px}.brand div{font-size:12px;margin-top:3px}
+#status{position:fixed;top:22px;right:24px;z-index:3;background:#17343ae6;color:#e3f8eb;border:1px solid #a4c9bd70;border-radius:12px;padding:10px 14px;font-size:12px;max-width:min(46vw,380px);box-shadow:0 4px 12px #122c2633}
+#status.error{background:#722f38;color:#ffe9e9}
+.panel{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);width:min(860px,calc(100vw - 24px));z-index:3;background:#10272de8;backdrop-filter:blur(16px);border:1px solid #9dc7b062;border-radius:20px;padding:15px 18px;box-shadow:0 12px 30px #14362f70}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row+.row{border-top:1px solid #8eaaa72e;margin-top:11px;padding-top:11px}
+.group{display:flex;gap:7px;flex:1}
+button{appearance:none;border:1px solid #84aaa269;background:#294a4c;color:#eff8ed;border-radius:11px;padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;transition:background .14s}
+button:hover{background:#3b6665}button.active{background:#c3e2ab;color:#193e2c;border-color:transparent}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #bfeeb1;outline-offset:2px}
+.group button{flex:1;white-space:nowrap}
+button.small{padding:10px 11px}
+.sectionLabel{font-size:11px;color:#bcd4d0;text-transform:uppercase;letter-spacing:.08em;font-weight:800;min-width:80px}
+input[type=range]{accent-color:#b9dda7;flex:1;min-width:85px}
+label,output{font-size:12px;color:#d9e9e0;white-space:nowrap}
+#clip{font-size:11px;color:#bed8c7;margin-left:auto}
+.checkbox{display:flex;align-items:center;gap:5px}
+#filechooser{position:fixed;left:24px;top:91px;z-index:4;background:#173d3ecc;color:#e7f3ee;border-radius:12px;padding:10px 13px;max-width:min(300px,80vw);font-size:12px;backdrop-filter:blur(10px);border:1px solid #a5c8bd80}
+#filechooser summary{cursor:pointer;font-weight:700}
+#filechooser .filebox{display:flex;flex-direction:column;gap:8px;margin-top:9px}
+#fbxFiles{font-size:11px;width:260px;max-width:100%}
+#fileHint{font-size:10px;color:#cfddd7}
+.hint{position:fixed;bottom:274px;left:50%;transform:translateX(-50%);color:#123b3b;font-size:12px;white-space:nowrap;text-shadow:0 1px 2px #e6f3e2a0;font-weight:600;z-index:2}
+@media(max-width:750px){header{top:12px;left:12px}.brand b{font-size:14px}#status{top:59px;right:10px;max-width:60vw;font-size:10px;padding:8px}#filechooser{top:112px;left:12px}.panel{bottom:8px;padding:11px 11px 13px}.sectionLabel{min-width:100%;font-size:10px}.row{gap:6px}button{font-size:10px;padding:9px 8px}.group{flex-basis:100%;width:100%}.hint{bottom:325px;font-size:10px}#clip{display:none}}
+@media(max-height:700px){.panel{max-height:50vh;overflow:auto}.hint{display:none}}
 </style>
 </head>
 <body>
-<main id="stage" aria-label="Viewport karakter animasi tiga dimensi"><div id="fallback"></div></main>
-<header><div class="mark">🌿</div><div class="brand"><b>Lembah Asri</b><div>3D Character • Run Cycle Tester</div></div></header>
-<details id="filechooser"><summary>Ganti file FBX (opsional)</summary><div class="filebox"><b>Pilih dua FBX:</b><input id="fbxFiles" type="file" accept=".fbx,.png,.PNG,.webp,.jpg,.jpeg" multiple aria-label="Pilih Running_Textured.fbx dan Run_Textured.fbx" /><span id="fileHint">Running_Textured.fbx + Run_Textured.fbx (tekstur tambahan opsional)</span></div></details><div id="status" role="status" aria-live="polite">Pilih dua file FBX untuk mulai melihat animasi.</div>
-<div class="hint">Geser mouse untuk putar kamera · Scroll untuk zoom · Pilih gerakan</div>
-<section class="panel" aria-label="Kontrol animasi">
-  <div class="row"><div class="group" role="group" aria-label="Pilih animasi"><button type="button" id="running" class="active" aria-pressed="true">01 · Running Normal</button><button type="button" id="run" aria-pressed="false">02 · Run Anime</button></div><button type="button" id="play" class="small" aria-label="Pause animasi">⏸ Pause</button><button type="button" id="reset" class="small" aria-label="Reset kamera">↺ Kamera</button></div>
-  <div class="controls"><label for="speed">Kecepatan <output id="speedText">1.00×</output></label><input id="speed" type="range" min="0.25" max="2" step="0.05" value="1" /><label id="clip">RUNNING</label></div>
+<main id="stage" aria-label="Pratinjau 3D karakter Lembah Asri"></main>
+<header><div class="mark">🌿</div><div class="brand"><b>Lembah Asri</b><div>Anime Toon Lighting Lab • 3D Run Cycle</div></div></header>
+<details id="filechooser"><summary>Ganti FBX (opsional)</summary><div class="filebox"><b>Pilih 2 file animasi FBX</b><input id="fbxFiles" type="file" accept=".fbx,.png,.PNG,.webp,.jpg,.jpeg" multiple aria-label="Pilih dua file FBX dan tekstur opsional"/><span id="fileHint">Menggunakan animasi dan tekstur asli otomatis</span></div></details>
+<div id="status" role="status" aria-live="polite">Menyiapkan model...</div>
+<div class="hint">Geser: putar kamera · Scroll: zoom · Day/Neutral ideal untuk nilai warna tekstur</div>
+<section class="panel" aria-label="Kontrol tes animasi dan render">
+  <div class="row"><span class="sectionLabel">Animasi</span><div class="group" role="group" aria-label="Pilih animasi"><button id="running" type="button" class="active" aria-pressed="true">01 · Running Normal</button><button id="run" type="button" aria-pressed="false">02 · Run Anime</button></div><button id="play" class="small" type="button">⏸ Pause</button><button id="reset" class="small" type="button">↺ Kamera</button></div>
+  <div class="row"><span class="sectionLabel">Lighting</span><div class="group" role="group" aria-label="Preset cahaya"><button data-light="day" class="active" type="button" aria-pressed="true">☀ Day / Neutral</button><button data-light="sunset" type="button" aria-pressed="false">◒ Sunset</button><button data-light="indoor" type="button" aria-pressed="false">⌂ Soft Indoor</button></div><span id="lightingLabel" style="font-size:11px;color:#c9dbd0">Day / Neutral</span></div>
+  <div class="row"><span class="sectionLabel">Material</span><div class="group" role="group" aria-label="Gaya material"><button data-material="toon" class="active" type="button" aria-pressed="true">Anime Soft Toon</button><button data-material="flat" type="button" aria-pressed="false">Albedo Asli</button></div><label class="checkbox"><input type="checkbox" id="normalDetail" checked/> Normal halus</label><span id="materialLabel" style="font-size:11px;color:#c9dbd0">Soft Anime Toon</span></div>
+  <div class="row"><label for="speed">Kecepatan <output id="speedText">1.00×</output></label><input id="speed" type="range" min="0.25" max="2" step="0.05" value="1"/><label for="exposure">Exposure <output id="exposureText">1.00×</output></label><input id="exposure" type="range" min="0.70" max="1.35" step="0.05" value="1"/><span id="clip">RUNNING</span></div>
 </section>
-<script type="importmap">{
- "imports":{
-   "three":"https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
-   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
- }
-}</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"}}</script>
 <script type="module" src="./app.js"></script>
 </body>
 </html>
