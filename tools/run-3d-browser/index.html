@@ -126,6 +126,35 @@ label,output{font-size:12px;color:#d9e9e0;white-space:nowrap}
   #settingsPanel{bottom:calc(140px + env(safe-area-inset-bottom,0px));max-height:48dvh}
   #settingsToggle{bottom:calc(103px + env(safe-area-inset-bottom,0px))}
 }
+
+/* Upload a third/fourth FBX without overwriting the two reference clips. */
+#extrasRow[hidden]{display:none!important}
+.extrasScroller{max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain}
+#extraClips button{flex:0 0 auto!important;min-width:90px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#quickUpload{
+ display:flex;align-items:center;justify-content:center;position:fixed;
+ right:160px;bottom:calc(154px + env(safe-area-inset-bottom,0px));z-index:13;
+ min-height:42px;padding:8px 13px;background:#cee5ab;color:#193e2c;
+ border-radius:99px;font-size:13px;font-weight:800;cursor:pointer;
+ box-shadow:0 6px 20px #172b2b55;touch-action:manipulation;-webkit-tap-highlight-color:transparent
+}
+.uploadArea{display:flex;flex-direction:column;gap:8px;position:static!important;margin-top:14px}
+.uploadArea b{font-size:12px}
+.uploadArea p{font-size:11px;margin:0;color:#bbd1c9;line-height:1.5}
+.uploadArea .uploadPicker{display:block;text-align:center;background:#cee5ab;color:#193e2c;font-weight:800;
+ padding:12px;border-radius:10px;cursor:pointer}
+#fbxFiles{position:absolute;width:1px!important;height:1px!important;overflow:hidden;opacity:0}
+#uploadStatus{font-size:11px;line-height:1.4;color:#cbe7d9;overflow-wrap:anywhere}
+#uploadStatus.uploadError{color:#ffb7b7}
+#clearExtras{font-size:11px;min-height:35px}
+@media(max-width:750px){
+ #quickUpload{bottom:calc(119px + env(safe-area-inset-bottom,0px));
+   right:137px;min-height:37px;padding:7px 11px;font-size:12px}
+ .panel>#extrasRow{display:flex;align-items:center}
+ .panel>#extrasRow .extrasScroller{flex:1 1 auto;min-width:0}
+ .panel>#extrasRow .extraClip{max-width:170px;min-width:100px;padding:7px 10px;min-height:31px}
+ .panel>#extrasRow .sectionLabel{display:none}
+}
 </style>
 </head>
 <body>
@@ -136,15 +165,25 @@ label,output{font-size:12px;color:#d9e9e0;white-space:nowrap}
 <div class="hint">Geser: putar kamera · Scroll: zoom · Day/Neutral ideal untuk nilai warna tekstur</div>
 <section class="panel" aria-label="Kontrol tes animasi dan render">
   <div class="row"><span class="sectionLabel">Animasi</span><div class="group" role="group" aria-label="Pilih animasi"><button id="running" type="button" class="active" aria-pressed="true">01 · Running Normal</button><button id="run" type="button" aria-pressed="false">02 · Run Anime</button></div><button id="play" class="small" type="button">⏸ Pause</button><button id="reset" class="small" type="button">↺ Kamera</button></div>
+  <div class="row" id="extrasRow" hidden><span class="sectionLabel">FBX Baru</span><div id="extraClips" class="group extrasScroller" role="group" aria-label="FBX tambahan"></div></div>
   <div class="row"><span class="sectionLabel">Lighting</span><div class="group" role="group" aria-label="Preset cahaya"><button data-light="day" class="active" type="button" aria-pressed="true">☀ Day / Neutral</button><button data-light="sunset" type="button" aria-pressed="false">◒ Sunset</button><button data-light="indoor" type="button" aria-pressed="false">⌂ Soft Indoor</button></div><span id="lightingLabel" style="font-size:11px;color:#c9dbd0">Day / Neutral</span></div>
   </section>
+<label id="quickUpload" for="fbxFiles" role="button" tabindex="0" aria-label="Unggah FBX tambahan untuk tes">＋ FBX</label>
 <button type="button" id="settingsToggle" aria-expanded="false" aria-controls="settingsPanel" aria-label="Buka pengaturan render">⚙ Pengaturan</button>
 <aside id="settingsPanel" role="region" aria-label="Pengaturan render karakter" hidden>
   <div class="settingsHead"><strong>Pengaturan</strong><button id="settingsClose" type="button" aria-label="Tutup pengaturan">✕ Tutup</button></div>
   <div id="advancedControls" class="advancedControls">
   <div class="row"><span class="sectionLabel">Material</span><div class="group" role="group" aria-label="Gaya material"><button data-material="toon" class="active" type="button" aria-pressed="true">Anime Soft Toon</button><button data-material="flat" type="button" aria-pressed="false">Albedo Asli</button></div><label class="checkbox"><input type="checkbox" id="normalDetail" checked/> Normal halus</label><span id="materialLabel" style="font-size:11px;color:#c9dbd0">Soft Anime Toon</span></div>
   <div class="row"><label for="speed">Kecepatan <output id="speedText">1.00×</output></label><input id="speed" type="range" min="0.25" max="2" step="0.05" value="1"/><label for="exposure">Exposure <output id="exposureText">1.00×</output></label><input id="exposure" type="range" min="0.70" max="1.35" step="0.05" value="1"/><span id="clip">RUNNING</span></div>
-  <details id="filechooser"><summary>Ganti FBX (opsional)</summary><div class="filebox"><b>Pilih 2 file animasi FBX</b><input id="fbxFiles" type="file" accept=".fbx,.png,.PNG,.webp,.jpg,.jpeg" multiple aria-label="Pilih dua file FBX dan tekstur opsional"/><span id="fileHint">Menggunakan animasi dan tekstur asli otomatis</span></div></details>
+  <div id="filechooser" class="uploadArea">
+  <b>Tambah FBX baru untuk tes</b>
+  <p>Cukup 1 FBX, boleh beberapa sekaligus. PNG tekstur opsional; jika tidak ada, gunakan material bawaan FBX.</p>
+  <label for="fbxFiles" class="uploadPicker">＋ Pilih FBX / Tekstur</label>
+  <input id="fbxFiles" type="file" accept=".fbx,.png,.PNG,.webp,.jpg,.jpeg" multiple aria-label="Tambah satu atau beberapa FBX animasi baru dan tekstur opsional"/>
+  <div id="uploadStatus" role="status" aria-live="polite">Belum ada FBX tambahan.</div>
+  <button id="clearExtras" type="button">Hapus FBX tambahan</button>
+  <span id="fileHint" style="display:none">Menggunakan animasi dan tekstur asli otomatis</span>
+</div>
   </div>
 </aside>
 
@@ -157,6 +196,9 @@ label,output{font-size:12px;color:#d9e9e0;white-space:nowrap}
   open.addEventListener('click', () => {
     drawer.hidden = false;
     open.setAttribute('aria-expanded','true');
+  });
+  document.getElementById('quickUpload').addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();document.getElementById('fbxFiles').click();}
   });
   close.addEventListener('click', () => {
     drawer.hidden = true;

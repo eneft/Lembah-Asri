@@ -4,13 +4,15 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // Non-destructive look-development viewer: real UV-restored FBX keyframes and rig.
 const clips = [
-  { name: 'Running Normal', file: './assets/Running_Web_UV.fbx' },
-  { name: 'Run Anime', file: './assets/Run_Web_UV.fbx' },
+  { name: 'Running Normal', file: './assets/Running_Web_UV.fbx', builtIn: true },
+  { name: 'Run Anime', file: './assets/Run_Web_UV.fbx', builtIn: true },
 ];
 const $ = (s) => document.querySelector(s);
 const stage = $('#stage');
 const status = $('#status');
 const buttons = [$('#running'), $('#run')];
+const extraButtons = $('#extraClips');
+const extrasRow = $('#extrasRow');
 const playButton = $('#play');
 const resetButton = $('#reset');
 const speedSlider = $('#speed');
@@ -185,8 +187,11 @@ function applyMaterial(){
   activeMaterials.toon.normalMap = normalDetail ? (customNormalMap || normalAtlas) : null;
   activeMaterials.toon.needsUpdate = true;
   const chosen = activeMaterials[currentMaterial];
-  instances.forEach(ins => ins?.model.traverse(obj => {
-    if (obj.isMesh) obj.material = chosen;
+  instances.forEach((ins, index) => ins?.model.traverse(obj => {
+    if (!obj.isMesh) return;
+    // Uploads keep their own UV layouts, embedded maps, colors and material slots.
+    const looks = obj.userData.testMaterials;
+    obj.material = index < 2 || !looks ? chosen : looks[currentMaterial];
   }));
   setActive(materialButtons, 'material', currentMaterial);
   $('#materialLabel').textContent = currentMaterial === 'toon' ? 'Soft Anime Toon' : 'Albedo Original';
@@ -200,8 +205,36 @@ normalToggle.addEventListener('change', () => {
   applyMaterial();
 });
 
+// A custom FBX may have a completely different UV map. Build look-dev materials
+// from the imported FBX's own maps, or from images supplied in the same selection.
+function customMaterialVariants(original, extraTextures){
+  const source = original || new THREE.MeshPhongMaterial({color:0xd5d7ce});
+  const input = Array.isArray(source) ? source : [source];
+  const toon = [];
+  const flat = [];
+  for (const material of input) {
+    const colorMap = extraTextures.color || material?.map || null;
+    const detailMap = extraTextures.normal || material?.normalMap || null;
+    const tint = colorMap ? 0xffffff : (material?.color?.clone() || new THREE.Color(0xd9dbd0));
+    const transparent = !!material?.transparent;
+    const alphaTest = material?.alphaTest || 0;
+    toon.push(new THREE.MeshToonMaterial({
+      map:colorMap, normalMap:normalDetail ? detailMap:null,
+      normalScale:new THREE.Vector2(.2,.2), gradientMap:gradient, color:tint,
+      side:THREE.DoubleSide, transparent, opacity:material?.opacity ?? 1, alphaTest
+    }));
+    flat.push(new THREE.MeshBasicMaterial({
+      map:colorMap, color:tint, side:THREE.DoubleSide, toneMapped:false,
+      transparent, opacity:material?.opacity ?? 1, alphaTest
+    }));
+  }
+  return {toon:Array.isArray(source)?toon:toon[0],flat:Array.isArray(source)?flat:flat[0],normal:extraTextures.normal||null};
+}
+
 const loader = new FBXLoader();
 const instances = [null, null];
+const uploadedUrls = [];
+let activeUpload = false;
 let selected = 0, playing = true, playbackSpeed = 1;
 const clock = new THREE.Clock();
 function setStatus(msg, isError = false){ status.textContent = msg; status.classList.toggle('error', isError); }
@@ -218,24 +251,32 @@ function normalize(model){
   model.position.sub(new THREE.Vector3(center.x, fixed.min.y, center.z));
   model.updateMatrixWorld(true);
 }
-function install(index, model){
+function install(index, model, suppliedTextures = {}){
+  const custom = index >= 2;
+  let meshCount = 0;
   model.traverse(obj => {
     if (obj.isMesh) {
-      obj.material = activeMaterials[currentMaterial];
+      meshCount++;
+      if (custom) obj.userData.testMaterials = customMaterialVariants(obj.material, suppliedTextures);
+      obj.material = custom ? obj.userData.testMaterials[currentMaterial] : activeMaterials[currentMaterial];
       obj.castShadow = true;
-      obj.receiveShadow = false; // no hard black patches on hand-painted fabrics
+      obj.receiveShadow = false; // no hard black patches on painted fabrics
       obj.frustumCulled = false;
     }
   });
+  if (!meshCount) throw new Error('FBX ini hanya berisi animasi/rig tanpa mesh karakter. Unggah FBX yang menyertakan model (with skin).');
   normalize(model);
   const mixer = new THREE.AnimationMixer(model);
-  if (!model.animations?.length) throw new Error('Tidak ada animasi dalam ' + clips[index].file);
-  const action = mixer.clipAction(model.animations[0]);
-  action.setLoop(THREE.LoopRepeat, Infinity);
-  action.play();
+  const animation = model.animations?.[0] || null;
+  if (animation) {
+    const action = mixer.clipAction(animation);
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.play();
+  }
   model.visible = false;
   scene.add(model);
-  instances[index] = { model, mixer, action, duration: model.animations[0].duration };
+  instances[index] = { model, mixer, action:animation ? mixer.existingAction(animation) : null,
+    duration:animation?.duration || 0, static:!animation };
   if (index === selected) select(index);
 }
 async function loadModel(index){
@@ -246,6 +287,20 @@ async function loadModel(index){
       const percent = e.total ? Math.round(e.loaded / e.total * 100) : 0;
       if (percent > 0) setStatus(`Memuat model ${index + 1}/2 · ${percent}%`);
     }, reject);
+  });
+}
+function renderExtras(){
+  extrasRow.hidden = clips.length <= 2;
+  extraButtons.replaceChildren();
+  clips.slice(2).forEach((clip, i) => {
+    const index = i + 2;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'extraClip';
+    b.textContent = String(index+1).padStart(2,'0')+' · '+clip.name;
+    b.title = clip.name;
+    b.setAttribute('aria-pressed',String(index === selected));
+    b.addEventListener('click',()=>select(index));
+    extraButtons.appendChild(b);
   });
 }
 function select(index){
@@ -260,8 +315,13 @@ function select(index){
     b.classList.toggle('active', i === index);
     b.setAttribute('aria-pressed', String(i === index));
   });
-  clipText.textContent = index === 0 ? 'RUNNING' : 'RUN ANIME';
-  setStatus(`${clips[index].name} · ${instances[index].duration.toFixed(2)}s per siklus · ${presets[currentLight].name}`);
+  [...extraButtons.children].forEach((b,i)=>{
+    const active = i+2 === index;
+    b.classList.toggle('active',active);
+    b.setAttribute('aria-pressed',String(active));
+  });
+  clipText.textContent = index < 2 ? (index === 0 ? 'RUNNING' : 'RUN ANIME') : clips[index].name;
+  setStatus(`${clips[index].name} · ${instances[index].static?'pose statis / tanpa animasi':instances[index].duration.toFixed(2)+'s per siklus'} · ${presets[currentLight].name}`);
 }
 buttons.forEach((b, i) => b.addEventListener('click', () => select(i)));
 playButton.addEventListener('click', () => {
@@ -279,57 +339,84 @@ speedSlider.addEventListener('input', () => {
 });
 // Settings use native HTML <details> so the gear works without JS event handlers.
 const chooser = $('#fbxFiles');
-chooser.addEventListener('change', async event => {
-  const files = Array.from(event.target.files || []);
-  const fbx = files.filter(f => /\.fbx$/i.test(f.name));
-  const first = fbx.find(f => /running/i.test(f.name));
-  const second = fbx.find(f => /(^|[^a-z])run([^a-z]|$)/i.test(f.name) && !/running/i.test(f.name)) || fbx.find(f => f !== first);
-  if (!first || !second) { setStatus('Pilih Running.fbx dan Run.fbx', true); return; }
-  const findTexture = re => files.find(f => re.test(f.name));
-  const baseImage = findTexture(/basecolor|albedo|diffuse/i);
-  if (baseImage) {
-    sourceTextureUrls.forEach(URL.revokeObjectURL);
-    sourceTextureUrls = [];
-    const make = file => {
-      const url = URL.createObjectURL(file);
-      sourceTextureUrls.push(url);
-      return url;
-    };
-    const base = tex(make(baseImage), true);
-    const userNormal = findTexture(/normal/i);
-    const norm = userNormal ? tex(make(userNormal)) : null;
-    activeMaterials = {
-      toon: new THREE.MeshToonMaterial({
-        map: base, gradientMap: gradient, normalMap: norm,
-        normalScale: new THREE.Vector2(.2, .2),
-        side: THREE.DoubleSide, alphaTest: .025
-      }),
-      flat: new THREE.MeshBasicMaterial({ map: base, toneMapped: false, side: THREE.DoubleSide, alphaTest: .025 })
-    };
-    normalDetail = !!norm;
-    normalToggle.checked = normalDetail;
-    normalToggle.disabled = !norm;
-    // Rebind for dynamic normal toggling after custom texture import.
-    customNormalMap = norm;
+const uploadStatus = $('#uploadStatus');
+function setUploadStatus(message, isError=false){
+  uploadStatus.textContent = message;
+  uploadStatus.classList.toggle('uploadError',isError);
+}
+async function addNewFbx(files){
+  const fbxFiles = files.filter(f => /\\.fbx$/i.test(f.name));
+  if (!fbxFiles.length) {
+    setUploadStatus('Pilih minimal satu file .fbx untuk dites.',true); return;
   }
-  instances.forEach(x => {
-    if (!x) return;
-    scene.remove(x.model);
-    x.mixer.stopAllAction();
-  });
-  instances[0] = null;
-  instances[1] = null;
-  [first, second].forEach((f, i) => { clips[i].file = URL.createObjectURL(f); });
-  try {
-    for (let i = 0; i < 2; i++) { setStatus('Memuat ' + [first, second][i].name); await loadModel(i); }
-    applyMaterial();
-    select(0);
-    $('#fileHint').textContent = 'Dua animasi lokal berhasil dimuat';
-  } catch (e) { console.error(e); setStatus('Gagal memuat FBX: ' + e.message, true); }
+  if (activeUpload) { setUploadStatus('File lain sedang dimuat.',true); return; }
+  activeUpload = true;
+  const getImage = pattern => files.find(f => pattern.test(f.name));
+  const baseFile = getImage(/(?:basecolor|albedo|diffuse)/i);
+  const normalFile = getImage(/normal/i);
+  // Only user-supplied images are applied to uploaded characters; otherwise
+  // preserve the FBX's embedded materials, never force Lembah Asri atlas.
+  const extras = {
+    color:baseFile ? tex(URL.createObjectURL(baseFile),true) : null,
+    normal:normalFile ? tex(URL.createObjectURL(normalFile)) : null
+  };
+  let count = 0;
+  try{
+    for(const file of fbxFiles){
+      setUploadStatus('Memuat '+file.name+' ...');
+      const object = loader.parse(await file.arrayBuffer(), '');
+      const index = clips.length;
+      clips.push({name:file.name.replace(/\\.fbx$/i,''),file:file.name,builtIn:false});
+      instances.push(null);
+      try {
+        install(index,object,extras);
+        count++;
+        renderExtras();
+        select(index);
+      } catch(err) {
+        clips.pop(); instances.pop();
+        setUploadStatus(file.name+': '+err.message,true);
+      }
+    }
+    if (count > 0) {
+      setUploadStatus(count+' FBX tambahan berhasil dimuat. Pilih lewat tombol di bawah animasi.');
+      $('#fileHint').textContent=count+' FBX tambahan berhasil ditambahkan, 2 bawaan tetap ada.';
+    }
+  } catch(err){
+    console.error(err);
+    setUploadStatus('FBX gagal dibaca: '+err.message,true);
+  } finally{
+    activeUpload=false;
+    chooser.value=''; // Safari permits choosing the same file again.
+  }
+}
+chooser.addEventListener('change',event=>{
+  const files=Array.from(event.target.files||[]);
+  if(files.length) addNewFbx(files);
+});
+$('#clearExtras').addEventListener('click',()=>{
+  for(const item of instances.slice(2)){
+    if(!item)continue;
+    scene.remove(item.model);
+    item.mixer.stopAllAction();
+    item.model.traverse(obj => {if(obj.isMesh && obj.userData.testMaterials) {
+      for(const kind of ['toon','flat']) {
+        const m=obj.userData.testMaterials[kind];
+        (Array.isArray(m)?m:[m]).forEach(v=>v.dispose());
+      }
+    }});
+  }
+  clips.splice(2);
+  instances.splice(2);
+  uploadedUrls.splice(0).forEach(URL.revokeObjectURL);
+  renderExtras();
+  select(0);
+  setUploadStatus('FBX tambahan dibersihkan. Dua animasi bawaan tetap tersedia.');
 });
 
 window.__lembahDiagnostics = () => ({
   selected, playing, material: currentMaterial, light: currentLight,
+  totalClips:clips.length, names:clips.map(x=>x.name), uploaded:Math.max(0,clips.length-2),
   exposure: renderer.toneMappingExposure,
   textured: !!activeMaterials[currentMaterial]?.map,
   textureLoaded: !!activeMaterials[currentMaterial]?.map?.image?.width,
@@ -339,7 +426,7 @@ window.__lembahDiagnostics = () => ({
     let mesh = null;
     x.model.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
     const uv = mesh?.geometry?.getAttribute('uv');
-    return { duration: x.duration, meshCount: uv?.count || 0,
+    return { duration: x.duration, meshCount: uv?.count || 0, static:x.static||false,
       uv0: uv ? [uv.getX(0), uv.getY(0)] : null, materialType: mesh?.material?.type };
   })
 });
@@ -366,11 +453,11 @@ applyMaterial();
 animate();
 (async () => {
   try {
-    for (let i = 0; i < clips.length; i++) {
+    for (let i = 0; i < 2; i++) {
       setStatus(`Memuat ${clips[i].name} (${i + 1}/2)...`);
       await loadModel(i);
     }
-    select(0);
+    if (selected < 2) select(0);
     $('#fileHint').textContent = 'Dua animasi telah dimuat otomatis';
   } catch (e) { console.error(e); setStatus('Aset otomatis gagal: ' + e.message + ' · Bisa pilih FBX manual', true); }
 })();

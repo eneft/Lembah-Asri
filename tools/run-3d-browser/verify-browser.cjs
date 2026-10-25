@@ -1,4 +1,5 @@
 const {chromium, webkit}=require('playwright');
+const fs=require('fs');
 const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
 (async()=>{
  const browser=await engine.launch({headless:true,args:process.env.BROWSER_ENGINE==='webkit'?[]:['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
@@ -18,6 +19,8 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
       throw Error('Safari gear did not open settings drawer');
     await page.waitForTimeout(1500);
     if(!(await drawer.isVisible())) throw Error('Safari settings closed automatically after opening');
+    if(!(await page.locator('#quickUpload').isVisible())) throw Error('Safari FBX upload shortcut missing');
+    if(!(await page.locator('#fbxFiles').count())) throw Error('Safari FBX input missing');
     await page.locator('#normalDetail').click();
     if(!(await drawer.isVisible())) throw Error('Safari settings closed when toggling Normal map');
     await page.screenshot({path:'/tmp/lembah-run-browser-safari-settings-open.png'});
@@ -84,6 +87,23 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   if(mobileLayout.dockHeight>155 || !mobileLayout.dayVisible || !mobileLayout.settingsVisible || !mobileLayout.advancedHidden)
     throw Error('Mobile compact controls failed: '+JSON.stringify(mobileLayout));
   await page.screenshot({path:'/tmp/lembah-run-browser-mobile-minimal.png'});
+  // Upload a third FBX with a different name and preserve the built-in two.
+  const input = page.locator('#fbxFiles');
+  await input.setInputFiles({
+    name:'Custom_Test_03.fbx',
+    mimeType:'application/octet-stream',
+    buffer:fs.readFileSync('/tmp/lembah-run-web/assets/Run_Web_UV.fbx')
+  });
+  await page.waitForFunction(()=>window.__lembahDiagnostics?.().uploaded===1,{timeout:45000});
+  const uploaded = await page.evaluate(()=>window.__lembahDiagnostics());
+  if(uploaded.names.length!==3||uploaded.names[0]!=='Running Normal'||uploaded.names[1]!=='Run Anime'||uploaded.selected!==2)
+    throw Error('Upload replaced built-in animations: '+JSON.stringify(uploaded));
+  if(!(await page.locator('#extrasRow').isVisible()))throw Error('Uploaded animation button is missing');
+  await page.locator('#running').click();
+  if((await page.evaluate(()=>window.__lembahDiagnostics())).selected!==0)throw Error('Built-in Running unavailable after upload');
+  await page.locator('#extraClips button').click();
+  if((await page.evaluate(()=>window.__lembahDiagnostics())).selected!==2)throw Error('Cannot reselect custom FBX');
+  await page.screenshot({path:'/tmp/lembah-run-browser-mobile-custom-fbx.png'});
   await page.locator('#settingsToggle').click();
   if(!(await page.locator('#advancedControls').isVisible()) || !(await page.locator('#settingsPanel').isVisible())) throw Error('Mobile settings drawer failed');
   await page.waitForTimeout(1000);
@@ -91,6 +111,8 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   await page.screenshot({path:'/tmp/lembah-run-browser-mobile-settings-'+(process.env.BROWSER_ENGINE || 'chromium')+'.png'});
   await page.locator('[data-material="flat"]').click();
   if(!(await page.locator('#settingsPanel').isVisible())) throw Error('Mobile settings closed on material switch');
+  await page.locator('#clearExtras').click();
+  if((await page.evaluate(()=>window.__lembahDiagnostics())).uploaded!==0)throw Error('Clear extras did not restore two built-in FBXs');
   await page.locator('#settingsClose').click();
   if(await page.locator('#advancedControls').isVisible() || (await page.locator('#settingsPanel').isVisible())) throw Error('Mobile settings explicit close failed');
   await page.locator('[data-light="sunset"]').click();
