@@ -42,6 +42,7 @@ const engine=process.env.BROWSER_ENGINE==='webkit' ? webkit : chromium;
   console.log('FBX PREVIEW DIAGNOSTICS:',JSON.stringify(diagnostic));
   if(!diagnostic?.textureLoaded)throw Error('Base Color texture did not load');
   if(!diagnostic.clips.every(c=>c?.meshCount>0))throw Error('FBX UV map missing: '+JSON.stringify(diagnostic.clips));
+  if(!diagnostic.clips.every(c=>c.normalCount>0 && c.normalLength>0.1)) throw Error('FBX vertex normals missing, lit material cannot work: '+JSON.stringify(diagnostic.clips));
   const initial=await page.locator('#status').innerText();
   if(!initial.includes('Running Normal'))throw Error('Normal clip unavailable: '+initial);
   await page.screenshot({path:'/tmp/lembah-run-browser-normal.png'});

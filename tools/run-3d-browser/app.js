@@ -418,12 +418,38 @@ function syncFloorUI(){
   label.textContent = (inst?.floorOffset || 0).toFixed(2)+' m';
 }
 
+// FBX exports from the animation source include UV and skinning but may omit
+// LayerElementNormal. Lit toon/PBR shaders then collapse to a black silhouette.
+// Restore bind-pose vertex normals before assigning any lit materials.
+function ensureMeshNormals(geometry){
+  const pos=geometry?.getAttribute('position');
+  if(!pos || pos.count<3)return false;
+  const attr=geometry.getAttribute('normal');
+  let invalid=!attr || attr.count!==pos.count;
+  if(!invalid){
+    let good=0;
+    const count=Math.min(256,attr.count);
+    for(let i=0;i<count;i++){
+      const x=attr.getX(i),y=attr.getY(i),z=attr.getZ(i);
+      if(Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(z)&&(x*x+y*y+z*z)>0.01)good++;
+    }
+    invalid=good<Math.max(1,Math.round(count*.15));
+  }
+  if(invalid){
+    geometry.computeVertexNormals();
+    geometry.normalizeNormals();
+    geometry.getAttribute('normal').needsUpdate=true;
+  }
+  return invalid;
+}
+
 function install(index, model, suppliedTextures = {}){
   const custom = index >= 2;
   let meshCount = 0;
   model.traverse(obj => {
     if (obj.isMesh) {
       meshCount++;
+      obj.userData.rebuiltNormals = ensureMeshNormals(obj.geometry);
       if (custom) obj.userData.testMaterials = customMaterialVariants(obj.material, suppliedTextures);
       obj.material = custom ? obj.userData.testMaterials[currentMaterial] : activeMaterials[currentMaterial];
       obj.castShadow = true;
@@ -624,7 +650,11 @@ window.__lembahDiagnostics = () => ({
     let mesh = null;
     x.model.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
     const uv = mesh?.geometry?.getAttribute('uv');
+    const normals=mesh?.geometry?.getAttribute('normal');
     return { duration: x.duration, meshCount: uv?.count || 0, static:x.static||false,
+      normalCount:normals?.count || 0,
+      normalLength:normals ? Math.hypot(normals.getX(0),normals.getY(0),normals.getZ(0)):0,
+      rebuiltNormals:mesh?.userData?.rebuiltNormals||false,
       uv0: uv ? [uv.getX(0), uv.getY(0)] : null, materialType: mesh?.material?.type,
       autoGround:x.floorCorrection ?? null, manualOffset:x.floorOffset ?? 0,
       groundSamples:x.samples ?? 0, contactGroundY:x.contactGroundY ?? null,
