@@ -102,6 +102,22 @@ const engine=type==='webkit'?webkit:chromium;
   if(!(await diagnostics()).previewPaused)throw Error('Preview pause not working');
   await page.locator('#previewPause').click();
   await page.locator('#previewDone').click();
+  // Space and JUMP work with physics before a dedicated Jump FBX exists.
+  await page.keyboard.press('Space');
+  await page.waitForFunction(()=>window.__movementDiagnostics?.().jumpHeight>.12,null,{timeout:3000});
+  let jumping=await diagnostics();
+  if(!jumping.jumping||jumping.slots.jump.loaded||jumping.position[1]<.12)
+   throw Error('Jump without FBX failed: '+JSON.stringify(jumping));
+  await page.screenshot({path:'/tmp/lembah-movement-'+type+'-jump-without-fbx.png'});
+  await page.waitForFunction(()=>!window.__movementDiagnostics?.().jumping,null,{timeout:3000});
+  const landed=await diagnostics();
+  if(landed.jumpHeight!==0||Math.abs(landed.position[1])>.001)
+   throw Error('Physical jump never landed: '+JSON.stringify(landed));
+  if(type==='webkit'){
+   await page.locator('#jumpTouch').click();
+   await page.waitForFunction(()=>window.__movementDiagnostics?.().jumpHeight>.12,null,{timeout:3000});
+   await page.waitForFunction(()=>!window.__movementDiagnostics?.().jumping,null,{timeout:3000});
+  }
   // The next slot has a distinct FBX mesh/rig and must NOT modify Idle's rig.
   await upload('walk','Walking_manual.fbx',fixtureA);
   d=await diagnostics();
@@ -114,18 +130,27 @@ const engine=type==='webkit'?webkit:chromium;
   d=await diagnostics();
   if(d.state!=='walk'||d.position[2]>-.05)
    throw Error('Walking WASD/joystick failed: '+JSON.stringify(d));
-  await page.keyboard.down('Shift');await delay(350);
-  // Running not uploaded yet -> safe Walking fallback; no invented defaults.
+  await page.keyboard.press('r');await delay(240);
   d=await diagnostics();
-  if(d.slots.run.loaded||d.modelCount!==2)
-   throw Error('Running unexpectedly preloaded');
+  if(!d.runToggled||d.slots.run.loaded||d.modelCount!==2)
+   throw Error('R toggle run changed unloaded slots: '+JSON.stringify(d));
+  await page.keyboard.press('r');await delay(170);
+  if((await diagnostics()).runToggled)throw Error('R did not toggle run off');
+  await page.keyboard.down('Shift');await delay(250);
+  d=await diagnostics();
+  if(d.slots.run.loaded||d.modelCount!==2)throw Error('Shift magically loaded Running');
   await page.keyboard.up('Shift');await up('w');
   await upload('run','Running_manual.fbx',fixtureA);
   await page.locator('#previewDone').click();
-  await down('w');await page.keyboard.down('Shift');await delay(420);
+  await down('w');await page.keyboard.press('r');await delay(420);
   d=await diagnostics();
-  if(d.state!=='run'||d.visibleSlot!=='run')
-   throw Error('Running manual slot was not selected: '+JSON.stringify(d));
+  if(d.state!=='run'||d.visibleSlot!=='run'||!d.runToggled)
+   throw Error('Alternate R key did not activate Running: '+JSON.stringify(d));
+  await page.keyboard.press('r');
+  await page.keyboard.down('Shift');await delay(300);
+  d=await diagnostics();
+  if(d.state!=='run'||d.visibleSlot!=='run'||d.runToggled)
+   throw Error('Original Shift run control regressed: '+JSON.stringify(d));
   await page.keyboard.up('Shift');await up('w');
   await upload('anime','Anime_manual.fbx',fixtureB);
   await page.locator('#previewDone').click();
@@ -136,13 +161,29 @@ const engine=type==='webkit'?webkit:chromium;
   if(d.state!=='anime'||d.modelCount!==4||!Object.values(d.slots).every(s=>s.loaded&&s.nativeRig))
    throw Error('Fourth manual slot failed: '+JSON.stringify(d));
   await page.keyboard.up('Shift');await up('w');
+  await upload('jump','Jump_manual.fbx',fixtureB);
+  d=await diagnostics();
+  if(d.modelCount!==5||!d.slots.jump.nativeRig||d.slots.jump.duration<.01)
+   throw Error('Manual jump FBX missing its native rig: '+JSON.stringify(d));
+  await page.locator('#previewDone').click();
+  await page.locator('#jumpTouch').click();
+  await page.waitForFunction(()=>window.__movementDiagnostics?.().jumpHeight>.10,null,{timeout:3000});
+  d=await diagnostics();
+  if(!d.jumping||d.visibleSlot!=='jump'||d.state!=='jump'||!d.slots.jump.visible)
+   throw Error('Uploaded Jump FBX is not displayed during jump: '+JSON.stringify(d));
+  await page.screenshot({path:'/tmp/lembah-movement-'+type+'-jump-with-fbx.png'});
+  await page.waitForFunction(()=>!window.__movementDiagnostics?.().jumping,null,{timeout:3000});
+  d=await diagnostics();
+  if(d.visibleSlot==='jump'||d.jumpHeight!==0)
+   throw Error('Landed Jump FBX stuck instead of returning to Idle: '+JSON.stringify(d));
   await page.locator('#resetCharacter').click();
   d=await diagnostics();
-  if(d.position.some(x=>Math.abs(x)>1e-5))throw Error('Reset character did not return to origin');
+  if(d.position.some(x=>Math.abs(x)>1e-5)||d.jumping||d.runToggled)
+   throw Error('Reset character did not restore movement state');
   if(assetRequests.length)throw Error('FBXs should only be loaded from file inputs, not network: '+assetRequests.join(','));
   if(errors.length||shaderErrors.length)throw Error('Browser errors: '+errors.join(' | ')+'; '+shaderErrors.join(' | '));
-  console.log('MANUAL FBX MOVEMENT PASS',type,JSON.stringify({count:d.modelCount,mode:d.mode,visible:d.visibleSlot,
-    avatarPixels:avatarPixels.toFixed(3),nativeRigs:Object.values(d.slots).every(x=>x.nativeRig)}));
+  console.log('MANUAL FBX MOVEMENT + JUMP PASS',type,JSON.stringify({count:d.modelCount,mode:d.mode,visible:d.visibleSlot,
+    jumpCount:d.jumpCount,avatarPixels:avatarPixels.toFixed(3),nativeRigs:Object.values(d.slots).every(x=>x.nativeRig)}));
  }catch(err){
   console.error('MANUAL FBX MOVEMENT FAIL',type,err.message);
   console.error('PAGE ERRORS',errors.join(' | '));
