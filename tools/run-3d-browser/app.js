@@ -125,23 +125,23 @@ scene.add(paintedShadow);
 const presets = {
   day: {
     name: 'Day / Neutral', sky: '#deeaf0', floor: 0xadb6a5, exposure: 1.24,
-    ambient: .5, hemisphere: .94, hemiSky: 0xf7fcff, hemiGround: 0x899f8b,
-    key: 1.68, keyColor: 0xfff2e3, keyPos: [3.2, 6, 4.5],
-    fill: .46, fillColor: 0xe0edff, fillPos: [-3.7, 2.4, 2.7],
-    rim: .58, rimColor: 0xf5f8ff, rimPos: [-3.0, 3.7, -4.1]
+    ambient: .15, hemisphere: .38, hemiSky: 0xf7fcff, hemiGround: 0x899f8b,
+    key: 2.08, keyColor: 0xfff2e3, keyPos: [3.2, 6, 4.5],
+    fill: .2, fillColor: 0xe0edff, fillPos: [-3.7, 2.4, 2.7],
+    rim: .32, rimColor: 0xf5f8ff, rimPos: [-3.0, 3.7, -4.1]
   },
   sunset: {
     name: 'Warm Sunset', sky: '#f3d9c5', floor: 0xb7ac93, exposure: 1.12,
-    ambient: .52, hemisphere: .92, hemiSky: 0xffe5c9, hemiGround: 0x867965,
-    key: 1.65, keyColor: 0xffca9c, keyPos: [-4.3, 3.5, 4.8],
-    fill: .52, fillColor: 0xd4e4ff, fillPos: [4.4, 2.6, 2.3],
+    ambient: .20, hemisphere: .45, hemiSky: 0xffe5c9, hemiGround: 0x867965,
+    key: 1.92, keyColor: 0xffca9c, keyPos: [-4.3, 3.5, 4.8],
+    fill: .28, fillColor: 0xd4e4ff, fillPos: [4.4, 2.6, 2.3],
     rim: .76, rimColor: 0xffe3bf, rimPos: [2.5, 3.2, -4.2]
   },
   indoor: {
     name: 'Soft Indoor', sky: '#ece9e2', floor: 0xaea9a0, exposure: 1.24,
-    ambient: .7, hemisphere: 1.02, hemiSky: 0xfff8e9, hemiGround: 0x969c99,
-    key: 1.35, keyColor: 0xffead7, keyPos: [1.1, 5.5, 3.6],
-    fill: .65, fillColor: 0xe1efff, fillPos: [-3.7, 3, 1.2],
+    ambient: .28, hemisphere: .52, hemiSky: 0xfff8e9, hemiGround: 0x969c99,
+    key: 1.64, keyColor: 0xffead7, keyPos: [1.1, 5.5, 3.6],
+    fill: .38, fillColor: 0xe1efff, fillPos: [-3.7, 3, 1.2],
     rim: .43, rimColor: 0xffffff, rimPos: [-1.5, 3.1, -3.9]
   }
 };
@@ -264,7 +264,7 @@ function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transpare
     transparent,opacity,alphaTest
   });
   material.userData.painterly=true;
-  material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV4KnownGood';
+  material.customProgramCacheKey=()=> 'LembahAsriPainterlyShaderV5Stable';
   material.onBeforeCompile=shader=>{
     shader.uniforms.uLembahRimStrength=painterlyUniforms.rimIntensity;
     shader.uniforms.uLembahRimTint=painterlyUniforms.rimTint;
@@ -278,18 +278,10 @@ function makePainterlyMaterial({map=null,normalMap=null,color=0xffffff,transpare
     shader.fragmentShader=shader.fragmentShader.replace(
       '#include <common>',
       '#include <common>\nuniform float uLembahRimStrength;\nuniform vec3 uLembahRimTint;\nvarying vec3 vLembahNormal;\nvarying vec3 vLembahView;'
-    ).replace('#include <opaque_fragment>', [
-      'vec3 laN=normalize(vLembahNormal);',
-      'vec3 laV=normalize(vLembahView);',
-      'float laL=dot(laN,normalize(vec3(0.4,0.78,0.48)));',
-      'float laShade=smoothstep(-0.24,0.65,laL);',
-      'vec3 laTone=mix(vec3(0.53,0.67,0.83),vec3(1.13,1.08,1.01),laShade);',
-      // Preserve exactly the same outgoingLight as the prior working V1.
-      'outgoingLight *= laTone;',
-      'float laRim=pow(1.0-abs(dot(laN,laV)),4.0);',
-      'outgoingLight+=uLembahRimTint*(laRim*uLembahRimStrength);',
-      '#include <opaque_fragment>'
-    ].join('\n'));
+    ).replace(
+      '#include <opaque_fragment>',
+      'float laRim=pow(1.0-abs(dot(normalize(vLembahNormal),normalize(vLembahView))),4.0);\noutgoingLight+=uLembahRimTint*(laRim*uLembahRimStrength);\n#include <opaque_fragment>'
+    );
   };
   return material;
 }
