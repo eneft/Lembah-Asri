@@ -43,6 +43,27 @@ const {chromium}=require('playwright');
   await page.locator('#play').click();
   if(!(await page.locator('#play').innerText()).includes('Play'))throw Error('Pause toggle failed');
   await page.locator('#speed').fill('1.5');
+  // Mobile: no full-height panel blocking the avatar, with lighting always accessible.
+  await page.setViewportSize({width:390,height:844});
+  await page.waitForTimeout(400);
+  const mobileLayout=await page.evaluate(()=>{
+    const p=document.querySelector('.panel').getBoundingClientRect();
+    const advance=document.querySelector('#advancedControls');
+    return {dockHeight:p.height,dockTop:p.top,viewportHeight:innerHeight,
+      dayVisible:document.querySelector('[data-light="day"]').getBoundingClientRect().height>0,
+      settingsVisible:document.querySelector('#settingsToggle').getBoundingClientRect().height>0,
+      advancedHidden:getComputedStyle(advance).display==='none'};
+  });
+  if(mobileLayout.dockHeight>155 || !mobileLayout.dayVisible || !mobileLayout.settingsVisible || !mobileLayout.advancedHidden)
+    throw Error('Mobile compact controls failed: '+JSON.stringify(mobileLayout));
+  await page.screenshot({path:'/tmp/lembah-run-browser-mobile-minimal.png'});
+  await page.locator('#settingsToggle').click();
+  if(!(await page.locator('#advancedControls').isVisible())) throw Error('Mobile settings drawer failed');
+  await page.locator('#settingsToggle').click();
+  if(await page.locator('#advancedControls').isVisible()) throw Error('Mobile settings drawer did not close');
+  await page.locator('[data-light="sunset"]').click();
+  if((await page.evaluate(()=>window.__lembahDiagnostics())).light!=='sunset') throw Error('Mobile lighting selection failed');
+  console.log('MOBILE RUN TESTER PASS:',JSON.stringify(mobileLayout));
   console.log('RUN 3D BROWSER PASS:',JSON.stringify({normal:initial,anime,pause:true,speed:'1.5x',errors}));
   if(errors.length)console.log('Nonfatal page console errors:',errors.join('; '));
  }catch(e){

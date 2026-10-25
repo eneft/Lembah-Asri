@@ -42,6 +42,17 @@ controls.minDistance = 1.35;
 controls.maxDistance = 10;
 controls.maxPolarAngle = Math.PI / 2.06;
 controls.update();
+// Phone framing keeps the full animated model clear of the two-row bottom dock.
+const compactView = () => window.matchMedia('(max-width:750px)').matches;
+function homeCamera(){
+  const phone = compactView();
+  camera.fov = phone ? 39 : 39;
+  camera.position.set(...(phone ? [2.55, 2.0, 3.75] : [3.1, 2.2, 4.5]));
+  controls.target.set(0, phone ? .98 : 1.04, 0);
+  camera.updateProjectionMatrix();
+  controls.update();
+}
+homeCamera();
 
 const ambient = new THREE.AmbientLight(0xffffff, .72);
 const hemisphere = new THREE.HemisphereLight(0xf3faff, 0x789b7b, 1.08);
@@ -256,19 +267,24 @@ buttons.forEach((b, i) => b.addEventListener('click', () => select(i)));
 playButton.addEventListener('click', () => {
   playing = !playing;
   playButton.textContent = playing ? '⏸ Pause' : '▶ Play';
+  playButton.classList.toggle('paused', !playing);
   playButton.setAttribute('aria-label', playing ? 'Pause animasi' : 'Mainkan animasi');
   instances.forEach(x => { if (x) x.mixer.timeScale = playing ? playbackSpeed : 0; });
 });
-resetButton.addEventListener('click', () => {
-  camera.position.set(3.1, 2.2, 4.5);
-  controls.target.set(0, 1.04, 0);
-  controls.update();
-});
+resetButton.addEventListener('click', homeCamera);
 speedSlider.addEventListener('input', () => {
   playbackSpeed = Number(speedSlider.value);
   speedText.textContent = playbackSpeed.toFixed(2) + '×';
   instances.forEach(x => { if (x) x.mixer.timeScale = playing ? playbackSpeed : 0; });
 });
+const panel = $('.panel');
+const settingsToggle = $('#settingsToggle');
+settingsToggle.addEventListener('click', () => {
+  const open = panel.classList.toggle('settings-open');
+  settingsToggle.setAttribute('aria-expanded', String(open));
+  settingsToggle.setAttribute('aria-label', open ? 'Tutup pengaturan' : 'Buka pengaturan');
+});
+settingsToggle.setAttribute('aria-label', 'Buka pengaturan');
 const chooser = $('#fbxFiles');
 chooser.addEventListener('change', async event => {
   const files = Array.from(event.target.files || []);
@@ -334,8 +350,17 @@ window.__lembahDiagnostics = () => ({
       uv0: uv ? [uv.getX(0), uv.getY(0)] : null, materialType: mesh?.material?.type };
   })
 });
-function resize(){ camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); }
+let lastCompact = compactView();
+function resize(){
+  const nextCompact = compactView();
+  if (lastCompact !== nextCompact) { homeCamera(); lastCompact = nextCompact; }
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, nextCompact ? 1.5 : 2));
+  renderer.setSize(innerWidth, innerHeight);
+}
 addEventListener('resize', resize);
+resize();
 function animate(){
   requestAnimationFrame(animate);
   const delta = Math.min(clock.getDelta(), .075);
