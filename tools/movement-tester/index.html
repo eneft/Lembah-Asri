@@ -12,7 +12,8 @@ header{position:fixed;z-index:5;left:15px;top:calc(12px + env(safe-area-inset-to
 header b{display:block;font-size:16px}header span{font-size:11px;opacity:.8}
 #status{position:fixed;top:calc(58px + env(safe-area-inset-top));left:15px;z-index:6;border-radius:10px;background:#193a3ee4;padding:8px 11px;max-width:min(76vw,380px);font-size:11px;line-height:1.4}
 #status.error{background:#713b3e}
-#retry[hidden],#uploadPanel[hidden],.slot input{display:none!important}
+#retry[hidden],#uploadPanel[hidden]{display:none!important}
+.slot input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 #retry{position:fixed;top:calc(117px + env(safe-area-inset-top));left:15px;z-index:7}
 button,.pick{appearance:none;border:1px solid #88b3a9;background:#22454a;color:#f0faf5;border-radius:11px;padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation}
 button:focus-visible,.pick:focus-visible,input:focus-visible{outline:3px solid #d1eda6;outline-offset:2px}
