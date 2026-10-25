@@ -161,6 +161,9 @@ async function assignFile(slot,file){
     const asset=loader.parse(buffer,'');
     const original=asset.animations?.[0];
     const clip=mapToBaseRig(original,slot);
+    // Remove the previous action before replacing a clip; otherwise the old
+    // Running action may keep influencing the skeleton during a slot upload.
+    mixer.stopAllAction();
     if(slots[slot].clip)mixer.uncacheClip(slots[slot].clip);
     slots[slot].clip=clip;
     setSlotLabel(slot,file.name+' · '+Math.round(clip.userData.coverage*100)+'% rig cocok');
