@@ -1,3 +1,4 @@
+async function main() {
 const { chromium } = require('playwright');
 const { PNG } = require('pngjs');
 const fs = require('node:fs');
@@ -52,3 +53,6 @@ await browser.close();
 fs.writeFileSync('browser-evidence/report.json',JSON.stringify(out,null,2));
 console.log('BROWSER SUMMARY '+JSON.stringify(out.map(x=>({name:x.name,passed:x.passedHttpAndCanvas,errors:x.errors.length,requestsFailed:x.failedRequests.length}))));
 if(out.some(x=>!x.passedHttpAndCanvas))process.exitCode=1;
+
+}
+main().catch(e=>{console.error('QA script failure',e);process.exitCode=1;});
