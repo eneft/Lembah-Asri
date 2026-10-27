@@ -1,0 +1,36 @@
+name: Export Godot 4.3 Web Templates for itch.io QA
+on:
+  push:
+    branches: ['qa/v27-existing-run8-asset-transfer']
+permissions:
+  contents: read
+jobs:
+  web-templates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Godot 4.3 with export templates
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: true
+      - name: Capture official single-threaded web templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --version
+          find "$HOME/.local/share/godot/export_templates" -maxdepth 3 -type f -name '*web*.zip' -ls | head -25
+          mkdir -p v33_web_templates
+          cp "$HOME/.local/share/godot/export_templates/4.3.stable/web_release.zip" v33_web_templates/web_release.zip
+          cp "$HOME/.local/share/godot/export_templates/4.3.stable/web_debug.zip" v33_web_templates/web_debug.zip
+          (cd v33_web_templates && sha256sum *.zip > SHA256SUMS)
+          du -h v33_web_templates/*
+      - name: Archive web-only templates
+        uses: actions/upload-artifact@v4
+        with:
+          name: v33-godot-4-3-web-only-templates
+          path: v33_web_templates/
+          compression-level: 0
+          retention-days: 2
