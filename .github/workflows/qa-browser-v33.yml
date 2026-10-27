@@ -1,0 +1,30 @@
+name: V33 Published Browser QA (real Chrome)
+on:
+  push:
+    branches: ['qa/browser-v33-validation-20261028']
+permissions:
+  contents: read
+jobs:
+  browser-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Playwright
+        run: |
+          google-chrome --version
+          npm install --no-save playwright pngjs
+      - name: Test existing published site in real Chrome
+        run: |
+          set -o pipefail
+          node qa_browser/verify_published_browser.cjs 2>&1 | tee browser-test.log
+      - name: Upload browser screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v33-browser-qa-evidence
+          path: |
+            browser-evidence/
+            browser-test.log
+          retention-days: 7
+          if-no-files-found: warn
