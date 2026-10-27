@@ -23,14 +23,14 @@ jobs:
           godot --version
           find "$HOME/.local/share/godot/export_templates" -maxdepth 3 -type f -name '*web*.zip' -ls | head -25
           mkdir -p v33_web_templates
-          cp "$HOME/.local/share/godot/export_templates/4.3.stable/web_release.zip" v33_web_templates/web_release.zip
-          cp "$HOME/.local/share/godot/export_templates/4.3.stable/web_debug.zip" v33_web_templates/web_debug.zip
+          cp "$HOME/.local/share/godot/export_templates/4.3.stable/web_nothreads_release.zip" v33_web_templates/web_nothreads_release.zip
+          cp "$HOME/.local/share/godot/export_templates/4.3.stable/web_nothreads_debug.zip" v33_web_templates/web_nothreads_debug.zip
           (cd v33_web_templates && sha256sum *.zip > SHA256SUMS)
           du -h v33_web_templates/*
       - name: Archive web-only templates
         uses: actions/upload-artifact@v4
         with:
-          name: v33-godot-4-3-web-only-templates
+          name: v33-godot-4-3-nothreads-web-templates
           path: v33_web_templates/
           compression-level: 0
           retention-days: 2
