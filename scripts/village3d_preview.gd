@@ -9,6 +9,7 @@ const WOOD_COLOR := Color("876342")
 
 func _ready() -> void:
     super._ready()
+    camera.name = "Camera3D"
     camera.projection = Camera3D.PROJECTION_ORTHOGONAL
     camera.size = 30.0
     camera.far = 400.0
