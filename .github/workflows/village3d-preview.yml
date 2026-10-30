@@ -30,6 +30,6 @@ jobs:
       - name: Test isolated village preview
         run: |
           set -o pipefail
-          timeout 60s godot --headless --audio-driver Dummy --path . --script res://tests/village3d_preview_smoke.gd 2>&1 | tee village3d-preview.log
+          timeout 60s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path . --script res://tests/village3d_preview_smoke.gd 2>&1 | tee village3d-preview.log
           if grep -E 'SCRIPT ERROR|ERROR:|VILLAGE3D FAIL' village3d-preview.log; then exit 1; fi
           grep -q 'VILLAGE3D PREVIEW PASS' village3d-preview.log
