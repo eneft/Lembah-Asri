@@ -2,12 +2,14 @@ extends Node3D
 ## Standalone Godot 4.3 world: new isometric 3D village blockout, NOT legacy 2D.
 ## All meshes are temporary authored placeholders with named scene regions.
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
+const VILLAGE_ART = preload("res://scripts/village_art.gd")
 const TERRACOTTA := Color("b46748")
 const EARTH := Color("c1a479")
 const WOOD := Color("866146")
 const LEAVES := Color("5b9556")
 
 var player: CharacterBody3D
+var village_art: RefCounted
 var cam: Camera3D
 const DEFAULT_CAMERA_SIZE := 22.0
 const MIN_CAMERA_SIZE := 9.0
@@ -32,6 +34,7 @@ var camera_yaw := 0.0
 var camera_mode_label: Label
 
 func _ready() -> void:
+    village_art = VILLAGE_ART.new()
     _world_light()
     _ground()
     _make_map()
@@ -178,52 +181,20 @@ func _ground() -> void:
     _collision(ground, "GroundPhysics", Vector3(0, -0.45, 0), Vector3(138, 0.9, 120))
 
 func _path(parent: Node3D, pos: Vector3, dimensions: Vector3) -> void:
-    _box(parent, "JalanTanah", pos, dimensions, EARTH)
+    var road := _box(parent, "JalanTanahBertekstur", pos, dimensions, EARTH)
+    road.material_override = village_art._material("soil")
 
 func _tree(parent: Node3D, at: Vector3, scale_factor: float = 1.0) -> void:
-    var tree := Node3D.new()
-    tree.name = "PohonTropis"
-    tree.position = at
-    tree.scale = Vector3.ONE * scale_factor
-    parent.add_child(tree)
-    _box(tree, "Batang", Vector3(0, 2.0, 0), Vector3(0.6, 4.0, 0.6), WOOD)
-    _sphere(tree, "DaunA", Vector3(-0.6, 4.15, 0), 1.55, LEAVES)
-    _sphere(tree, "DaunB", Vector3(0.8, 4.5, 0.3), 1.75, Color("71a863"))
-    _sphere(tree, "DaunC", Vector3(0, 5.2, -0.6), 1.45, Color("7cae67"))
+    village_art.build_tree(parent, at, scale_factor)
 
 func _palm(parent: Node3D, at: Vector3) -> void:
-    var palm := Node3D.new()
-    palm.name = "Kelapa"
-    palm.position = at
-    parent.add_child(palm)
-    _box(palm, "BatangKelapa", Vector3(0, 2.9, 0), Vector3(0.36, 5.8, 0.36), Color("9a784c"))
-    for offset in [Vector3(-1.25, 5.8, 0), Vector3(1.25, 5.8, 0), Vector3(0, 5.8, -1.25), Vector3(0, 5.8, 1.25)]:
-        var leaf := _sphere(palm, "Pelepah", offset, 1.05, Color("508d52"))
-        leaf.scale = Vector3(1.6, 0.2, 0.65) if absf(offset.x) > 0.01 else Vector3(0.65, 0.2, 1.6)
+    village_art.build_palm(parent, at)
+
+func _banana(parent: Node3D, at: Vector3) -> void:
+    village_art.build_banana(parent, at)
 
 func _house(parent: Node3D, pos: Vector3, abandoned: bool) -> void:
-    var house := Node3D.new()
-    house.name = "RumahMasaKecilTerbengkalai" if abandoned else "RumahKampungJawa"
-    house.position = pos
-    parent.add_child(house)
-    _box(house, "DindingKapuran", Vector3(0, 1.4, 0), Vector3(6.5, 2.8, 5.3), Color("d4c4a4") if abandoned else Color("ebdec1"))
-    # Traditional simple SINGLE ridge clay-tile roof, not tiered pagoda.
-    var left := _box(house, "GentengKiri", Vector3(-1.5, 3.40, 0), Vector3(4.12, 0.24, 6.65), TERRACOTTA)
-    left.rotation.z = -0.32
-    var right := _box(house, "GentengKanan", Vector3(1.5, 3.40, 0), Vector3(4.12, 0.24, 6.65), TERRACOTTA)
-    right.rotation.z = 0.32
-    _box(house, "Teras", Vector3(0, 0.12, 3.6), Vector3(7.2, 0.22, 2.3), Color("bfa88a"))
-    for side in [-3.0, 3.0]:
-        _box(house, "TiangTeras", Vector3(side, 1.5, 4.1), Vector3(0.2, 3.0, 0.2), WOOD)
-    _box(house, "PintuKayu", Vector3(0, 1.2, 2.7), Vector3(1.45, 2.3, 0.12), Color("78543d"))
-    for x in [-2.1, 2.1]:
-        _box(house, "JendelaKayu", Vector3(x, 1.68, 2.74), Vector3(1.12, 1.26, 0.12), Color("79664c"))
-        _box(house, "BingkaiJendela", Vector3(x, 1.68, 2.83), Vector3(0.07, 1.26, 0.13), Color("533e2e"))
-    if abandoned:
-        for x in [-2.0, -0.6, 1.9]:
-            _sphere(house, "LumutAtap", Vector3(x, 3.7, 0.2), 0.28, Color("688354"))
-            _sphere(house, "SemakTeras", Vector3(x, 0.3, 4.3), 0.40, Color("5e894f"))
-    _collision(house, "DindingCollision", Vector3(0, 1.4, 0), Vector3(6.4, 2.8, 5.1))
+    village_art.build_house(parent, pos, abandoned)
 
 func _boat(parent: Node3D, at: Vector3) -> void:
     var boat := Node3D.new()
@@ -257,6 +228,8 @@ func _make_map() -> void:
             for i in range(3):
                 _sphere(family, "BibitTanaman", Vector3(x - 0.8 + i * 0.75, 0.50, z), 0.24, LEAVES)
     _palm(family, Vector3(-60, 0, -39))
+    _banana(family, Vector3(-56, 0, -34))
+    _banana(family, Vector3(-34, 0, -33))
     _tree(family, Vector3(-33, 0, -42), 1.0)
 
     # Dirt village paths and basic single-ridge Javanese houses.
@@ -268,6 +241,9 @@ func _make_map() -> void:
         Vector3(-7, 0.0, 28), Vector3(6, 0.0, 31), Vector3(20, 0.0, 28)
     ]:
         _house(village, pos, false)
+
+    _banana(village, Vector3(-2, 0, 36))
+    _banana(village, Vector3(26, 0, 34))
 
     # OPEN communal ground: deliberately no football pitch or goal.
     _box(commons, "LapanganTanahWarga", Vector3(8, 0.15, 5), Vector3(23, 0.13, 16), EARTH)
@@ -315,6 +291,7 @@ func _make_map() -> void:
         _boat(port, Vector3(57, 0.22, z))
     for pos in [Vector3(39, 0, -33), Vector3(39, 0, 34)]:
         _palm(coast, pos)
+    _banana(coast, Vector3(36, 0, 41))
 
 func _make_player() -> void:
     player = CharacterBody3D.new()
