@@ -7,6 +7,13 @@ const JUMP_SPEED := 8.6
 
 var _jump_was_down := false
 
+func _ready() -> void:
+    floor_snap_length = 0.35
+    floor_max_angle = deg_to_rad(50.0)
+    floor_stop_on_slope = true
+    safe_margin = 0.02
+    max_slides = 6
+
 func _read_movement_direction() -> Vector3:
     var direction := Vector3.ZERO
     if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP) or Input.is_action_pressed("touch_forward"):

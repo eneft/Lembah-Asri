@@ -314,7 +314,7 @@ func _load_island() -> void:
         var mesh := child as MeshInstance3D
         var label := str(mesh.name)
         # Water and vegetation stay non-solid. Terrain, roads and structures are walkable.
-        if label.begins_with("01_") or label.begins_with("04_") or label.begins_with("05_") or label.begins_with("06_FARM_Paddy") or label.begins_with("07_") or label.begins_with("08_") or label.begins_with("09_") or label.begins_with("10_"):
+        if label.begins_with("01_") or label.begins_with("04_") or label.begins_with("05_") or label.begins_with("06_FARM_Paddy") or label.begins_with("07_") or label.begins_with("08_") or label.begins_with("09_") or label.begins_with("10_") or label.begins_with("11_") or label.begins_with("12_") or label.ends_with("Trunks") or label.begins_with("14_"):
             mesh.create_trimesh_collision()
 
 func _physics_process(_delta: float) -> void:

@@ -59,6 +59,7 @@ func _load_character() -> void:
         warnings.append("AnimationPlayer tidak ditemukan dalam Orc Idle.fbx")
         return
 
+    var idle_reference := _choose_clip(animator)
     var library := AnimationLibrary.new()
     for state in CLIPS:
         var imported_scene: Node3D = null
@@ -86,6 +87,7 @@ func _load_character() -> void:
                 if imported_player != animator and imported_player.root_node != animator.root_node:
                     warnings.append("Periksa root path animasi: " + state)
                 var clean_clip: Animation = clip.duplicate(true) as Animation
+                _anchor_motion_roots(clean_clip, idle_reference, state == "jump")
                 clean_clip.loop_mode = Animation.LOOP_NONE if state == "jump" else Animation.LOOP_LINEAR
                 var err := library.add_animation(state, clean_clip)
                 if err == OK:
@@ -145,3 +147,31 @@ func play_state(next_state: String) -> void:
     # Jump Over is 1.933 seconds; speed it up to match ~0.9s physical airtime.
     var playback_speed := 2.05 if next_state == "jump" else 1.0
     animator.play("lembah/" + next_state, 0.12, playback_speed)
+
+func _anchor_motion_roots(clip: Animation, idle_reference: Animation, jumping: bool) -> void:
+    # CharacterBody3D owns world travel. Mixamo Jump Over contains forward hip motion.
+    # Anchor only skeleton root translation; retain every limb rotation/translation.
+    var roots: Array[String] = []
+    for node in model_root.find_children("*", "Skeleton3D", true, false):
+        var skeleton := node as Skeleton3D
+        for bone in range(skeleton.get_bone_count()):
+            if skeleton.get_bone_parent(bone) == -1:
+                roots.append(skeleton.get_bone_name(bone))
+    for track in range(clip.get_track_count()):
+        if clip.track_get_type(track) != Animation.TYPE_POSITION_3D:
+            continue
+        var path := clip.track_get_path(track)
+        if path.get_subname_count() != 1 or str(path.get_subname(0)) not in roots:
+            continue
+        var idle_track := idle_reference.find_track(path, Animation.TYPE_POSITION_3D)
+        if idle_track < 0 or idle_reference.track_get_key_count(idle_track) == 0:
+            continue
+        var anchor: Vector3 = idle_reference.track_get_key_value(idle_track, 0)
+        for key in range(clip.track_get_key_count(track)):
+            var position: Vector3 = clip.track_get_key_value(track, key)
+            position.x = anchor.x
+            position.z = anchor.z
+            # The physical jump supplies height, avoiding a second animated leap.
+            if jumping:
+                position.y = anchor.y
+            clip.track_set_key_value(track, key, position)
