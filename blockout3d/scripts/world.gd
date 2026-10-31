@@ -9,7 +9,12 @@ const LEAVES := Color("5b9556")
 
 var player: CharacterBody3D
 var cam: Camera3D
-var zoom := 46.0
+const DEFAULT_CAMERA_SIZE := 22.0
+const MIN_CAMERA_SIZE := 9.0
+const MAX_CAMERA_SIZE := 65.0
+const ZOOM_STEP := 2.0
+
+var zoom := DEFAULT_CAMERA_SIZE
 
 func _ready() -> void:
     _world_light()
@@ -29,9 +34,9 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventMouseButton and event.pressed:
         if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-            zoom = maxf(19.0, zoom - 3.0)
+            zoom = maxf(MIN_CAMERA_SIZE, zoom - ZOOM_STEP)
         elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-            zoom = minf(85.0, zoom + 3.0)
+            zoom = minf(MAX_CAMERA_SIZE, zoom + ZOOM_STEP)
         cam.size = zoom
 
 func _mat(color: Color) -> StandardMaterial3D:

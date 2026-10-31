@@ -28,6 +28,34 @@ func _run() -> void:
         push_error("BLOCKOUT3D FAIL: camera must be orthogonal")
         quit(1)
         return
+    # Prevent regression to the old very distant overview camera.
+    if not is_equal_approx(camera.size, 22.0):
+        push_error("BLOCKOUT3D FAIL: default camera is not close enough")
+        quit(1)
+        return
+    var zoom_in := InputEventMouseButton.new()
+    zoom_in.button_index = MOUSE_BUTTON_WHEEL_UP
+    zoom_in.pressed = true
+    world._unhandled_input(zoom_in)
+    if not is_equal_approx(camera.size, 20.0):
+        push_error("BLOCKOUT3D FAIL: mouse wheel zoom-in did not work")
+        quit(1)
+        return
+    for i in range(20):
+        world._unhandled_input(zoom_in)
+    if not is_equal_approx(camera.size, 9.0):
+        push_error("BLOCKOUT3D FAIL: minimum camera size must be 9")
+        quit(1)
+        return
+    var zoom_out := InputEventMouseButton.new()
+    zoom_out.button_index = MOUSE_BUTTON_WHEEL_DOWN
+    zoom_out.pressed = true
+    for i in range(40):
+        world._unhandled_input(zoom_out)
+    if not is_equal_approx(camera.size, 65.0):
+        push_error("BLOCKOUT3D FAIL: maximum zoom-out should be capped at 65")
+        quit(1)
+        return
     if world.get_node("03_LapanganKumpulWarga").get_child_count() < 3:
         push_error("BLOCKOUT3D FAIL: missing community square props")
         quit(1)
