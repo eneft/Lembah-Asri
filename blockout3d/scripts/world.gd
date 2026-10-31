@@ -39,6 +39,7 @@ func _ready() -> void:
     _make_camera()
     _apply_camera_preset()
     _make_hud()
+    _make_touch_controls()
     print("LEMBAH ASRI NEW 3D BLOCKOUT READY: standalone world, ortho camera, villages, garden, forest, hills, commons, coast")
 
 func _process(delta: float) -> void:
@@ -68,8 +69,11 @@ func _unhandled_input(event: InputEvent) -> void:
             _rotate_camera(-event.relative.x * CAMERA_DRAG_SENSITIVITY)
             return
     if event is InputEventScreenDrag:
-        # One-finger horizontal swipe on empty gameplay area rotates the orbit.
-        _rotate_camera(-event.relative.x * CAMERA_DRAG_SENSITIVITY)
+        # Reserve the lower screen zone for multi-touch D-pad, Run and Jump.
+        # Swipes in the upper gameplay area still orbit the camera.
+        var viewport_height := get_viewport().get_visible_rect().size.y
+        if event.position.y < viewport_height - minf(230.0, viewport_height * 0.35):
+            _rotate_camera(-event.relative.x * CAMERA_DRAG_SENSITIVITY)
         return
     if event is InputEventMouseButton and event.pressed:
         if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -368,7 +372,7 @@ func _make_hud() -> void:
     var controls := Label.new()
     controls.name = "Controls"
     controls.position = Vector2(18, 51)
-    controls.text = "WASD: Jalan  •  Shift: Lari  •  Space: Lompat  •  Scroll: Zoom  •  C: Kamera  •  Q/E: Putar"
+    controls.text = "WASD: Jalan  •  Shift: Lari  •  Space: Lompat  •  C: Kamera  •  Q/E: Putar  •  Sentuh: Arah/Lari/Lompat"
     var avatar_status := Label.new()
     avatar_status.name = "AvatarStatus"
     avatar_status.position = Vector2(18, 80)
@@ -422,3 +426,13 @@ func _make_hud() -> void:
     turn_right.custom_minimum_size = Vector2(88.0, 48.0)
     turn_right.pressed.connect(_rotate_camera.bind(CAMERA_ORBIT_STEP))
     orbit_controls.add_child(turn_right)
+
+func _make_touch_controls() -> void:
+    var touch_layer := CanvasLayer.new()
+    touch_layer.name = "TouchControls"
+    touch_layer.layer = 2
+    add_child(touch_layer)
+    var buttons := Node2D.new()
+    buttons.name = "Buttons"
+    buttons.set_script(preload("res://scripts/mobile_controls.gd"))
+    touch_layer.add_child(buttons)
