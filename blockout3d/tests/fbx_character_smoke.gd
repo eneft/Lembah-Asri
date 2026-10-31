@@ -47,9 +47,11 @@ func _test() -> void:
         push_error("FBX ANIMATION FAIL: placeholder still visible after FBX load")
         quit(1)
         return
+    # Suspend the live input/physics state machine while checking direct clip transitions.
+    # Otherwise the world player immediately overwrites the test state after every frame.
+    world.get_node("Player3D").set_physics_process(false)
     for name in ["idle", "walk", "run", "jump", "idle"]:
         actor.call("play_state", name)
-        await process_frame
         if actor.get("current_state") != name:
             push_error("FBX ANIMATION FAIL: cannot switch to " + name)
             quit(1)
