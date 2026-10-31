@@ -166,7 +166,7 @@ func _run() -> void:
         Input.action_release(mobile_action)
     var old_yaw: float = float(world.get("camera_yaw"))
     var bottom_drag := InputEventScreenDrag.new()
-    bottom_drag.position = Vector2(100, get_viewport().get_visible_rect().size.y - 65.0)
+    bottom_drag.position = Vector2(100, root.get_visible_rect().size.y - 65.0)
     bottom_drag.relative = Vector2(120, 0)
     world._unhandled_input(bottom_drag)
     if absf(float(world.get("camera_yaw")) - old_yaw) > 0.001:
