@@ -1,0 +1,47 @@
+name: Standalone New 3D Blockout Smoke and Web Export
+
+on:
+  pull_request:
+    paths:
+      - 'blockout3d/**'
+      - '.github/workflows/blockout3d-check.yml'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  standalone-blockout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Godot 4.3 and Web export templates
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: true
+      - name: Import the independent 3D project (NOT root 2D)
+        run: godot --headless --path blockout3d --editor --quit
+      - name: Run the actual 3D scene smoke using Compatibility renderer
+        run: |
+          set -o pipefail
+          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/smoke.gd 2>&1 | tee blockout3d-smoke.log
+          if grep -E 'SCRIPT ERROR|ERROR:|BLOCKOUT3D FAIL' blockout3d-smoke.log; then exit 1; fi
+          grep -q 'BLOCKOUT3D PASS:' blockout3d-smoke.log
+      - name: Export playable standalone Web build
+        run: |
+          mkdir -p blockout3d/web-preview
+          godot --headless --path blockout3d --export-release Web "$GITHUB_WORKSPACE/blockout3d/web-preview/index.html"
+          test -s blockout3d/web-preview/index.html
+          test -s blockout3d/web-preview/index.wasm
+          test -s blockout3d/web-preview/index.pck
+      - name: Save 3D Web preview artifact for PR review
+        uses: actions/upload-artifact@v4
+        with:
+          name: lembah-asri-blockout3d-web
+          path: blockout3d/web-preview
+          retention-days: 7
