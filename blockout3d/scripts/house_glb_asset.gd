@@ -59,7 +59,7 @@ func build_childhood_house(parent: Node3D, at: Vector3) -> bool:
     var bounds := _bounds(model)
     var longest := maxf(bounds.size.x, bounds.size.z)
     if longest < 0.01 or bounds.size.y < 0.01:
-        house.queue_free()
+        house.free()
         push_warning("HOUSE GLB: invalid source mesh dimensions")
         return false
 
