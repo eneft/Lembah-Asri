@@ -32,6 +32,12 @@ jobs:
           timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/smoke.gd 2>&1 | tee blockout3d-smoke.log
           if grep -E 'SCRIPT ERROR|ERROR:|BLOCKOUT3D FAIL' blockout3d-smoke.log; then exit 1; fi
           grep -q 'BLOCKOUT3D PASS:' blockout3d-smoke.log
+      - name: Verify four Mixamo FBX animation states (or explicit pending status)
+        run: |
+          set -o pipefail
+          timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/fbx_character_smoke.gd 2>&1 | tee fbx-character.log
+          if grep -E 'SCRIPT ERROR|ERROR:|FBX ANIMATION FAIL' fbx-character.log; then exit 1; fi
+          grep -Eq 'FBX ANIMATION (PASS|PENDING):' fbx-character.log
       - name: Export playable standalone Web build
         run: |
           mkdir -p blockout3d/web-preview
