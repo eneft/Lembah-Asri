@@ -111,6 +111,7 @@ func _surface(parent: Node3D, name: String, vertices: Array[Vector3], uv_size: V
         st.set_uv(uv[index])
         st.add_vertex(vertices[index])
     st.generate_normals()
+    st.generate_tangents()
     var node := MeshInstance3D.new()
     node.name = name
     node.mesh = st.commit()
@@ -153,6 +154,7 @@ func _frond(parent: Node3D, name: String, base: Vector3, heading: Vector3, lengt
             st.set_uv(uvs[idx] * 2.0)
             st.add_vertex(points[idx])
     st.generate_normals()
+    st.generate_tangents()
     var leaf := MeshInstance3D.new()
     leaf.name = name
     leaf.mesh = st.commit()
