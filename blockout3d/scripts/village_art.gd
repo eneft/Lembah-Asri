@@ -142,10 +142,11 @@ func _frond(parent: Node3D, name: String, base: Vector3, heading: Vector3, lengt
         var t0 := float(i) / 6.0
         var t1 := float(i + 1) / 6.0
         var edge_points: Array[Vector3] = []
-        for t in [t0, t1]:
-            var lift := (0.9 if banana else 0.55) * sin(t * PI) - (0.85 if banana else 1.15) * t * t
-            var mid := base + heading * (length * t) + Vector3.UP * lift
-            var half_width := width * sin(t * PI) * 0.5 + 0.018
+        for t_index in range(2):
+            var t: float = t0 if t_index == 0 else t1
+            var lift: float = (0.9 if banana else 0.55) * sin(t * PI) - (0.85 if banana else 1.15) * t * t
+            var mid: Vector3 = base + heading * (length * t) + Vector3.UP * lift
+            var half_width: float = width * sin(t * PI) * 0.5 + 0.018
             edge_points.append(mid - sideways * half_width)
             edge_points.append(mid + sideways * half_width)
         var points: Array[Vector3] = [edge_points[0], edge_points[1], edge_points[3], edge_points[0], edge_points[3], edge_points[2]]
