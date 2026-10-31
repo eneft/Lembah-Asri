@@ -307,7 +307,9 @@ func _make_hud() -> void:
     avatar_status.add_theme_font_size_override("font_size", 15)
     avatar_status.add_theme_color_override("font_color", Color("fff2d4"))
     var character_node := player.get_node_or_null("Visual/FbxCharacter")
-    var fbx_ready := character_node != null and character_node.has_method("is_model_ready") and character_node.call("is_model_ready")
+    var fbx_ready: bool = false
+    if character_node != null and character_node.has_method("is_model_ready"):
+        fbx_ready = bool(character_node.call("is_model_ready"))
     avatar_status.text = "4 FBX: Idle / Walk / Run / Jump aktif" if fbx_ready else "Model sementara — 4 FBX belum lengkap di GitHub"
     layer.add_child(avatar_status)
     controls.add_theme_font_size_override("font_size", 17)
