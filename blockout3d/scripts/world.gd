@@ -23,8 +23,12 @@ const CAMERA_OFFSETS := [
 const CAMERA_SIZES := [22.0, 16.0]
 const CAMERA_NAMES := ["Isometric", "Low Angle"]
 
+const CAMERA_ORBIT_STEP := PI / 6.0
+const CAMERA_DRAG_SENSITIVITY := 0.009
+
 var camera_mode := 1
 var zoom := 16.0
+var camera_yaw := 0.0
 var camera_mode_label: Label
 
 func _ready() -> void:
@@ -40,7 +44,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
     if is_instance_valid(player) and is_instance_valid(cam):
         var focus := player.global_position + Vector3(0.0, 1.2, 0.0)
-        var offset: Vector3 = CAMERA_OFFSETS[camera_mode]
+        # Orbit around the player without changing the original camera presets.
+        var offset: Vector3 = Basis(Vector3.UP, camera_yaw) * CAMERA_OFFSETS[camera_mode]
         cam.global_position = cam.global_position.lerp(focus + offset, minf(1.0, delta * 4.0))
         cam.look_at(focus, Vector3.UP)
 
@@ -49,6 +54,23 @@ func _unhandled_input(event: InputEvent) -> void:
         if event.keycode == KEY_C or event.physical_keycode == KEY_C:
             _toggle_camera_mode()
             return
+        if event.keycode == KEY_Q or event.physical_keycode == KEY_Q:
+            _rotate_camera(-CAMERA_ORBIT_STEP)
+            return
+        if event.keycode == KEY_E or event.physical_keycode == KEY_E:
+            _rotate_camera(CAMERA_ORBIT_STEP)
+            return
+        if event.keycode == KEY_R or event.physical_keycode == KEY_R:
+            _reset_camera_rotation()
+            return
+    if event is InputEventMouseMotion:
+        if (event.button_mask & MOUSE_BUTTON_MASK_RIGHT) != 0:
+            _rotate_camera(-event.relative.x * CAMERA_DRAG_SENSITIVITY)
+            return
+    if event is InputEventScreenDrag:
+        # One-finger horizontal swipe on empty gameplay area rotates the orbit.
+        _rotate_camera(-event.relative.x * CAMERA_DRAG_SENSITIVITY)
+        return
     if event is InputEventMouseButton and event.pressed:
         if event.button_index == MOUSE_BUTTON_WHEEL_UP:
             zoom = maxf(MIN_CAMERA_SIZE, zoom - ZOOM_STEP)
@@ -60,8 +82,21 @@ func _apply_camera_preset() -> void:
     zoom = CAMERA_SIZES[camera_mode]
     if is_instance_valid(cam):
         cam.size = zoom
+    _update_camera_mode_label()
+
+func _update_camera_mode_label() -> void:
     if is_instance_valid(camera_mode_label):
-        camera_mode_label.text = "Kamera: " + CAMERA_NAMES[camera_mode] + "  |  C: Ganti sudut"
+        camera_mode_label.text = "Kamera: %s  |  Orbit: %d°  |  C: Mode  •  Q/E: Putar  •  R: Reset" % [
+            CAMERA_NAMES[camera_mode], roundi(rad_to_deg(camera_yaw))
+        ]
+
+func _rotate_camera(amount: float) -> void:
+    camera_yaw = wrapf(camera_yaw + amount, -PI, PI)
+    _update_camera_mode_label()
+
+func _reset_camera_rotation() -> void:
+    camera_yaw = 0.0
+    _update_camera_mode_label()
 
 func _toggle_camera_mode() -> void:
     camera_mode = (camera_mode + 1) % CAMERA_OFFSETS.size()
@@ -333,7 +368,7 @@ func _make_hud() -> void:
     var controls := Label.new()
     controls.name = "Controls"
     controls.position = Vector2(18, 51)
-    controls.text = "WASD: Jalan  •  Shift: Lari  •  Space: Lompat  •  Scroll: Zoom  •  C: Kamera"
+    controls.text = "WASD: Jalan  •  Shift: Lari  •  Space: Lompat  •  Scroll: Zoom  •  C: Kamera  •  Q/E: Putar"
     var avatar_status := Label.new()
     avatar_status.name = "AvatarStatus"
     avatar_status.position = Vector2(18, 80)
@@ -355,3 +390,35 @@ func _make_hud() -> void:
     camera_mode_label.add_theme_color_override("font_color", Color("fff2d4"))
     layer.add_child(camera_mode_label)
     _apply_camera_preset()
+
+    # Accessible buttons for mobile/touch users; right-mouse drag also works on desktop.
+    var orbit_controls := HBoxContainer.new()
+    orbit_controls.name = "OrbitControls"
+    orbit_controls.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+    orbit_controls.offset_left = -292.0
+    orbit_controls.offset_right = -12.0
+    orbit_controls.offset_top = 14.0
+    orbit_controls.offset_bottom = 64.0
+    orbit_controls.add_theme_constant_override("separation", 6)
+    layer.add_child(orbit_controls)
+
+    var turn_left := Button.new()
+    turn_left.name = "OrbitLeft"
+    turn_left.text = "↶ Putar"
+    turn_left.custom_minimum_size = Vector2(88.0, 48.0)
+    turn_left.pressed.connect(_rotate_camera.bind(-CAMERA_ORBIT_STEP))
+    orbit_controls.add_child(turn_left)
+
+    var reset_orbit := Button.new()
+    reset_orbit.name = "OrbitReset"
+    reset_orbit.text = "Reset"
+    reset_orbit.custom_minimum_size = Vector2(76.0, 48.0)
+    reset_orbit.pressed.connect(_reset_camera_rotation)
+    orbit_controls.add_child(reset_orbit)
+
+    var turn_right := Button.new()
+    turn_right.name = "OrbitRight"
+    turn_right.text = "Putar ↷"
+    turn_right.custom_minimum_size = Vector2(88.0, 48.0)
+    turn_right.pressed.connect(_rotate_camera.bind(CAMERA_ORBIT_STEP))
+    orbit_controls.add_child(turn_right)
