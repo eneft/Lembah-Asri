@@ -196,5 +196,59 @@ func _run() -> void:
         push_error("BLOCKOUT3D FAIL: fishing boats or dock missing")
         quit(1)
         return
-    print("BLOCKOUT3D PASS: regions, two camera modes, close zoom, keyboard/drag/touch orbit, multi-touch run+jump, player and dock")
+    # Visual art regression: roofs must be pitched UV meshes with actual painted
+    # textures and normal maps; tree leaves must no longer be primitive spheres.
+    var family_house: Node3D = world.get_node_or_null("01_RumahTerpisahDanKebun/RumahMasaKecilTerbengkalai") as Node3D
+    if family_house == null:
+        push_error("BLOCKOUT3D FAIL: childhood house missing")
+        quit(1)
+        return
+    var roof: MeshInstance3D = family_house.get_node_or_null("GentengTanahLiatKiri") as MeshInstance3D
+    var roof_other: MeshInstance3D = family_house.get_node_or_null("GentengTanahLiatKanan") as MeshInstance3D
+    if roof == null or roof_other == null or not (roof.mesh is ArrayMesh):
+        push_error("BLOCKOUT3D FAIL: mesh roof must use a proper pitched surface")
+        quit(1)
+        return
+    var roof_mat: StandardMaterial3D = roof.material_override as StandardMaterial3D
+    if roof_mat == null or roof_mat.albedo_texture == null or not roof_mat.normal_enabled or roof_mat.normal_texture == null:
+        push_error("BLOCKOUT3D FAIL: roof painted albedo/normal textures are missing")
+        quit(1)
+        return
+    var roof_arrays: Array = roof.mesh.surface_get_arrays(0)
+    if (roof_arrays[Mesh.ARRAY_TEX_UV] as PackedVector2Array).size() < 4:
+        push_error("BLOCKOUT3D FAIL: the roof lacks authored UV coordinates")
+        quit(1)
+        return
+    if family_house.get_node_or_null("KanopiTeras") == null or family_house.get_node_or_null("DindingCollision") == null:
+        push_error("BLOCKOUT3D FAIL: realistic terrace or house collision was removed")
+        quit(1)
+        return
+    var banana: Node3D = world.get_node_or_null("01_RumahTerpisahDanKebun/PohonPisang") as Node3D
+    var coconut: Node3D = world.get_node_or_null("01_RumahTerpisahDanKebun/KelapaBerpelepah") as Node3D
+    var tropical_tree: Node3D = world.get_node_or_null("04_HutanTropis/PohonTropisBerdaun") as Node3D
+    if banana == null or coconut == null or tropical_tree == null:
+        push_error("BLOCKOUT3D FAIL: distinct banana/coconut/broadleaf vegetation missing")
+        quit(1)
+        return
+    # Godot auto-renames duplicate generated node names. Inspect geometry
+    # instead of relying on node names or owner flags.
+    var banana_ribbons := 0
+    for child in banana.get_children():
+        var leaf_mesh := child as MeshInstance3D
+        if leaf_mesh != null and leaf_mesh.mesh is ArrayMesh:
+            banana_ribbons += 1
+    if banana_ribbons < 7:
+        push_error("BLOCKOUT3D FAIL: expected 7 banana leaf ribbon meshes, got " + str(banana_ribbons))
+        quit(1)
+        return
+    var coconut_ribbons := 0
+    for child in coconut.get_children():
+        var leaf_mesh := child as MeshInstance3D
+        if leaf_mesh != null and leaf_mesh.mesh is ArrayMesh:
+            coconut_ribbons += 1
+    if coconut_ribbons < 9:
+        push_error("BLOCKOUT3D FAIL: expected 9 coconut fronds, got " + str(coconut_ribbons))
+        quit(1)
+        return
+    print("BLOCKOUT3D PASS: regions, two camera modes, close zoom, keyboard/drag/touch orbit, multi-touch run+jump, UV painted homes and distinct vegetation")
     quit(0)
