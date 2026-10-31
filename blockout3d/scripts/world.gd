@@ -160,7 +160,7 @@ func _world_light() -> void:
     var sun := DirectionalLight3D.new()
     sun.name = "PagiJawa"
     sun.rotation_degrees = Vector3(-52, 30, -15)
-    sun.light_energy = 1.3
+    sun.light_energy = 1.0
     sun.shadow_enabled = true
     add_child(sun)
     var world_env := WorldEnvironment.new()
@@ -170,7 +170,7 @@ func _world_light() -> void:
     env.background_color = Color("b5d4d8")
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color("eff1db")
-    env.ambient_light_energy = 0.75
+    env.ambient_light_energy = 0.45
     world_env.environment = env
     add_child(world_env)
 
@@ -247,7 +247,7 @@ func _make_hud() -> void:
     house_status.position = Vector2(18, 137)
     house_status.add_theme_font_size_override("font_size", 14)
     house_status.add_theme_color_override("font_color", Color("fff2d4"))
-    house_status.text = "Pulau v01: terrain, sungai, sawah, desa, dan dermaga"
+    house_status.text = "18 rumah tropis bertekstur • Genteng, dinding, kayu dan teras"
     layer.add_child(house_status)
     controls.add_theme_font_size_override("font_size", 17)
     controls.add_theme_color_override("font_color", Color("fff2d4"))
@@ -313,9 +313,15 @@ func _load_island() -> void:
     for child in island.find_children("*", "MeshInstance3D", true, false):
         var mesh := child as MeshInstance3D
         var label := str(mesh.name)
+        if label.begins_with("07_HOUSE_"):
+            mesh.hide()
+            continue
         # Water and vegetation stay non-solid. Terrain, roads and structures are walkable.
         if label.begins_with("01_") or label.begins_with("04_") or label.begins_with("05_") or label.begins_with("06_FARM_Paddy") or label.begins_with("07_") or label.begins_with("08_") or label.begins_with("09_") or label.begins_with("10_") or label.begins_with("11_") or label.begins_with("12_") or label.ends_with("Trunks") or label.begins_with("14_"):
             mesh.create_trimesh_collision()
+
+    house_import = load("res://scripts/village_houses.gd").new()
+    house_import.populate(self, island)
 
 func _physics_process(_delta: float) -> void:
     if is_instance_valid(player) and player.position.y < -8.0:
