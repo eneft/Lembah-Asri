@@ -261,12 +261,19 @@ func _make_player() -> void:
     var visual := Node3D.new()
     visual.name = "Visual"
     player.add_child(visual)
-    _box(visual, "JaketKrem", Vector3(0, 1.08, 0), Vector3(0.67, 0.8, 0.4), Color("dbc9a7"))
-    _sphere(visual, "Kepala", Vector3(0, 1.85, 0), 0.34, Color("bc8c65"))
-    _box(visual, "TopiOlive", Vector3(0, 2.20, -0.05), Vector3(0.76, 0.13, 0.70), Color("5e7450"))
+    var placeholder := Node3D.new()
+    placeholder.name = "Placeholder"
+    visual.add_child(placeholder)
+    _box(placeholder, "JaketKrem", Vector3(0, 1.08, 0), Vector3(0.67, 0.8, 0.4), Color("dbc9a7"))
+    _sphere(placeholder, "Kepala", Vector3(0, 1.85, 0), 0.34, Color("bc8c65"))
+    _box(placeholder, "TopiOlive", Vector3(0, 2.20, -0.05), Vector3(0.76, 0.13, 0.70), Color("5e7450"))
     for x in [-0.18, 0.18]:
-        _box(visual, "Kaki", Vector3(x, 0.39, 0), Vector3(0.24, 0.77, 0.27), Color("697180"))
-    _box(visual, "Ransel", Vector3(0, 1.19, 0.30), Vector3(0.57, 0.76, 0.24), Color("607c55"))
+        _box(placeholder, "Kaki", Vector3(x, 0.39, 0), Vector3(0.24, 0.77, 0.27), Color("697180"))
+    _box(placeholder, "Ransel", Vector3(0, 1.19, 0.30), Vector3(0.57, 0.76, 0.24), Color("607c55"))
+    var fbx_character := Node3D.new()
+    fbx_character.name = "FbxCharacter"
+    fbx_character.set_script(preload("res://scripts/fbx_character.gd"))
+    visual.add_child(fbx_character)
 
 func _make_camera() -> void:
     cam = Camera3D.new()
@@ -293,7 +300,16 @@ func _make_hud() -> void:
     var controls := Label.new()
     controls.name = "Controls"
     controls.position = Vector2(18, 51)
-    controls.text = "WASD: Jalan  •  Shift: Lari  •  Scroll: Zoom  |  Rumah & kebun jauh dari desa"
+    controls.text = "WASD: Jalan  •  Shift: Lari  •  Space: Lompat  •  Scroll: Zoom"
+    var avatar_status := Label.new()
+    avatar_status.name = "AvatarStatus"
+    avatar_status.position = Vector2(18, 80)
+    avatar_status.add_theme_font_size_override("font_size", 15)
+    avatar_status.add_theme_color_override("font_color", Color("fff2d4"))
+    var character_node := player.get_node_or_null("Visual/FbxCharacter")
+    var fbx_ready := character_node != null and character_node.has_method("is_model_ready") and character_node.call("is_model_ready")
+    avatar_status.text = "4 FBX: Idle / Walk / Run / Jump aktif" if fbx_ready else "Model sementara — 4 FBX belum lengkap di GitHub"
+    layer.add_child(avatar_status)
     controls.add_theme_font_size_override("font_size", 17)
     controls.add_theme_color_override("font_color", Color("fff2d4"))
     layer.add_child(controls)
