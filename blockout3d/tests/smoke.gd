@@ -203,26 +203,64 @@ func _run() -> void:
         push_error("BLOCKOUT3D FAIL: childhood house missing")
         quit(1)
         return
-    var roof: MeshInstance3D = family_house.get_node_or_null("GentengTanahLiatKiri") as MeshInstance3D
-    var roof_other: MeshInstance3D = family_house.get_node_or_null("GentengTanahLiatKanan") as MeshInstance3D
-    if roof == null or roof_other == null or not (roof.mesh is ArrayMesh):
-        push_error("BLOCKOUT3D FAIL: mesh roof must use a proper pitched surface")
-        quit(1)
-        return
-    var roof_mat: StandardMaterial3D = roof.material_override as StandardMaterial3D
-    if roof_mat == null or roof_mat.albedo_texture == null or not roof_mat.normal_enabled or roof_mat.normal_texture == null:
-        push_error("BLOCKOUT3D FAIL: roof painted albedo/normal textures are missing")
-        quit(1)
-        return
-    var roof_arrays: Array = roof.mesh.surface_get_arrays(0)
-    if (roof_arrays[Mesh.ARRAY_TEX_UV] as PackedVector2Array).size() < 4:
-        push_error("BLOCKOUT3D FAIL: the roof lacks authored UV coordinates")
-        quit(1)
-        return
-    if family_house.get_node_or_null("KanopiTeras") == null or family_house.get_node_or_null("DindingCollision") == null:
-        push_error("BLOCKOUT3D FAIL: realistic terrace or house collision was removed")
-        quit(1)
-        return
+    var source_exists := ResourceLoader.exists("res://assets/environment/houses/main_house/rumah_utama.glb")
+    var glb_loaded := bool(world.get("house_asset_loaded"))
+    var house_indicator: Label = world.get_node("BlockoutHUD/HouseAssetStatus") as Label
+    if source_exists:
+        if not glb_loaded:
+            push_error("BLOCKOUT3D FAIL: uploaded original Meshy house was NOT substituted")
+            quit(1)
+            return
+        var model: Node3D = family_house.get_node_or_null("ModelGLBAsli") as Node3D
+        var imported_mesh_count := 0
+        if model != null:
+            imported_mesh_count = 1 if model is MeshInstance3D else 0
+            imported_mesh_count += model.find_children("*", "MeshInstance3D", true, false).size()
+        if imported_mesh_count == 0:
+            push_error("BLOCKOUT3D FAIL: user's house GLB mesh missing")
+            quit(1)
+            return
+        if family_house.get_node_or_null("GentengTanahLiatKiri") != null:
+            push_error("BLOCKOUT3D FAIL: procedural placeholder roof overlaps the original GLB")
+            quit(1)
+            return
+        if model.scale.x < 0.1 or model.scale.x > 100.0:
+            push_error("BLOCKOUT3D FAIL: Meshy GLB scale is invalid")
+            quit(1)
+            return
+        if family_house.get_node_or_null("DindingCollision/BangunanSolid") == null:
+            push_error("BLOCKOUT3D FAIL: imported house collision missing")
+            quit(1)
+            return
+        if house_indicator.text.find("GLB Meshy asli") == -1:
+            push_error("BLOCKOUT3D FAIL: status indicator fails to show original asset")
+            quit(1)
+            return
+    else:
+        if glb_loaded or house_indicator.text.find("sementara") == -1:
+            push_error("BLOCKOUT3D FAIL: missing original source must show procedural fallback")
+            quit(1)
+            return
+        var roof: MeshInstance3D = family_house.get_node_or_null("GentengTanahLiatKiri") as MeshInstance3D
+        var roof_other: MeshInstance3D = family_house.get_node_or_null("GentengTanahLiatKanan") as MeshInstance3D
+        if roof == null or roof_other == null or not (roof.mesh is ArrayMesh):
+            push_error("BLOCKOUT3D FAIL: painted procedural fallback roof missing")
+            quit(1)
+            return
+        var roof_mat: StandardMaterial3D = roof.material_override as StandardMaterial3D
+        if roof_mat == null or roof_mat.albedo_texture == null or not roof_mat.normal_enabled or roof_mat.normal_texture == null:
+            push_error("BLOCKOUT3D FAIL: fallback painted albedo/normal textures are missing")
+            quit(1)
+            return
+        var roof_arrays: Array = roof.mesh.surface_get_arrays(0)
+        if (roof_arrays[Mesh.ARRAY_TEX_UV] as PackedVector2Array).size() < 4:
+            push_error("BLOCKOUT3D FAIL: fallback roof lacks authored UV")
+            quit(1)
+            return
+        if family_house.get_node_or_null("KanopiTeras") == null or family_house.get_node_or_null("DindingCollision") == null:
+            push_error("BLOCKOUT3D FAIL: fallback house collision/terrace missing")
+            quit(1)
+            return
     var banana: Node3D = world.get_node_or_null("01_RumahTerpisahDanKebun/PohonPisang") as Node3D
     var coconut: Node3D = world.get_node_or_null("01_RumahTerpisahDanKebun/KelapaBerpelepah") as Node3D
     var tropical_tree: Node3D = world.get_node_or_null("04_HutanTropis/PohonTropisBerdaun") as Node3D
