@@ -26,6 +26,12 @@ The character uses the four original FBX animation clips when available. The env
 Target after merge and successful main deploy:
 **https://eneft.github.io/Lembah-Asri/blockout3d/**
 
+## Original Meshy childhood house GLB
+
+The user's textured house asset replaces only the **childhood house** at `01_RumahTerpisahDanKebun` when `res://assets/environment/houses/main_house/rumah_utama.glb` is present. It is scaled by mesh bounds with preserved materials/UVs, aligned to the ground and provided with a solid collision volume. Other village homes are unchanged.
+
+When the source binary has not yet been uploaded into GitHub, the old procedural home is shown as an explicit temporary fallback; build success does not imply that the user's GLB was deployed. See `assets/environment/houses/main_house/README.md` for the exact file/path and audit details. The HUD reports whether the original asset is active.
+
 ## Stylized Javanese environment art — first pass
 `scripts/village_art.gd` is a **reusable Godot 4.3 art kit**. It generates lightweight authored UV meshes with cached, deterministic painterly albedo and subtle normal-map textures (192px, no network dependency): clay-tile pitched roofs with visible rows, gable plaster and weathering, textured teak-style frames/doors, porch structures, tropical trees with branches, curved coconut fronds, and broad banana leaves. Childhood home has a different weathered finish and shrubs. Ground paths receive painted earth. Building collision remains in place.
 
