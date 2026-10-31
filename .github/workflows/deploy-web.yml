@@ -301,6 +301,16 @@ jobs:
           test -s build/web/movement-tester/app.js
           echo "Movement tester published under /movement-tester/"
 
+      - name: Export independent new 3D blockout at /blockout3d/
+        run: |
+          # Keep the root 2D game exactly as it is. Publish 3D only in its own route.
+          godot --headless --path blockout3d --editor --quit
+          mkdir -p build/web/blockout3d
+          godot --headless --path blockout3d --export-release "Web" "$GITHUB_WORKSPACE/build/web/blockout3d/index.html"
+          test -s build/web/blockout3d/index.html
+          test -s build/web/blockout3d/index.wasm
+          test -s build/web/blockout3d/index.pck
+
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:
