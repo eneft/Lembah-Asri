@@ -4,10 +4,11 @@ func _initialize() -> void:
     call_deferred("_test")
 
 func _key(code: int, pressed: bool) -> void:
-    var event := InputEventKey.new()
-    event.keycode = code
-    event.pressed = pressed
-    Input.parse_input_event(event)
+    var action := "touch_jump" if code == KEY_SPACE else "touch_right"
+    if pressed:
+        Input.action_press(action)
+    else:
+        Input.action_release(action)
 
 func _test() -> void:
     var world := load("res://scenes/world.tscn").instantiate() as Node3D
@@ -32,12 +33,23 @@ func _test() -> void:
     await physics_frame
     await physics_frame
     _key(KEY_SPACE, false)
+    var landing_frames := 0
     var peak := player.position.y
     for i in range(90):
         await physics_frame
         peak = maxf(peak, player.position.y)
+        if actor.current_state == "land":
+            landing_frames += 1
+            assert(absf(actor._lowest_foot() - actor.idle_foot_y) < 0.15, "Landing feet drifted from floor")
     assert(peak > start.y + 1.0, "Jump did not leave ground")
     assert(player.is_on_floor(), "Jump failed to land")
+    assert(landing_frames >= 6 and landing_frames <= 24, "Missing or stuck landing recovery")
+    assert(actor.current_state == "idle", "Landing did not blend back to idle")
+    var landing: Animation = actor.animator.get_animation("lembah/land")
+    assert(landing.length > 0.2 and landing.length < 0.4, "Invalid landing duration")
+    for track in range(landing.get_track_count()):
+        for key in range(landing.track_get_key_count(track)):
+            assert(landing.track_get_key_time(track, key) <= landing.length + 0.001, "Untrimmed landing keys")
     assert(Vector2(player.position.x, player.position.z).distance_to(Vector2(start.x, start.z)) < 0.05, "Standing jump moved backwards")
     _key(KEY_D, true)
     _key(KEY_SPACE, true)
@@ -65,5 +77,5 @@ func _test() -> void:
             if label.ends_with("Trunks"):
                 trunks += 1
     assert(bridges == 10 and trunks == 2, "Incomplete bridge/trunk coverage")
-    print("JUMP COLLISION PASS: anchored hip keys, standing/moving jump landing, no backwards snap, bridge decks/rails, trunks and lighthouse solid")
+    print("JUMP COLLISION PASS: flight-synced pose, grounded landing recovery, anchored hip keys, no backwards snap, solid bridges/trunks/lighthouse")
     quit(0)

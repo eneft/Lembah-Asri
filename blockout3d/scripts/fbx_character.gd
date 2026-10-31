@@ -16,9 +16,24 @@ var model_root: Node3D
 var current_state := ""
 var loaded_clips: Dictionary = {}
 var warnings: PackedStringArray = []
+const AIR_START := 0.42
+const AIR_APEX := 1.10
+const AIR_CONTACT := 1.65
+var landing_left := 0.0
+var base_model_y := 0.0
+var idle_foot_y := 0.0
+var feet: Array[int] = []
+var motion_skeleton: Skeleton3D
+
 
 func _ready() -> void:
+    process_priority = 100 # Place feet after AnimationPlayer evaluates the rendered pose.
     _load_character()
+
+func _process(_delta: float) -> void:
+    if current_state == "land" and model_root != null:
+        model_root.position.y = base_model_y
+        model_root.position.y += idle_foot_y - _lowest_foot()
 
 func _find_animation_player(node: Node) -> AnimationPlayer:
     if node is AnimationPlayer:
@@ -102,7 +117,21 @@ func _load_character() -> void:
     if animator.add_animation_library("lembah", library) != OK:
         warnings.append("Gagal menggabungkan AnimationLibrary")
         return
+    var landing := _landing_tail(library.get_animation("jump"))
+    library.add_animation("land", landing)
     _fit_single_model_to_player()
+    base_model_y = model_root.position.y
+    animator.play("lembah/idle")
+    animator.advance(0.0)
+    for node in model_root.find_children("*", "Skeleton3D", true, false):
+        motion_skeleton = node as Skeleton3D
+        for bone_name in ["mixamorig_LeftFoot", "mixamorig_RightFoot"]:
+            var bone := motion_skeleton.find_bone(bone_name)
+            if bone >= 0:
+                feet.append(bone)
+        break
+    idle_foot_y = _lowest_foot()
+
     var placeholder := get_parent().get_node_or_null("Placeholder")
     if placeholder != null:
         placeholder.hide()
@@ -139,14 +168,14 @@ func is_model_ready() -> bool:
 func play_state(next_state: String) -> void:
     if animator == null:
         return
-    if not loaded_clips.has(next_state):
+    if next_state != "land" and not loaded_clips.has(next_state):
         next_state = "idle"
-    if not loaded_clips.has(next_state) or current_state == next_state:
+    if (next_state != "land" and not loaded_clips.has(next_state)) or current_state == next_state:
         return
     current_state = next_state
     # Jump Over is 1.933 seconds; speed it up to match ~0.9s physical airtime.
     var playback_speed := 2.05 if next_state == "jump" else 1.0
-    animator.play("lembah/" + next_state, 0.12, playback_speed)
+    animator.play("lembah/" + next_state, 0.18 if current_state != "jump" else 0.08, playback_speed)
 
 func _anchor_motion_roots(clip: Animation, idle_reference: Animation, jumping: bool) -> void:
     # CharacterBody3D owns world travel. Mixamo Jump Over contains forward hip motion.
@@ -175,3 +204,64 @@ func _anchor_motion_roots(clip: Animation, idle_reference: Animation, jumping: b
             if jumping:
                 position.y = anchor.y
             clip.track_set_key_value(track, key, position)
+
+func _landing_tail(source: Animation) -> Animation:
+    var landing := source.duplicate(true) as Animation
+    landing.length = source.length - AIR_CONTACT
+    landing.loop_mode = Animation.LOOP_NONE
+    for track in range(landing.get_track_count()):
+        var kind := source.track_get_type(track)
+        var contact: Variant
+        if kind == Animation.TYPE_POSITION_3D:
+            contact = source.position_track_interpolate(track, AIR_CONTACT)
+        elif kind == Animation.TYPE_ROTATION_3D:
+            contact = source.rotation_track_interpolate(track, AIR_CONTACT)
+        elif kind == Animation.TYPE_SCALE_3D:
+            contact = source.scale_track_interpolate(track, AIR_CONTACT)
+        else:
+            continue
+        for key in range(landing.track_get_key_count(track) - 1, -1, -1):
+            landing.track_remove_key(track, key)
+        landing.track_insert_key(track, 0.0, contact)
+        for key in range(source.track_get_key_count(track)):
+            var time := source.track_get_key_time(track, key)
+            if time > AIR_CONTACT:
+                landing.track_insert_key(track, time - AIR_CONTACT, source.track_get_key_value(track, key))
+    return landing
+
+func _lowest_foot() -> float:
+    if motion_skeleton == null or feet.is_empty():
+        return 0.0
+    motion_skeleton.force_update_all_bone_transforms()
+    var lowest := INF
+    for bone in feet:
+        var point := motion_skeleton.to_global(motion_skeleton.get_bone_global_pose(bone).origin)
+        lowest = minf(lowest, to_local(point).y)
+    return lowest
+
+func update_motion(state: String, vertical_speed: float, landed: bool, impact_speed: float, delta: float) -> void:
+    if animator == null:
+        return
+    if state == "jump":
+        landing_left = 0.0
+        play_state("jump")
+        animator.pause()
+        var phase := clampf(1.0 - vertical_speed / 8.6, 0.0, 2.0)
+        var sample := lerpf(AIR_START, AIR_APEX, phase) if phase <= 1.0 else lerpf(AIR_APEX, AIR_CONTACT, phase - 1.0)
+        animator.seek(sample, true)
+        # Ease the feet towards the contact plane during the final descent.
+        var contact_weight := smoothstep(1.30, AIR_CONTACT, sample)
+        model_root.position.y = base_model_y
+        model_root.position.y += (idle_foot_y - _lowest_foot()) * contact_weight
+        return
+    if landed and impact_speed > 2.0:
+        play_state("land")
+        animator.speed_scale = 1.0
+        landing_left = animator.get_animation("lembah/land").length
+    if landing_left > 0.0:
+        landing_left = maxf(0.0, landing_left - delta)
+        model_root.position.y = base_model_y
+        model_root.position.y += idle_foot_y - _lowest_foot()
+        return
+    play_state(state)
+    model_root.position.y = lerpf(model_root.position.y, base_model_y, 1.0 - exp(-18.0 * delta))

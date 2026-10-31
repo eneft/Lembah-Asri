@@ -42,6 +42,7 @@ func _physics_process(delta: float) -> void:
     var speed := RUN_SPEED if sprinting else WALK_SPEED
     velocity.x = direction.x * speed
     velocity.z = direction.z * speed
+    var impact_velocity := velocity.y
     move_and_slide()
 
     var next_animation := "idle"
@@ -50,8 +51,9 @@ func _physics_process(delta: float) -> void:
     elif direction.length_squared() > 0.001:
         next_animation = "run" if sprinting else "walk"
     var animated_model := get_node_or_null("Visual/FbxCharacter")
-    if animated_model != null and animated_model.has_method("play_state"):
-        animated_model.call("play_state", next_animation)
+    if animated_model != null and animated_model.has_method("update_motion"):
+        var landed := not grounded_before and is_on_floor()
+        animated_model.call("update_motion", next_animation, velocity.y, landed, -impact_velocity, delta)
 
     if direction.length_squared() > 0.01:
         var goal := atan2(direction.x, direction.z)
