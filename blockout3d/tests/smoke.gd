@@ -131,6 +131,57 @@ func _run() -> void:
         push_error("BLOCKOUT3D FAIL: reset orbit button did not work")
         quit(1)
         return
+    # The mobile input component must be present, even when hidden on desktop.
+    var touch_buttons := world.get_node_or_null("TouchControls/Buttons")
+    if touch_buttons == null:
+        push_error("BLOCKOUT3D FAIL: responsive multi-touch controls missing")
+        quit(1)
+        return
+    for button_name in ["Forward", "Back", "Left", "Right", "Run", "Jump"]:
+        var touch_button := touch_buttons.get_node_or_null(button_name) as TouchScreenButton
+        if touch_button == null:
+            push_error("BLOCKOUT3D FAIL: missing mobile control " + button_name)
+            quit(1)
+            return
+        if not InputMap.has_action(touch_button.action) or touch_button.texture_normal == null or touch_button.shape == null:
+            push_error("BLOCKOUT3D FAIL: mobile action or visible hit target missing: " + button_name)
+            quit(1)
+            return
+    var touch_player: CharacterBody3D = world.get_node("Player3D")
+    touch_player.set_physics_process(false)
+    Input.action_press("touch_forward")
+    Input.action_press("touch_right")
+    Input.action_press("touch_run")
+    Input.action_press("touch_jump")
+    var mobile_direction: Vector3 = touch_player.call("_read_movement_direction")
+    if mobile_direction.distance_to(Vector3(1.0, 0.0, -1.0).normalized()) > 0.01:
+        push_error("BLOCKOUT3D FAIL: multi-touch diagonal movement is incorrect")
+        quit(1)
+        return
+    if not Input.is_action_pressed("touch_run") or not Input.is_action_pressed("touch_jump"):
+        push_error("BLOCKOUT3D FAIL: multi-touch sprint and jump cannot be held together")
+        quit(1)
+        return
+    for mobile_action in ["touch_forward", "touch_right", "touch_run", "touch_jump"]:
+        Input.action_release(mobile_action)
+    var old_yaw: float = float(world.get("camera_yaw"))
+    var bottom_drag := InputEventScreenDrag.new()
+    bottom_drag.position = Vector2(100, get_viewport().get_visible_rect().size.y - 65.0)
+    bottom_drag.relative = Vector2(120, 0)
+    world._unhandled_input(bottom_drag)
+    if absf(float(world.get("camera_yaw")) - old_yaw) > 0.001:
+        push_error("BLOCKOUT3D FAIL: dragging in mobile control area should not orbit camera")
+        quit(1)
+        return
+    var upper_drag := InputEventScreenDrag.new()
+    upper_drag.position = Vector2(100, 240)
+    upper_drag.relative = Vector2(100, 0)
+    world._unhandled_input(upper_drag)
+    if absf(float(world.get("camera_yaw")) - old_yaw) < 0.1:
+        push_error("BLOCKOUT3D FAIL: gameplay swipe no longer orbits camera")
+        quit(1)
+        return
+    world._reset_camera_rotation()
     var character: CharacterBody3D = world.get_node("Player3D")
     var height_above_player := camera.global_position.y - character.global_position.y
     if height_above_player > 14.0:
@@ -145,5 +196,5 @@ func _run() -> void:
         push_error("BLOCKOUT3D FAIL: fishing boats or dock missing")
         quit(1)
         return
-    print("BLOCKOUT3D PASS: regions, two camera modes, close zoom, keyboard/drag/touch orbit, player and dock")
+    print("BLOCKOUT3D PASS: regions, two camera modes, close zoom, keyboard/drag/touch orbit, multi-touch run+jump, player and dock")
     quit(0)
