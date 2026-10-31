@@ -212,7 +212,11 @@ func _run() -> void:
             quit(1)
             return
         var model: Node3D = family_house.get_node_or_null("ModelGLBAsli") as Node3D
-        if model == null or model.find_children("*", "MeshInstance3D", true, false).size() == 0:
+        var imported_mesh_count := 0
+        if model != null:
+            imported_mesh_count = 1 if model is MeshInstance3D else 0
+            imported_mesh_count += model.find_children("*", "MeshInstance3D", true, false).size()
+        if imported_mesh_count == 0:
             push_error("BLOCKOUT3D FAIL: user's house GLB mesh missing")
             quit(1)
             return
