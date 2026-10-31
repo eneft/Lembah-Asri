@@ -75,6 +75,62 @@ func _run() -> void:
         push_error("BLOCKOUT3D FAIL: camera HUD does not reflect the selected mode")
         quit(1)
         return
+    # Orbit controls: Q/E keyboard, right-mouse drag, reset key and touch buttons.
+    var q_key := InputEventKey.new()
+    q_key.keycode = KEY_Q
+    q_key.pressed = true
+    world._unhandled_input(q_key)
+    if absf(float(world.get("camera_yaw")) + PI / 6.0) > 0.001:
+        push_error("BLOCKOUT3D FAIL: Q must rotate camera left by 30 degrees")
+        quit(1)
+        return
+    var e_key := InputEventKey.new()
+    e_key.keycode = KEY_E
+    e_key.pressed = true
+    world._unhandled_input(e_key)
+    if absf(float(world.get("camera_yaw"))) > 0.001:
+        push_error("BLOCKOUT3D FAIL: E must rotate camera right by 30 degrees")
+        quit(1)
+        return
+    var mouse_drag := InputEventMouseMotion.new()
+    mouse_drag.button_mask = MOUSE_BUTTON_MASK_RIGHT
+    mouse_drag.relative = Vector2(100.0, 0.0)
+    world._unhandled_input(mouse_drag)
+    if absf(float(world.get("camera_yaw")) + 0.9) > 0.001:
+        push_error("BLOCKOUT3D FAIL: right mouse drag did not orbit camera")
+        quit(1)
+        return
+    var reset_key := InputEventKey.new()
+    reset_key.keycode = KEY_R
+    reset_key.pressed = true
+    world._unhandled_input(reset_key)
+    if absf(float(world.get("camera_yaw"))) > 0.001:
+        push_error("BLOCKOUT3D FAIL: R must reset camera orbit")
+        quit(1)
+        return
+    var button_left: Button = world.get_node_or_null("BlockoutHUD/OrbitControls/OrbitLeft") as Button
+    var button_reset: Button = world.get_node_or_null("BlockoutHUD/OrbitControls/OrbitReset") as Button
+    var button_right: Button = world.get_node_or_null("BlockoutHUD/OrbitControls/OrbitRight") as Button
+    if button_left == null or button_reset == null or button_right == null:
+        push_error("BLOCKOUT3D FAIL: on-screen camera orbit buttons missing")
+        quit(1)
+        return
+    button_right.pressed.emit()
+    if absf(float(world.get("camera_yaw")) - PI / 6.0) > 0.001:
+        push_error("BLOCKOUT3D FAIL: orbit right button is not connected")
+        quit(1)
+        return
+    button_left.pressed.emit()
+    if absf(float(world.get("camera_yaw"))) > 0.001:
+        push_error("BLOCKOUT3D FAIL: orbit left button is not connected")
+        quit(1)
+        return
+    button_right.pressed.emit()
+    button_reset.pressed.emit()
+    if absf(float(world.get("camera_yaw"))) > 0.001:
+        push_error("BLOCKOUT3D FAIL: reset orbit button did not work")
+        quit(1)
+        return
     var character: CharacterBody3D = world.get_node("Player3D")
     var height_above_player := camera.global_position.y - character.global_position.y
     if height_above_player > 14.0:
@@ -89,5 +145,5 @@ func _run() -> void:
         push_error("BLOCKOUT3D FAIL: fishing boats or dock missing")
         quit(1)
         return
-    print("BLOCKOUT3D PASS: independent project, nine map regions, isometric camera, player and dock")
+    print("BLOCKOUT3D PASS: regions, two camera modes, close zoom, keyboard/drag/touch orbit, player and dock")
     quit(0)
