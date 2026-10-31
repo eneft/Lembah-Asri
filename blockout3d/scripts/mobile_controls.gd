@@ -51,7 +51,6 @@ func _make_button(button_name: String, action_name: String) -> void:
     button.action = action_name
     button.texture_normal = _normal_texture
     button.texture_pressed = _pressed_texture
-    button.texture_centered = true
     button.passby_press = true
     var collision := CircleShape2D.new()
     collision.radius = 43.0
@@ -74,7 +73,7 @@ func _make_button(button_name: String, action_name: String) -> void:
             text.text = "LARI"
         "Jump":
             text.text = "LOMPAT"
-    text.position = Vector2(-46.0, -19.0)
+    text.position = Vector2(0.0, 26.0)
     text.size = Vector2(92.0, 40.0)
     text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -101,7 +100,8 @@ func _layout_buttons() -> void:
     }
     for button_name in _buttons.keys():
         var button: TouchScreenButton = _buttons[button_name]
-        button.position = locations[button_name]
+        # Textures draw from their top-left; align their center with the hit target.
+        button.position = locations[button_name] - Vector2(46.0, 46.0) * factor
         button.scale = Vector2.ONE * factor
 
 func controls_are_visible() -> bool:
