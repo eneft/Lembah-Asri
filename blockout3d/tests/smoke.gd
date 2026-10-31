@@ -230,12 +230,24 @@ func _run() -> void:
         push_error("BLOCKOUT3D FAIL: distinct banana/coconut/broadleaf vegetation missing")
         quit(1)
         return
-    if banana.find_children("DaunPisangLebar*", "MeshInstance3D", true, false).size() < 7:
-        push_error("BLOCKOUT3D FAIL: broad banana leaf meshes missing")
+    # Godot auto-renames duplicate generated node names. Inspect geometry
+    # instead of relying on node names or owner flags.
+    var banana_ribbons := 0
+    for child in banana.get_children():
+        var leaf_mesh := child as MeshInstance3D
+        if leaf_mesh != null and leaf_mesh.mesh is ArrayMesh:
+            banana_ribbons += 1
+    if banana_ribbons < 7:
+        push_error("BLOCKOUT3D FAIL: expected 7 banana leaf ribbon meshes, got " + str(banana_ribbons))
         quit(1)
         return
-    if coconut.find_children("PelepahKelapa*", "MeshInstance3D", true, false).size() < 9:
-        push_error("BLOCKOUT3D FAIL: coconut curved frond meshes missing")
+    var coconut_ribbons := 0
+    for child in coconut.get_children():
+        var leaf_mesh := child as MeshInstance3D
+        if leaf_mesh != null and leaf_mesh.mesh is ArrayMesh:
+            coconut_ribbons += 1
+    if coconut_ribbons < 9:
+        push_error("BLOCKOUT3D FAIL: expected 9 coconut fronds, got " + str(coconut_ribbons))
         quit(1)
         return
     print("BLOCKOUT3D PASS: regions, two camera modes, close zoom, keyboard/drag/touch orbit, multi-touch run+jump, UV painted homes and distinct vegetation")
