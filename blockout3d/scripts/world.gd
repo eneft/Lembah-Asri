@@ -3,6 +3,7 @@ extends Node3D
 ## All meshes are temporary authored placeholders with named scene regions.
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const VILLAGE_ART = preload("res://scripts/village_art.gd")
+const HOUSE_IMPORT = preload("res://scripts/house_glb_asset.gd")
 const TERRACOTTA := Color("b46748")
 const EARTH := Color("c1a479")
 const WOOD := Color("866146")
@@ -10,6 +11,8 @@ const LEAVES := Color("5b9556")
 
 var player: CharacterBody3D
 var village_art: RefCounted
+var house_import: RefCounted
+var house_asset_loaded := false
 var cam: Camera3D
 const DEFAULT_CAMERA_SIZE := 22.0
 const MIN_CAMERA_SIZE := 9.0
@@ -35,6 +38,7 @@ var camera_mode_label: Label
 
 func _ready() -> void:
     village_art = VILLAGE_ART.new()
+    house_import = HOUSE_IMPORT.new()
     _world_light()
     _ground()
     _make_map()
@@ -194,6 +198,11 @@ func _banana(parent: Node3D, at: Vector3) -> void:
     village_art.build_banana(parent, at)
 
 func _house(parent: Node3D, pos: Vector3, abandoned: bool) -> void:
+    if abandoned:
+        house_asset_loaded = house_import.build_childhood_house(parent, pos)
+        if house_asset_loaded:
+            return
+        print("LEMBAH HOUSE GLB PENDING: upload rumah_utama.glb to blockout3d/assets/environment/houses/main_house/")
     village_art.build_house(parent, pos, abandoned)
 
 func _boat(parent: Node3D, at: Vector3) -> void:
@@ -361,6 +370,13 @@ func _make_hud() -> void:
         fbx_ready = bool(character_node.call("is_model_ready"))
     avatar_status.text = "4 FBX: Idle / Walk / Run / Jump aktif" if fbx_ready else "Model sementara — 4 FBX belum lengkap di GitHub"
     layer.add_child(avatar_status)
+    var house_status := Label.new()
+    house_status.name = "HouseAssetStatus"
+    house_status.position = Vector2(18, 137)
+    house_status.add_theme_font_size_override("font_size", 14)
+    house_status.add_theme_color_override("font_color", Color("fff2d4"))
+    house_status.text = "Rumah masa kecil: GLB Meshy asli" if house_asset_loaded else "Rumah masa kecil: sementara (GLB belum di GitHub)"
+    layer.add_child(house_status)
     controls.add_theme_font_size_override("font_size", 17)
     controls.add_theme_color_override("font_color", Color("fff2d4"))
     layer.add_child(controls)
