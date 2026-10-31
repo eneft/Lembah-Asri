@@ -1,3 +1,15 @@
+# Lembah Asri — Island Blockout v01
+
+Environment aktif sekarang memakai `assets/environment/island/island_blockout.glb` (180 mesh terpisah). Dunia prosedural lama tidak dibuat lagi. GLB sumber Z-up diputar -90 derajat pada X untuk Godot Y-up.
+
+Karakter tes, empat FBX Idle/Walk/Run/Jump, kontrol WASD/Shift/Space, tombol sentuh, dan kamera low angle/isometrik tetap sama. Spawn di lapangan desa `(6, 6.2, 15)`. Terrain, jalan, bangunan, sawah, gardu dan dermaga mempunyai collision mesh. Jika jatuh di bawah pulau, karakter kembali ke lapangan.
+
+Buka `blockout3d/project.godot`, tunggu impor aset, lalu F6/F5. Tes: `tests/smoke.gd` memeriksa terrain, spawn dan gerak; `tests/fbx_character_smoke.gd` memeriksa empat animasi asli.
+
+Ini terrain blockout untuk uji skala dan eksplorasi; belum material dan environment final.
+
+---
+
 # Lembah Asri — NEW Godot 3D Blockout (standalone)
 
 **This is NOT the existing illustrated 2D Godot game.** This subproject has its own \`project.godot\` and its own main 3D scene. The legacy root game and its GitHub Pages homepage are deliberately preserved.

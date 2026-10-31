@@ -2,8 +2,6 @@ extends Node3D
 ## Standalone Godot 4.3 world: new isometric 3D village blockout, NOT legacy 2D.
 ## All meshes are temporary authored placeholders with named scene regions.
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
-const VILLAGE_ART = preload("res://scripts/village_art.gd")
-const HOUSE_IMPORT = preload("res://scripts/house_glb_asset.gd")
 const TERRACOTTA := Color("b46748")
 const EARTH := Color("c1a479")
 const WOOD := Color("866146")
@@ -37,17 +35,14 @@ var camera_yaw := 0.0
 var camera_mode_label: Label
 
 func _ready() -> void:
-    village_art = VILLAGE_ART.new()
-    house_import = HOUSE_IMPORT.new()
     _world_light()
-    _ground()
-    _make_map()
+    _load_island()
     _make_player()
     _make_camera()
     _apply_camera_preset()
     _make_hud()
     _make_touch_controls()
-    print("LEMBAH ASRI NEW 3D BLOCKOUT READY: standalone world, ortho camera, villages, garden, forest, hills, commons, coast")
+    print("LEMBAH ASRI ISLAND V01 READY: original FBX character, terrain collision, village plaza spawn")
 
 func _process(delta: float) -> void:
     if is_instance_valid(player) and is_instance_valid(cam):
@@ -179,133 +174,10 @@ func _world_light() -> void:
     world_env.environment = env
     add_child(world_env)
 
-func _ground() -> void:
-    var ground := _region("TanahUtama")
-    _box(ground, "Landscape", Vector3(0, -0.45, 0), Vector3(138, 0.9, 120), Color("88a968"))
-    _collision(ground, "GroundPhysics", Vector3(0, -0.45, 0), Vector3(138, 0.9, 120))
-
-func _path(parent: Node3D, pos: Vector3, dimensions: Vector3) -> void:
-    var road := _box(parent, "JalanTanahBertekstur", pos, dimensions, EARTH)
-    road.material_override = village_art._material("soil")
-
-func _tree(parent: Node3D, at: Vector3, scale_factor: float = 1.0) -> void:
-    village_art.build_tree(parent, at, scale_factor)
-
-func _palm(parent: Node3D, at: Vector3) -> void:
-    village_art.build_palm(parent, at)
-
-func _banana(parent: Node3D, at: Vector3) -> void:
-    village_art.build_banana(parent, at)
-
-func _house(parent: Node3D, pos: Vector3, abandoned: bool) -> void:
-    if abandoned:
-        house_asset_loaded = house_import.build_childhood_house(parent, pos)
-        if house_asset_loaded:
-            return
-        print("LEMBAH HOUSE GLB PENDING: upload rumah_utama.glb to blockout3d/assets/environment/houses/main_house/")
-    village_art.build_house(parent, pos, abandoned)
-
-func _boat(parent: Node3D, at: Vector3) -> void:
-    var boat := Node3D.new()
-    boat.name = "PerahuNelayan"
-    boat.position = at
-    parent.add_child(boat)
-    _box(boat, "Lambung", Vector3(0, 0.25, 0), Vector3(2.1, 0.5, 5.1), Color("8b553d"))
-    _box(boat, "GubukPerahu", Vector3(0, 0.96, -0.7), Vector3(1.5, 1.2, 1.6), Color("e1caa2"))
-    _box(boat, "AtapPerahu", Vector3(0, 1.62, -0.7), Vector3(1.8, 0.16, 1.9), Color("af6345"))
-
-func _make_map() -> void:
-    var family := _region("01_RumahTerpisahDanKebun")
-    var village := _region("02_DesaJawa")
-    var commons := _region("03_LapanganKumpulWarga")
-    var woods := _region("04_HutanTropis")
-    var hill := _region("05_Bukit")
-    var river := _region("06_SungaiJembatan")
-    var farming := _region("07_Sawah")
-    var coast := _region("08_LautPantai")
-    var port := _region("09_DermagaNelayan")
-
-    # Large family plot, genuinely isolated from village homes.
-    _box(family, "HalamanLuas", Vector3(-46, 0.08, -31), Vector3(35, 0.14, 35), Color("79a05d"))
-    _house(family, Vector3(-47, 0.2, -40), true)
-    _box(family, "TanahKebun", Vector3(-44, 0.13, -19), Vector3(25, 0.12, 14), Color("9fbb79"))
-    for row in range(4):
-        for col in range(6):
-            var x := -54.0 + float(col) * 3.6
-            var z := -24.0 + float(row) * 2.8
-            _box(family, "BedenganSayur", Vector3(x, 0.25, z), Vector3(2.7, 0.15, 1.25), Color("6d523b"))
-            for i in range(3):
-                _sphere(family, "BibitTanaman", Vector3(x - 0.8 + i * 0.75, 0.50, z), 0.24, LEAVES)
-    _palm(family, Vector3(-60, 0, -39))
-    _banana(family, Vector3(-56, 0, -34))
-    _banana(family, Vector3(-34, 0, -33))
-    _tree(family, Vector3(-33, 0, -42), 1.0)
-
-    # Dirt village paths and basic single-ridge Javanese houses.
-    for z in [-23.0, 17.0]:
-        _path(village, Vector3(-3, 0.10, z), Vector3(56, 0.12, 3.0))
-    _path(village, Vector3(8, 0.12, 4), Vector3(3.3, 0.14, 50))
-    for pos in [
-        Vector3(-6, 0.0, -34), Vector3(6, 0.0, -34), Vector3(19, 0.0, -31),
-        Vector3(-7, 0.0, 28), Vector3(6, 0.0, 31), Vector3(20, 0.0, 28)
-    ]:
-        _house(village, pos, false)
-
-    _banana(village, Vector3(-2, 0, 36))
-    _banana(village, Vector3(26, 0, 34))
-
-    # OPEN communal ground: deliberately no football pitch or goal.
-    _box(commons, "LapanganTanahWarga", Vector3(8, 0.15, 5), Vector3(23, 0.13, 16), EARTH)
-    _tree(commons, Vector3(-2, 0.2, 4), 1.35)
-    for pos in [Vector3(-1, 0.3, 11), Vector3(12, 0.3, 11), Vector3(16, 0.3, -1)]:
-        _box(commons, "BangkuWarga", pos + Vector3(0, 0.4, 0), Vector3(2.5, 0.19, 0.85), WOOD)
-        for dx in [-0.9, 0.9]:
-            _box(commons, "KakiBangku", pos + Vector3(dx, 0.1, 0), Vector3(0.17, 0.6, 0.18), WOOD)
-
-    # River crosses the west side and has two safe wooden crossings.
-    _box(river, "AirSungai", Vector3(-23, 0.08, 0), Vector3(6.0, 0.1, 110), Color("52a8bc"))
-    for z in [-23.0, 17.0]:
-        _box(river, "JembatanKayu", Vector3(-23, 0.26, z), Vector3(9.0, 0.27, 4.6), WOOD)
-    _collision(river, "TebingUtara", Vector3(-23, 0.7, -42), Vector3(5.7, 1.4, 32))
-    _collision(river, "TebingTengah", Vector3(-23, 0.7, -3), Vector3(5.7, 1.4, 34))
-    _collision(river, "TebingSelatan", Vector3(-23, 0.7, 37), Vector3(5.7, 1.4, 35))
-    _path(family, Vector3(-34, 0.12, -23), Vector3(18, 0.12, 3))
-    _path(village, Vector3(-13, 0.12, -23), Vector3(17, 0.12, 3))
-
-    # Rice paddies to the north-east of the commons.
-    for row in range(3):
-        for col in range(4):
-            var p := Vector3(20.0 + col * 3.7, 0.14, -11.0 + row * 3.8)
-            _box(farming, "PetakSawah", p, Vector3(3.2, 0.11, 3.3), Color("8db76b"))
-            _box(farming, "Padi", p + Vector3(0, 0.1, 0), Vector3(2.3, 0.1, 2.3), Color("a6be61"))
-
-    # Forest and hills are aesthetic blockout, not yet custom terrain meshes.
-    for x in [-58.0, -49.0, -40.0, -31.0]:
-        for z in [17.0, 27.0, 37.0, 47.0]:
-            _tree(woods, Vector3(x + fmod(z, 3.0), 0, z), 0.85)
-    for i in range(4):
-        _box(hill, "BukitBerundak", Vector3(27, 1.0 + i * 2.0, -44),
-            Vector3(33.0 - i * 4.4, 2.0, 27.0 - i * 3.5),
-            Color("648c55").lightened(i * 0.06))
-    for pos in [Vector3(35, 0, 30), Vector3(38, 0, -13), Vector3(-58, 0, 49)]:
-        _palm(woods, pos)
-
-    # East Java coastal fishermen area.
-    _box(coast, "PantaiBerpasir", Vector3(43, 0.14, 5), Vector3(15, 0.12, 100), Color("dfc594"))
-    _box(coast, "Laut", Vector3(59, 0.11, 0), Vector3(19, 0.12, 115), Color("3997ba"))
-    _collision(coast, "BatasLaut", Vector3(59, 0.8, 0), Vector3(17, 1.6, 114))
-    _path(village, Vector3(32, 0.12, 16), Vector3(26, 0.12, 2.5))
-    _box(port, "DermagaKayu", Vector3(49, 0.35, 16), Vector3(13, 0.23, 2.8), WOOD)
-    for z in [6.0, 18.0, 29.0]:
-        _boat(port, Vector3(57, 0.22, z))
-    for pos in [Vector3(39, 0, -33), Vector3(39, 0, 34)]:
-        _palm(coast, pos)
-    _banana(coast, Vector3(36, 0, 41))
-
 func _make_player() -> void:
     player = CharacterBody3D.new()
     player.name = "Player3D"
-    player.position = Vector3(5, 0.3, 9)
+    player.position = Vector3(6, 6.2, 15)
     player.set_script(PLAYER_SCRIPT)
     add_child(player)
     var coll := CollisionShape3D.new()
@@ -375,7 +247,7 @@ func _make_hud() -> void:
     house_status.position = Vector2(18, 137)
     house_status.add_theme_font_size_override("font_size", 14)
     house_status.add_theme_color_override("font_color", Color("fff2d4"))
-    house_status.text = "Rumah masa kecil: GLB Meshy asli" if house_asset_loaded else "Rumah masa kecil: sementara (GLB belum di GitHub)"
+    house_status.text = "Pulau v01: terrain, sungai, sawah, desa, dan dermaga"
     layer.add_child(house_status)
     controls.add_theme_font_size_override("font_size", 17)
     controls.add_theme_color_override("font_color", Color("fff2d4"))
@@ -429,3 +301,23 @@ func _make_touch_controls() -> void:
     buttons.name = "Buttons"
     buttons.set_script(preload("res://scripts/mobile_controls.gd"))
     touch_layer.add_child(buttons)
+
+func _load_island() -> void:
+    var packed := load("res://assets/environment/island/island_blockout.glb") as PackedScene
+    assert(packed != null, "Island blockout gagal diimpor")
+    var island := packed.instantiate() as Node3D
+    island.name = "IslandBlockoutV01"
+    # Source GLB is authored Z-up; Godot gameplay uses Y-up.
+    island.rotation_degrees.x = -90.0
+    add_child(island)
+    for child in island.find_children("*", "MeshInstance3D", true, false):
+        var mesh := child as MeshInstance3D
+        var label := str(mesh.name)
+        # Water and vegetation stay non-solid. Terrain, roads and structures are walkable.
+        if label.begins_with("01_") or label.begins_with("04_") or label.begins_with("05_") or label.begins_with("06_FARM_Paddy") or label.begins_with("07_") or label.begins_with("08_") or label.begins_with("09_") or label.begins_with("10_"):
+            mesh.create_trimesh_collision()
+
+func _physics_process(_delta: float) -> void:
+    if is_instance_valid(player) and player.position.y < -8.0:
+        player.position = Vector3(6, 6.2, 15)
+        player.velocity = Vector3.ZERO
