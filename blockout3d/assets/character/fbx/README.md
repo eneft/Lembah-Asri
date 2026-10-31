@@ -9,9 +9,9 @@ The user provided four FBX files, audited on 2026-10-31. Their **geometry is byt
 | `Running (3).fbx` | run | 0.700s | yes |
 | `Jump Over.fbx` | jump | 1.933s | no, sped up to match physical jump |
 
-**Important: the FBX binaries uploaded to ChatGPT are NOT automatically committed to GitHub.** Until the binaries exist in the Git repository, the independent 3D game correctly shows a placeholder (it must not pretend the character is live).
+**Upload verified on GitHub (2026-10-31):** all four original FBX binary files are now present in this directory on `main`. They still require a Godot 4.3 import, animation-state smoke test and successful Pages deployment before the website can be considered validated.
 
-Place exactly these original files in **`blockout3d/assets/character/fbx/`** (case-sensitive and including spaces), committing four actual binary files, not links or renamed text files. They can be uploaded through GitHub's Add file -> Upload files flow; each original FBX is smaller than 25 MB.
+File names and capitalization must remain exact. Do not add duplicate model instances or rename source files. The independent 3D level must load the single rig from `Orc Idle.fbx` and import the other clips onto it.
 
 Once the files are committed:
 - GitHub Actions imports them with Godot 4.3's built-in **ufbx** importer.
