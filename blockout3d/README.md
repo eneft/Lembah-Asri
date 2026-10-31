@@ -8,7 +8,7 @@ In Godot 4.3, select **Import**, then open:
 Press **F5** — this new project's default scene is \`res://scenes/world.tscn\`.
 
 ## Gameplay test
-WASD / arrow keys to move, Shift to run, scroll to zoom.
+WASD / arrow keys to move, Shift to run, Space to jump, scroll to zoom. Press **C** to toggle between camera modes.\n\n**Default: Low Angle** — lower, closer and more front-facing to see the protagonist's face (orthographic size 16, offset `Vector3(8,10,18)`). **Isometric** — original elevated view (size 22, offset `Vector3(26,31,26)`). Scroll zoom remains available with the existing bounds 9–65; changing camera modes resets zoom to that mode's preset. Transitions between camera positions are smoothed.
 The protagonist is a **temporary 3D blockout**; no final rig or hand-painted textures have been substituted.
 
 ## World layout

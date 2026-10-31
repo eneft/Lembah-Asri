@@ -28,16 +28,16 @@ func _run() -> void:
         push_error("BLOCKOUT3D FAIL: camera must be orthogonal")
         quit(1)
         return
-    # Prevent regression to the old very distant overview camera.
-    if not is_equal_approx(camera.size, 22.0):
-        push_error("BLOCKOUT3D FAIL: default camera is not close enough")
+    # Lower, front-facing camera must be active by default, not the old high angle.
+    if not is_equal_approx(camera.size, 16.0) or int(world.get("camera_mode")) != 1:
+        push_error("BLOCKOUT3D FAIL: default low-angle camera preset was not selected")
         quit(1)
         return
     var zoom_in := InputEventMouseButton.new()
     zoom_in.button_index = MOUSE_BUTTON_WHEEL_UP
     zoom_in.pressed = true
     world._unhandled_input(zoom_in)
-    if not is_equal_approx(camera.size, 20.0):
+    if not is_equal_approx(camera.size, 14.0):
         push_error("BLOCKOUT3D FAIL: mouse wheel zoom-in did not work")
         quit(1)
         return
@@ -54,6 +54,31 @@ func _run() -> void:
         world._unhandled_input(zoom_out)
     if not is_equal_approx(camera.size, 65.0):
         push_error("BLOCKOUT3D FAIL: maximum zoom-out should be capped at 65")
+        quit(1)
+        return
+    # C alternates to the former high isometric angle and back to low face view.
+    var toggle := InputEventKey.new()
+    toggle.keycode = KEY_C
+    toggle.pressed = true
+    world._unhandled_input(toggle)
+    if int(world.get("camera_mode")) != 0 or not is_equal_approx(camera.size, 22.0):
+        push_error("BLOCKOUT3D FAIL: C did not switch to elevated isometric camera")
+        quit(1)
+        return
+    world._unhandled_input(toggle)
+    if int(world.get("camera_mode")) != 1 or not is_equal_approx(camera.size, 16.0):
+        push_error("BLOCKOUT3D FAIL: C did not restore low angle and closer zoom")
+        quit(1)
+        return
+    var camera_label: Label = world.get_node_or_null("BlockoutHUD/CameraMode") as Label
+    if camera_label == null or camera_label.text.find("Low Angle") < 0:
+        push_error("BLOCKOUT3D FAIL: camera HUD does not reflect the selected mode")
+        quit(1)
+        return
+    var character: CharacterBody3D = world.get_node("Player3D")
+    var height_above_player := camera.global_position.y - character.global_position.y
+    if height_above_player > 14.0:
+        push_error("BLOCKOUT3D FAIL: the camera angle is still too elevated for face view")
         quit(1)
         return
     if world.get_node("03_LapanganKumpulWarga").get_child_count() < 3:
