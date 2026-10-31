@@ -13,7 +13,7 @@ Press **F5** — this new project's default scene is \`res://scenes/world.tscn\`
 **Phone/tablet:** a responsive left **four-way D-pad** and right **LARI / LOMPAT** touch buttons appear automatically on touch screens. These use Godot `TouchScreenButton` and support **multiple simultaneous fingers** (for example, move + sprint + jump). Swiping the upper play area still rotates the camera; swiping the bottom control zone does not. The keyboard controls stay unchanged on desktop.
 
 **Default: Low Angle** — lower, closer and more front-facing to see the protagonist's face (orthographic size 16, offset `Vector3(8,10,18)`). **Isometric** — original elevated view (size 22, offset `Vector3(26,31,26)`). Scroll zoom remains available with the existing bounds 9–65; changing camera modes resets zoom to that mode's preset. Transitions between camera positions are smoothed.
-The protagonist is a **temporary 3D blockout**; no final rig or hand-painted textures have been substituted.
+The character uses the four original FBX animation clips when available. The environment now has a **first textured stylized art pass** (houses and tropical foliage), while the remaining terrain, rice fields, dock and other scene components are still blockout geometry.
 
 ## World layout
 - Isolated childhood Javanese house, neglected for years, with large vegetable garden.
@@ -26,4 +26,7 @@ The protagonist is a **temporary 3D blockout**; no final rig or hand-painted tex
 Target after merge and successful main deploy:
 **https://eneft.github.io/Lembah-Asri/blockout3d/**
 
-This scene is intentionally **geometry blockout**, not polished art, and should be iteratively replaced with independent Meshy assets (UVs, hand-painted albedo textures, material atlas, appropriate collision).
+## Stylized Javanese environment art — first pass
+`scripts/village_art.gd` is a **reusable Godot 4.3 art kit**. It generates lightweight authored UV meshes with cached, deterministic painterly albedo and subtle normal-map textures (192px, no network dependency): clay-tile pitched roofs with visible rows, gable plaster and weathering, textured teak-style frames/doors, porch structures, tropical trees with branches, curved coconut fronds, and broad banana leaves. Childhood home has a different weathered finish and shrubs. Ground paths receive painted earth. Building collision remains in place.
+
+The art kit is still **not final hand-painted commissioned assets** or a fully modeled 3D world. Additional sculpted unique meshes, atlased textures and environmental optimization are future iterations. The existing player rig, animations, controls, camera and legacy 2D game remain untouched.
