@@ -14,7 +14,18 @@ const MIN_CAMERA_SIZE := 9.0
 const MAX_CAMERA_SIZE := 65.0
 const ZOOM_STEP := 2.0
 
-var zoom := DEFAULT_CAMERA_SIZE
+# Low angle is the default: see more of the character's face.
+# C switches back to the original elevated isometric view.
+const CAMERA_OFFSETS := [
+    Vector3(26.0, 31.0, 26.0), # Isometric
+    Vector3(8.0, 10.0, 18.0)   # Low Angle: lower and more front-facing
+]
+const CAMERA_SIZES := [22.0, 16.0]
+const CAMERA_NAMES := ["Isometric", "Low Angle"]
+
+var camera_mode := 1
+var zoom := 16.0
+var camera_mode_label: Label
 
 func _ready() -> void:
     _world_light()
@@ -22,22 +33,39 @@ func _ready() -> void:
     _make_map()
     _make_player()
     _make_camera()
+    _apply_camera_preset()
     _make_hud()
     print("LEMBAH ASRI NEW 3D BLOCKOUT READY: standalone world, ortho camera, villages, garden, forest, hills, commons, coast")
 
 func _process(delta: float) -> void:
     if is_instance_valid(player) and is_instance_valid(cam):
-        var focus := player.global_position + Vector3(0.0, 1.0, 0.0)
-        cam.global_position = cam.global_position.lerp(focus + Vector3(26.0, 31.0, 26.0), minf(1.0, delta * 4.0))
+        var focus := player.global_position + Vector3(0.0, 1.2, 0.0)
+        var offset: Vector3 = CAMERA_OFFSETS[camera_mode]
+        cam.global_position = cam.global_position.lerp(focus + offset, minf(1.0, delta * 4.0))
         cam.look_at(focus, Vector3.UP)
 
 func _unhandled_input(event: InputEvent) -> void:
+    if event is InputEventKey and event.pressed and not event.echo:
+        if event.keycode == KEY_C or event.physical_keycode == KEY_C:
+            _toggle_camera_mode()
+            return
     if event is InputEventMouseButton and event.pressed:
         if event.button_index == MOUSE_BUTTON_WHEEL_UP:
             zoom = maxf(MIN_CAMERA_SIZE, zoom - ZOOM_STEP)
         elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
             zoom = minf(MAX_CAMERA_SIZE, zoom + ZOOM_STEP)
         cam.size = zoom
+
+func _apply_camera_preset() -> void:
+    zoom = CAMERA_SIZES[camera_mode]
+    if is_instance_valid(cam):
+        cam.size = zoom
+    if is_instance_valid(camera_mode_label):
+        camera_mode_label.text = "Kamera: " + CAMERA_NAMES[camera_mode] + "  |  C: Ganti sudut"
+
+func _toggle_camera_mode() -> void:
+    camera_mode = (camera_mode + 1) % CAMERA_OFFSETS.size()
+    _apply_camera_preset()
 
 func _mat(color: Color) -> StandardMaterial3D:
     var material := StandardMaterial3D.new()
@@ -288,8 +316,8 @@ func _make_camera() -> void:
     cam.far = 350
     cam.current = true
     add_child(cam)
-    cam.position = player.position + Vector3(26, 31, 26)
-    cam.look_at(player.position + Vector3(0, 1, 0), Vector3.UP)
+    cam.position = player.position + CAMERA_OFFSETS[camera_mode] + Vector3(0, 1.2, 0)
+    cam.look_at(player.position + Vector3(0, 1.2, 0), Vector3.UP)
 
 func _make_hud() -> void:
     var layer := CanvasLayer.new()
@@ -305,7 +333,7 @@ func _make_hud() -> void:
     var controls := Label.new()
     controls.name = "Controls"
     controls.position = Vector2(18, 51)
-    controls.text = "WASD: Jalan  •  Shift: Lari  •  Space: Lompat  •  Scroll: Zoom"
+    controls.text = "WASD: Jalan  •  Shift: Lari  •  Space: Lompat  •  Scroll: Zoom  •  C: Kamera"
     var avatar_status := Label.new()
     avatar_status.name = "AvatarStatus"
     avatar_status.position = Vector2(18, 80)
@@ -320,3 +348,10 @@ func _make_hud() -> void:
     controls.add_theme_font_size_override("font_size", 17)
     controls.add_theme_color_override("font_color", Color("fff2d4"))
     layer.add_child(controls)
+    camera_mode_label = Label.new()
+    camera_mode_label.name = "CameraMode"
+    camera_mode_label.position = Vector2(18, 111)
+    camera_mode_label.add_theme_font_size_override("font_size", 16)
+    camera_mode_label.add_theme_color_override("font_color", Color("fff2d4"))
+    layer.add_child(camera_mode_label)
+    _apply_camera_preset()
