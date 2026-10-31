@@ -230,11 +230,11 @@ func _run() -> void:
         push_error("BLOCKOUT3D FAIL: distinct banana/coconut/broadleaf vegetation missing")
         quit(1)
         return
-    if banana.find_children("DaunPisangLebar*", "MeshInstance3D").size() < 7:
+    if banana.find_children("DaunPisangLebar*", "MeshInstance3D", true, false).size() < 7:
         push_error("BLOCKOUT3D FAIL: broad banana leaf meshes missing")
         quit(1)
         return
-    if coconut.find_children("PelepahKelapa*", "MeshInstance3D").size() < 9:
+    if coconut.find_children("PelepahKelapa*", "MeshInstance3D", true, false).size() < 9:
         push_error("BLOCKOUT3D FAIL: coconut curved frond meshes missing")
         quit(1)
         return
