@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-"""Build an optimized web GLB from user-supplied terrain base.glb.
-No mesh editing: copies all GLB views, resizes embedded images and sets terrain non-metallic.
+"""Build the separate Terrain V2 playable Web GLB from the uploaded source.
+
+Preserves source GLB, TEXCOORDs, triangle indices, existing UV and baked
+painterly atlas, while changing Y geometry and normals to flat plateau zones.
+The user-uploaded original file is never overwritten.
 """
 from pathlib import Path
 import io
@@ -10,6 +13,7 @@ from PIL import Image
 
 # Single baked painterly albedo; no procedural shader at runtime.
 from retexture_terrain import bake_painterly_albedo
+from terrain_v2_topography import rebuild_topography
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets/environment/island/terrain base.glb"
@@ -29,10 +33,15 @@ assert chunks[0][0]==b"JSON" and chunks[1][0]==b"BIN\x00"
 g=json.loads(chunks[0][1].decode("utf-8").rstrip(" \x00"))
 binary=chunks[1][1]
 views=g["bufferViews"]
+# Sculpt actual POSITION + NORMAL accessors into the V2 island at build time.
+# No terrain geometry is created per frame in Godot. The optimized GLB's
+# baked texture retains the UV layout of the original uploaded GLB.
+binary=rebuild_topography(g, binary)
 # Original photogrammetry has 8K albedo and 4K normal/metallic.
 # Repaint its ALBEDO at 4K, and detach unused normal/metallic maps. This
 # avoids ~64MiB GPU per unused 4K normal and 4+ shader samples per fragment.
-# The authored terrain geometry, UV seams and camera/player are untouched.
+# Original terrain silhouette XZ, triangles, UV and camera/player are untouched;
+# its Y elevations and per-vertex normals are regenerated for V2.
 image_settings=[(4096,93),(4,65),(4,65)]
 replacement={}
 for n,img in enumerate(g.get("images",[])):
@@ -72,7 +81,7 @@ for mat in g.get("materials",[]):
     pbr["roughnessFactor"]=0.96
     pbr.pop("metallicRoughnessTexture",None)
     mat.pop("normalTexture",None) # no unused 4K tangent-space normal texture
-g.setdefault("asset",{})["generator"]="Lembah Asri baked painterly retexture (source geometry UV preserved)"
+g.setdefault("asset",{})["generator"]="Lembah Asri Terrain V2 flattened topography and baked painterly retexture (source XZ/UV preserved)"
 j=json.dumps(g,separators=(",",":"),ensure_ascii=False).encode("utf-8")
 j+=b" " *((4-len(j)%4)%4)
 target.extend(b"\x00"*((4-len(target)%4)%4))
@@ -83,6 +92,6 @@ with DST.open("wb") as f:
     f.write(j)
     f.write(struct.pack("<I4s",len(target),b"BIN\x00"))
     f.write(target)
-print("WEB_TERRAIN_RETEXTURED_PASS: unique hand-painted 4096px atlas, 1 diffuse texture sampler, no 4K normal, geometry/UV unchanged")
+print("WEB_TERRAIN_V2_RETEXTURED_PASS: 4096px baked painterly atlas, low-memory one diffuse sampler, topography Y remeshed, XZ/UV/indices preserved")
 print("WEB_TERRAIN_OPTIMIZED",SRC.stat().st_size,DST.stat().st_size,"bytes",round(DST.stat().st_size/SRC.stat().st_size*100,1),"pct")
 assert DST.stat().st_size<SRC.stat().st_size
