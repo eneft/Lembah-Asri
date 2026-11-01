@@ -3,7 +3,8 @@ extends Node3D
 ## Retains original controllable FBX character, camera, lighting and mobile UI.
 const WEB_TERRAIN := "res://assets/environment/island/terrain_base_web.glb"
 const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
-const TERRAIN_LAYER := 1 << 7
+const TERRAIN_RAY_LAYER := 1 << 7
+const PLAYER_GROUND_LAYER := 1
 const SPAWN_XZ := Vector2(6.0, 15.0)
 
 var new_root: Node3D
@@ -100,7 +101,11 @@ func _install_terrain() -> void:
     if new_collision == null:
         push_error("TERRAIN BASE FAIL: terrain trimesh collision not created")
         return
-    new_collision.collision_layer = TERRAIN_LAYER
+    # IMPORTANT: player.gd's CharacterBody3D uses collision_mask=1.
+    # The previous 128-only layer let raycasts see the terrain while the
+    # actual character fell straight through it. Keep 128 for raycasts AND
+    # bit 1 for normal character/world physics.
+    new_collision.collision_layer = TERRAIN_RAY_LAYER | PLAYER_GROUND_LAYER
     new_collision.collision_mask = 0
     await get_tree().physics_frame
     # Terrain has coast / holes; choose a real walkable triangle instead of
@@ -120,7 +125,7 @@ func _install_terrain() -> void:
         var query := PhysicsRayQueryParameters3D.create(
             Vector3(point.x, 120.0, point.y),
             Vector3(point.x, -60.0, point.y))
-        query.collision_mask = TERRAIN_LAYER
+        query.collision_mask = TERRAIN_RAY_LAYER
         var candidate := world.get_world_3d().direct_space_state.intersect_ray(query)
         if not candidate.is_empty():
             hit = candidate
@@ -133,13 +138,17 @@ func _install_terrain() -> void:
     if player == null:
         push_error("TERRAIN BASE FAIL: original controllable character missing")
         return
-    player.global_position = hit.position + Vector3(0.0, 2.1, 0.0)
+    # The capsule bottom is ~0.05 m below its origin: spawn a few
+    # centimeters above the actual ground, NOT 2.1 m in mid-air.
+    player.global_position = hit.position + Vector3(0.0, 0.13, 0.0)
     player.velocity = Vector3.ZERO
     world.set("terrain_spawn_position", player.global_position)
+    player.set_physics_process(true)
+    player.reset_physics_interpolation()
     is_ready = true
     _refresh_text()
-    print("TERRAIN BASE TEST PASS: clean uploaded GLB terrain, collider, character and camera; size=%s, spawn_xz=%s, spawn_height=%.3f" % [
-        str(_bounds_global(new_mesh).size), str(spawn_xz), hit.position.y])
+    print("TERRAIN BASE TEST PASS: clean uploaded GLB terrain, collider_layer=%d, player_mask=%d, size=%s, spawn_xz=%s, spawn_height=%.3f" % [
+        new_collision.collision_layer, player.collision_mask, str(_bounds_global(new_mesh).size), str(spawn_xz), hit.position.y])
 
 func _refresh_text() -> void:
     if status != null:
