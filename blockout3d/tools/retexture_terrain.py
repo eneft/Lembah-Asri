@@ -77,6 +77,13 @@ def bake_painterly_albedo(image: Image.Image, size: int = TARGET_SIZE) -> Image.
     palette = painted.quantize(colors=96, method=Image.Quantize.FASTOCTREE,
                                dither=Image.Dither.NONE).convert("RGB")
     painted = Image.blend(painted, palette, 0.43)
+    # Preserve real road edges, coastline outlines and structure seams even
+    # when broad photogrammetry noise is painted over. Detect only broad edges
+    # (blur first) so we don't restore pixel-level scanning artifacts.
+    macro_edges = image.filter(ImageFilter.GaussianBlur(3.5)).filter(
+        ImageFilter.FIND_EDGES).convert("L")
+    edge_mask = macro_edges.point(_lut([(0,0),(18,0),(55,45),(115,176),(255,230)]))
+    painted = Image.composite(image, painted, edge_mask)
     painted = ImageEnhance.Color(painted).enhance(1.10)
     painted = ImageEnhance.Contrast(painted).enhance(1.065)
 
