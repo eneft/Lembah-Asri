@@ -110,12 +110,17 @@ func _install_terrain() -> void:
     new_collision.collision_mask = 0
 
     # Align the actual terrain surface to y=0 at spawn, then place the player
-    # above it. Nothing else is kept as a hidden collider or secondary mesh.
+    # above it. Critically EXCLUDE the character's own capsule from raycast.
+    var player := world.get_node_or_null("Player3D") as CharacterBody3D
+    if player == null:
+        push_error("TERRAIN ONLY FAIL: player missing")
+        return
     await get_tree().physics_frame
     var ray := PhysicsRayQueryParameters3D.create(
         Vector3(SPAWN_XZ.x, 90.0, SPAWN_XZ.y),
         Vector3(SPAWN_XZ.x, -90.0, SPAWN_XZ.y))
     ray.collision_mask = 1
+    ray.exclude = [player.get_rid()]
     var hit := world.get_world_3d().direct_space_state.intersect_ray(ray)
     if hit.is_empty():
         push_error("TERRAIN ONLY FAIL: no terrain surface below character spawn")
@@ -127,10 +132,6 @@ func _install_terrain() -> void:
         push_error("TERRAIN ONLY FAIL: real terrain collider disappeared after alignment")
         return
     ground_y = float(hit.position.y)
-    var player := world.get_node_or_null("Player3D") as CharacterBody3D
-    if player == null:
-        push_error("TERRAIN ONLY FAIL: player missing")
-        return
     player.global_position = Vector3(SPAWN_XZ.x, ground_y + 2.0, SPAWN_XZ.y)
     player.velocity = Vector3.ZERO
     world.set("terrain_test_spawn", player.global_position)
