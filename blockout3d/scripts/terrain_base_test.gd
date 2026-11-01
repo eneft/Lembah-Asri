@@ -171,7 +171,7 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "TERRAIN V2 | 4K atlas | Skala %.0f×" % terrain_scale
+        status.text = "V2 GAMEPLAY FIX R2 | CLEAN COLLISION | WASD + SPACE"
 
 func _unhandled_input(event: InputEvent) -> void:
     if not is_ready or not (event is InputEventKey):
