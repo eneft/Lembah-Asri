@@ -3,10 +3,6 @@ extends Node3D
 ## Retains original controllable FBX character, camera, lighting and mobile UI.
 const WEB_TERRAIN := "res://assets/environment/island/terrain_base_web.glb"
 const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
-const DETAIL_SHADER := "res://shaders/terrain_hd_detail.gdshader"
-const GRASS_DETAIL := "res://assets/environment/terrain_detail/grass_micro_albedo.png"
-const SOIL_DETAIL := "res://assets/environment/terrain_detail/soil_micro_albedo.png"
-const NORMAL_DETAIL := "res://assets/environment/terrain_detail/terrain_micro_normal.png"
 const TERRAIN_RAY_LAYER := 1 << 7
 const PLAYER_GROUND_LAYER := 1
 const SPAWN_XZ := Vector2(6.0, 15.0)
@@ -82,35 +78,24 @@ func _install_terrain() -> void:
     if new_mesh == null or new_mesh.mesh == null:
         push_error("TERRAIN BASE FAIL: mesh absent in imported file")
         return
-    # Original baked albedo preserves the island's authored appearance.
-    # A separate WORLD-SPACE microtexture layer gives the close 3/4 camera
-    # real texture detail instead of stretching the 4K map across 140 meters.
+    # The derived Web GLB carries a single freshly baked painterly atlas.
+    # Use Godot's lightweight built-in PBR shading, not a costly shader with
+    # 5 texture samples per pixel. Preserve the UV seams and grass/path colors.
     if new_mesh.mesh.get_surface_count() == 0:
-        push_error("TERRAIN BASE FAIL: imported terrain has no material surfaces")
+        push_error("TERRAIN BASE FAIL: no material surfaces")
         return
     var original := new_mesh.mesh.surface_get_material(0) as StandardMaterial3D
-    if original == null or original.albedo_texture == null or original.normal_texture == null:
-        push_error("TERRAIN BASE FAIL: missing original baked terrain albedo/normal")
+    if original == null or original.albedo_texture == null:
+        push_error("TERRAIN BASE FAIL: baked retexture albedo missing")
         return
-    var shader := load(DETAIL_SHADER) as Shader
-    var grass := load(GRASS_DETAIL) as Texture2D
-    var soil := load(SOIL_DETAIL) as Texture2D
-    var micro := load(NORMAL_DETAIL) as Texture2D
-    if shader == null or grass == null or soil == null or micro == null:
-        push_error("TERRAIN BASE FAIL: generated seamless terrain detail resources missing")
-        return
-    var high_detail := ShaderMaterial.new()
-    high_detail.shader = shader
-    high_detail.set_shader_parameter("base_albedo", original.albedo_texture)
-    high_detail.set_shader_parameter("base_normal", original.normal_texture)
-    high_detail.set_shader_parameter("grass_micro", grass)
-    high_detail.set_shader_parameter("soil_micro", soil)
-    high_detail.set_shader_parameter("micro_normal", micro)
-    high_detail.set_shader_parameter("tiles_per_meter", 0.72)
-    high_detail.set_shader_parameter("detail_strength", 0.82)
-    high_detail.set_shader_parameter("micro_normal_strength", 0.48)
-    high_detail.set_shader_parameter("base_normal_strength", 0.72)
-    new_mesh.material_override = high_detail
+    var light_material := original.duplicate(true) as StandardMaterial3D
+    light_material.metallic = 0.0
+    light_material.roughness = 0.98
+    light_material.metallic_texture = null
+    light_material.normal_enabled = false
+    light_material.normal_texture = null
+    light_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+    new_mesh.material_override = light_material
     # Center the supplied mesh in the world. No old model is loaded for alignment.
     var bounds := _bounds_global(new_mesh)
     new_root.global_position.x -= bounds.get_center().x
@@ -176,7 +161,7 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "TERRAIN HD DETAIL | PERSPECTIVE 3/4\nWASD jalan | Shift lari | Space salto\nC kamera | Q/E putar | Scroll zoom\n4K asli + detail mikro tanah/rumput\nSkala: %.0f× | Offset: %.2f m" % [
+        status.text = "TERRAIN RETEXTURE 4K | 3/4 PERSPECTIVE\nWASD jalan | Shift lari | Space salto\nC kamera | Q/E putar | Scroll zoom\n1 baked color atlas | no heavy detail shader\nSkala: %.0f× | Offset: %.2f m" % [
             terrain_scale, vertical_offset]
 
 func _unhandled_input(event: InputEvent) -> void:
