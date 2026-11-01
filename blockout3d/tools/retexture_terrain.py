@@ -69,16 +69,19 @@ def bake_painterly_albedo(image: Image.Image, size: int = TARGET_SIZE) -> Image.
     else:
         image = image.convert("RGB")
 
-    # Remove JPEG capture mottling and speckle without destroying paths.
-    # Moderate smoothing is followed by baked fine texel-scale brush details.
-    smoothed = image.filter(ImageFilter.GaussianBlur(1.65))
-    painted = Image.blend(image,smoothed,0.63)
-    painted = Image.blend(painted,ImageOps.posterize(painted,7),0.15)
-    painted = ImageEnhance.Color(painted).enhance(1.065)
-    painted = ImageEnhance.Contrast(painted).enhance(1.035)
+    # Photogrammetry noise is not a lack of 4K resolution. Paint over the
+    # mottled capture at *macro* scale, preserving the author's pathways and
+    # overall tone while suppressing tiny chaotic scan fragments.
+    broad = image.filter(ImageFilter.GaussianBlur(10.0))
+    painted = Image.blend(image, broad, 0.79)
+    palette = painted.quantize(colors=96, method=Image.Quantize.FASTOCTREE,
+                               dither=Image.Dither.NONE).convert("RGB")
+    painted = Image.blend(painted, palette, 0.43)
+    painted = ImageEnhance.Color(painted).enhance(1.10)
+    painted = ImageEnhance.Contrast(painted).enhance(1.065)
 
-    # Color-based semantic masks work WITH the original photogrammetry UV
-    # islands; no blind recolor of buildings, coastline, dirt paths or river.
+    # Repaint biomes as subdued warm tropical game materials. Keep all UV
+    # positions and source silhouettes. Never generate a new UV layout.
     hue,sat,val = painted.convert("HSV").split()
     green = hue.point(_lut([(0,0),(34,0),(48,180),(64,255),(103,255),(115,0),(255,0)]))
     vegetation = ImageChops.multiply(green,sat.point(_lut([(0,0),(35,0),(72,180),(115,255),(255,255)])))
@@ -88,6 +91,16 @@ def bake_painterly_albedo(image: Image.Image, size: int = TARGET_SIZE) -> Image.
     # Exclude blue water/brightly colored village materials from earth grain.
     earthy = ImageChops.invert(ImageChops.lighter(vegetation,blue))
     earthy = ImageChops.multiply(earthy,val.point(_lut([(0,0),(30,0),(75,200),(120,255),(255,255)])))
+
+    # Anime/painterly color treatment while preserving physical structures.
+    # Green vegetation: sunny olive grass, less aggressive photographic neon.
+    # Earth: warm sandy ochre. River/sky-blue texels are left untouched.
+    grass_palette = ImageOps.colorize(val, black=(57, 91, 47), white=(171, 200, 125))
+    grass_color_mask = vegetation.point(_lut([(0,0),(255,168)]))
+    painted = Image.composite(grass_palette, painted, grass_color_mask)
+    earth_palette = ImageOps.colorize(val, black=(84, 70, 58), white=(234, 217, 185))
+    earth_color_mask = earthy.point(_lut([(0,0),(255,66)]))
+    painted = Image.composite(earth_palette, painted, earth_color_mask)
 
     # Texture paint: tiny marks are multiplied over the original diffuse atlas
     # with small opacities. They cannot wash out major authored color regions.
@@ -99,8 +112,8 @@ def bake_painterly_albedo(image: Image.Image, size: int = TARGET_SIZE) -> Image.
     painted = Image.composite(grass_mod,painted,grass_alpha)
 
     # Very gentle crispness restored at actual 4K after paintover.
-    painted = painted.filter(ImageFilter.UnsharpMask(radius=0.60,percent=45,threshold=4))
+    painted = painted.filter(ImageFilter.UnsharpMask(radius=0.75,percent=70,threshold=4))
     assert painted.mode == "RGB" and painted.size == (size,size)
-    print("RETEXTURE_BAKED_PASS: painterly UV atlas 4096px, single albedo, no runtime detail textures")
+    print("RETEXTURE_BAKED_PASS: 96-color hand-painted tropical UV atlas 4096px, single albedo, no runtime detail textures")
     print("RETEXTURE_ALBEDO_SAMPLE_SHA256:",hashlib.sha256(painted.resize((128,128)).tobytes()).hexdigest())
     return painted
