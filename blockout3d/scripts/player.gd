@@ -5,6 +5,8 @@ const RUN_SPEED := 8.4
 const GRAVITY := 18.0
 const JUMP_SPEED := 8.6
 
+@export var terrain_raycast_grounding := false
+var terrain_grounded := false
 var _jump_was_down := false
 
 func _ready() -> void:
@@ -26,11 +28,38 @@ func _read_movement_direction() -> Vector3:
         direction.x += 1.0
     return direction.normalized()
 
+func _follow_uploaded_terrain(delta: float) -> bool:
+    # Fallback only for a preview of the user's imported GLB. Never creates
+    # fake geometry. Reads the actual GLB StaticBody3D through physics queries.
+    if velocity.y > 0.05:
+        return false
+    var query := PhysicsRayQueryParameters3D.create(
+        global_position + Vector3.UP * 1.5,
+        global_position - Vector3.UP * 3.0)
+    query.collision_mask = 1
+    query.exclude = [get_rid()]
+    var hit := get_world_3d().direct_space_state.intersect_ray(query)
+    if hit.is_empty():
+        return false
+    if not (hit.collider is StaticBody3D):
+        return false
+    if str((hit.collider as StaticBody3D).name) != "GLB_Terrain_Collider":
+        return false
+    if absf(hit.normal.y) < 0.60:
+        return false
+    var gap := global_position.y - float(hit.position.y)
+    var catch_range := 0.40 + absf(velocity.y) * delta
+    if gap < -0.65 or gap > catch_range:
+        return false
+    global_position.y = float(hit.position.y) + 0.035
+    velocity.y = -0.12
+    return true
+
 func _physics_process(delta: float) -> void:
     var direction := _read_movement_direction()
     var sprinting := Input.is_key_pressed(KEY_SHIFT) or Input.is_action_pressed("touch_run")
     var jump_down := Input.is_key_pressed(KEY_SPACE) or Input.is_action_pressed("touch_jump")
-    var grounded_before := is_on_floor()
+    var grounded_before := is_on_floor() or (terrain_raycast_grounding and terrain_grounded)
     if jump_down and not _jump_was_down and grounded_before:
         velocity.y = JUMP_SPEED
     elif not grounded_before:
@@ -44,15 +73,19 @@ func _physics_process(delta: float) -> void:
     velocity.z = direction.z * speed
     var impact_velocity := velocity.y
     move_and_slide()
+    terrain_grounded = is_on_floor()
+    if terrain_raycast_grounding and not terrain_grounded:
+        terrain_grounded = _follow_uploaded_terrain(delta)
+    var grounded_after := is_on_floor() or (terrain_raycast_grounding and terrain_grounded)
 
     var next_animation := "idle"
-    if not is_on_floor():
+    if not grounded_after:
         next_animation = "jump"
     elif direction.length_squared() > 0.001:
         next_animation = "run" if sprinting else "walk"
     var animated_model := get_node_or_null("Visual/FbxCharacter")
     if animated_model != null and animated_model.has_method("update_motion"):
-        var landed := not grounded_before and is_on_floor()
+        var landed := not grounded_before and grounded_after
         animated_model.call("update_motion", next_animation, velocity.y, landed, -impact_velocity, delta)
 
     if direction.length_squared() > 0.01:
