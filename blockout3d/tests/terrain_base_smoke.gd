@@ -27,10 +27,52 @@ func _run() -> void:
     var mesh: MeshInstance3D = test.get("new_mesh")
     var player := world.get_node_or_null("Player3D") as CharacterBody3D
     var camera := world.get_node_or_null("IsometricCamera") as Camera3D
+    var water := world.get_node_or_null("TerrainV2Water") as Node3D
+    var ocean: MeshInstance3D = null
+    var river: MeshInstance3D = null
+    if water != null:
+        ocean = water.get_node_or_null("OceanSurface") as MeshInstance3D
+        river = water.get_node_or_null("RiverSurface") as MeshInstance3D
     if terrain == null or collider == null or mesh == null or player == null or camera == null:
         push_error("TERRAIN BASE FAIL: missing new terrain, collider, character or camera")
         quit(1)
         return
+    # Blueprint V2 must actually contain a large surrounding ocean and
+    # an independent stream, not just a label claiming an island.
+    if water == null or ocean == null or river == null:
+        push_error("TERRAIN BASE FAIL: Terrain V2 ocean / river missing")
+        quit(1)
+        return
+    if ocean.mesh == null or river.mesh == null or river.mesh.get_surface_count() < 1:
+        push_error("TERRAIN BASE FAIL: ocean or river has no visible mesh")
+        quit(1)
+        return
+    if not (ocean.mesh is PlaneMesh) or absf((ocean.mesh as PlaneMesh).size.x - 360.0) > 0.1:
+        push_error("TERRAIN BASE FAIL: ocean is not 360m island-surrounding plane")
+        quit(1)
+        return
+    if not is_equal_approx(ocean.global_position.y, 0.45):
+        push_error("TERRAIN BASE FAIL: ocean level differs from blueprint 0.45m")
+        quit(1)
+        return
+    if not (ocean.material_override is ShaderMaterial):
+        push_error("TERRAIN BASE FAIL: light turquoise-to-blue ocean material missing")
+        quit(1)
+        return
+    if water.find_children("*", "CollisionObject3D", true, false).size() != 0:
+        push_error("TERRAIN BASE FAIL: water should have no additional collision")
+        quit(1)
+        return
+    if mesh.get_aabb().size.y * 140.0 < 19.0:
+        push_error("TERRAIN BASE FAIL: northern landmark mountain too low")
+        quit(1)
+        return
+    if mesh.get_aabb().size.y * 140.0 > 30.0:
+        push_error("TERRAIN BASE FAIL: unexpected excessive V2 hills")
+        quit(1)
+        return
+    print("TERRAIN V2 OCEAN PASS: 360m tropical sea, river surface, no overlapping physics, mountain/flatland range=%.2fm" % [
+        mesh.get_aabb().size.y * 140.0])
     # Regression: terrain-only route must use a close, true 3/4 perspective,
     # never the old orthographic isometric camera.
     if camera.projection != Camera3D.PROJECTION_PERSPECTIVE:
@@ -101,7 +143,7 @@ func _run() -> void:
             quit(1)
             return
     for n in world.get_children():
-        if n == terrain or n == player or n == camera or n is DirectionalLight3D or n is WorldEnvironment or n is CanvasLayer:
+        if n == terrain or n == water or n == player or n == camera or n is DirectionalLight3D or n is WorldEnvironment or n is CanvasLayer:
             continue
         push_error("TERRAIN BASE FAIL: legacy object remains: " + str(n.name))
         quit(1)
@@ -162,5 +204,6 @@ func _run() -> void:
     print("TERRAIN BASE HD CAMERA PASS: baked_albedo=%d, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
         baked_color.get_width(), camera.fov, cam_distance, capsule.height])
     print("TERRAIN BAKED RETEXTURE PASS: one artistically repainted 4K diffuse atlas, no micro shader or large tangent normal, grounded FBX preserved")
+    print("TERRAIN V2 PLAYABLE TEST PASS: wide plains, north landmark mountain, island coast/ocean, river, original 3/4 camera and FBX")
     print("TERRAIN BASE SMOKE PASS: ONLY uploaded terrain + real collider + original controllable FBX + camera and lighting; no old objects")
     quit(0)

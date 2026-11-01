@@ -88,3 +88,40 @@ A baked retexture improves coherence and draw cost, but cannot completely
 repair insufficient original mesh geometry or UV texel density. Further
 precision painting can be done on the same UV atlas without changing the
 gameplay collision.
+
+
+## Terrain V2 — broad villages and ocean (separate browser test)
+
+The user's updated island concept calls for **mostly walkable flat land**, not hills
+on every square meter. The island is now remodeled at build time from the
+original `terrain base.glb` source (which remains unchanged in Git). The derived
+`terrain_base_web.glb` gets new Y positions and recalculated normals, while
+retaining the island's XZ coastline outline, triangle indices, UVs and approved
+single 4K baked hand-painted atlas.
+
+- 70%+ of modeled land (grade below 0.20) is playable broad plains / plateaus.
+- Northern mountain landmark peaks around 24m; two small hills remain at the
+  northeast/northwest. Most central and southern land is flat.
+- Western rice-area plateau and central village plateau use broad flat tops.
+- South/east shoreline forms gentle beach transitions; north/west coast
+  descends through shorter rocky cliffs.
+- A 360x360-meter `TerrainV2Water/OceanSurface` spans beyond the island,
+  at sea elevation 0.45m. Its inexpensive shader blends shallow tropical
+  turquoise into deeper blue (no heavyweight waves or reflections).
+- `TerrainV2Water/RiverSurface` follows a narrow riverbed carved north to
+  south. Water is visual-only and adds no extra collision.
+- Original 3/4 camera, smaller FBX avatar, animations, correct collision
+  layers and gravity verification are preserved.
+
+Build and test locally:
+
+```bash
+python3 -m pip install Pillow
+python3 blockout3d/tools/optimize_terrain_base.py
+godot --headless --path blockout3d --editor --quit
+godot --headless --path blockout3d --script res://tests/terrain_base_smoke.gd
+```
+
+Play the V2 experiment at https://eneft.github.io/Lembah-Asri/terrain-test/
+after a successful deployment. The standard `/blockout3d/` game and 2D
+homepage do not load or depend on the new terrain or water.

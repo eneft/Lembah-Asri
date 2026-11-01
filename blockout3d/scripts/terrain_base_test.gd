@@ -3,6 +3,7 @@ extends Node3D
 ## Retains original controllable FBX character, camera, lighting and mobile UI.
 const WEB_TERRAIN := "res://assets/environment/island/terrain_base_web.glb"
 const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
+const WATER_SCRIPT := preload("res://scripts/terrain_v2_water.gd")
 const TERRAIN_RAY_LAYER := 1 << 7
 const PLAYER_GROUND_LAYER := 1
 const SPAWN_XZ := Vector2(6.0, 15.0)
@@ -10,6 +11,7 @@ const SPAWN_XZ := Vector2(6.0, 15.0)
 var new_root: Node3D
 var new_mesh: MeshInstance3D
 var new_collision: StaticBody3D
+var water_root: Node3D
 var terrain_scale := 140.0
 var vertical_offset := 0.0
 var is_ready := false
@@ -117,6 +119,16 @@ func _install_terrain() -> void:
     new_collision.collision_layer = TERRAIN_RAY_LAYER | PLAYER_GROUND_LAYER
     new_collision.collision_mask = 0
     await get_tree().physics_frame
+
+    # Blueprint V2: a lightweight ocean around the entire island and
+    # visible north-to-south river surface. Neither has physics and neither
+    # interferes with the authoritative uploaded terrain's collision.
+    water_root = Node3D.new()
+    water_root.name = "TerrainV2Water"
+    water_root.set_script(WATER_SCRIPT)
+    world.add_child(water_root)
+    water_root.call("configure")
+
     # Terrain has coast / holes; choose a real walkable triangle instead of
     # relying on the old village coordinates.
     var sample_points: Array[Vector2] = [
@@ -156,12 +168,13 @@ func _install_terrain() -> void:
     player.reset_physics_interpolation()
     is_ready = true
     _refresh_text()
-    print("TERRAIN BASE TEST PASS: clean uploaded GLB terrain, collider_layer=%d, player_mask=%d, size=%s, spawn_xz=%s, spawn_height=%.3f" % [
+    print("TERRAIN V2 PLAYABLE PASS: 1 north mountain, western fields, central/south plains, sea plane 360m, river ribbon")
+    print("TERRAIN BASE TEST PASS: V2 derived GLB terrain, collider_layer=%d, player_mask=%d, size=%s, spawn_xz=%s, spawn_height=%.3f" % [
         new_collision.collision_layer, player.collision_mask, str(_bounds_global(new_mesh).size), str(spawn_xz), hit.position.y])
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "TERRAIN RETEXTURE 4K | 3/4 PERSPECTIVE\nWASD jalan | Shift lari | Space salto\nC kamera | Q/E putar | Scroll zoom\n1 baked color atlas | no heavy detail shader\nSkala: %.0f× | Offset: %.2f m" % [
+        status.text = "TERRAIN V2 | DATARAN + LAUT\nWASD jalan | Shift lari | Space salto\nC kamera | Q/E putar | Scroll zoom\n4K baked texture | 70%% dataran | laut tropis\nSkala: %.0f× | Offset: %.2f m" % [
             terrain_scale, vertical_offset]
 
 func _unhandled_input(event: InputEvent) -> void:
