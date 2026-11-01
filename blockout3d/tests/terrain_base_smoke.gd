@@ -77,7 +77,7 @@ func _run() -> void:
     for i in range(110):
         await physics_frame
     if not player.is_on_floor():
-        _fail("character did not land on the uploaded terrain")
+        _fail("character did not land on the uploaded terrain; at=" + str(player.global_position) + " vel=" + str(player.velocity) + " hit=" + str(hit.position) + " floor_normal=" + str(player.get_floor_normal()))
         return
     if absf(player.global_position.y - hit.position.y) > 0.6:
         _fail("character feet are not grounded on uploaded terrain: " + str(player.global_position.y))
