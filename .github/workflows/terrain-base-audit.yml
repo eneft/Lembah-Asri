@@ -1,0 +1,108 @@
+name: Audit uploaded Lembah Asri terrain base GLB
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/terrain-base-audit.yml'
+      - 'blockout3d/assets/environment/island/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-glb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and inspect uploaded 3D terrain base
+        shell: bash
+        run: |
+          from pathlib import Path
+          import json, struct, collections, math, os
+          
+          p = Path("blockout3d/assets/environment/island/terrain base.glb")
+          assert p.exists(), "terrain base.glb not present at expected path"
+          b = p.read_bytes()
+          print("TERRAIN_FILE:", p.name)
+          print("FILE_BYTES:", len(b), "MiB:", round(len(b)/1048576, 2))
+          assert len(b) >= 20, "GLB header too short"
+          magic, version, declared = struct.unpack_from("<4sII", b, 0)
+          print("GLB_HEADER:", magic.decode("ascii", "replace"), "version:", version, "declared:", declared)
+          assert magic == b"glTF" and version == 2 and declared == len(b), "Invalid GLB header or byte length"
+          offset=12
+          chunks=[]
+          while offset+8 <= len(b):
+            sz,tag=struct.unpack_from("<I4s",b,offset)
+            offset+=8
+            assert offset+sz <= len(b), "GLB chunk exceeds file length"
+            chunks.append((tag.decode("ascii","replace"),sz,offset))
+            offset+=sz
+          assert offset==len(b), "Unparsed bytes after last chunk"
+          print("CHUNKS:", [(c,s) for c,s,_ in chunks])
+          assert chunks[0][0]=="JSON", "No JSON chunk"
+          g=json.loads(b[chunks[0][2]:chunks[0][2]+chunks[0][1]].decode("utf-8").rstrip(" \x00"))
+          asset=g.get("asset",{})
+          print("GLTF_ASSET:", asset)
+          keys=("scenes","nodes","meshes","accessors","bufferViews","buffers","materials","textures","images","samplers","skins","animations","cameras")
+          print("COUNTS:",{k:len(g.get(k,[])) for k in keys})
+          print("SCENE_DEFAULT:",g.get("scene"),"SCENE_ROOTS:",[s.get("nodes",[]) for s in g.get("scenes",[])][:3])
+          print("EXTENSIONS_USED:",g.get("extensionsUsed",[]))
+          print("EXTENSIONS_REQUIRED:",g.get("extensionsRequired",[]))
+          nodes=g.get("nodes",[])
+          print("ROOT_NODES:",[{"name":nodes[i].get("name"),"translation":nodes[i].get("translation"),"rotation":nodes[i].get("rotation"),"scale":nodes[i].get("scale"),"matrix":nodes[i].get("matrix")} for s in g.get("scenes",[])[:1] for i in s.get("nodes",[])][:15])
+          print("NODE_NAMES:",[x.get("name","") for x in nodes[:65]])
+          mesh_info=[]
+          tris=0
+          verts=0
+          mode_counts=collections.Counter()
+          prims=0
+          missing_uv=0
+          missing_normal=0
+          material_ids=[]
+          largest=[]
+          for mesh in g.get("meshes",[]):
+            this_tri=0
+            this_vert=0
+            for prim in mesh.get("primitives",[]):
+              prims+=1
+              mode=prim.get("mode",4)
+              mode_counts[mode]+=1
+              attrs=prim.get("attributes",{})
+              v=g.get("accessors",[])[attrs["POSITION"]]["count"] if "POSITION" in attrs else 0
+              this_vert+=v
+              count=g["accessors"][prim["indices"]]["count"] if "indices" in prim else v
+              if mode == 4:
+                this_tri+=count//3
+              elif mode in (5,6):
+                this_tri+=max(0,count-2)
+              if "TEXCOORD_0" not in attrs:missing_uv+=1
+              if "NORMAL" not in attrs:missing_normal+=1
+              material_ids.append(prim.get("material",-1))
+            tris+=this_tri;verts+=this_vert
+            largest.append((this_tri,this_vert,mesh.get("name","unnamed")))
+          print("PRIMITIVE_COUNT:",prims,"MODE_COUNTS:",dict(mode_counts))
+          print("TRIANGLES_ESTIMATED:",tris,"VERTEX_REFERENCES:",verts)
+          print("PRIMS_MISSING_UV:",missing_uv,"PRIMS_MISSING_NORMALS:",missing_normal)
+          print("MATERIALS_REFERENCED:",len(set(material_ids)))
+          print("LARGEST_MESHES:",sorted(largest,reverse=True)[:20])
+          materials=g.get("materials",[])
+          print("MATERIAL_NAMES:",[x.get("name","unnamed") for x in materials[:40]])
+          print("IMAGE_INFO:",[{"name":x.get("name"),"mimeType":x.get("mimeType"),"has_bufferView":"bufferView" in x,"uri":(x.get("uri") or "")[:60]} for x in g.get("images",[])[:40]])
+          # Object and mesh local accessor bounds are not world-transformed; use only as rough coordinate ranges.
+          accessors=g.get("accessors",[])
+          bb_min=[math.inf]*3
+          bb_max=[-math.inf]*3
+          bounded=0
+          for mesh in g.get("meshes",[]):
+           for prim in mesh.get("primitives",[]):
+            idx=prim.get("attributes",{}).get("POSITION")
+            if idx is None:continue
+            a=accessors[idx]
+            if "min" in a and "max" in a:
+             bounded+=1
+             for k in range(3):
+              bb_min[k]=min(bb_min[k],a["min"][k])
+              bb_max[k]=max(bb_max[k],a["max"][k])
+          print("UNTRANSFORMED_POSITION_BOUNDS:",bb_min,bb_max,"PRIMS_WITH_BOUNDS:",bounded)
+          print("BUFFER_METADATA:",g.get("buffers"))
+          print("ANIMATION_NAMES:",[x.get("name") for x in g.get("animations",[])[:20]])
+          assert len(g.get("meshes",[]))>0,"No meshes!"
+          print("TERRAIN_BASE_AUDIT_PASS")
