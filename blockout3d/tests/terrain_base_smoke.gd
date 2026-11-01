@@ -46,8 +46,8 @@ func _run() -> void:
     if collider.collision_layer != 1:
         _fail("new collider is NOT in character's layer-1 physics mask")
         return
-    if collider.collision_mask != 0:
-        _fail("static collider collision mask should be zero")
+    if collider.collision_mask != 1:
+        _fail("new terrain static body must also scan player layer 1")
         return
     # There must be exactly ONE world 3D model besides the player and camera,
     # and only ONE StaticBody3D. Do not retain hidden old map objects.
