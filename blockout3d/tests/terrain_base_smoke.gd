@@ -1,13 +1,17 @@
 extends SceneTree
-## Validate uploaded terrain mesh import, collision and A/B visibility.
+## Regression: ONLY uploaded terrain + character, camera, sun and controls.
+## No old map, houses, roads, water, landmarks or invisible legacy colliders.
 func _initialize() -> void:
     call_deferred("_run")
+
+func _fail(why: String) -> void:
+    push_error("TERRAIN ONLY FAIL: " + why)
+    quit(1)
 
 func _run() -> void:
     var scene := load("res://scenes/terrain_base_test.tscn") as PackedScene
     if scene == null:
-        push_error("TERRAIN BASE FAIL: scene failed to load")
-        quit(1)
+        _fail("scene could not load")
         return
     var root_node := scene.instantiate() as Node3D
     root.add_child(root_node)
@@ -18,56 +22,82 @@ func _run() -> void:
             ready = true
             break
     if not ready:
-        push_error("TERRAIN BASE FAIL: terrain overlay initialization timeout")
-        quit(1)
+        _fail("GLB import/collision/spawn initialization timed out")
         return
     var world := root_node.get_node_or_null("World") as Node3D
-    var island := world.get_node_or_null("IslandBlockoutV01") as Node3D
+    if world == null or not bool(world.get("terrain_only_mode")):
+        _fail("not in isolated terrain-only mode")
+        return
+    for old_name in ["IslandBlockoutV01", "VillageTexturedHouses", "RumahNelayanPesisir"]:
+        if world.get_node_or_null(old_name) != null:
+            _fail("old world object still exists: " + old_name)
+            return
     var terrain := world.get_node_or_null("TerrainBaseUploadedV2") as Node3D
-    var old_terrain: MeshInstance3D = root_node.get("old_mesh")
-    var collider: StaticBody3D = root_node.get("new_collision")
-    if world == null or island == null or terrain == null or old_terrain == null or collider == null:
-        push_error("TERRAIN BASE FAIL: missing island, new terrain, or collision")
-        quit(1)
-        return
-    if old_terrain.visible or not terrain.visible or collider.collision_layer == 0:
-        push_error("TERRAIN BASE FAIL: new/old terrain visibility or collision invalid")
-        quit(1)
-        return
     var mesh := root_node.get("new_mesh") as MeshInstance3D
-    if mesh == null or mesh.mesh == null:
-        push_error("TERRAIN BASE FAIL: imported terrain has no valid mesh")
-        quit(1)
+    var collider := root_node.get("new_collision") as StaticBody3D
+    var player := world.get_node_or_null("Player3D") as CharacterBody3D
+    var camera := world.get_node_or_null("IsometricCamera") as Camera3D
+    if terrain == null or mesh == null or collider == null or player == null or camera == null:
+        _fail("new GLB, character, collider or camera missing")
         return
-    if mesh.mesh.get_faces().size() < 1000:
-        push_error("TERRAIN BASE FAIL: new terrain mesh missing triangles")
-        quit(1)
+    if not terrain.visible or mesh.mesh == null or mesh.mesh.get_faces().size() < 1000:
+        _fail("actual terrain model not visible or lacks geometry")
         return
-    var p := world.get_node_or_null("Player3D") as CharacterBody3D
-    if p == null:
-        push_error("TERRAIN BASE FAIL: original character missing")
-        quit(1)
+    if collider.collision_layer != 1:
+        _fail("new collider is NOT in character's layer-1 physics mask")
         return
-    var query := PhysicsRayQueryParameters3D.create(Vector3(6.0, 70.0, 15.0), Vector3(6.0,-15.0,15.0))
-    query.collision_mask = 1 << 7
-    var hit := world.get_world_3d().direct_space_state.intersect_ray(query)
-    if hit.is_empty():
-        push_error("TERRAIN BASE FAIL: new terrain ray collision missed plaza")
-        quit(1)
+    if collider.collision_mask != 1:
+        _fail("new terrain static body must also scan player layer 1")
         return
-    if absf(hit.position.y - 5.5) > 0.7:
-        push_error("TERRAIN BASE FAIL: terrain height poorly aligned at plaza: " + str(hit.position.y))
-        quit(1)
+    # There must be exactly ONE world 3D model besides the player and camera,
+    # and only ONE StaticBody3D. Do not retain hidden old map objects.
+    for node in world.get_children():
+        if node is MeshInstance3D:
+            _fail("unexpected direct mesh " + str(node.name))
+            return
+        if node is Node3D and node != terrain and node != player and node != collider and not (node is Camera3D) and not (node is Light3D):
+            _fail("unexpected old 3D world object " + str(node.name))
+            return
+    var bodies := world.find_children("*", "StaticBody3D", true, false)
+    if bodies.size() != 1 or bodies[0] != collider:
+        _fail("old physics colliders still present; count=" + str(bodies.size()))
         return
-    var toggle := InputEventKey.new()
-    toggle.keycode = KEY_T
-    toggle.pressed = true
-    # Headless CI has no focused input window. Exercise the input handler.
-    root_node.call("_unhandled_input", toggle)
-    await process_frame
-    if bool(root_node.get("terrain_active")) or not old_terrain.visible or terrain.visible:
-        push_error("TERRAIN BASE FAIL: comparison T toggle failed")
-        quit(1)
+    var spot: Vector3 = root_node.get("spawn_surface")
+    var ray := PhysicsRayQueryParameters3D.create(spot + Vector3.UP * 80.0, spot - Vector3.UP * 80.0)
+    ray.collision_mask = 1
+    ray.exclude = [player.get_rid()]
+    var hit := world.get_world_3d().direct_space_state.intersect_ray(ray)
+    if hit.is_empty() or hit.collider != collider:
+        _fail("terrain raycast hit another collider / none")
         return
-    print("TERRAIN BASE SMOKE PASS: uploaded textured mesh, aligned terrain collider, original island preserved, comparison toggle, protagonist intact")
+    var confirmed_ground: float = root_node.get("ground_y")
+    if absf(hit.position.y - confirmed_ground) > 0.15:
+        _fail("real terrain raycast and player spawn heights disagree: " + str(hit.position.y) + " / " + str(confirmed_ground))
+        return
+    if not bool(player.get("terrain_raycast_grounding")):
+        _fail("ray grounding mode is not activated on player")
+        return
+    for i in range(110):
+        await physics_frame
+    if not player.is_on_floor() and not bool(player.get("terrain_grounded")):
+        _fail("character did not ground to uploaded terrain; at=" + str(player.global_position) + " vel=" + str(player.velocity) + " hit=" + str(hit.position))
+        return
+    if absf(player.global_position.y - hit.position.y) > 0.6:
+        _fail("character feet are not grounded on uploaded terrain: " + str(player.global_position.y))
+        return
+    if not bool(player.get("terrain_raycast_grounding")):
+        _fail("terrain-follow input/physics mode was not enabled")
+        return
+    # Jump must still take off after ray-based grounding.
+    Input.action_press("touch_jump")
+    await physics_frame
+    Input.action_release("touch_jump")
+    await physics_frame
+    if player.velocity.y <= 0.0:
+        _fail("Space/touch jump no longer launches from the uploaded ground")
+        return
+    if world.get_node_or_null("Player3D/Visual/FbxCharacter") == null:
+        _fail("original FBX character controller was lost")
+        return
+    print("TERRAIN BASE SMOKE PASS: uploaded textured GLB ONLY, no legacy models/colliders, real character grounded on true terrain, camera and controls intact")
     quit(0)

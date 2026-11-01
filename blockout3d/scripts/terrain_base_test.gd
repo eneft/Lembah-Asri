@@ -1,182 +1,211 @@
 extends Node3D
-## Independent terrain audit scene: preserves the existing Lembah Asri island,
-## houses, roads, river, pier, player, camera and 2D project.
-## T toggles between uploaded terrain and the original island topography.
+## CLEAN terrain test. Only the uploaded GLB + original controllable
+## FBX character, lighting, mobile input and camera are instanced.
+## No island, roads, vegetation, buildings, bridges, pier or old colliders.
 const WEB_TERRAIN := "res://assets/environment/island/terrain_base_web.glb"
 const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
-const LAND_NODE := "01_TERRAIN_Topography_Editable_1m_Grid"
-const TERRAIN_LAYER := 1 << 7
-const VILLAGE_SAMPLE := Vector2(6.0, 15.0)
-const ORIGINAL_SAMPLE_HEIGHT := 5.5
+const TERRAIN_SCALE := 140.0
+const SPAWN_XZ := Vector2(6.0, 15.0)
 
-var old_mesh: MeshInstance3D
 var new_root: Node3D
 var new_mesh: MeshInstance3D
 var new_collision: StaticBody3D
-var old_collision: Array[CollisionObject3D] = []
-var terrain_scale := 140.0
-var terrain_active := true
-var vertical_offset := 0.0
 var is_ready := false
-var status: Label
 var world: Node3D
+var status: Label
+var ground_y := 0.0
+var spawn_surface := Vector3.ZERO
 
 func _ready() -> void:
+    # Follow terrain AFTER player movement is integrated each physics tick.
+    process_physics_priority = 100
     world = $World
     _make_hud()
     _install_terrain.call_deferred()
 
+func _physics_process(delta: float) -> void:
+    if not is_ready or new_collision == null:
+        return
+    var player := world.get_node_or_null("Player3D") as CharacterBody3D
+    if player == null or player.velocity.y > 0.05:
+        return
+    var query := PhysicsRayQueryParameters3D.create(
+        player.global_position + Vector3.UP * 3.0,
+        player.global_position - Vector3.UP * 5.0)
+    query.collision_mask = 1
+    query.exclude = [player.get_rid()]
+    var hit := world.get_world_3d().direct_space_state.intersect_ray(query)
+    if hit.is_empty() or hit.collider != new_collision:
+        return
+    var gap := player.global_position.y - float(hit.position.y)
+    if gap < -0.55 or gap > 0.6 + absf(player.velocity.y) * delta:
+        return
+    player.global_position.y = float(hit.position.y) + 0.035
+    player.velocity.y = -0.12
+    player.set("terrain_grounded", true)
+
 func _make_hud() -> void:
     var ui := CanvasLayer.new()
-    ui.name = "TerrainTestHUD"
+    ui.name = "TerrainOnlyHUD"
     ui.layer = 3
     add_child(ui)
     var panel := PanelContainer.new()
-    panel.position = Vector2(18, 171)
+    panel.position = Vector2(18, 16)
     ui.add_child(panel)
     status = Label.new()
-    status.name = "TerrainTestStatus"
-    status.text = "TERRAIN BASE | Mempersiapkan model..."
+    status.name = "TerrainOnlyStatus"
+    status.text = "LEMBAH ASRI | Memuat terrain GLB..."
     status.add_theme_font_size_override("font_size", 16)
     status.add_theme_color_override("font_color", Color("f8f4dc"))
     panel.add_child(status)
     var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.06, 0.14, 0.12, 0.88)
+    style.bg_color = Color(0.06, 0.14, 0.12, 0.85)
     style.set_content_margin_all(10)
-    panel.add_theme_stylebox_override("panel",style)
+    panel.add_theme_stylebox_override("panel", style)
 
 func _bounds_global(mesh: MeshInstance3D) -> AABB:
-    var aabb := mesh.get_aabb()
-    var lo := Vector3(INF, INF, INF)
-    var hi := Vector3(-INF, -INF, -INF)
+    var bb := mesh.get_aabb()
+    var low := Vector3(INF, INF, INF)
+    var high := Vector3(-INF, -INF, -INF)
     for i in range(8):
-        var corner := aabb.position + Vector3(
-            aabb.size.x if (i & 1) != 0 else 0.0,
-            aabb.size.y if (i & 2) != 0 else 0.0,
-            aabb.size.z if (i & 4) != 0 else 0.0)
-        var at := mesh.to_global(corner)
-        lo = lo.min(at)
-        hi = hi.max(at)
-    return AABB(lo, hi - lo)
+        var p := bb.position + Vector3(
+            bb.size.x if (i & 1) != 0 else 0.0,
+            bb.size.y if (i & 2) != 0 else 0.0,
+            bb.size.z if (i & 4) != 0 else 0.0)
+        var gp := mesh.to_global(p)
+        low = low.min(gp)
+        high = high.max(gp)
+    return AABB(low, high - low)
 
 func _get_imported_mesh(root: Node3D) -> MeshInstance3D:
     if root is MeshInstance3D:
         return root as MeshInstance3D
-    for n in root.find_children("*","MeshInstance3D",true,false):
+    for n in root.find_children("*", "MeshInstance3D", true, false):
         return n as MeshInstance3D
     return null
 
-func _disable_old_terrain() -> void:
-    if old_mesh == null:
-        return
-    old_mesh.visible = not terrain_active
-    for collider in old_collision:
-        if is_instance_valid(collider):
-            collider.collision_layer = 0 if terrain_active else 1
-
 func _install_terrain() -> void:
-    var island := world.get_node_or_null("IslandBlockoutV01") as Node3D
-    if island == null:
-        push_error("TERRAIN BASE FAIL: original island not loaded")
+    if not bool(world.get("terrain_only_mode")):
+        push_error("TERRAIN ONLY FAIL: the player world must not load legacy objects")
         return
-    for candidate in island.find_children("*","MeshInstance3D",true,false):
-        if candidate.name == LAND_NODE:
-            old_mesh = candidate as MeshInstance3D
-            break
-    if old_mesh == null:
-        push_error("TERRAIN BASE FAIL: original terrain mesh not found")
+    if world.has_node("IslandBlockoutV01") or world.has_node("VillageTexturedHouses") or world.has_node("RumahNelayanPesisir"):
+        push_error("TERRAIN ONLY FAIL: old objects were instantiated")
         return
-    for body in old_mesh.find_children("*", "CollisionObject3D", true, false):
-        if body is CollisionObject3D:
-            old_collision.append(body as CollisionObject3D)
     var input_path := WEB_TERRAIN if ResourceLoader.exists(WEB_TERRAIN) else SOURCE_TERRAIN
     var packed := load(input_path) as PackedScene
     if packed == null:
-        push_error("TERRAIN BASE FAIL: uploaded GLB could not be loaded")
+        push_error("TERRAIN ONLY FAIL: optimized terrain GLB missing")
         return
     new_root = packed.instantiate() as Node3D
     if new_root == null:
-        push_error("TERRAIN BASE FAIL: imported GLB is not Node3D")
+        push_error("TERRAIN ONLY FAIL: imported terrain GLB root invalid")
         return
     new_root.name = "TerrainBaseUploadedV2"
     world.add_child(new_root)
-    new_root.scale = Vector3.ONE * terrain_scale
+    new_root.scale = Vector3.ONE * TERRAIN_SCALE
     new_mesh = _get_imported_mesh(new_root)
-    if new_mesh == null:
-        push_error("TERRAIN BASE FAIL: mesh absent in imported file")
+    if new_mesh == null or new_mesh.mesh == null:
+        push_error("TERRAIN ONLY FAIL: imported GLB contains no mesh")
         return
-    # Uploaded terrain's GLB defaults to metallicFactor=1.0; soil is matte.
+    # GLB is ~1 unit across; enlarge to island-scale, center geometry at world origin.
+    var bounds := _bounds_global(new_mesh)
+    new_root.global_position.x -= bounds.get_center().x
+    new_root.global_position.z -= bounds.get_center().z
     if new_mesh.mesh.get_surface_count() > 0:
-        var original := new_mesh.mesh.surface_get_material(0)
-        if original is StandardMaterial3D:
-            var fixed := (original as StandardMaterial3D).duplicate(true) as StandardMaterial3D
-            fixed.metallic = 0.0
-            fixed.roughness = 0.96
-            fixed.metallic_texture = null
-            new_mesh.material_override = fixed
-    # Keep the original model geometry; fit only its horizontal footprint.
-    var old_box := _bounds_global(old_mesh)
-    var new_box := _bounds_global(new_mesh)
-    new_root.global_position.x += old_box.get_center().x - new_box.get_center().x
-    new_root.global_position.z += old_box.get_center().z - new_box.get_center().z
-    # Single static terrain collider, no per-triangle rigid bodies.
-    new_mesh.create_trimesh_collision()
-    for body in new_mesh.find_children("*", "StaticBody3D", true, false):
-        new_collision = body as StaticBody3D
-        break
-    if new_collision == null:
-        push_error("TERRAIN BASE FAIL: terrain trimesh collision not created")
-        return
-    new_collision.collision_layer = TERRAIN_LAYER
-    new_collision.collision_mask = 0
-    # Set origin height so existing roads/plaza and terrain can be compared
-    # at the same landmark. Do NOT stretch/reflow the actual terrain.
-    await get_tree().physics_frame
-    var query := PhysicsRayQueryParameters3D.create(
-        Vector3(VILLAGE_SAMPLE.x, 90.0, VILLAGE_SAMPLE.y),
-        Vector3(VILLAGE_SAMPLE.x, -90.0, VILLAGE_SAMPLE.y))
-    query.collision_mask = TERRAIN_LAYER
-    var hit := world.get_world_3d().direct_space_state.intersect_ray(query)
-    if hit.is_empty():
-        push_warning("TERRAIN BASE: plaza sample missed new surface; origin height unchanged")
-    else:
-        vertical_offset = ORIGINAL_SAMPLE_HEIGHT - float(hit.position.y)
-        new_root.global_position.y += vertical_offset
-    _disable_old_terrain()
-    is_ready = true
-    _refresh_text()
-    var new_dimensions := _bounds_global(new_mesh).size
-    print("TERRAIN BASE TEST PASS: uploaded GLB active, original island retained for comparison; scaled=%.1f, global_dimensions=%s, y_offset=%.3f, collider=%s" % [
-        terrain_scale, str(new_dimensions), vertical_offset, str(new_collision != null)])
-    # Reposition character safely near the village comparison sample.
+        var material := new_mesh.mesh.surface_get_material(0)
+        if material is StandardMaterial3D:
+            var matte := (material as StandardMaterial3D).duplicate(true) as StandardMaterial3D
+            matte.metallic = 0.0
+            matte.metallic_texture = null
+            matte.roughness = 0.96
+            new_mesh.material_override = matte
+
+    # Collider will be constructed from the EXACT uploaded triangles in
+    # world coordinates after sizing/aligning the visible GLB. This avoids
+    # huge 140x parent scaling of concave physics shapes.
+
+    # Build spawn from an ACTUAL triangle of the uploaded mesh.
+    # Fixed plaza coordinates can be empty on a completely new island.
+    # Prefer a gently sloped triangle nearest the island's central area.
     var player := world.get_node_or_null("Player3D") as CharacterBody3D
-    if player != null:
-        player.global_position = Vector3(VILLAGE_SAMPLE.x, ORIGINAL_SAMPLE_HEIGHT + 2.5, VILLAGE_SAMPLE.y)
-        player.velocity = Vector3.ZERO
+    if player == null:
+        push_error("TERRAIN ONLY FAIL: player missing")
+        return
+    var triangles := new_mesh.mesh.get_faces()
+    var best_score := INF
+    var best_surface := Vector3.ZERO
+    for i in range(0, triangles.size(), 3):
+        var a := new_mesh.to_global(triangles[i])
+        var b := new_mesh.to_global(triangles[i + 1])
+        var c := new_mesh.to_global(triangles[i + 2])
+        var normal := (b - a).cross(c - a)
+        if normal.length_squared() < 0.00001:
+            continue
+        var flatness := absf(normal.normalized().y)
+        if flatness < 0.65:
+            continue
+        var center := (a + b + c) / 3.0
+        var distance := Vector2(center.x - SPAWN_XZ.x, center.z - SPAWN_XZ.y).length_squared()
+        var score := distance + (1.0 - flatness) * 150.0
+        if score < best_score:
+            best_score = score
+            best_surface = center
+    if best_score == INF:
+        push_error("TERRAIN ONLY FAIL: no gently sloping triangle for spawn")
+        return
+    new_root.global_position.y -= best_surface.y
+    spawn_surface = Vector3(best_surface.x, 0.0, best_surface.z)
+    ground_y = 0.0
 
-func _refresh_text() -> void:
-    if status == null:
+    # Physics geometry comes from every actual imported triangle; no flat
+    # ground replacement. World coordinates are baked into a unit-scale body.
+    var world_faces := PackedVector3Array()
+    for i in range(0, triangles.size(), 3):
+        var a := new_mesh.to_global(triangles[i])
+        var b := new_mesh.to_global(triangles[i + 1])
+        var c := new_mesh.to_global(triangles[i + 2])
+        var normal := (b - a).cross(c - a)
+        if normal.length_squared() < 0.00000001:
+            continue
+        if normal.y < 0.0:
+            var swap := b
+            b = c
+            c = swap
+        world_faces.append(a)
+        world_faces.append(b)
+        world_faces.append(c)
+    if world_faces.size() < 3000:
+        push_error("TERRAIN ONLY FAIL: invalid GLB collision faces")
         return
-    var active_name := "TERRAIN BASE V2 (baru)" if terrain_active else "ISLAND BLOCKOUT (lama)"
-    status.text = "%s\nT: Ganti terrain lama / baru\n+ / -: Tinggi terrain | WASD jalan | Space salto\nSkala XZ: %.0f×  | Tinggi offset: %.2f m\nCatatan: Jalan, air, rumah, dermaga masih dari scene lama" % [
-        active_name,terrain_scale, vertical_offset]
-
-func _unhandled_input(event: InputEvent) -> void:
-    if not is_ready or not (event is InputEventKey):
+    var shape := ConcavePolygonShape3D.new()
+    shape.set_faces(world_faces)
+    shape.backface_collision = true
+    new_collision = StaticBody3D.new()
+    new_collision.name = "GLB_Terrain_Collider"
+    new_collision.collision_layer = 1
+    new_collision.collision_mask = 1
+    world.add_child(new_collision)
+    var col_shape := CollisionShape3D.new()
+    col_shape.name = "ActualTerrainTriangles"
+    col_shape.shape = shape
+    new_collision.add_child(col_shape)
+    await get_tree().physics_frame
+    # Check the terrain itself, excluding the player capsule at the previous spawn.
+    var ray := PhysicsRayQueryParameters3D.create(
+        Vector3(spawn_surface.x, 90.0, spawn_surface.z),
+        Vector3(spawn_surface.x, -90.0, spawn_surface.z))
+    ray.collision_mask = 1
+    ray.exclude = [player.get_rid()]
+    var hit := world.get_world_3d().direct_space_state.intersect_ray(ray)
+    if hit.is_empty() or hit.collider != new_collision:
+        push_error("TERRAIN ONLY FAIL: mesh triangle exists but matching terrain physics raycast failed")
         return
-    if not event.pressed or event.echo:
-        return
-    if event.keycode == KEY_T:
-        terrain_active = not terrain_active
-        _disable_old_terrain()
-        new_root.visible = terrain_active
-        new_collision.collision_layer = TERRAIN_LAYER if terrain_active else 0
-        _refresh_text()
-    elif event.keycode == KEY_EQUAL or event.keycode == KEY_KP_ADD:
-        vertical_offset += 0.5
-        new_root.position.y += 0.5
-        _refresh_text()
-    elif event.keycode == KEY_MINUS or event.keycode == KEY_KP_SUBTRACT:
-        vertical_offset -= 0.5
-        new_root.position.y -= 0.5
-        _refresh_text()
+    ground_y = float(hit.position.y)
+    player.global_position = Vector3(spawn_surface.x, ground_y + 2.0, spawn_surface.z)
+    player.velocity = Vector3.ZERO
+    world.set("terrain_test_spawn", player.global_position)
+    is_ready = true
+    status.text = "LEMBAH ASRI | TERRAIN BARU SAJA\nWASD: Jalan  |  Shift: Lari  |  Space: Salto\nC: Kamera  |  Q/E: Putar  |  Scroll: Zoom\nTidak ada rumah, jalan, laut, atau objek lama"
+    var global_bounds := _bounds_global(new_mesh)
+    print("TERRAIN ONLY READY: original terrain GLB, one actual collider, original character, no old island; size=%s spawn_ground=%.3f" % [
+        str(global_bounds.size), ground_y])
