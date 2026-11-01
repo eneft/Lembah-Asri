@@ -62,7 +62,8 @@ func _run() -> void:
     if bodies.size() != 1 or bodies[0] != collider:
         _fail("old physics colliders still present; count=" + str(bodies.size()))
         return
-    var ray := PhysicsRayQueryParameters3D.create(Vector3(6.0, 80.0, 15.0), Vector3(6.0, -80.0, 15.0))
+    var spot: Vector3 = root_node.get("spawn_surface")
+    var ray := PhysicsRayQueryParameters3D.create(spot + Vector3.UP * 80.0, spot - Vector3.UP * 80.0)
     ray.collision_mask = 1
     ray.exclude = [player.get_rid()]
     var hit := world.get_world_3d().direct_space_state.intersect_ray(ray)
