@@ -97,31 +97,9 @@ func _install_terrain() -> void:
             matte.roughness = 0.96
             new_mesh.material_override = matte
 
-    # IMPORTANT: CharacterBody3D's default collision mask includes layer 1.
-    # Old prototype put terrain on layer 8 and accidentally relied on old island
-    # collision. Real terrain collider MUST be on layer 1.
-    new_mesh.create_trimesh_collision()
-    for body in new_mesh.find_children("*", "StaticBody3D", true, false):
-        new_collision = body as StaticBody3D
-        break
-    if new_collision == null:
-        push_error("TERRAIN ONLY FAIL: terrain collider could not be generated")
-        return
-    new_collision.collision_layer = 1
-    new_collision.collision_mask = 1
-    # Imported glTF terrain may have inward/reversed winding. Ray queries hit
-    # its backfaces, but CharacterBody3D won't unless the concave shape allows
-    # backface collision too. This fixes the actual ground, not a fake floor.
-    var ground_shape: CollisionShape3D = null
-    for child in new_collision.get_children():
-        if child is CollisionShape3D:
-            ground_shape = child as CollisionShape3D
-            break
-    if ground_shape == null or not (ground_shape.shape is ConcavePolygonShape3D):
-        push_error("TERRAIN ONLY FAIL: imported terrain has no concave polygon collision shape")
-        return
-    var concave := ground_shape.shape as ConcavePolygonShape3D
-    concave.backface_collision = true
+    # Collider will be constructed from the EXACT uploaded triangles in
+    # world coordinates after sizing/aligning the visible GLB. This avoids
+    # huge 140x parent scaling of concave physics shapes.
 
     # Build spawn from an ACTUAL triangle of the uploaded mesh.
     # Fixed plaza coordinates can be empty on a completely new island.
@@ -155,6 +133,39 @@ func _install_terrain() -> void:
     new_root.global_position.y -= best_surface.y
     spawn_surface = Vector3(best_surface.x, 0.0, best_surface.z)
     ground_y = 0.0
+
+    # Physics geometry comes from every actual imported triangle; no flat
+    # ground replacement. World coordinates are baked into a unit-scale body.
+    var world_faces := PackedVector3Array()
+    for i in range(0, triangles.size(), 3):
+        var a := new_mesh.to_global(triangles[i])
+        var b := new_mesh.to_global(triangles[i + 1])
+        var c := new_mesh.to_global(triangles[i + 2])
+        var normal := (b - a).cross(c - a)
+        if normal.length_squared() < 0.00000001:
+            continue
+        if normal.y < 0.0:
+            var swap := b
+            b = c
+            c = swap
+        world_faces.append(a)
+        world_faces.append(b)
+        world_faces.append(c)
+    if world_faces.size() < 3000:
+        push_error("TERRAIN ONLY FAIL: invalid GLB collision faces")
+        return
+    var shape := ConcavePolygonShape3D.new()
+    shape.set_faces(world_faces)
+    shape.backface_collision = true
+    new_collision = StaticBody3D.new()
+    new_collision.name = "GLB_Terrain_Collider"
+    new_collision.collision_layer = 1
+    new_collision.collision_mask = 1
+    world.add_child(new_collision)
+    var col_shape := CollisionShape3D.new()
+    col_shape.name = "ActualTerrainTriangles"
+    col_shape.shape = shape
+    new_collision.add_child(col_shape)
     await get_tree().physics_frame
     # Check the terrain itself, excluding the player capsule at the previous spawn.
     var ray := PhysicsRayQueryParameters3D.create(
