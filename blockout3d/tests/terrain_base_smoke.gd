@@ -98,24 +98,15 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: capsule not scaled with character")
         quit(1)
         return
-    # ONE baked 4K painterly diffuse atlas; no 4K normal, no shader/micro
-    # textures. This actually reduces texture samples and GPU allocations.
-    var terrain_material := mesh.material_override as StandardMaterial3D
-    if terrain_material == null:
-        push_error("TERRAIN BASE FAIL: lightweight baked StandardMaterial3D missing")
+    # New V2 terrain deliberately avoids the old scan UV colors; the baked
+    # atlas remains inside the source GLB but is not shown on the new slopes.
+    var terrain_material := mesh.material_override as ShaderMaterial
+    if terrain_material == null or terrain_material.shader == null:
+        push_error("TERRAIN V2 FAIL: terrain-aligned shader missing")
         quit(1)
         return
-    var baked_color := terrain_material.albedo_texture
-    if baked_color == null or baked_color.get_width() != 4096 or baked_color.get_height() != 4096:
-        push_error("TERRAIN BASE FAIL: painted 4K terrain atlas not loaded")
-        quit(1)
-        return
-    if terrain_material.normal_enabled or terrain_material.normal_texture != null:
-        push_error("TERRAIN BASE FAIL: unused 4K normal still bound to Web terrain")
-        quit(1)
-        return
-    if terrain_material.texture_filter != BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC:
-        push_error("TERRAIN BASE FAIL: baked albedo filtering missing")
+    if not terrain_material.shader.code.contains("terrain_world"):
+        push_error("TERRAIN V2 FAIL: obsolete UV atlas material active")
         quit(1)
         return
     if mesh.mesh == null or mesh.mesh.get_faces().size() < 1000:
@@ -201,9 +192,9 @@ func _run() -> void:
         return
     world.call("_toggle_camera_mode")
     await process_frame
-    print("TERRAIN BASE HD CAMERA PASS: baked_albedo=%d, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
-        baked_color.get_width(), camera.fov, cam_distance, capsule.height])
-    print("TERRAIN BAKED RETEXTURE PASS: one artistically repainted 4K diffuse atlas, no micro shader or large tangent normal, grounded FBX preserved")
+    print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
+        camera.fov, cam_distance, capsule.height])
+    print("TERRAIN BAKED RETEXTURE PASS: terrain-aligned grass sand stone shader; original atlas preserved in source; grounded FBX preserved")
     print("TERRAIN V2 PLAYABLE TEST PASS: wide plains, north landmark mountain, island coast/ocean, river, original 3/4 camera and FBX")
     print("TERRAIN BASE SMOKE PASS: ONLY uploaded terrain + real collider + original controllable FBX + camera and lighting; no old objects")
     quit(0)
