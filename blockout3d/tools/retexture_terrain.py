@@ -55,6 +55,15 @@ def _micro_pattern(seed: int, w: int, h: int, grassy: bool) -> Image.Image:
         else:
             dx,dy = rng.randrange(0,3), rng.randrange(0,2)
         draw.line((x,y,x+dx,y+dy),fill=rng.choice(shades),width=1)
+    # Coarser hand-painted strokes stay visible from the 3/4 player camera,
+    # unlike subpixel grain alone (which disappears under mipmapping).
+    for _ in range((w*h)//3100):
+        x,y = rng.randrange(w),rng.randrange(h)
+        dx = rng.randrange(-4,5) if grassy else rng.randrange(4,18)
+        dy = rng.randrange(-17,-6) if grassy else rng.randrange(-2,4)
+        draw.line((x,y,x+dx,y+dy),
+                  fill=rng.choice([(220,225,213),(232,236,226),(248,248,240)]),
+                  width=rng.choice((1,2,2,3)))
     return rgb
 
 
@@ -90,7 +99,7 @@ def bake_painterly_albedo(image: Image.Image, size: int = TARGET_SIZE) -> Image.
     # Repaint biomes as subdued warm tropical game materials. Keep all UV
     # positions and source silhouettes. Never generate a new UV layout.
     hue,sat,val = painted.convert("HSV").split()
-    green = hue.point(_lut([(0,0),(34,0),(48,180),(64,255),(103,255),(115,0),(255,0)]))
+    green = hue.point(_lut([(0,0),(28,0),(40,185),(54,255),(103,255),(115,0),(255,0)]))
     vegetation = ImageChops.multiply(green,sat.point(_lut([(0,0),(35,0),(72,180),(115,255),(255,255)])))
     vegetation = vegetation.filter(ImageFilter.GaussianBlur(1.1))
     blue = hue.point(_lut([(0,0),(116,0),(130,240),(178,240),(190,0),(255,0)]))
@@ -102,11 +111,11 @@ def bake_painterly_albedo(image: Image.Image, size: int = TARGET_SIZE) -> Image.
     # Anime/painterly color treatment while preserving physical structures.
     # Green vegetation: sunny olive grass, less aggressive photographic neon.
     # Earth: warm sandy ochre. River/sky-blue texels are left untouched.
-    grass_palette = ImageOps.colorize(val, black=(57, 91, 47), white=(171, 200, 125))
-    grass_color_mask = vegetation.point(_lut([(0,0),(255,168)]))
+    grass_palette = ImageOps.colorize(val, black=(45, 72, 42), white=(119, 161, 99))
+    grass_color_mask = vegetation.point(_lut([(0,0),(255,204)]))
     painted = Image.composite(grass_palette, painted, grass_color_mask)
-    earth_palette = ImageOps.colorize(val, black=(84, 70, 58), white=(234, 217, 185))
-    earth_color_mask = earthy.point(_lut([(0,0),(255,66)]))
+    earth_palette = ImageOps.colorize(val, black=(76, 63, 53), white=(205, 184, 151))
+    earth_color_mask = earthy.point(_lut([(0,0),(255,102)]))
     painted = Image.composite(earth_palette, painted, earth_color_mask)
 
     # Texture paint: tiny marks are multiplied over the original diffuse atlas
@@ -119,7 +128,7 @@ def bake_painterly_albedo(image: Image.Image, size: int = TARGET_SIZE) -> Image.
     painted = Image.composite(grass_mod,painted,grass_alpha)
 
     # Very gentle crispness restored at actual 4K after paintover.
-    painted = painted.filter(ImageFilter.UnsharpMask(radius=0.75,percent=70,threshold=4))
+    # The Godot 3/4 test has strong sun/ambient illumination: avoid luminous\n    # yellow cliffs and neon grass by baking a more subdued diffuse palette.\n    painted = ImageEnhance.Brightness(painted).enhance(0.85)\n    painted = painted.filter(ImageFilter.UnsharpMask(radius=0.75,percent=70,threshold=4))
     assert painted.mode == "RGB" and painted.size == (size,size)
     print("RETEXTURE_BAKED_PASS: 96-color hand-painted tropical UV atlas 4096px, single albedo, no runtime detail textures")
     print("RETEXTURE_ALBEDO_SAMPLE_SHA256:",hashlib.sha256(painted.resize((128,128)).tobytes()).hexdigest())
