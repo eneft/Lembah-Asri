@@ -74,6 +74,9 @@ func _run() -> void:
     if absf(hit.position.y - confirmed_ground) > 0.15:
         _fail("real terrain raycast and player spawn heights disagree: " + str(hit.position.y) + " / " + str(confirmed_ground))
         return
+    if not bool(player.get("terrain_raycast_grounding")):
+        _fail("ray grounding mode is not activated on player")
+        return
     for i in range(110):
         await physics_frame
     if not player.is_on_floor() and not bool(player.get("terrain_grounded")):
