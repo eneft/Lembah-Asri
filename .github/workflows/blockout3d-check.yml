@@ -24,6 +24,13 @@ jobs:
           version: 4.3.0
           use-dotnet: false
           include-templates: true
+      - name: Build web-optimized uploaded terrain GLB
+        run: |
+          python3 -m pip install --user Pillow
+          python3 blockout3d/tools/optimize_terrain_base.py
+          test -s blockout3d/assets/environment/island/terrain_base_web.glb
+          # Keep original source in Git; exclude 53MB 8K source from web builds.
+          mv "blockout3d/assets/environment/island/terrain base.glb" /tmp/lembah-terrain-source-original.glb
       - name: Import the independent 3D project (NOT root 2D)
         run: godot --headless --path blockout3d --editor --quit
       - name: Run the actual 3D scene smoke using Compatibility renderer
@@ -32,6 +39,12 @@ jobs:
           timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/smoke.gd 2>&1 | tee blockout3d-smoke.log
           if grep -E 'SCRIPT ERROR|ERROR:|BLOCKOUT3D FAIL' blockout3d-smoke.log; then exit 1; fi
           grep -q 'BLOCKOUT3D PASS:' blockout3d-smoke.log
+      - name: Check uploaded terrain Web scene A/B and collision
+        run: |
+          set -o pipefail
+          timeout 110s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_base_smoke.gd 2>&1 | tee terrain-base-smoke.log
+          if grep -E 'SCRIPT ERROR|ERROR:|TERRAIN BASE FAIL' terrain-base-smoke.log; then exit 1; fi
+          grep -q 'TERRAIN BASE SMOKE PASS:' terrain-base-smoke.log
       - name: Verify four Mixamo FBX animation states (or explicit pending status)
         run: |
           set -o pipefail
