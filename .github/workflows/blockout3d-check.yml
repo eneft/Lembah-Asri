@@ -31,6 +31,8 @@ jobs:
           test -s blockout3d/assets/environment/island/terrain_base_web.glb
           # Keep original source in Git; exclude 53MB 8K source from web builds.
           mv "blockout3d/assets/environment/island/terrain base.glb" /tmp/lembah-terrain-source-original.glb
+      - name: Audit original terrain color map layout before retexture
+        run: python3 blockout3d/tools/audit_terrain_atlas_preview.py
       - name: Import the independent 3D project (NOT root 2D)
         run: godot --headless --path blockout3d --editor --quit
       - name: Run the actual 3D scene smoke using Compatibility renderer
