@@ -140,6 +140,44 @@ def rebuild_topography(g: dict[str, Any], source_binary: bytes) -> bytes:
     if half_x < 20 or half_z < 20:
         raise ValueError("Source GLB island is too narrow for planned blueprint: %s, %s" % (half_x, half_z))
 
+    # Photogrammetry GLBs often include vertical cliff skirts, underside faces
+    # and large side-wall triangles. Reprojecting those triangles into a
+    # heightfield turns them into huge overlapping shards on the walkable land.
+    # Cull near-vertical ORIGINAL faces before resculpting; keep the original
+    # index buffer layout (degenerate triangles, no accessor resizing).
+    culled = 0
+    examined = 0
+    for prim in primitive_list:
+        index_i = prim.get("indices")
+        if index_i is None:
+            continue
+        index_accessor = g["accessors"][index_i]
+        component = index_accessor["componentType"]
+        fmt = {5121: ("B", 1), 5123: ("H", 2), 5125: ("I", 4)}.get(component)
+        if fmt is None:
+            raise ValueError("Unsupported index type for terrain V2")
+        off, n, stride = _accessor_data(g, data, index_i, "SCALAR", component)
+        verts = positions[prim["attributes"]["POSITION"]]
+        if n % 3:
+            raise ValueError("Terrain triangle index count not divisible by 3")
+        for tri in range(0, n, 3):
+            indices = [struct.unpack_from("<" + fmt[0], data, off + (tri + k) * stride)[0] for k in range(3)]
+            if max(indices) >= len(verts):
+                raise ValueError("Terrain index out of range")
+            a, b, c = [verts[k] for k in indices]
+            ux, uy, uz = b[0]-a[0], b[1]-a[1], b[2]-a[2]
+            vx, vy, vz = c[0]-a[0], c[1]-a[1], c[2]-a[2]
+            nx, ny, nz = uy*vz-uz*vy, uz*vx-ux*vz, ux*vy-uy*vx
+            area_sq = nx*nx + ny*ny + nz*nz
+            examined += 1
+            # Remove near-vertical non-walkable wall triangles. Their source
+            # normals are too steep to represent terrain after flattening.
+            if area_sq > 1e-18 and abs(ny) / math.sqrt(area_sq) < 0.22:
+                for k in (1, 2):
+                    struct.pack_into("<" + fmt[0], data, off + (tri + k) * stride, indices[0])
+                culled += 1
+    print("TERRAIN_V2_SKIRT_CULL:", culled, "of", examined, "source triangles")
+
     new_y_by_accessor: dict[int, list[float]] = {}
     for ai, verts in positions.items():
         heights = [
