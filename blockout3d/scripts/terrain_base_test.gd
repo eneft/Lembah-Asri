@@ -14,6 +14,7 @@ var is_ready := false
 var world: Node3D
 var status: Label
 var ground_y := 0.0
+var spawn_surface := Vector3.ZERO
 
 func _ready() -> void:
     world = $World
@@ -109,30 +110,51 @@ func _install_terrain() -> void:
     new_collision.collision_layer = 1
     new_collision.collision_mask = 0
 
-    # Align the actual terrain surface to y=0 at spawn, then place the player
-    # above it. Critically EXCLUDE the character's own capsule from raycast.
+    # Build spawn from an ACTUAL triangle of the uploaded mesh.
+    # Fixed plaza coordinates can be empty on a completely new island.
+    # Prefer a gently sloped triangle nearest the island's central area.
     var player := world.get_node_or_null("Player3D") as CharacterBody3D
     if player == null:
         push_error("TERRAIN ONLY FAIL: player missing")
         return
+    var triangles := new_mesh.mesh.get_faces()
+    var best_score := INF
+    var best_surface := Vector3.ZERO
+    for i in range(0, triangles.size(), 3):
+        var a := new_mesh.to_global(triangles[i])
+        var b := new_mesh.to_global(triangles[i + 1])
+        var c := new_mesh.to_global(triangles[i + 2])
+        var normal := (b - a).cross(c - a)
+        if normal.length_squared() < 0.00001:
+            continue
+        var flatness := absf(normal.normalized().y)
+        if flatness < 0.65:
+            continue
+        var center := (a + b + c) / 3.0
+        var distance := Vector2(center.x - SPAWN_XZ.x, center.z - SPAWN_XZ.y).length_squared()
+        var score := distance + (1.0 - flatness) * 150.0
+        if score < best_score:
+            best_score = score
+            best_surface = center
+    if best_score == INF:
+        push_error("TERRAIN ONLY FAIL: no gently sloping triangle for spawn")
+        return
+    new_root.global_position.y -= best_surface.y
+    spawn_surface = Vector3(best_surface.x, 0.0, best_surface.z)
+    ground_y = 0.0
     await get_tree().physics_frame
+    # Check the terrain itself, excluding the player capsule at the previous spawn.
     var ray := PhysicsRayQueryParameters3D.create(
-        Vector3(SPAWN_XZ.x, 90.0, SPAWN_XZ.y),
-        Vector3(SPAWN_XZ.x, -90.0, SPAWN_XZ.y))
+        Vector3(spawn_surface.x, 90.0, spawn_surface.z),
+        Vector3(spawn_surface.x, -90.0, spawn_surface.z))
     ray.collision_mask = 1
     ray.exclude = [player.get_rid()]
     var hit := world.get_world_3d().direct_space_state.intersect_ray(ray)
-    if hit.is_empty():
-        push_error("TERRAIN ONLY FAIL: no terrain surface below character spawn")
-        return
-    new_root.global_position.y -= float(hit.position.y)
-    await get_tree().physics_frame
-    hit = world.get_world_3d().direct_space_state.intersect_ray(ray)
-    if hit.is_empty():
-        push_error("TERRAIN ONLY FAIL: real terrain collider disappeared after alignment")
+    if hit.is_empty() or hit.collider != new_collision:
+        push_error("TERRAIN ONLY FAIL: mesh triangle exists but matching terrain physics raycast failed")
         return
     ground_y = float(hit.position.y)
-    player.global_position = Vector3(SPAWN_XZ.x, ground_y + 2.0, SPAWN_XZ.y)
+    player.global_position = Vector3(spawn_surface.x, ground_y + 2.0, spawn_surface.z)
     player.velocity = Vector3.ZERO
     world.set("terrain_test_spawn", player.global_position)
     is_ready = true
