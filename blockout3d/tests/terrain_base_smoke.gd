@@ -55,7 +55,7 @@ func _run() -> void:
         if node is MeshInstance3D:
             _fail("unexpected direct mesh " + str(node.name))
             return
-        if node is Node3D and node != terrain and node != player and not (node is Camera3D) and not (node is Light3D):
+        if node is Node3D and node != terrain and node != player and node != collider and not (node is Camera3D) and not (node is Light3D):
             _fail("unexpected old 3D world object " + str(node.name))
             return
     var bodies := world.find_children("*", "StaticBody3D", true, false)
