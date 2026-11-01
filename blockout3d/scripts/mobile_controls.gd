@@ -26,7 +26,7 @@ func _ready() -> void:
         if not InputMap.has_action(action_name):
             InputMap.add_action(action_name)
         _make_button(button_name, action_name)
-    visible = DisplayServer.is_touchscreen_available()
+    # HTML5 touchscreen detection is inconsistent across iOS browsers.\n    # Always expose D-pad and Jump/Run on the browser terrain preview.\n    # Desktop keyboard controls remain available simultaneously.\n    visible = DisplayServer.is_touchscreen_available() or OS.has_feature("web")
     _layout_buttons()
     get_viewport().size_changed.connect(_layout_buttons)
 
