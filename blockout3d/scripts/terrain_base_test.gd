@@ -5,6 +5,7 @@ const WEB_TERRAIN := "res://assets/environment/island/terrain_base_web.glb"
 const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
 const WATER_SCRIPT := preload("res://scripts/terrain_v2_water.gd")
 const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
+const CLEAN_GROUND := preload("res://scripts/terrain_v2_player_ground.gd")
 const TERRAIN_RAY_LAYER := 1 << 7
 const PLAYER_GROUND_LAYER := 1
 const SPAWN_XZ := Vector2(6.0, 15.0)
@@ -104,20 +105,16 @@ func _install_terrain() -> void:
     new_root.global_position.z -= bounds.get_center().z
     vertical_offset = -bounds.position.y
     new_root.global_position.y += vertical_offset
-    # Static triangle collision follows the actual uploaded GLB surface.
-    new_mesh.create_trimesh_collision()
-    for body in new_mesh.find_children("*", "StaticBody3D", true, false):
-        new_collision = body as StaticBody3D
-        break
-    if new_collision == null:
-        push_error("TERRAIN BASE FAIL: terrain trimesh collision not created")
-        return
-    # IMPORTANT: player.gd's CharacterBody3D uses collision_mask=1.
-    # The previous 128-only layer let raycasts see the terrain while the
-    # actual character fell straight through it. Keep 128 for raycasts AND
-    # bit 1 for normal character/world physics.
-    new_collision.collision_layer = TERRAIN_RAY_LAYER | PLAYER_GROUND_LAYER
-    new_collision.collision_mask = 0
+    # A rebuilt scan still contains legacy overlapping/underside faces. Never
+    # give those faces player physics: it can trap the capsule and prevent jump.
+    # Independently reconstruct the SAME V2 sculpt as a clean heightfield.
+    # Place it under this test root so it stays unscaled (visual GLB is 140x).
+    # Original scan is visual-only; keep player/FBX/camera unchanged.
+    for old_body in new_root.find_children("*", "CollisionObject3D", true, false):
+        (old_body as CollisionObject3D).collision_layer = 0
+        (old_body as CollisionObject3D).collision_mask = 0
+    new_collision = CLEAN_GROUND.build(bounds.size.x * 0.5, bounds.size.z * 0.5, vertical_offset)
+    add_child(new_collision)
     await get_tree().physics_frame
 
     # Blueprint V2: a lightweight ocean around the entire island and
