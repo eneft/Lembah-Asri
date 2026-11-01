@@ -30,7 +30,7 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: missing island, new terrain, or collision")
         quit(1)
         return
-    if old_terrain.visible or not terrain.visible or collider.collision_layer == 0:
+    if not terrain.visible or collider.collision_layer == 0:
         push_error("TERRAIN BASE FAIL: new/old terrain visibility or collision invalid")
         quit(1)
         return
@@ -59,15 +59,16 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: terrain height poorly aligned at plaza: " + str(hit.position.y))
         quit(1)
         return
-    var toggle := InputEventKey.new()
-    toggle.keycode = KEY_T
-    toggle.pressed = true
-    # Headless CI has no focused input window. Exercise the input handler.
-    root_node.call("_unhandled_input", toggle)
     await process_frame
-    if bool(root_node.get("terrain_active")) or not old_terrain.visible or terrain.visible:
-        push_error("TERRAIN BASE FAIL: comparison T toggle failed")
+    if is_instance_valid(island):
+        push_error("TERRAIN BASE FAIL: legacy island still present")
         quit(1)
         return
-    print("TERRAIN BASE SMOKE PASS: uploaded textured mesh, aligned terrain collider, original island preserved, comparison toggle, protagonist intact")
+    for n in world.get_children():
+        if n == terrain or n == p or n is Camera3D or n is DirectionalLight3D or n is WorldEnvironment or n is CanvasLayer:
+            continue
+        push_error("TERRAIN BASE FAIL: legacy object remains: " + str(n.name))
+        quit(1)
+        return
+    print("TERRAIN BASE SMOKE PASS: only new terrain, collision, character, camera, lighting and HUD remain")
     quit(0)
