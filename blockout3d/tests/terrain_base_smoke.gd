@@ -56,22 +56,43 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: capsule not scaled with character")
         quit(1)
         return
-    # Importer must load real 4096² textures, not just claim 4K in labels.
-    var terrain_material := mesh.material_override as StandardMaterial3D
-    if terrain_material == null:
-        push_error("TERRAIN BASE FAIL: missing HD terrain material")
+    # This is NOT the previous macro-only StandardMaterial3D. Verify
+    # actual 4K baked color/normal + generated tileable 512px details are
+    # all bound to a real ShaderMaterial before accepting the preview.
+    var terrain_material := mesh.material_override as ShaderMaterial
+    if terrain_material == null or terrain_material.shader == null:
+        push_error("TERRAIN BASE FAIL: world-space detail ShaderMaterial missing")
         quit(1)
         return
-    if terrain_material.albedo_texture == null or terrain_material.albedo_texture.get_width() < 4096:
-        push_error("TERRAIN BASE FAIL: terrain albedo still low resolution")
+    var base_color := terrain_material.get_shader_parameter("base_albedo") as Texture2D
+    var base_normal := terrain_material.get_shader_parameter("base_normal") as Texture2D
+    var grass_detail := terrain_material.get_shader_parameter("grass_micro") as Texture2D
+    var soil_detail := terrain_material.get_shader_parameter("soil_micro") as Texture2D
+    var micro_normal := terrain_material.get_shader_parameter("micro_normal") as Texture2D
+    if base_color == null or base_color.get_width() < 4096:
+        push_error("TERRAIN BASE FAIL: original 4K baked albedo not bound")
         quit(1)
         return
-    if terrain_material.normal_texture == null or terrain_material.normal_texture.get_width() < 4096:
-        push_error("TERRAIN BASE FAIL: terrain normal map still low resolution")
+    if base_normal == null or base_normal.get_width() < 4096:
+        push_error("TERRAIN BASE FAIL: original 4K normal map not bound")
         quit(1)
         return
-    if terrain_material.texture_filter != BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC:
-        push_error("TERRAIN BASE FAIL: anisotropic terrain filtering missing")
+    if grass_detail == null or soil_detail == null or micro_normal == null:
+        push_error("TERRAIN BASE FAIL: seamless detail textures not bound")
+        quit(1)
+        return
+    for tex in [grass_detail, soil_detail, micro_normal]:
+        if tex.get_width() != 512 or tex.get_height() != 512:
+            push_error("TERRAIN BASE FAIL: microtexture size invalid")
+            quit(1)
+            return
+    if not (terrain_material.shader.code.contains("terrain_world_pos") and terrain_material.shader.code.contains("repeat_enable")):
+        push_error("TERRAIN BASE FAIL: world-space tiling/detail shader source absent")
+        quit(1)
+        return
+    var tile_density := float(terrain_material.get_shader_parameter("tiles_per_meter"))
+    if tile_density < 0.45 or tile_density > 1.5:
+        push_error("TERRAIN BASE FAIL: texture detail world-space density invalid")
         quit(1)
         return
     if mesh.mesh == null or mesh.mesh.get_faces().size() < 1000:
@@ -158,8 +179,9 @@ func _run() -> void:
     world.call("_toggle_camera_mode")
     await process_frame
     print("TERRAIN BASE HD CAMERA PASS: albedo=%d normal=%d, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
-        terrain_material.albedo_texture.get_width(),
-        terrain_material.normal_texture.get_width(),
+        base_color.get_width(), base_normal.get_width(),
         camera.fov, cam_distance, capsule.height])
+    print("TERRAIN DETAIL SHADER PASS: grass/soil/normal microtextures=512px; worldspace_density=%.2f tiles/m; original baked color maintained" % [
+        tile_density])
     print("TERRAIN BASE SMOKE PASS: ONLY uploaded terrain + real collider + original controllable FBX + camera and lighting; no old objects")
     quit(0)
