@@ -53,13 +53,13 @@ func _make_river() -> void:
         var contact := _raycast_surface(x, z)
         if contact.is_empty():
             continue
-        points.append(Vector3(x, float(contact.position.y) + 0.075, z))
+        points.append(Vector3(x, float(contact.position.y) + 0.16, z))
 
     if points.size() < 45:
         push_warning("TERRAIN V2 WATER: stream surface shorter than expected")
         return
 
-    var width := 1.4
+    var width := 0.85
     for i in range(points.size() - 1):
         var previous: Vector3 = points[i]
         var following: Vector3 = points[i + 1]
@@ -77,7 +77,7 @@ func _make_river() -> void:
     river_surface.name = "RiverSurface"
     river_surface.mesh = ribbon.commit()
     var river_material := StandardMaterial3D.new()
-    river_material.albedo_color = Color(0.12, 0.66, 0.82, 1.0)
+    river_material.albedo_color = Color(0.12, 0.48, 0.55, 1.0)
     river_material.roughness = 0.38
     river_material.metallic = 0.0
     river_material.cull_mode = BaseMaterial3D.CULL_DISABLED
