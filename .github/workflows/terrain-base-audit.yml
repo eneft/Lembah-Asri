@@ -15,6 +15,7 @@ jobs:
       - name: Validate and inspect uploaded 3D terrain base
         shell: bash
         run: |
+          python - <<'PY'
           from pathlib import Path
           import json, struct, collections, math, os
           
@@ -106,3 +107,4 @@ jobs:
           print("ANIMATION_NAMES:",[x.get("name") for x in g.get("animations",[])[:20]])
           assert len(g.get("meshes",[]))>0,"No meshes!"
           print("TERRAIN_BASE_AUDIT_PASS")
+          PY
