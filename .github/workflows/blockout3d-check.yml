@@ -31,8 +31,6 @@ jobs:
           test -s blockout3d/assets/environment/island/terrain_base_web.glb
           # Keep original source in Git; exclude 53MB 8K source from web builds.
           mv "blockout3d/assets/environment/island/terrain base.glb" /tmp/lembah-terrain-source-original.glb
-      - name: Audit original terrain color map layout before retexture
-        run: python3 blockout3d/tools/audit_terrain_atlas_preview.py
       - name: Import the independent 3D project (NOT root 2D)
         run: godot --headless --path blockout3d --editor --quit
       - name: Run the actual 3D scene smoke using Compatibility renderer
@@ -47,18 +45,6 @@ jobs:
           timeout 110s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_base_smoke.gd 2>&1 | tee terrain-base-smoke.log
           if grep -E 'SCRIPT ERROR|ERROR:|TERRAIN BASE FAIL' terrain-base-smoke.log; then exit 1; fi
           grep -q 'TERRAIN BASE SMOKE PASS:' terrain-base-smoke.log
-      - name: Capture actual retextured Godot camera frame for art review
-        run: |
-          timeout 85s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_render_preview.gd 2>&1 | tail -15
-          python3 - <<'PY'
-          import base64
-          from pathlib import Path
-          f=Path("/tmp/terrain_baked_godot_preview.jpg")
-          if f.exists():
-              print("TERRAIN_GODOT_PREVIEW_B64_START")
-              print(base64.b64encode(f.read_bytes()).decode("ascii"))
-              print("TERRAIN_GODOT_PREVIEW_B64_END")
-          PY
       - name: Verify four Mixamo FBX animation states (or explicit pending status)
         run: |
           set -o pipefail
