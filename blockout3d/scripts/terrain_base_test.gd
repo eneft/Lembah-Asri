@@ -86,6 +86,9 @@ func _install_terrain() -> void:
             matte.metallic = 0.0
             matte.roughness = 0.96
             matte.metallic_texture = null
+            # Crisp oblique terrain sampling with mipmaps, avoiding jagged
+            # textures while preserving HD detail near the 3/4 camera.
+            matte.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
             new_mesh.material_override = matte
     # Center the supplied mesh in the world. No old model is loaded for alignment.
     var bounds := _bounds_global(new_mesh)
@@ -152,7 +155,7 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "TERRAIN BASE V2 | KARAKTER SAJA\nWASD jalan | Shift lari | Space salto\nC kamera | Q/E putar | + / - tinggi terrain\nSkala: %.0f× | Offset: %.2f m\nTanpa objek dan collision lama" % [
+        status.text = "TERRAIN HD 4K | 3/4 PERSPECTIVE\nWASD jalan | Shift lari | Space salto\nC kamera | Q/E putar | Scroll zoom\nSkala: %.0f× | Offset: %.2f m\nHanya terrain dan karakter kecil" % [
             terrain_scale, vertical_offset]
 
 func _unhandled_input(event: InputEvent) -> void:

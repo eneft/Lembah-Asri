@@ -26,7 +26,11 @@ assert chunks[0][0]==b"JSON" and chunks[1][0]==b"BIN\x00"
 g=json.loads(chunks[0][1].decode("utf-8").rstrip(" \x00"))
 binary=chunks[1][1]
 views=g["bufferViews"]
-image_settings=[(2048,86),(1024,88),(2048,88)]
+# Texture roles in the source GLB: 0=albedo 8192², 1=metal-rough 4096²,
+# 2=normal 4096². Use high-resolution albedo + normal for the close
+# 3/4 perspective camera. The old 2K albedo caused severe pixelation.
+# The 1K metal-rough image is not sampled in the matte terrain material.
+image_settings=[(4096,94),(1024,88),(4096,92)]
 replacement={}
 for n,img in enumerate(g.get("images",[])):
     if "bufferView" not in img:
@@ -44,6 +48,8 @@ for n,img in enumerate(g.get("images",[])):
     im.save(out,format="JPEG",quality=quality,optimize=True,subsampling=0)
     replacement[idx]=out.getvalue()
     print("WEB_TERRAIN_TEXTURE",n,im.size,"was",len(chunk),"now",len(replacement[idx]))
+    if n in (0,2):
+        assert im.size == (4096,4096), "HD terrain albedo/normal texture must be 4K"
 # Pack every existing view (including all geometry buffers) preserving its accessor indices.
 target=bytearray()
 for idx,v in enumerate(views):
@@ -71,5 +77,6 @@ with DST.open("wb") as f:
     f.write(j)
     f.write(struct.pack("<I4s",len(target),b"BIN\x00"))
     f.write(target)
+print("WEB_TERRAIN_HD_PASS: albedo=4096x4096, normal=4096x4096, source mesh/UV unchanged")
 print("WEB_TERRAIN_OPTIMIZED",SRC.stat().st_size,DST.stat().st_size,"bytes",round(DST.stat().st_size/SRC.stat().st_size*100,1),"pct")
 assert DST.stat().st_size<SRC.stat().st_size

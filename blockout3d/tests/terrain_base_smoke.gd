@@ -31,6 +31,49 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: missing new terrain, collider, character or camera")
         quit(1)
         return
+    # Regression: terrain-only route must use a close, true 3/4 perspective,
+    # never the old orthographic isometric camera.
+    if camera.projection != Camera3D.PROJECTION_PERSPECTIVE:
+        push_error("TERRAIN BASE FAIL: test camera is not perspective")
+        quit(1)
+        return
+    if camera.fov < 36.0 or camera.fov > 60.0:
+        push_error("TERRAIN BASE FAIL: wrong close camera FOV: " + str(camera.fov))
+        quit(1)
+        return
+    var visual := player.get_node_or_null("Visual") as Node3D
+    var capsule_node := player.get_node_or_null("PlayerCollision") as CollisionShape3D
+    if visual == null or not is_equal_approx(visual.scale.x, 0.74):
+        push_error("TERRAIN BASE FAIL: character not reduced to 74 percent")
+        quit(1)
+        return
+    if capsule_node == null or not (capsule_node.shape is CapsuleShape3D):
+        push_error("TERRAIN BASE FAIL: smaller character missing capsule")
+        quit(1)
+        return
+    var capsule := capsule_node.shape as CapsuleShape3D
+    if absf(capsule.height - 1.31) > 0.01 or absf(capsule.radius - 0.245) > 0.01:
+        push_error("TERRAIN BASE FAIL: capsule not scaled with character")
+        quit(1)
+        return
+    # Importer must load real 4096² textures, not just claim 4K in labels.
+    var terrain_material := mesh.material_override as StandardMaterial3D
+    if terrain_material == null:
+        push_error("TERRAIN BASE FAIL: missing HD terrain material")
+        quit(1)
+        return
+    if terrain_material.albedo_texture == null or terrain_material.albedo_texture.get_width() < 4096:
+        push_error("TERRAIN BASE FAIL: terrain albedo still low resolution")
+        quit(1)
+        return
+    if terrain_material.normal_texture == null or terrain_material.normal_texture.get_width() < 4096:
+        push_error("TERRAIN BASE FAIL: terrain normal map still low resolution")
+        quit(1)
+        return
+    if terrain_material.texture_filter != BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC:
+        push_error("TERRAIN BASE FAIL: anisotropic terrain filtering missing")
+        quit(1)
+        return
     if mesh.mesh == null or mesh.mesh.get_faces().size() < 1000:
         push_error("TERRAIN BASE FAIL: imported geometry absent")
         quit(1)
@@ -97,5 +140,26 @@ func _run() -> void:
         return
     print("TERRAIN BASE PHYSICS PASS: character grounded after 120 gravity frames; player_layer=%d, player_mask=%d, ground_layer=%d, bottom_gap=%.3f m" % [
         player.collision_layer, player.collision_mask, collider.collision_layer, player.global_position.y-hit.position.y])
+    # Check that the camera really followed the smaller player into the
+    # new 3/4 framing (not merely a projection-flag change).
+    var focal := player.global_position + Vector3(0.0, 0.85, 0.0)
+    var cam_distance := camera.global_position.distance_to(focal)
+    if cam_distance < 5.0 or cam_distance > 15.0:
+        push_error("TERRAIN BASE FAIL: 3/4 camera not close to the player: " + str(cam_distance))
+        quit(1)
+        return
+    var original_fov := camera.fov
+    world.call("_toggle_camera_mode")
+    await process_frame
+    if camera.projection != Camera3D.PROJECTION_PERSPECTIVE or is_equal_approx(camera.fov, original_fov):
+        push_error("TERRAIN BASE FAIL: C button changed perspective or did not toggle 3/4 camera preset")
+        quit(1)
+        return
+    world.call("_toggle_camera_mode")
+    await process_frame
+    print("TERRAIN BASE HD CAMERA PASS: albedo=%d normal=%d, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
+        terrain_material.albedo_texture.get_width(),
+        terrain_material.normal_texture.get_width(),
+        camera.fov, cam_distance, capsule.height])
     print("TERRAIN BASE SMOKE PASS: ONLY uploaded terrain + real collider + original controllable FBX + camera and lighting; no old objects")
     quit(0)
