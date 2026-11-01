@@ -29,17 +29,17 @@ func _make_hud() -> void:
     ui.layer = 3
     add_child(ui)
     var panel := PanelContainer.new()
-    panel.position = Vector2(18, 171)
+    panel.position = Vector2(18, 120)
     ui.add_child(panel)
     status = Label.new()
     status.name = "TerrainTestStatus"
     status.text = "TERRAIN BASE V2 | Memuat model..."
-    status.add_theme_font_size_override("font_size", 16)
+    status.add_theme_font_size_override("font_size", 12)
     status.add_theme_color_override("font_color", Color("f8f4dc"))
     panel.add_child(status)
     var style := StyleBoxFlat.new()
     style.bg_color = Color(0.06, 0.14, 0.12, 0.88)
-    style.set_content_margin_all(10)
+    style.set_content_margin_all(6)
     panel.add_theme_stylebox_override("panel", style)
 
 func _bounds_global(mesh: MeshInstance3D) -> AABB:
@@ -174,8 +174,7 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "TERRAIN V2 | DATARAN + LAUT\nWASD jalan | Shift lari | Space salto\nC kamera | Q/E putar | Scroll zoom\n4K baked texture | 70%% dataran | laut tropis\nSkala: %.0f× | Offset: %.2f m" % [
-            terrain_scale, vertical_offset]
+        status.text = "TERRAIN V2 | 4K atlas | Skala %.0f×" % terrain_scale
 
 func _unhandled_input(event: InputEvent) -> void:
     if not is_ready or not (event is InputEventKey):
