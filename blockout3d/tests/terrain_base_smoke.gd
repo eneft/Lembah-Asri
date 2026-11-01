@@ -192,6 +192,44 @@ func _run() -> void:
         return
     world.call("_toggle_camera_mode")
     await process_frame
+    # ACTIVE gameplay input regression: standing still does not prove a
+    # CharacterBody3D can walk or jump on this rebuilt terrain!
+    if not InputMap.has_action("touch_forward") or not InputMap.has_action("touch_jump"):
+        push_error("TERRAIN V2 INPUT FAIL: touch movement/jump actions not registered")
+        quit(1)
+        return
+    var start_walk := player.global_position
+    Input.action_press("touch_forward")
+    for frame in range(28):
+        await physics_frame
+    Input.action_release("touch_forward")
+    var walked_m := player.global_position.distance_to(start_walk)
+    if walked_m < 0.75:
+        push_error("TERRAIN V2 MOVEMENT FAIL: character stuck, moved only %.3fm" % walked_m)
+        quit(1)
+        return
+    for frame in range(10):
+        await physics_frame
+    if not player.is_on_floor():
+        push_error("TERRAIN V2 JUMP FAIL: player is not grounded after walking")
+        quit(1)
+        return
+    var pre_jump_height := player.global_position.y
+    Input.action_press("touch_jump")
+    for frame in range(7):
+        await physics_frame
+    Input.action_release("touch_jump")
+    if player.global_position.y < pre_jump_height + 0.25 or player.velocity.y <= 0.0:
+        push_error("TERRAIN V2 JUMP FAIL: jump button did not cause upward movement")
+        quit(1)
+        return
+    for frame in range(100):
+        await physics_frame
+    if not player.is_on_floor():
+        push_error("TERRAIN V2 LANDING FAIL: jump didn't return to a valid floor")
+        quit(1)
+        return
+    print("TERRAIN V2 INPUT PASS: walk %.2fm, jump triggered, landed on rebuilt collision" % walked_m)
     print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
         camera.fov, cam_distance, capsule.height])
     print("TERRAIN BAKED RETEXTURE PASS: terrain-aligned grass sand stone shader; original atlas preserved in source; grounded FBX preserved")
