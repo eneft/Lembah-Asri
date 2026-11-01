@@ -4,6 +4,7 @@ extends Node3D
 const WEB_TERRAIN := "res://assets/environment/island/terrain_base_web.glb"
 const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
 const WATER_SCRIPT := preload("res://scripts/terrain_v2_water.gd")
+const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
 const TERRAIN_RAY_LAYER := 1 << 7
 const PLAYER_GROUND_LAYER := 1
 const SPAWN_XZ := Vector2(6.0, 15.0)
@@ -90,14 +91,13 @@ func _install_terrain() -> void:
     if original == null or original.albedo_texture == null:
         push_error("TERRAIN BASE FAIL: baked retexture albedo missing")
         return
-    var light_material := original.duplicate(true) as StandardMaterial3D
-    light_material.metallic = 0.0
-    light_material.roughness = 0.98
-    light_material.metallic_texture = null
-    light_material.normal_enabled = false
-    light_material.normal_texture = null
-    light_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-    new_mesh.material_override = light_material
+    # The source atlas was painted for a different, mountainous mesh. Its UV
+    # colors make cliff/soil polygons appear across newly flat village land.
+    # Keep source mesh and baked source GLB intact, but render this V2 test
+    # with clean position/slope-based ground materials instead.
+    var ground_material := ShaderMaterial.new()
+    ground_material.shader = GROUND_SHADER
+    new_mesh.material_override = ground_material
     # Center the supplied mesh in the world. No old model is loaded for alignment.
     var bounds := _bounds_global(new_mesh)
     new_root.global_position.x -= bounds.get_center().x
