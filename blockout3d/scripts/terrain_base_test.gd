@@ -17,9 +17,32 @@ var ground_y := 0.0
 var spawn_surface := Vector3.ZERO
 
 func _ready() -> void:
+    # Follow terrain AFTER player movement is integrated each physics tick.
+    process_physics_priority = 100
     world = $World
     _make_hud()
     _install_terrain.call_deferred()
+
+func _physics_process(delta: float) -> void:
+    if not is_ready or new_collision == null:
+        return
+    var player := world.get_node_or_null("Player3D") as CharacterBody3D
+    if player == null or player.velocity.y > 0.05:
+        return
+    var query := PhysicsRayQueryParameters3D.create(
+        player.global_position + Vector3.UP * 3.0,
+        player.global_position - Vector3.UP * 5.0)
+    query.collision_mask = 1
+    query.exclude = [player.get_rid()]
+    var hit := world.get_world_3d().direct_space_state.intersect_ray(query)
+    if hit.is_empty() or hit.collider != new_collision:
+        return
+    var gap := player.global_position.y - float(hit.position.y)
+    if gap < -0.55 or gap > 0.6 + absf(player.velocity.y) * delta:
+        return
+    player.global_position.y = float(hit.position.y) + 0.035
+    player.velocity.y = -0.12
+    player.set("terrain_grounded", true)
 
 func _make_hud() -> void:
     var ui := CanvasLayer.new()
