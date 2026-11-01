@@ -8,12 +8,8 @@ import json
 import struct
 from PIL import Image
 
-# Generate required seamless grass/earth/normal PNG assets before Godot scans
-# resources. They are reproducible from repository source code and do not
-# require any manual file uploads or changes to the original GLB.
-from build_terrain_detail import main as build_terrain_detail
-
-build_terrain_detail()
+# Single baked painterly albedo; no procedural shader at runtime.
+from retexture_terrain import bake_painterly_albedo
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets/environment/island/terrain base.glb"
@@ -33,11 +29,11 @@ assert chunks[0][0]==b"JSON" and chunks[1][0]==b"BIN\x00"
 g=json.loads(chunks[0][1].decode("utf-8").rstrip(" \x00"))
 binary=chunks[1][1]
 views=g["bufferViews"]
-# Texture roles in the source GLB: 0=albedo 8192², 1=metal-rough 4096²,
-# 2=normal 4096². Use high-resolution albedo + normal for the close
-# 3/4 perspective camera. The old 2K albedo caused severe pixelation.
-# The 1K metal-rough image is not sampled in the matte terrain material.
-image_settings=[(4096,94),(1024,88),(4096,92)]
+# Original photogrammetry has 8K albedo and 4K normal/metallic.
+# Repaint its ALBEDO at 4K, and detach unused normal/metallic maps. This
+# avoids ~64MiB GPU per unused 4K normal and 4+ shader samples per fragment.
+# The authored terrain geometry, UV seams and camera/player are untouched.
+image_settings=[(4096,93),(4,65),(4,65)]
 replacement={}
 for n,img in enumerate(g.get("images",[])):
     if "bufferView" not in img:
@@ -51,12 +47,14 @@ for n,img in enumerate(g.get("images",[])):
     im=im.convert("RGB")
     if max(im.size)>dim:
         im.thumbnail((dim,dim),Image.Resampling.LANCZOS)
+    if n==0:
+        im = bake_painterly_albedo(im, 4096)
     out=io.BytesIO()
     im.save(out,format="JPEG",quality=quality,optimize=True,subsampling=0)
     replacement[idx]=out.getvalue()
     print("WEB_TERRAIN_TEXTURE",n,im.size,"was",len(chunk),"now",len(replacement[idx]))
-    if n in (0,2):
-        assert im.size == (4096,4096), "HD terrain albedo/normal texture must be 4K"
+    if n == 0:
+        assert im.size == (4096,4096), "Retextured terrain albedo must remain 4K"
 # Pack every existing view (including all geometry buffers) preserving its accessor indices.
 target=bytearray()
 for idx,v in enumerate(views):
@@ -72,8 +70,9 @@ for mat in g.get("materials",[]):
     pbr=mat.setdefault("pbrMetallicRoughness",{})
     pbr["metallicFactor"]=0.0
     pbr["roughnessFactor"]=0.96
-    pbr.pop("metallicRoughnessTexture",None) # compressed web build uses fixed rough matte dirt
-g.setdefault("asset",{})["generator"]="Lembah Asri terrain web optimizer (user geometry preserved)"
+    pbr.pop("metallicRoughnessTexture",None)
+    mat.pop("normalTexture",None) # no unused 4K tangent-space normal texture
+g.setdefault("asset",{})["generator"]="Lembah Asri baked painterly retexture (source geometry UV preserved)"
 j=json.dumps(g,separators=(",",":"),ensure_ascii=False).encode("utf-8")
 j+=b" " *((4-len(j)%4)%4)
 target.extend(b"\x00"*((4-len(target)%4)%4))
@@ -84,7 +83,6 @@ with DST.open("wb") as f:
     f.write(j)
     f.write(struct.pack("<I4s",len(target),b"BIN\x00"))
     f.write(target)
-print("WEB_TERRAIN_HD_PASS: albedo=4096x4096, normal=4096x4096, source mesh/UV unchanged")
-print("TERRAIN_DETAIL_READY: original baked atlas and three tileable microtextures built for Web export")
+print("WEB_TERRAIN_RETEXTURED_PASS: unique hand-painted 4096px atlas, 1 diffuse texture sampler, no 4K normal, geometry/UV unchanged")
 print("WEB_TERRAIN_OPTIMIZED",SRC.stat().st_size,DST.stat().st_size,"bytes",round(DST.stat().st_size/SRC.stat().st_size*100,1),"pct")
 assert DST.stat().st_size<SRC.stat().st_size
