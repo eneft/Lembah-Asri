@@ -108,7 +108,7 @@ func _install_terrain() -> void:
         push_error("TERRAIN ONLY FAIL: terrain collider could not be generated")
         return
     new_collision.collision_layer = 1
-    new_collision.collision_mask = 0
+    new_collision.collision_mask = 1
     # Imported glTF terrain may have inward/reversed winding. Ray queries hit
     # its backfaces, but CharacterBody3D won't unless the concave shape allows
     # backface collision too. This fixes the actual ground, not a fake floor.
