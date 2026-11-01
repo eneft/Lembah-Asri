@@ -48,3 +48,44 @@ When the source binary has not yet been uploaded into GitHub, the old procedural
 `scripts/village_art.gd` is a **reusable Godot 4.3 art kit**. It generates lightweight authored UV meshes with cached, deterministic painterly albedo and subtle normal-map textures (192px, no network dependency): clay-tile pitched roofs with visible rows, gable plaster and weathering, textured teak-style frames/doors, porch structures, tropical trees with branches, curved coconut fronds, and broad banana leaves. Childhood home has a different weathered finish and shrubs. Ground paths receive painted earth. Building collision remains in place.
 
 The art kit is still **not final hand-painted commissioned assets** or a fully modeled 3D world. Additional sculpted unique meshes, atlased textures and environmental optimization are future iterations. The existing player rig, animations, controls, camera and legacy 2D game remain untouched.
+
+
+## HD terrain-only browser preview — original atlas + seamless microdetail
+
+Playable preview: https://eneft.github.io/Lembah-Asri/terrain-test/
+
+The user's original `assets/environment/island/terrain base.glb` (53 MB, baked
+8192px color / 4096px normal) is **the authoritative asset**. The Web export
+keeps its original geometry, UVs, painted color boundaries and collision, then
+creates an optimized **4096px baked albedo and normal** in
+`terrain_base_web.glb`. Simply raising 2K to 4K did not solve detail density
+when this atlas was stretched over a ~140m island, so the terrain-only preview
+now also uses:
+
+- `shaders/terrain_hd_detail.gdshader`: baked macro color + world-space
+  grass/earth material detail with tileable micro-normal. Green vegetation
+  blends toward grass fibers; dirt paths remain earth-colored.
+- `tools/build_terrain_detail.py`: deterministic, seamless 512px grass,
+  soil and micro-normal assets. The assets are **generated PNGs at build
+  time** so repository text-only updates can safely maintain them. All three
+  are actual texture resources embedded in the exported Godot Web pack;
+  no runtime image generation or network download is needed.
+- `scripts/terrain_base_test.gd`: binds imported 4K GLB textures and
+  generated detail PNG textures to the shader; retains the corrected
+  terrain collision layer and character's grounded spawn.
+- `scripts/terrain_only_world.gd`: close perspective 3/4 camera,
+  original FBX character at 74% visual scale and matching collision capsule.
+
+To generate the PNGs and the Web GLB when opening this project locally:
+
+```bash
+python3 -m pip install Pillow
+python3 blockout3d/tools/optimize_terrain_base.py
+```
+
+Then open `blockout3d/project.godot` in Godot 4.3 and run
+`scenes/terrain_base_test.tscn`. GitHub Actions performs the generation
+automatically **before Godot import**, for both PR tests and GitHub Pages.
+
+This experiment affects only `/terrain-test/`. The main 3D
+`/blockout3d/` route and legacy 2D game are not modified.
