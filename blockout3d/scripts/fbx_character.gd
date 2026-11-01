@@ -172,10 +172,14 @@ func play_state(next_state: String) -> void:
         next_state = "idle"
     if (next_state != "land" and not loaded_clips.has(next_state)) or current_state == next_state:
         return
+    var was_jumping := current_state == "jump"
     current_state = next_state
-    # Jump Over is 1.933 seconds; speed it up to match ~0.9s physical airtime.
+    # Preserve the COMPLETE Jump Over clip, including the original somersault.
+    # At 2.05x its 1.933s source length matches ~0.95s airborne physics.
     var playback_speed := 2.05 if next_state == "jump" else 1.0
-    animator.play("lembah/" + next_state, 0.18 if current_state != "jump" else 0.08, playback_speed)
+    var blend := 0.06 if next_state == "jump" else (0.11 if was_jumping else 0.16)
+    animator.speed_scale = 1.0
+    animator.play("lembah/" + next_state, blend, playback_speed)
 
 func _anchor_motion_roots(clip: Animation, idle_reference: Animation, jumping: bool) -> void:
     # CharacterBody3D owns world travel. Mixamo Jump Over contains forward hip motion.
@@ -239,29 +243,22 @@ func _lowest_foot() -> float:
         lowest = minf(lowest, to_local(point).y)
     return lowest
 
-func update_motion(state: String, vertical_speed: float, landed: bool, impact_speed: float, delta: float) -> void:
-    if animator == null:
+func update_motion(state: String, _vertical_speed: float, _landed: bool, _impact_speed: float, delta: float) -> void:
+    if animator == null or model_root == null:
         return
     if state == "jump":
-        landing_left = 0.0
+        # NEVER pause/seek into the source animation: that discarded frames
+        # 0.0-0.42 and 1.65-1.933, hiding the FBX somersault.
+        # The real clip plays from its first pose through its final pose.
         play_state("jump")
-        animator.pause()
-        var phase := clampf(1.0 - vertical_speed / 8.6, 0.0, 2.0)
-        var sample := lerpf(AIR_START, AIR_APEX, phase) if phase <= 1.0 else lerpf(AIR_APEX, AIR_CONTACT, phase - 1.0)
-        animator.seek(sample, true)
-        # Ease the feet towards the contact plane during the final descent.
-        var contact_weight := smoothstep(1.30, AIR_CONTACT, sample)
+        if not animator.is_playing():
+            var clip := animator.get_animation("lembah/jump")
+            if clip != null:
+                animator.seek(maxf(0.0, clip.length - 0.005), true)
         model_root.position.y = base_model_y
-        model_root.position.y += (idle_foot_y - _lowest_foot()) * contact_weight
         return
-    if landed and impact_speed > 2.0:
-        play_state("land")
-        animator.speed_scale = 1.0
-        landing_left = animator.get_animation("lembah/land").length
-    if landing_left > 0.0:
-        landing_left = maxf(0.0, landing_left - delta)
-        model_root.position.y = base_model_y
-        model_root.position.y += idle_foot_y - _lowest_foot()
-        return
+    # Physical character has landed; no repeated jump tail or midair foot
+    # compensation, which previously made the original flip look robotic.
+    landing_left = 0.0
     play_state(state)
     model_root.position.y = lerpf(model_root.position.y, base_model_y, 1.0 - exp(-18.0 * delta))
