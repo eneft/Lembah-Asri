@@ -109,6 +109,19 @@ func _install_terrain() -> void:
         return
     new_collision.collision_layer = 1
     new_collision.collision_mask = 0
+    # Imported glTF terrain may have inward/reversed winding. Ray queries hit
+    # its backfaces, but CharacterBody3D won't unless the concave shape allows
+    # backface collision too. This fixes the actual ground, not a fake floor.
+    var ground_shape: CollisionShape3D = null
+    for child in new_collision.get_children():
+        if child is CollisionShape3D:
+            ground_shape = child as CollisionShape3D
+            break
+    if ground_shape == null or not (ground_shape.shape is ConcavePolygonShape3D):
+        push_error("TERRAIN ONLY FAIL: imported terrain has no concave polygon collision shape")
+        return
+    var concave := ground_shape.shape as ConcavePolygonShape3D
+    concave.backface_collision = true
 
     # Build spawn from an ACTUAL triangle of the uploaded mesh.
     # Fixed plaza coordinates can be empty on a completely new island.
