@@ -56,43 +56,24 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: capsule not scaled with character")
         quit(1)
         return
-    # This is NOT the previous macro-only StandardMaterial3D. Verify
-    # actual 4K baked color/normal + generated tileable 512px details are
-    # all bound to a real ShaderMaterial before accepting the preview.
-    var terrain_material := mesh.material_override as ShaderMaterial
-    if terrain_material == null or terrain_material.shader == null:
-        push_error("TERRAIN BASE FAIL: world-space detail ShaderMaterial missing")
+    # ONE baked 4K painterly diffuse atlas; no 4K normal, no shader/micro
+    # textures. This actually reduces texture samples and GPU allocations.
+    var terrain_material := mesh.material_override as StandardMaterial3D
+    if terrain_material == null:
+        push_error("TERRAIN BASE FAIL: lightweight baked StandardMaterial3D missing")
         quit(1)
         return
-    var base_color := terrain_material.get_shader_parameter("base_albedo") as Texture2D
-    var base_normal := terrain_material.get_shader_parameter("base_normal") as Texture2D
-    var grass_detail := terrain_material.get_shader_parameter("grass_micro") as Texture2D
-    var soil_detail := terrain_material.get_shader_parameter("soil_micro") as Texture2D
-    var micro_normal := terrain_material.get_shader_parameter("micro_normal") as Texture2D
-    if base_color == null or base_color.get_width() < 4096:
-        push_error("TERRAIN BASE FAIL: original 4K baked albedo not bound")
+    var baked_color := terrain_material.albedo_texture
+    if baked_color == null or baked_color.get_width() != 4096 or baked_color.get_height() != 4096:
+        push_error("TERRAIN BASE FAIL: painted 4K terrain atlas not loaded")
         quit(1)
         return
-    if base_normal == null or base_normal.get_width() < 4096:
-        push_error("TERRAIN BASE FAIL: original 4K normal map not bound")
+    if terrain_material.normal_enabled or terrain_material.normal_texture != null:
+        push_error("TERRAIN BASE FAIL: unused 4K normal still bound to Web terrain")
         quit(1)
         return
-    if grass_detail == null or soil_detail == null or micro_normal == null:
-        push_error("TERRAIN BASE FAIL: seamless detail textures not bound")
-        quit(1)
-        return
-    for tex in [grass_detail, soil_detail, micro_normal]:
-        if tex.get_width() != 512 or tex.get_height() != 512:
-            push_error("TERRAIN BASE FAIL: microtexture size invalid")
-            quit(1)
-            return
-    if not (terrain_material.shader.code.contains("terrain_world_pos") and terrain_material.shader.code.contains("repeat_enable")):
-        push_error("TERRAIN BASE FAIL: world-space tiling/detail shader source absent")
-        quit(1)
-        return
-    var tile_density := float(terrain_material.get_shader_parameter("tiles_per_meter"))
-    if tile_density < 0.45 or tile_density > 1.5:
-        push_error("TERRAIN BASE FAIL: texture detail world-space density invalid")
+    if terrain_material.texture_filter != BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC:
+        push_error("TERRAIN BASE FAIL: baked albedo filtering missing")
         quit(1)
         return
     if mesh.mesh == null or mesh.mesh.get_faces().size() < 1000:
@@ -178,10 +159,8 @@ func _run() -> void:
         return
     world.call("_toggle_camera_mode")
     await process_frame
-    print("TERRAIN BASE HD CAMERA PASS: albedo=%d normal=%d, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
-        base_color.get_width(), base_normal.get_width(),
-        camera.fov, cam_distance, capsule.height])
-    print("TERRAIN DETAIL SHADER PASS: grass/soil/normal microtextures=512px; worldspace_density=%.2f tiles/m; original baked color maintained" % [
-        tile_density])
+    print("TERRAIN BASE HD CAMERA PASS: baked_albedo=%d, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
+        baked_color.get_width(), camera.fov, cam_distance, capsule.height])
+    print("TERRAIN BAKED RETEXTURE PASS: one artistically repainted 4K diffuse atlas, no micro shader or large tangent normal, grounded FBX preserved")
     print("TERRAIN BASE SMOKE PASS: ONLY uploaded terrain + real collider + original controllable FBX + camera and lighting; no old objects")
     quit(0)
