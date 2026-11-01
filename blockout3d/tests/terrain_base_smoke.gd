@@ -76,11 +76,22 @@ func _run() -> void:
         return
     for i in range(110):
         await physics_frame
-    if not player.is_on_floor():
-        _fail("character did not land on the uploaded terrain; at=" + str(player.global_position) + " vel=" + str(player.velocity) + " hit=" + str(hit.position) + " floor_normal=" + str(player.get_floor_normal()))
+    if not player.is_on_floor() and not bool(player.get("terrain_grounded")):
+        _fail("character did not ground to uploaded terrain; at=" + str(player.global_position) + " vel=" + str(player.velocity) + " hit=" + str(hit.position))
         return
     if absf(player.global_position.y - hit.position.y) > 0.6:
         _fail("character feet are not grounded on uploaded terrain: " + str(player.global_position.y))
+        return
+    if not bool(player.get("terrain_raycast_grounding")):
+        _fail("terrain-follow input/physics mode was not enabled")
+        return
+    # Jump must still take off after ray-based grounding.
+    Input.action_press("touch_jump")
+    await physics_frame
+    Input.action_release("touch_jump")
+    await physics_frame
+    if player.velocity.y <= 0.0:
+        _fail("Space/touch jump no longer launches from the uploaded ground")
         return
     if world.get_node_or_null("Player3D/Visual/FbxCharacter") == null:
         _fail("original FBX character controller was lost")
