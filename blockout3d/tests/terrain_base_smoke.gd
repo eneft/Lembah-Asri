@@ -62,7 +62,8 @@ func _run() -> void:
     var toggle := InputEventKey.new()
     toggle.keycode = KEY_T
     toggle.pressed = true
-    Input.parse_input_event(toggle)
+    # Headless CI has no focused input window. Exercise the input handler.
+    root_node.call("_unhandled_input", toggle)
     await process_frame
     if bool(root_node.get("terrain_active")) or not old_terrain.visible or terrain.visible:
         push_error("TERRAIN BASE FAIL: comparison T toggle failed")
