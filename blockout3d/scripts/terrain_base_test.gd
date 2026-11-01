@@ -174,7 +174,7 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "TERRAIN V2 | DATARAN + LAUT\nWASD jalan | Shift lari | Space salto\nC kamera | Q/E putar | Scroll zoom\n4K baked texture | 70% dataran | laut tropis\nSkala: %.0f× | Offset: %.2f m" % [
+        status.text = "TERRAIN V2 | DATARAN + LAUT\nWASD jalan | Shift lari | Space salto\nC kamera | Q/E putar | Scroll zoom\n4K baked texture | 70%% dataran | laut tropis\nSkala: %.0f× | Offset: %.2f m" % [
             terrain_scale, vertical_offset]
 
 func _unhandled_input(event: InputEvent) -> void:
