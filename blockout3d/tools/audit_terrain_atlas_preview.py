@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import struct
 from PIL import Image
-p=Path("/tmp/lembah-terrain-source-original.glb")
+p=Path("blockout3d/assets/environment/island/terrain_base_web.glb")
 data=p.read_bytes()
 sz,tag=struct.unpack_from("<I4s",data,12)
 assert tag==b"JSON"
@@ -19,12 +19,12 @@ for i,im in enumerate(j.get("images",[])):
  v=j["bufferViews"][im["bufferView"]]
  payload=data[start+v.get("byteOffset",0):start+v.get("byteOffset",0)+v["byteLength"]]
  with Image.open(io.BytesIO(payload)) as tex:
-  print("AUDIT_ATLAS",i,"resolution",tex.size,"mode",tex.mode,"bytes",len(payload))
+  print("RETEXTURE_ATLAS",i,"resolution",tex.size,"mode",tex.mode,"bytes",len(payload))
   if i==0:
    tex=tex.convert("RGB")
    tex.thumbnail((640,640),Image.Resampling.LANCZOS)
    b=io.BytesIO()
    tex.save(b,format="JPEG",quality=79,optimize=True)
-   print("AUDIT_ATLAS_PREVIEW_B64_START")
+   print("RETEXTURE_ATLAS_PREVIEW_B64_START")
    print(base64.b64encode(b.getvalue()).decode("ascii"))
-   print("AUDIT_ATLAS_PREVIEW_B64_END")
+   print("RETEXTURE_ATLAS_PREVIEW_B64_END")
