@@ -52,7 +52,7 @@ func _run() -> void:
         quit(1)
         return
     var query := PhysicsRayQueryParameters3D.create(
-        Vector3(6.0, 90.0, 15.0), Vector3(6.0,-30.0,15.0))
+        Vector3(player.global_position.x, 120.0, player.global_position.z), Vector3(player.global_position.x,-60.0,player.global_position.z))
     query.collision_mask = 128
     var hit := world.get_world_3d().direct_space_state.intersect_ray(query)
     if hit.is_empty():
