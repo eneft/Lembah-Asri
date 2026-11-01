@@ -12,3 +12,10 @@ func _make_hud() -> void:
     var house_status := get_node_or_null("BlockoutHUD/HouseAssetStatus") as Label
     if house_status != null:
         house_status.text = "Hanya terrain baru dan karakter | Tanpa objek atau collision lama"
+
+var terrain_spawn_position := Vector3(0.0, 15.0, 0.0)
+
+func _physics_process(_delta: float) -> void:
+    if is_instance_valid(player) and player.global_position.y < -8.0:
+        player.global_position = terrain_spawn_position
+        player.velocity = Vector3.ZERO
