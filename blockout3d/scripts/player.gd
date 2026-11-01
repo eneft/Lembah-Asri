@@ -41,14 +41,10 @@ func _follow_uploaded_terrain(delta: float) -> bool:
     var hit := get_world_3d().direct_space_state.intersect_ray(query)
     if hit.is_empty():
         return false
-    if not (hit.collider is StaticBody3D):
-        return false
-    if str((hit.collider as StaticBody3D).name) != "GLB_Terrain_Collider":
-        return false
-    if absf(hit.normal.y) < 0.60:
-        return false
+    # The isolated scene has EXACTLY ONE terrain collider. Its imported
+    # normals are inconsistent, so do not filter by ray-hit normal here.
     var gap := global_position.y - float(hit.position.y)
-    var catch_range := 0.40 + absf(velocity.y) * delta
+    var catch_range := 0.58 + absf(velocity.y) * delta
     if gap < -0.65 or gap > catch_range:
         return false
     global_position.y = float(hit.position.y) + 0.035
