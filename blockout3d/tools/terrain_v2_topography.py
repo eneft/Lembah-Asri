@@ -197,7 +197,7 @@ def rebuild_topography(g: dict[str, Any], source_binary: bytes) -> bytes:
             heights.append(h)
     level_percent = 100 * sum(slope < FLAT_SLOPE_LIMIT for slope in grades) / len(grades)
     peak_height = max(heights)
-    if level_percent < 65.0 or peak_height < 19.0 or peak_height > 30.0:
+    if level_percent < 70.0 or peak_height < 19.0 or peak_height > 30.0:
         raise ValueError("V2 blueprint slope/peak failure: %.1f%% flat, %.1fm peak" % (
             level_percent, peak_height))
     g.setdefault("asset", {}).setdefault("extras", {})["LembahAsriTerrainV2"] = {
