@@ -103,13 +103,31 @@ func _install_terrain() -> void:
     new_collision.collision_layer = TERRAIN_LAYER
     new_collision.collision_mask = 0
     await get_tree().physics_frame
-    var query := PhysicsRayQueryParameters3D.create(
-        Vector3(SPAWN_XZ.x, 90.0, SPAWN_XZ.y),
-        Vector3(SPAWN_XZ.x, -30.0, SPAWN_XZ.y))
-    query.collision_mask = TERRAIN_LAYER
-    var hit := world.get_world_3d().direct_space_state.intersect_ray(query)
+    # Terrain has coast / holes; choose a real walkable triangle instead of
+    # relying on the old village coordinates.
+    var sample_points: Array[Vector2] = [
+        SPAWN_XZ, Vector2.ZERO, Vector2(12, 0), Vector2(-12, 0),
+        Vector2(0, 12), Vector2(0, -12), Vector2(12, 12),
+        Vector2(-12, -12), Vector2(-12, 12), Vector2(12, -12)
+    ]
+    for radius in [24.0, 36.0, 48.0]:
+        for xsign in [-1.0, 0.0, 1.0]:
+            for zsign in [-1.0, 0.0, 1.0]:
+                sample_points.append(Vector2(xsign * radius, zsign * radius))
+    var hit: Dictionary = {}
+    var spawn_xz := Vector2.ZERO
+    for point in sample_points:
+        var query := PhysicsRayQueryParameters3D.create(
+            Vector3(point.x, 120.0, point.y),
+            Vector3(point.x, -60.0, point.y))
+        query.collision_mask = TERRAIN_LAYER
+        var candidate := world.get_world_3d().direct_space_state.intersect_ray(query)
+        if not candidate.is_empty():
+            hit = candidate
+            spawn_xz = point
+            break
     if hit.is_empty():
-        push_error("TERRAIN BASE FAIL: spawn point outside terrain collision")
+        push_error("TERRAIN BASE FAIL: no walkable terrain collision anywhere in scanned map")
         return
     var player := world.get_node_or_null("Player3D") as CharacterBody3D
     if player == null:
@@ -117,10 +135,11 @@ func _install_terrain() -> void:
         return
     player.global_position = hit.position + Vector3(0.0, 2.1, 0.0)
     player.velocity = Vector3.ZERO
+    world.set("terrain_spawn_position", player.global_position)
     is_ready = true
     _refresh_text()
-    print("TERRAIN BASE TEST PASS: clean uploaded GLB terrain, collider, character and camera; size=%s, spawn_height=%.3f" % [
-        str(_bounds_global(new_mesh).size), hit.position.y])
+    print("TERRAIN BASE TEST PASS: clean uploaded GLB terrain, collider, character and camera; size=%s, spawn_xz=%s, spawn_height=%.3f" % [
+        str(_bounds_global(new_mesh).size), str(spawn_xz), hit.position.y])
 
 func _refresh_text() -> void:
     if status != null:
