@@ -64,6 +64,7 @@ func _run() -> void:
         return
     var ray := PhysicsRayQueryParameters3D.create(Vector3(6.0, 80.0, 15.0), Vector3(6.0, -80.0, 15.0))
     ray.collision_mask = 1
+    ray.exclude = [player.get_rid()]
     var hit := world.get_world_3d().direct_space_state.intersect_ray(ray)
     if hit.is_empty() or hit.collider != collider:
         _fail("terrain raycast hit another collider / none")
