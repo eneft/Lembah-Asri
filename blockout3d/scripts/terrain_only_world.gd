@@ -13,7 +13,14 @@ func _make_hud() -> void:
     if house_status != null:
         house_status.text = "Hanya terrain baru dan karakter | Tanpa objek atau collision lama"
 
-var terrain_spawn_position := Vector3(0.0, 15.0, 0.0)
+# Do not let gravity start before the uploaded GLB and its collision
+# shape are imported, registered in physics and a safe spawn is selected.
+func _make_player() -> void:
+    super._make_player()
+    player.collision_mask = 1
+    player.set_physics_process(false)
+
+var terrain_spawn_position := Vector3(0.0, 0.5, 0.0)
 
 func _physics_process(_delta: float) -> void:
     if is_instance_valid(player) and player.global_position.y < -8.0:
