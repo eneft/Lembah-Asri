@@ -301,6 +301,16 @@ jobs:
           test -s build/web/movement-tester/app.js
           echo "Movement tester published under /movement-tester/"
 
+      - name: Optimize uploaded terrain for Web before 3D import
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user Pillow
+          python3 blockout3d/tools/optimize_terrain_base.py
+          test -s blockout3d/assets/environment/island/terrain_base_web.glb
+          # The original high-resolution GLB stays in GitHub; it is excluded
+          # only from the temporary CI export workspace for Web performance.
+          mv "blockout3d/assets/environment/island/terrain base.glb" /tmp/lembah-terrain-source-original.glb
+
       - name: Export independent new 3D blockout at /blockout3d/
         run: |
           # Keep the root 2D game exactly as it is. Publish 3D only in its own route.
@@ -310,6 +320,35 @@ jobs:
           test -s build/web/blockout3d/index.html
           test -s build/web/blockout3d/index.wasm
           test -s build/web/blockout3d/index.pck
+
+      - name: Validate uploaded terrain scene and collision in Godot
+        run: |
+          set -o pipefail
+          timeout 120s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_base_smoke.gd 2>&1 | tee terrain-base-deploy.log
+          if grep -E 'SCRIPT ERROR|ERROR:|TERRAIN BASE FAIL' terrain-base-deploy.log; then exit 1; fi
+          grep -q 'TERRAIN BASE SMOKE PASS:' terrain-base-deploy.log
+
+      - name: Export independent new terrain comparison at /terrain-test/
+        run: |
+          set -euo pipefail
+          cp blockout3d/project.godot /tmp/lembah-terrain-test-project-original.godot
+          trap 'cp /tmp/lembah-terrain-test-project-original.godot blockout3d/project.godot' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("blockout3d/project.godot")
+          s=p.read_text(encoding="utf-8")
+          old='run/main_scene="res://scenes/world_nelayan_pesisir.tscn"'
+          new='run/main_scene="res://scenes/terrain_base_test.tscn"'
+          assert old in s, "Expected original 3D scene, refusing to modify wrong project"
+          p.write_text(s.replace(old,new),encoding="utf-8")
+          PY
+          godot --headless --path blockout3d --editor --quit
+          mkdir -p build/web/terrain-test
+          godot --headless --path blockout3d --export-release "Web" "$GITHUB_WORKSPACE/build/web/terrain-test/index.html"
+          test -s build/web/terrain-test/index.html
+          test -s build/web/terrain-test/index.wasm
+          test -s build/web/terrain-test/index.pck
+          echo 'TERRAIN BASE WEB TEST READY: /terrain-test/'
 
       - name: Upload browser build
         uses: actions/upload-artifact@v4
