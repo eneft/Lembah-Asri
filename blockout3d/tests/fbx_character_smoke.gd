@@ -56,5 +56,30 @@ func _test() -> void:
             push_error("FBX ANIMATION FAIL: cannot switch to " + name)
             quit(1)
             return
+    # Regression: make sure the original Jump Over runs continuously over
+    # its full 1.933-second clip instead of the old cropped 0.42-1.65 segment.
+    var ap: AnimationPlayer = actor.get("animator") as AnimationPlayer
+    var jump_clip: Animation = ap.get_animation("lembah/jump")
+    if jump_clip == null or jump_clip.length < 1.80:
+        push_error("FBX ANIMATION FAIL: source Jump Over duration was truncated")
+        quit(1)
+        return
+    actor.call("update_motion", "jump", 8.6, false, 0.0, 0.016)
+    await create_timer(0.29).timeout
+    if not ap.is_playing() or ap.current_animation != "lembah/jump" or ap.current_animation_position < 0.42:
+        push_error("FBX ANIMATION FAIL: somersault no longer plays full continuous source clip")
+        quit(1)
+        return
+    await create_timer(0.57).timeout
+    if ap.current_animation_position < 1.64:
+        push_error("FBX ANIMATION FAIL: original jump late frames are still skipped")
+        quit(1)
+        return
+    actor.call("update_motion", "idle", 0.0, true, 4.0, 0.016)
+    if actor.get("current_state") != "idle":
+        push_error("FBX ANIMATION FAIL: failed to recover idle after full flip")
+        quit(1)
+        return
+    print("JUMP SOMERSAULT PASS: source %.3fs, continuous first-to-last clip playback, landing recovery" % jump_clip.length)
     print("FBX ANIMATION PASS: single rig, all four original clips, state switching, stable model scale")
     quit(0)
