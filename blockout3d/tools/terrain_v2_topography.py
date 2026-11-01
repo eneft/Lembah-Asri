@@ -5,7 +5,7 @@ Blueprint:
 * 70%+ of walkable land is near-level plain / broad plateau (grade < 0.20)
 * One northern landmark mountain (~24m), two smaller rocky hills
 * Central/southern flat village/fields, western rice terrace plateau
-* Coastal shelf near the new sea plane, an incised north-to-south river bed
+* Southern/eastern sandy coastal shelves; northern/western rugged coast; river
 
 This is intentionally a BUILD-TIME mesh edit, not a heavy runtime shader.
 The source terrain base.glb is never modified. Position and normal accessors
@@ -67,9 +67,14 @@ def height_at(x: float, z: float, half_x: float, half_z: float) -> float:
     height += hill(u, v, 0.64, -0.55, 0.19, 0.17, 7.5)
     height += hill(u, v, -0.71, -0.68, 0.14, 0.16, 4.0)
 
-    # G: beach-like coastal shelf in place of noisy randomly raised rims.
-    # Original island outline is retained since X/Z coordinates are untouched.
-    coast = smoothstep(0.79, 1.01, edge)
+    # G: southern/eastern beaches descend gently to the sea, while northern
+    # and western rocky coastlines keep short dramatic cliffs (as in concept).
+    # This also concentrates most slope in a narrow shoreline strip, leaving
+    # central and southern areas truly flat for walking and building.
+    beach_weight = max(smoothstep(0.30, 0.65, v),
+                       smoothstep(0.50, 0.80, u))
+    coast_begin = 0.945 - 0.065 * beach_weight
+    coast = smoothstep(coast_begin, 1.01, edge)
     height = height * (1.0 - coast) + 0.15 * coast
 
     # One main river, source at mountain foothill -> central plateau ->
