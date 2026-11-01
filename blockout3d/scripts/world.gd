@@ -1,6 +1,11 @@
 extends Node3D
 ## Standalone Godot 4.3 world: new isometric 3D village blockout, NOT legacy 2D.
 ## All meshes are temporary authored placeholders with named scene regions.
+## An opt-in lightweight world for terrain-only preview.
+## All existing scenes keep this false, preserving their authored environment.
+@export var terrain_only_mode := false
+var terrain_test_spawn := Vector3(6.0, 3.0, 15.0)
+
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const TERRACOTTA := Color("b46748")
 const EARTH := Color("c1a479")
@@ -36,13 +41,18 @@ var camera_mode_label: Label
 
 func _ready() -> void:
     _world_light()
-    _load_island()
+    if not terrain_only_mode:
+        _load_island()
     _make_player()
     _make_camera()
     _apply_camera_preset()
-    _make_hud()
+    if not terrain_only_mode:
+        _make_hud()
     _make_touch_controls()
-    print("LEMBAH ASRI ISLAND V01 READY: original FBX character, terrain collision, village plaza spawn")
+    if terrain_only_mode:
+        print("TERRAIN BASE WORLD READY: character, camera, lights, controls only; no legacy island or buildings")
+    else:
+        print("LEMBAH ASRI ISLAND V01 READY: original FBX character, terrain collision, village plaza spawn")
 
 func _process(delta: float) -> void:
     if is_instance_valid(player) and is_instance_valid(cam):
@@ -325,5 +335,5 @@ func _load_island() -> void:
 
 func _physics_process(_delta: float) -> void:
     if is_instance_valid(player) and player.position.y < -8.0:
-        player.position = Vector3(6, 6.2, 15)
+        player.position = terrain_test_spawn if terrain_only_mode else Vector3(6, 6.2, 15)
         player.velocity = Vector3.ZERO
