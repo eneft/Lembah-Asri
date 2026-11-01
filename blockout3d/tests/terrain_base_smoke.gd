@@ -70,8 +70,9 @@ func _run() -> void:
     if hit.is_empty() or hit.collider != collider:
         _fail("terrain raycast hit another collider / none")
         return
-    if absf(hit.position.y) > 0.2:
-        _fail("terrain spawn surface is not aligned near zero: " + str(hit.position.y))
+    var confirmed_ground: float = root_node.get("ground_y")
+    if absf(hit.position.y - confirmed_ground) > 0.15:
+        _fail("real terrain raycast and player spawn heights disagree: " + str(hit.position.y) + " / " + str(confirmed_ground))
         return
     for i in range(110):
         await physics_frame
