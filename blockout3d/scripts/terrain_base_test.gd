@@ -24,7 +24,9 @@ var world: Node3D
 func _ready() -> void:
     world = $World
     _make_hud()
-    # This scene is terrain + character ONLY. Remove legacy scenery and its\n    # colliders (houses, river, vegetation, paths, props) before terrain setup.\n    _install_terrain.call_deferred()
+    # This scene is terrain + character ONLY. Remove legacy scenery and its
+    # colliders (houses, river, vegetation, paths, props) before terrain setup.
+    _install_terrain.call_deferred()
 
 func _make_hud() -> void:
     var ui := CanvasLayer.new()
@@ -142,10 +144,27 @@ func _install_terrain() -> void:
     else:
         vertical_offset = ORIGINAL_SAMPLE_HEIGHT - float(hit.position.y)
         new_root.global_position.y += vertical_offset
-    # Stop old world from recreating village props on the next deferred frame.\n    world.set_process(false)\n    world.set_physics_process(false)\n    var old_house_overlay := world.get_node_or_null("RumahNelayanPesisir")\n    if old_house_overlay != null:\n        old_house_overlay.set_process(false)\n        old_house_overlay.set_physics_process(false)\n    # Keep the original island node only as a transform reference until setup.\n    # Then delete ALL old scenery and collision, not merely the old ground.\n    var old_island := world.get_node_or_null("IslandBlockoutV01")\n    if old_island != null:\n        old_island.queue_free()\n    var old_house := world.get_node_or_null("RumahNelayanPesisir")\n    if old_house != null:\n        old_house.queue_free()\n    for node in world.get_children():\n        if node == new_root or node is CharacterBody3D or node is Camera3D or node is DirectionalLight3D or node is WorldEnvironment or node is CanvasLayer:\n            continue\n        if node.name == "Player3D":\n            continue\n        # All legacy village generated geometry and old prop/collision nodes.\n        node.queue_free()\n    is_ready = true
+    # Stop old world from recreating village props on the next deferred frame.
+    # Preserve the world camera follow and player respawn logic.
+    # Keep the original island node only as a transform reference until setup.
+    # Then delete ALL old scenery and collision, not merely the old ground.
+    var old_island := world.get_node_or_null("IslandBlockoutV01")
+    if old_island != null:
+        old_island.queue_free()
+    var old_house := world.get_node_or_null("RumahNelayanPesisir")
+    if old_house != null:
+        old_house.queue_free()
+    for node in world.get_children():
+        if node == new_root or node is CharacterBody3D or node is Camera3D or node is DirectionalLight3D or node is WorldEnvironment or node is CanvasLayer:
+            continue
+        if node.name == "Player3D":
+            continue
+        # All legacy village generated geometry and old prop/collision nodes.
+        node.queue_free()
+    is_ready = true
     _refresh_text()
     var new_dimensions := _bounds_global(new_mesh).size
-    print("TERRAIN BASE TEST PASS: uploaded GLB active, original island retained for comparison; scaled=%.1f, global_dimensions=%s, y_offset=%.3f, collider=%s" % [
+    print("TERRAIN BASE TEST PASS: uploaded GLB active, old scenery removed; scaled=%.1f, global_dimensions=%s, y_offset=%.3f, collider=%s" % [
         terrain_scale, str(new_dimensions), vertical_offset, str(new_collision != null)])
     # Reposition character safely near the village comparison sample.
     var player := world.get_node_or_null("Player3D") as CharacterBody3D
