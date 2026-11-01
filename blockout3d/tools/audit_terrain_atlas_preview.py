@@ -10,10 +10,10 @@ p=Path("/tmp/lembah-terrain-source-original.glb")
 data=p.read_bytes()
 sz,tag=struct.unpack_from("<I4s",data,12)
 assert tag==b"JSON"
-j=json.loads(data[20:20+sz].decode("utf-8").strip(" \\x00"))
+j=json.loads(data[20:20+sz].decode("utf-8").rstrip())
 off=20+sz
 bsize,btag=struct.unpack_from("<I4s",data,off)
-assert btag==b"BIN\\x00"
+assert btag==bytes([66,73,78,0])
 start=off+8
 for i,im in enumerate(j.get("images",[])):
  v=j["bufferViews"][im["bufferView"]]
