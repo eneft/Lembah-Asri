@@ -189,6 +189,8 @@ func _make_player() -> void:
     player.name = "Player3D"
     player.position = Vector3(6, 6.2, 15)
     player.set_script(PLAYER_SCRIPT)
+    # Only the isolated GLB test needs physics-ray height following.
+    player.set("terrain_raycast_grounding", terrain_only_mode)
     add_child(player)
     var coll := CollisionShape3D.new()
     coll.name = "PlayerCollision"
