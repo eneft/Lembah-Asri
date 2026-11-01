@@ -8,6 +8,13 @@ import json
 import struct
 from PIL import Image
 
+# Generate required seamless grass/earth/normal PNG assets before Godot scans
+# resources. They are reproducible from repository source code and do not
+# require any manual file uploads or changes to the original GLB.
+from build_terrain_detail import main as build_terrain_detail
+
+build_terrain_detail()
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets/environment/island/terrain base.glb"
 DST = ROOT / "assets/environment/island/terrain_base_web.glb"
@@ -78,5 +85,6 @@ with DST.open("wb") as f:
     f.write(struct.pack("<I4s",len(target),b"BIN\x00"))
     f.write(target)
 print("WEB_TERRAIN_HD_PASS: albedo=4096x4096, normal=4096x4096, source mesh/UV unchanged")
+print("TERRAIN_DETAIL_READY: original baked atlas and three tileable microtextures built for Web export")
 print("WEB_TERRAIN_OPTIMIZED",SRC.stat().st_size,DST.stat().st_size,"bytes",round(DST.stat().st_size/SRC.stat().st_size*100,1),"pct")
 assert DST.stat().st_size<SRC.stat().st_size
