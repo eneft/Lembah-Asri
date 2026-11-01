@@ -50,42 +50,41 @@ When the source binary has not yet been uploaded into GitHub, the old procedural
 The art kit is still **not final hand-painted commissioned assets** or a fully modeled 3D world. Additional sculpted unique meshes, atlased textures and environmental optimization are future iterations. The existing player rig, animations, controls, camera and legacy 2D game remain untouched.
 
 
-## HD terrain-only browser preview — original atlas + seamless microdetail
+## Retextured terrain-only browser preview — one baked atlas, lightweight Web
 
 Playable preview: https://eneft.github.io/Lembah-Asri/terrain-test/
 
-The user's original `assets/environment/island/terrain base.glb` (53 MB, baked
-8192px color / 4096px normal) is **the authoritative asset**. The Web export
-keeps its original geometry, UVs, painted color boundaries and collision, then
-creates an optimized **4096px baked albedo and normal** in
-`terrain_base_web.glb`. Simply raising 2K to 4K did not solve detail density
-when this atlas was stretched over a ~140m island, so the terrain-only preview
-now also uses:
+The authoritative user-uploaded terrain source remains
+`assets/environment/island/terrain base.glb` (~53 MB) with its original
+mesh, UV seams, baked diffuse and historical 4K material maps. It is never
+overwritten. `tools/retexture_terrain.py` performs UV-preserving,
+photogrammetry-noise cleanup, painterly tropical color grading and baked
+subtle grass/earth brush grain directly into one 4096x4096 JPEG atlas.
 
-- `shaders/terrain_hd_detail.gdshader`: baked macro color + world-space
-  grass/earth material detail with tileable micro-normal. Green vegetation
-  blends toward grass fibers; dirt paths remain earth-colored.
-- `tools/build_terrain_detail.py`: deterministic, seamless 512px grass,
-  soil and micro-normal assets. The assets are **generated PNGs at build
-  time** so repository text-only updates can safely maintain them. All three
-  are actual texture resources embedded in the exported Godot Web pack;
-  no runtime image generation or network download is needed.
-- `scripts/terrain_base_test.gd`: binds imported 4K GLB textures and
-  generated detail PNG textures to the shader; retains the corrected
-  terrain collision layer and character's grounded spawn.
-- `scripts/terrain_only_world.gd`: close perspective 3/4 camera,
-  original FBX character at 74% visual scale and matching collision capsule.
+`tools/optimize_terrain_base.py` embeds that atlas into the derived
+`terrain_base_web.glb`, strips the *unused* legacy normal/metallic maps
+from its Web material, and leaves the original source asset unchanged.
+Godot uses a normal `StandardMaterial3D` with the single atlas,
+anisotropic filtering and matte roughness: **no extra shader, no tiled
+runtime materials, no giant second normal texture**. The extra shader
+and texture generation approach was discontinued due to runtime cost.
 
-To generate the PNGs and the Web GLB when opening this project locally:
+The terrain-only preview retains the existing perspective 3/4 camera,
+FBX character at 74% scale, animation clips and working terrain
+collision. Game route `/blockout3d/` and legacy 2D are untouched.
+
+For local Godot import (Godot 4.3), first generate the Web terrain:
 
 ```bash
 python3 -m pip install Pillow
 python3 blockout3d/tools/optimize_terrain_base.py
 ```
 
-Then open `blockout3d/project.godot` in Godot 4.3 and run
-`scenes/terrain_base_test.tscn`. GitHub Actions performs the generation
-automatically **before Godot import**, for both PR tests and GitHub Pages.
+Then open `blockout3d/project.godot` and run
+`scenes/terrain_base_test.tscn`. GitHub Actions performs the same bake
+automatically before Godot import and Web export.
 
-This experiment affects only `/terrain-test/`. The main 3D
-`/blockout3d/` route and legacy 2D game are not modified.
+A baked retexture improves coherence and draw cost, but cannot completely
+repair insufficient original mesh geometry or UV texel density. Further
+precision painting can be done on the same UV atlas without changing the
+gameplay collision.
