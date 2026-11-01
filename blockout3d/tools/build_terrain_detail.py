@@ -2,7 +2,9 @@
 """Reproducible, seamless microtextures for the uploaded Lembah Asri terrain.
 
 This is an asset BUILD STEP, not gameplay procedural geometry. It generates
-real 512x512 PNG detail albedos (grass / soil) and a normal map using Pillow.
+one packed 512x512 RGBA PNG: RGB=tileable micro-normal, alpha=neutral
+high-frequency grass/earth brightness. A single sampler replaces three
+color/normal samples and two additional texture lookups using Pillow.
 Each texture wraps seamlessly. The source GLB, its 4K baked color and UVs
 remain unchanged. CI runs this before Godot import/export.
 
@@ -14,7 +16,7 @@ import hashlib
 import math
 import random
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps, ImageStat
 
 SIZE = 512
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,22 +110,34 @@ def make_normal(height: Image.Image) -> Image.Image:
     return Image.frombytes("RGB", (SIZE, SIZE), bytes(pixels))
 
 
+def make_packed_detail(height: Image.Image) -> Image.Image:
+    """RGBA packed microtexture: XYZ tangent normal + unbiased brightness.
+
+    Original baked 4K color still determines actual vegetation/path palette.
+    One texture sample supplies both normal perturbation and fine color grain.
+    """
+    normal = make_normal(height)
+    fiber = make_grass(height).convert("L")
+    average = int(ImageStat.Stat(fiber).mean[0])
+    brightness = fiber.point(
+        lambda v: max(0, min(255, 128 + int((v - average) * 1.55)))
+    )
+    r, g, b = normal.split()
+    return Image.merge("RGBA", (r, g, b, brightness))
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     height = natural_height(59031)
-    files = {
-        "grass_micro_albedo.png": make_grass(height),
-        "soil_micro_albedo.png": make_soil(height),
-        "terrain_micro_normal.png": make_normal(height),
-    }
-    for name, image in files.items():
-        path = OUT / name
-        image.save(path, format="PNG", optimize=True)
-        assert path.exists() and path.stat().st_size > 10_000, name
-        assert Image.open(path).size == (SIZE, SIZE)
-        sha = hashlib.sha256(path.read_bytes()).hexdigest()
-        print("TERRAIN_DETAIL_ASSET:", name, SIZE, "px", path.stat().st_size, "bytes", sha)
-    print("TERRAIN_DETAIL_BUILD_PASS: three 512px seamless repeatable texture assets")
+    image = make_packed_detail(height)
+    path = OUT / "terrain_detail_packed.png"
+    image.save(path, format="PNG", optimize=True)
+    assert path.exists() and path.stat().st_size > 10_000
+    decoded = Image.open(path)
+    assert decoded.mode == "RGBA" and decoded.size == (SIZE, SIZE)
+    sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    print("TERRAIN_DETAIL_ASSET:", path.name, SIZE, "px", path.stat().st_size, "bytes", sha)
+    print("TERRAIN_DETAIL_LITE_PASS: one 512px RGBA map, RGB=micro normals, A=detail brightness")
 
 
 if __name__ == "__main__":
