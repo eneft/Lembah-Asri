@@ -45,9 +45,9 @@ func _bounds_global(mesh: MeshInstance3D) -> AABB:
     var high := Vector3(-INF, -INF, -INF)
     for i in range(8):
         var p := bb.position + Vector3(
-            bb.size.x if i & 1 else 0.0,
-            bb.size.y if i & 2 else 0.0,
-            bb.size.z if i & 4 else 0.0)
+            bb.size.x if (i & 1) != 0 else 0.0,
+            bb.size.y if (i & 2) != 0 else 0.0,
+            bb.size.z if (i & 4) != 0 else 0.0)
         var gp := mesh.to_global(p)
         low = low.min(gp)
         high = high.max(gp)
