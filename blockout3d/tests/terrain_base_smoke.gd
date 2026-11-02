@@ -107,6 +107,10 @@ func _run() -> void:
         push_error("TERRAIN V3 TIMBER FAIL: timber is not fully opaque")
         quit(1)
         return
+    if timber_material.diffuse_mode != BaseMaterial3D.DIFFUSE_TOON or timber_material.specular_mode != BaseMaterial3D.SPECULAR_DISABLED:
+        push_error("TERRAIN V3 TOON FAIL: solid bridge planks are not toon-lit")
+        quit(1)
+        return
     if solid_planks.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_ON:
         push_error("TERRAIN V3 TIMBER FAIL: shaded timber is not casting shadows")
         quit(1)
@@ -181,6 +185,10 @@ func _run() -> void:
     var terrain_material := mesh.material_override as ShaderMaterial
     if terrain_material == null or terrain_material.shader == null:
         push_error("TERRAIN V2 FAIL: terrain-aligned shader missing")
+        quit(1)
+        return
+    if not terrain_material.shader.code.contains("diffuse_toon") or not terrain_material.shader.code.contains("specular_disabled"):
+        push_error("TERRAIN V3 TOON FAIL: terrain shader does not use toon diffuse without plastic specular")
         quit(1)
         return
     if not terrain_material.shader.code.contains("biome_atlas"):
@@ -314,6 +322,32 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: original FBX character missing")
         quit(1)
         return
+    # The imported FBX must retain its original texture assets but switch
+    # shading mode on duplicated surface materials, without changing clips.
+    var toon_count := int(world.get("toon_character_materials"))
+    if toon_count < 1:
+        push_error("TERRAIN V3 TOON FAIL: no imported FBX materials were converted")
+        quit(1)
+        return
+    var toon_meshes := 0
+    for node in fbx.find_children("*","MeshInstance3D",true,false):
+        var animated_mesh := node as MeshInstance3D
+        if animated_mesh.mesh == null:
+            continue
+        for index in range(animated_mesh.mesh.get_surface_count()):
+            var material := animated_mesh.get_active_material(index) as BaseMaterial3D
+            if material != null:
+                if material.diffuse_mode != BaseMaterial3D.DIFFUSE_TOON:
+                    push_error("TERRAIN V3 TOON FAIL: FBX surface lost toon shading")
+                    quit(1)
+                    return
+                toon_meshes += 1
+    if toon_meshes < 1:
+        push_error("TERRAIN V3 TOON FAIL: no actual model surface uses toon shading")
+        quit(1)
+        return
+    print("TERRAIN V3 TOON PASS: painterly terrain, solid bridge and ",toon_meshes,
+          " original FBX surfaces render with soft toon lighting")
     # Test ACTUAL gameplay physics for 2 seconds. The previous smoke checked
     # only raycasts and mistakenly passed while CharacterBody3D fell through.
     var initial_height := player.global_position.y
