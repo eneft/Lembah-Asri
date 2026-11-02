@@ -87,13 +87,13 @@ void fragment() {
     color = mix(color,stone,rock);
     // Incised riverbed: shaded moist soil and river pebbles on both banks.
     // Analytic center follows the same deterministic curve in topography.py.
-    float river_x = -5.0*sin((pos.y+55.0)*0.047)
-                    + 1.5*sin((pos.y+34.0)*0.13);
-    float river_region = smoothstep(-35.0,-28.0,pos.y)
-                       * (1.0-smoothstep(44.0,51.0,pos.y));
+    float river_x = -9.0*sin((pos.y+99.0)*0.0261)
+                    + 2.7*sin((pos.y+61.0)*0.0722);
+    float river_region = smoothstep(-100.0,-84.0,pos.y)
+                       * (1.0-smoothstep(85.0,105.0,pos.y));
     float bank_distance = abs(pos.x-river_x);
-    float damp_bank = smoothstep(1.4,2.6,bank_distance)
-                    * (1.0-smoothstep(4.1,5.7,bank_distance))
+    float damp_bank = smoothstep(1.8,3.0,bank_distance)
+                    * (1.0-smoothstep(5.0,7.0,bank_distance))
                     * river_region;
     vec3 wet_earth = mix(earth,stone,0.30) * 0.81;
     color = mix(color,wet_earth,damp_bank*0.78);
