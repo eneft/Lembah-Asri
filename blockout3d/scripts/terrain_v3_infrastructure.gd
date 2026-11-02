@@ -1,0 +1,187 @@
+extends Node3D
+## Terrain V3 bridge and village trail details, deliberately isolated from
+## visual terrain mesh and the character/camera code. Terrain raycast layer
+## is 128, player collision layer is 1.
+const TERRAIN_RAY_LAYER := 1 << 7
+const BRIDGE_Z := 9.0
+const BRIDGE_HALF_SPAN := 7.5
+const BRIDGE_HALF_WIDTH := 1.36
+const DECK_SEGMENTS := 32
+
+var bridge_mesh: MeshInstance3D
+var bridge_collider: StaticBody3D
+var bridge_center_x := 0.0
+var deck_center_y := 0.0
+var trail_detail_count := 0
+
+func configure() -> void:
+    name = "TerrainV3Infrastructure"
+    _make_main_bridge()
+    _make_trail_edges()
+
+func _river_x(z: float) -> float:
+    return -5.0*sin((z+55.0)*0.047)+1.5*sin((z+34.0)*0.13)
+
+func _terrain_at(x: float,z: float) -> Dictionary:
+    var q := PhysicsRayQueryParameters3D.create(
+        Vector3(x,120.0,z),Vector3(x,-40.0,z))
+    q.collision_mask = TERRAIN_RAY_LAYER
+    return get_world_3d().direct_space_state.intersect_ray(q)
+
+func _deck_height(t: float,left_height: float,right_height: float,raised: float) -> float:
+    # Two tapered approaches join the existing land smoothly without a
+    # vertical step that would trap a 55%-scale player capsule.
+    if t < 0.20:
+        var u := smoothstep(0.0,0.20,t)
+        return lerpf(left_height,raised,u)
+    if t > 0.80:
+        var u := smoothstep(0.80,1.0,t)
+        return lerpf(raised,right_height,u)
+    return raised
+
+func _add_triangle(tool: SurfaceTool,a: Vector3,b: Vector3,c: Vector3,col: Color) -> void:
+    tool.set_normal(Vector3.UP)
+    tool.set_color(col)
+    tool.add_vertex(a)
+    tool.set_normal(Vector3.UP)
+    tool.set_color(col)
+    tool.add_vertex(b)
+    tool.set_normal(Vector3.UP)
+    tool.set_color(col)
+    tool.add_vertex(c)
+
+func _make_main_bridge() -> void:
+    bridge_center_x = _river_x(BRIDGE_Z)
+    var x0 := bridge_center_x-BRIDGE_HALF_SPAN
+    var x1 := bridge_center_x+BRIDGE_HALF_SPAN
+    var left_hit := _terrain_at(x0,BRIDGE_Z)
+    var right_hit := _terrain_at(x1,BRIDGE_Z)
+    if left_hit.is_empty() or right_hit.is_empty():
+        push_warning("TERRAIN V3 BRIDGE: shore landing missing, no floating bridge built")
+        return
+    var left_y := float(left_hit.position.y)+0.055
+    var right_y := float(right_hit.position.y)+0.055
+    deck_center_y = maxf(left_y,right_y)+0.23
+
+    var surface := SurfaceTool.new()
+    surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var wood_colors := [
+        Color(0.57,0.39,0.24),Color(0.63,0.44,0.29),
+        Color(0.53,0.37,0.23),Color(0.60,0.42,0.27)
+    ]
+    for i in range(DECK_SEGMENTS):
+        var t0 := float(i)/float(DECK_SEGMENTS)
+        var t1 := float(i+1)/float(DECK_SEGMENTS)
+        var xa := lerpf(x0,x1,t0)
+        var xb := lerpf(x0,x1,t1)
+        var ya := _deck_height(t0,left_y,right_y,deck_center_y)
+        var yb := _deck_height(t1,left_y,right_y,deck_center_y)
+        var v0 := Vector3(xa,ya,BRIDGE_Z-BRIDGE_HALF_WIDTH)
+        var v1 := Vector3(xa,ya,BRIDGE_Z+BRIDGE_HALF_WIDTH)
+        var v2 := Vector3(xb,yb,BRIDGE_Z-BRIDGE_HALF_WIDTH)
+        var v3 := Vector3(xb,yb,BRIDGE_Z+BRIDGE_HALF_WIDTH)
+        var shade: Color = wood_colors[i%wood_colors.size()]
+        _add_triangle(surface,v0,v1,v2,shade)
+        _add_triangle(surface,v2,v1,v3,shade)
+
+    bridge_mesh = MeshInstance3D.new()
+    bridge_mesh.name = "WalkableBridgeDeck"
+    bridge_mesh.mesh = surface.commit()
+    var material := StandardMaterial3D.new()
+    material.vertex_color_use_as_albedo = true
+    material.roughness = 0.95
+    bridge_mesh.material_override = material
+    bridge_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    add_child(bridge_mesh)
+    bridge_mesh.create_trimesh_collision()
+    for body in bridge_mesh.find_children("*","StaticBody3D",true,false):
+        bridge_collider = body as StaticBody3D
+        break
+    if bridge_collider == null:
+        push_error("TERRAIN V3 BRIDGE: missing physical deck")
+        return
+    bridge_collider.collision_layer = 1
+    bridge_collider.collision_mask = 0
+
+    # Narrow wooden guard rails are visual only: no invisible trapping
+    # collision boxes, and only a few simple batched primitive meshes.
+    for side in [-1.0,1.0]:
+        for i in range(6):
+            var t := 0.11+float(i)*0.155
+            var px := lerpf(x0,x1,t)
+            var yy := _deck_height(t,left_y,right_y,deck_center_y)
+            _wood_box("RailPost",Vector3(px,yy+0.34,
+                      BRIDGE_Z+side*(BRIDGE_HALF_WIDTH+0.03)),
+                      Vector3(0.14,0.70,0.16),Color(0.45,0.31,0.20))
+        # Rails float above deck across middle, not block entry ramps.
+        _wood_box("BridgeHandrail",
+                 Vector3(bridge_center_x,deck_center_y+0.61,
+                         BRIDGE_Z+side*(BRIDGE_HALF_WIDTH+0.03)),
+                 Vector3(BRIDGE_HALF_SPAN*1.53,0.12,0.15),
+                 Color(0.56,0.37,0.22))
+    print("TERRAIN V3 BRIDGE PASS: 1 walkable 15m bridge over river at z=9;",
+          " left=",left_y," right=",right_y," deck=",deck_center_y)
+
+func _wood_box(label: String, position_m: Vector3, dimensions: Vector3, tint: Color) -> void:
+    var n := MeshInstance3D.new()
+    n.name = label
+    var m := BoxMesh.new()
+    m.size = dimensions
+    n.mesh = m
+    var material := StandardMaterial3D.new()
+    material.albedo_color = tint
+    material.roughness = 1.0
+    n.material_override = material
+    n.position = position_m
+    n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    add_child(n)
+
+func _make_trail_edges() -> void:
+    # Sparse road-edge markers where a village pathway bends. Avoid
+    # house plots and the river: one MultiMesh for the whole collection.
+    var locations: Array[Vector2] = [
+        Vector2(11,-29),Vector2(26,-28),Vector2(36,-14),
+        Vector2(37,1),Vector2(37,15),Vector2(36,29),
+        Vector2(18,-7),Vector2(48,-9),Vector2(14,12),
+        Vector2(45,12),Vector2(-48,-25),Vector2(-39,-13),
+        Vector2(-33,0),Vector2(-32,15),Vector2(-43,27),
+        Vector2(25,35),Vector2(44,42)
+    ]
+    var objects: Array[Transform3D] = []
+    for i in range(locations.size()):
+        var p := locations[i]
+        if absf(p.x-_river_x(p.y)) < 6.0:
+            continue
+        var contact := _terrain_at(p.x,p.y)
+        if contact.is_empty() or float(contact.position.y) < 1.6:
+            continue
+        if float(contact.normal.y) < 0.86:
+            continue
+        var h := 0.34+0.11*absf(sin(float(i)*1.72))
+        var scale_basis := Basis().scaled(Vector3(0.14,h,0.14))
+        var pos := Vector3(p.x,float(contact.position.y)+h*0.50,p.y)
+        objects.append(Transform3D(scale_basis,pos))
+
+    var marker_mesh := CylinderMesh.new()
+    marker_mesh.top_radius = 0.40
+    marker_mesh.bottom_radius = 0.50
+    marker_mesh.height = 1.0
+    marker_mesh.radial_segments = 6
+    var wood := StandardMaterial3D.new()
+    wood.albedo_color = Color(0.52,0.38,0.24)
+    wood.roughness = 0.95
+    marker_mesh.material = wood
+    var multi := MultiMesh.new()
+    multi.transform_format = MultiMesh.TRANSFORM_3D
+    multi.mesh = marker_mesh
+    multi.instance_count = objects.size()
+    for i in range(objects.size()):
+        multi.set_instance_transform(i,objects[i])
+    var batch := MultiMeshInstance3D.new()
+    batch.name = "VillageTrailEdgeMarkers"
+    batch.multimesh = multi
+    batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    add_child(batch)
+    trail_detail_count = objects.size()
+    print("TERRAIN V3 PATHS PASS: ",trail_detail_count,
+          " roadside markers in a single instanced batch")
