@@ -301,6 +301,8 @@ jobs:
           test -s build/web/movement-tester/app.js
           echo "Movement tester published under /movement-tester/"
 
+      - name: Validate V5 village road clearance and river source
+        run: python3 blockout3d/tests/terrain_v5_layout_audit.py
       - name: Optimize uploaded terrain for Web before 3D import
         run: |
           set -euo pipefail

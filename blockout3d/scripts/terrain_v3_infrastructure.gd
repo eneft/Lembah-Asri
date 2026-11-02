@@ -19,6 +19,7 @@ var secondary_bridge_collider: StaticBody3D
 var secondary_bridge_center_x := 0.0
 var secondary_bridge_z := 0.0
 var secondary_deck_y := 0.0
+var secondary_bridge_half_span := 0.0
 
 func configure() -> void:
     name = "TerrainV3Infrastructure"
@@ -27,7 +28,12 @@ func configure() -> void:
     _make_trail_edges()
 
 func _river_x(z: float) -> float:
-    return -9.0*sin((z+99.0)*0.0261)+2.7*sin((z+61.0)*0.0722)
+    # Must match terrain_v2_topography.river_center_x in physical metres.
+    # Older bridge locations (z=-9 and z=47) are exactly preserved.
+    var original := -9.0 * sin((z + 99.0) * 0.0261) + 2.7 * sin((z + 61.0) * 0.0722)
+    var t := clampf((z + 90.0) / 48.0, 0.0, 1.0)
+    var eased := t * t * (3.0 - 2.0 * t)
+    return original + 56.0 * (1.0 - eased)
 
 func _terrain_at(x: float,z: float) -> Dictionary:
     var q := PhysicsRayQueryParameters3D.create(
@@ -243,6 +249,7 @@ func _make_secondary_bridge() -> void:
         secondary_bridge_center_x = bridge_center_x
         secondary_bridge_z = bridge_z
         secondary_deck_y = deck_center_y
+        secondary_bridge_half_span = bridge_half_span
         for index in range(first_new,get_child_count()):
             var piece := get_child(index)
             piece.name = "Southern" + piece.name

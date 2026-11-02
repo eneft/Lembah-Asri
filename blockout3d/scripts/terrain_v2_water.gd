@@ -37,7 +37,12 @@ func _raycast_surface(x: float, z: float) -> Dictionary:
     return get_world_3d().direct_space_state.intersect_ray(ray)
 
 func _river_x(z: float) -> float:
-    return -9.0 * sin((z + 99.0) * 0.0261) + 2.7 * sin((z + 61.0) * 0.0722)
+    # Must match terrain_v2_topography.river_center_x in physical metres.
+    # Older bridge locations (z=-9 and z=47) are exactly preserved.
+    var original := -9.0 * sin((z + 99.0) * 0.0261) + 2.7 * sin((z + 61.0) * 0.0722)
+    var t := clampf((z + 90.0) / 48.0, 0.0, 1.0)
+    var eased := t * t * (3.0 - 2.0 * t)
+    return original + 56.0 * (1.0 - eased)
 
 func _add_river_vertex(tool: SurfaceTool, point: Vector3, uv: Vector2) -> void:
     tool.set_uv(uv)
@@ -118,7 +123,7 @@ func _make_riverbank_stones() -> void:
     for i in range(160):
         var z := -98.0 + float(i) * 1.25
         # Leave dry, traversable approaches at the wooden bridge.
-        if absf(z + 9.0) < 5.5:
+        if absf(z + 9.0) < 5.5 or absf(z - 47.0) < 5.5:
             continue
         var side := -1.0 if i % 2 == 0 else 1.0
         var offset := 4.10 + 1.4 * absf(sin(float(i) * 2.71))

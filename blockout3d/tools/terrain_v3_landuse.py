@@ -42,14 +42,14 @@ PLOTS = [
 # Intended footpaths. They intentionally do not add geometry or a bridge.
 # The river channel is screened out by the guard in surface_weights().
 PATHS = [
-    ("jalan_desa_timur", [(12,-29),(26,-26),(35,-13),(36,0),(37,14),(34,25),(35,43)], 3.1),
+    ("jalan_desa_timur", [(12,-29),(23,-28),(24,-20),(24,-11),(36,0),(37,14),(34,25),(26,28),(25,36),(24,44)], 3.1),
     ("lorong_desa_timur", [(10,-9),(19,-7),(33,-8),(49,-7)], 1.8),
     ("jalan_rumah_timur", [(12,13),(25,13),(43,12)], 1.8),
-    ("akses_sawah_barat", [(-49,-25),(-38,-15),(-33,-1),(-32,13),(-36,27)], 2.0),
-    ("jalan_kampung_barat", [(-43,10),(-30,8),(-15,9)], 1.8),
-    # Actual safe bridge is near z=-5. Connect its banks with west/east roads;
-    # old straight-across z=9 route would lead people into the river.
-    ("akses_jembatan_barat", [(-17,9),(-13,1),(-11,-5),(3,-5),(12,-7)], 2.3),
+    ("akses_sawah_barat", [(-57,-24),(-54,-19),(-48,-12),(-48,-4),(-44,7),(-33,13),(-36,27)], 2.0),
+    ("jalan_kampung_barat", [(-43,5),(-30,4),(-15,5)], 1.8),
+    # Reach the main bridge WEST approach without drawing a second fictitious
+    # painted crossing over open river water.
+    ("akses_jembatan_barat", [(-17,9),(-13,1),(-12,-5.5)], 2.3),
     ("akses_nelayan", [(35,25),(37,34),(45,41)], 1.8),
 ]
 
@@ -75,14 +75,15 @@ for _plot in PLOTS:
 PATHS.append(("akses_jembatan_utama", [
     (-34.0,-5.0),(-22.0,-10.0),(-15.0,-9.0),(-8.0,-9.0),
     (-1.0,-9.0),(12.0,-12.0),(28.0,-14.0)], 2.65))
-# Two independent crossings and a road up to the nostalgic childhood house.
+# Two independent crossings and a road to the childhood-yard WEST gate.
+# Do not paint a road through the actual house footprint or fishing cottages.
 # All paths remain physical-world metres; village spacing is already applied.
 PATHS += [
     ("jalan_rumah_masa_kecil", [
-        (-96.0,-34.0),(-87.0,-43.0),(-75.0,-56.0),(-69.0,-64.0)], 2.25),
+        (-106.0,-44.0),(-102.0,-48.0),(-95.0,-55.0),(-86.0,-56.0)], 2.25),
     ("akses_jembatan_selatan", [
-        (-52.0,21.0),(-40.0,33.0),(-22.0,44.0),(-3.0,47.0),
-        (9.0,47.0),(22.0,48.0),(40.0,58.0),(61.0,71.0)], 2.7),
+        (-52.0,29.0),(-40.0,36.0),(-22.0,44.0),(-3.0,47.0),
+        (9.0,47.0),(22.0,48.0),(43.0,48.0),(63.0,46.0)], 2.7),
 ]
 # Wider public green is a gathering plaza, NOT a football field.
 for _plot in PLOTS:

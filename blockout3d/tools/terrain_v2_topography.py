@@ -44,7 +44,12 @@ def river_center_x(z: float) -> float:
     """Shared river path with terrain_base_test.gd (world XZ meters)."""
     # New 260m island: meanders are broader, while the river remains a
     # single continuous channel across the expanded north/south world.
-    return -9.0 * math.sin((z + 99.0) * 0.0261) + 2.7 * math.sin((z + 61.0) * 0.0722)
+    # The highland source begins at the NORTH-EAST mountain foothill.
+    # The feeder gradually joins the original central course before z=-42m,
+    # leaving BOTH established bridge crossings completely unchanged.
+    original = (-9.0 * math.sin((z + 99.0) * 0.0261)
+                + 2.7 * math.sin((z + 61.0) * 0.0722))
+    return original + 56.0 * (1.0 - smoothstep(-90.0, -42.0, z))
 
 
 def height_at(x: float, z: float, half_x: float, half_z: float) -> float:
@@ -102,6 +107,12 @@ def height_at(x: float, z: float, half_x: float, half_z: float) -> float:
     downstream = max(0.0, min(1.0, (0.76 * half_z - z) / (1.52 * half_z)))
     river_level = 1.40 + 4.60 * downstream
     river_floor = min(height - 0.46, river_level)
+    # Headwater is a modest, shallow mountain-side rill, NOT a 6m vertical
+    # canyon slicing the landmark mountain. Downstream retains V5 depth.
+    source_blend = 1.0 - smoothstep(-82.0, -42.0, z)
+    shallow_source_floor = max(river_floor, height - 1.35)
+    river_floor = (river_floor * (1.0 - source_blend)
+                   + shallow_source_floor * source_blend)
     river_weight = math.exp(-2.20 * (abs(x - center) / 3.60) ** 4)
     river_weight *= smoothstep(-0.89 * half_z, -0.75 * half_z, z)
     river_weight *= 1.0 - smoothstep(0.76 * half_z, 0.92 * half_z, z)

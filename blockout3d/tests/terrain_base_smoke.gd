@@ -117,6 +117,38 @@ func _run() -> void:
     print("TERRAIN V5 TWO BRIDGES PASS: river crossing north z=",
           infra.get("bridge_z")," and south z=",second_z,
           " both physical; roads retargeted")
+    # Probe the walkable surface ACROSS each physical crossing, including
+    # approach ramps. A center-only raycast misses holes and disconnected decks.
+    var crossings := [
+        {"name":"north","body":bridge_body,"x":float(infra.get("bridge_center_x")),
+         "z":float(infra.get("bridge_z")),"span":float(infra.get("bridge_half_span")),
+         "deck":float(infra.get("deck_center_y"))},
+        {"name":"south","body":southern_body,"x":float(infra.get("secondary_bridge_center_x")),
+         "z":float(infra.get("secondary_bridge_z")),
+         "span":float(infra.get("secondary_bridge_half_span")),
+         "deck":float(infra.get("secondary_deck_y"))}
+    ]
+    for crossing_data in crossings:
+        if float(crossing_data["span"]) < 6.0:
+            push_error("TERRAIN V5 BRIDGES FAIL: invalid bridge span")
+            quit(1)
+            return
+        for fraction in [0.12,0.32,0.50,0.68,0.88]:
+            var sample_x: float = float(crossing_data["x"]) + (float(fraction)*2.0-1.0)*float(crossing_data["span"])
+            var sample_point := Vector3(sample_x,float(crossing_data["deck"]),float(crossing_data["z"]))
+            var path_probe := PhysicsRayQueryParameters3D.create(
+                sample_point + Vector3.UP*3.0, sample_point - Vector3.UP*1.0)
+            path_probe.collision_mask = player.collision_mask
+            var path_hit := world.get_world_3d().direct_space_state.intersect_ray(path_probe)
+            if path_hit.is_empty() or float(path_hit.normal.y) < 0.70 or float(path_hit.position.y) < float(crossing_data["deck"])-0.80:
+                push_error("TERRAIN V5 BRIDGES FAIL: broken bridge/ramp surface at %s t=%s" % [crossing_data["name"],str(fraction)])
+                quit(1)
+                return
+            if fraction > 0.20 and fraction < 0.80 and path_hit.collider != crossing_data["body"]:
+                push_error("TERRAIN V5 BRIDGES FAIL: central deck collision interrupted at %s t=%s" % [crossing_data["name"],str(fraction)])
+                quit(1)
+                return
+    print("TERRAIN V5 FULL DECK PASS: two solid bridges sampled across both approaches and center deck")
     # The visual crossing must have thickness/opaque solid timber, not the
     # old one-sided transparent-looking surface sheet.
     var solid_planks := infra.get_node_or_null("SolidOpaqueTimberPlanks") as MultiMeshInstance3D
