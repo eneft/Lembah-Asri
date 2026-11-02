@@ -187,8 +187,12 @@ func _install_terrain() -> void:
     player.global_position = hit.position + Vector3(0.0, 0.13, 0.0)
     player.velocity = Vector3.ZERO
     world.set("terrain_spawn_position", player.global_position)
+    player.reset_camera_follow_interpolation()
     player.set_physics_process(true)
     player.reset_physics_interpolation()
+    # Starting perspective must already be at the actual spawn location.
+    # Otherwise the camera lerps across the whole map on the first few frames.
+    world.call("_place_camera_immediately")
     is_ready = true
     _refresh_text()
     print("TERRAIN V3 PLAYABLE PASS: clean mesh and matched coastline collision, painterly atlas, island river/ocean")
