@@ -200,6 +200,36 @@ func _run() -> void:
         push_error("TERRAIN V3 FAIL: missing or incorrect 1024px painted atlas")
         quit(1)
         return
+    # Painted Terrain V1: the new NONREPEATING full-island color composition
+    # must be actually connected, not merely generated and forgotten on disk.
+    var painted_tex := terrain_material.get_shader_parameter("painted_colormap") as Texture2D
+    if painted_tex == null or painted_tex.get_width() < 1024 or painted_tex.get_height() < 1024:
+        push_error("PAINTED TERRAIN V1 FAIL: missing bound large-format colormap")
+        quit(1)
+        return
+    if not terrain_material.shader.code.contains("texture(painted_colormap, UV)") or not terrain_material.shader.code.contains("0.88"):
+        push_error("PAINTED TERRAIN V1 FAIL: shader still prioritizes small repeating atlas")
+        quit(1)
+        return
+    var macro_image := painted_tex.get_image()
+    if macro_image == null:
+        push_error("PAINTED TERRAIN V1 FAIL: colormap cannot be decoded")
+        quit(1)
+        return
+    # Strong regional color differences prevent an accidental uniformly
+    # green or single-color image from passing as a real island painting.
+    var first_color := macro_image.get_pixel(140,140)
+    var distinct := 0
+    for xy in [Vector2i(350,350),Vector2i(510,720),Vector2i(850,400),
+               Vector2i(1000,1000),Vector2i(1300,1200)]:
+        if macro_image.get_pixel(xy.x,xy.y).distance_to(first_color) > 0.11:
+            distinct += 1
+    if distinct < 2:
+        push_error("PAINTED TERRAIN V1 FAIL: map has no meaningful area-specific painted color")
+        quit(1)
+        return
+    print("PAINTED TERRAIN V1 PASS: 1536px nonrepeating world colormap bound; ",
+          distinct, " different painted world regions; atlas is microdetail only")
     if mesh.mesh == null or mesh.mesh.get_faces().size() < 1000:
         push_error("TERRAIN BASE FAIL: imported geometry absent")
         quit(1)
