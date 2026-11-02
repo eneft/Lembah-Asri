@@ -1,6 +1,6 @@
-"""Lembah Asri Painted Terrain Pass v1.
+"""Lembah Asri Painted Terrain Pass v1.1: clean, restrained watercolor-like washes.
 
-Artist-directed, world-aligned painted colormap. This is a REAL baked texture,
+Artist-directed, world-aligned painted colormap. No random high-contrast marks.
 not a repeatable shader tile. Its large paint masses follow authoritative V3
 terrain elevation, hill slopes, reserved village lots, dirt paths and beach
 bands. Original atlas remains a very light close-up detail.
@@ -61,19 +61,19 @@ def paint_colormap(hx, hz, nx, nz, vertices, normals, colors, world_scale):
     tracks = [c[2] for c in colors]
     sand_masks = [c[3] for c in colors]
 
-    low = noise_image(SAMPLE_SIZE, 17, 85021).tobytes()
-    medium = noise_image(SAMPLE_SIZE, 43, 87009).tobytes()
-    small = noise_image(SAMPLE_SIZE, 137, 90147).tobytes()
+    low = noise_image(SAMPLE_SIZE, 11, 85021).tobytes()
+    medium = noise_image(SAMPLE_SIZE, 25, 87009).tobytes()
+    small = noise_image(SAMPLE_SIZE, 64, 90147).tobytes()
     base = Image.new("RGB",(SAMPLE_SIZE,SAMPLE_SIZE))
     pixels = []
     rockmask = bytearray(SAMPLE_SIZE*SAMPLE_SIZE)
     pathmask = bytearray(SAMPLE_SIZE*SAMPLE_SIZE)
     sandmask = bytearray(SAMPLE_SIZE*SAMPLE_SIZE)
 
-    grass_base = (119.0,163.0,102.0)
-    earth_base = (165.0,125.0,89.0)
-    sand_base = (221.0,196.0,148.0)
-    rock_base = (120.0,118.0,107.0)
+    grass_base = (128.0,166.0,109.0)
+    earth_base = (166.0,131.0,98.0)
+    sand_base = (218.0,192.0,148.0)
+    rock_base = (125.0,123.0,112.0)
 
     for j in range(SAMPLE_SIZE):
         v = j / (SAMPLE_SIZE-1)
@@ -92,32 +92,32 @@ def paint_colormap(hx, hz, nx, nz, vertices, normals, colors, world_scale):
             s = (medium[index]-128)/128.0
             fine = (small[index]-128)/128.0
             # Broad *painted* regions, not repeating shader cells.
-            lighting = 0.75*m+0.28*s+0.08*fine
+            lighting = 0.63*m+0.22*s+0.025*fine
             grass = (
-                grass_base[0] + 24*lighting + 8*s,
-                grass_base[1] + 18*lighting + 4*m,
-                grass_base[2] + 19*lighting + 6*s)
+                grass_base[0] + 13*lighting + 2*s,
+                grass_base[1] + 11*lighting + 1.8*m,
+                grass_base[2] + 12*lighting + 2*s)
             # Ochre grassy highlands with mossy patches.
-            grass = blend(grass,(164,168,103),ease(5.0,17.0,h)*0.26)
+            grass = blend(grass,(158,166,116),ease(5.0,17.0,h)*0.18)
             earth = (
-                earth_base[0] + 18*lighting,
-                earth_base[1] + 17*lighting,
-                earth_base[2] + 10*lighting)
+                earth_base[0] + 10*lighting,
+                earth_base[1] + 9*lighting,
+                earth_base[2] + 7*lighting)
             sand = (
-                sand_base[0] + 10*lighting,
-                sand_base[1] + 14*lighting,
-                sand_base[2] + 10*lighting)
+                sand_base[0] + 7*lighting,
+                sand_base[1] + 7*lighting,
+                sand_base[2] + 6*lighting)
             rock = (
-                rock_base[0] + 35*lighting+7*s,
-                rock_base[1] + 32*lighting+8*s,
-                rock_base[2] + 24*lighting+10*s)
+                rock_base[0] + 18*lighting+3*s,
+                rock_base[1] + 16*lighting+3*s,
+                rock_base[2] + 14*lighting+3*s)
             # Rock faces form broad irregular masses, with colored grassy
             # interruptions. No narrow repeated horizontal contour stripes.
             slope = 1.0-normal_y
             ridge = ease(7.0,16.0,h)
             rock_amount = max(
-                ease(0.13,0.48,slope+0.075*m+0.045*s),
-                0.73*ridge*ease(0.05,0.27,slope+0.06*m))
+                ease(0.13,0.50,slope+0.047*m+0.018*s),
+                0.73*ridge*ease(0.05,0.30,slope+0.035*m))
             rock_amount *= 1.0-ease(0.58,0.92,m)*0.24
             coast_amount = max(coast*0.90, (1.0-ease(0.65,3.4,h))*0.27)
             color = blend(grass,rock,rock_amount)
@@ -131,60 +131,43 @@ def paint_colormap(hx, hz, nx, nz, vertices, normals, colors, world_scale):
 
     base.putdata(pixels)
     base = base.resize((PAINT_SIZE,PAINT_SIZE),Image.Resampling.BICUBIC)
-    # Paint long, broken broadleaf-like brush marks. Their orientation and
-    # size come from the terrain's region, so the island has composition:
-    # fragmented rock facets, wavy grass pigments, earth and shore washes.
-    palette_grass=[(201,206,139,31),(74,118,83,27),(231,206,122,22),
-                   (92,144,99,24),(213,205,140,20)]
-    palette_rock=[(62,74,74,32),(210,187,155,30),(94,106,98,28),
-                  (182,173,143,24),(68,86,80,18)]
-    palette_sand=[(248,230,182,35),(187,160,116,25),(246,209,152,23)]
-    palette_soil=[(224,176,127,31),(109,83,67,22),(195,143,103,30)]
-    painter=ImageDraw.Draw(base,"RGBA")
-    rng=random.Random(8035)
-    marks={"grass":0,"rock":0,"soil":0,"sand":0}
-    for k in range(12400):
-        x=rng.randrange(PAINT_SIZE)
-        y=rng.randrange(PAINT_SIZE)
-        index=(y//2)*SAMPLE_SIZE+(x//2)
-        r=rockmask[index]
-        p=pathmask[index]
-        b=sandmask[index]
-        if p>143:
-            category="soil"
-            shades=palette_soil
-            length=rng.randrange(9,34)
-            thickness=rng.randrange(2,8)
-        elif b>150:
-            category="sand"
-            shades=palette_sand
-            length=rng.randrange(10,40)
-            thickness=rng.randrange(3,10)
-        elif r>127:
-            category="rock"
-            shades=palette_rock
-            length=rng.randrange(17,65)
-            thickness=rng.randrange(6,21)
+    # RESTRAINED PAINT PASS: V1 drew 12,400 sharp polygon strokes across
+    # the entire map, creating a messy scribbled appearance. The big terrain
+    # masses above now own the composition. Add only a small set of extremely
+    # soft, region-colored washes with feathered edges; no hard marks.
+    palette_grass = [(179,191,143,16), (94,142,105,13)]
+    palette_rock  = [(162,152,131,14), (103,110,104,13)]
+    palette_sand  = [(235,210,172,13), (198,177,144,12)]
+    palette_soil  = [(194,158,118,13), (139,109,86,12)]
+    wash = Image.new("RGBA", (PAINT_SIZE, PAINT_SIZE), (0,0,0,0))
+    painter = ImageDraw.Draw(wash, "RGBA")
+    rng = random.Random(8035)
+    marks = {"grass":0, "rock":0, "soil":0, "sand":0}
+    for _ in range(900):
+        x = rng.randrange(PAINT_SIZE)
+        y = rng.randrange(PAINT_SIZE)
+        index = (y//2)*SAMPLE_SIZE + (x//2)
+        r, p, b = rockmask[index], pathmask[index], sandmask[index]
+        if p > 156:
+            category, shades = "soil", palette_soil
+        elif b > 150:
+            category, shades = "sand", palette_sand
+        elif r > 140:
+            category, shades = "rock", palette_rock
         else:
-            category="grass"
-            shades=palette_grass
-            length=rng.randrange(10,43)
-            thickness=rng.randrange(3,10)
+            category, shades = "grass", palette_grass
         marks[category] += 1
-        angle=rng.uniform(-0.70,0.70)
-        if category=="rock":
-            angle=rng.choice([-1,1])*rng.uniform(0.16,1.00)
-        dx=math.cos(angle)*length
-        dy=math.sin(angle)*length
-        points=[
-            (x-dx*0.58,y-dy*0.58-thickness*0.32),
-            (x-dx*0.22,y-dy*0.22-thickness),
-            (x+dx*0.50,y+dy*0.50-thickness*0.24),
-            (x+dx*0.63,y+dy*0.63+thickness*0.19),
-            (x+dx*0.10,y+dy*0.10+thickness*0.72),
-            (x-dx*0.50,y-dy*0.50+thickness*0.22)]
-        painter.polygon(points,fill=rng.choice(shades))
-    base = base.filter(ImageFilter.GaussianBlur(0.32))
+        # Rounded watercolor patches rather than sharp triangular strokes.
+        # Keep marks larger but far fewer, with very low opacity.
+        radius_x = rng.randrange(16, 38)
+        radius_y = rng.randrange(7, 18)
+        painter.ellipse((x-radius_x,y-radius_y,
+                         x+radius_x,y+radius_y), fill=rng.choice(shades))
+    # Blur ONLY the brush overlay, preserving the terrain's original palette
+    # and smooth village trail/shoreline boundaries.
+    wash = wash.filter(ImageFilter.GaussianBlur(6.0))
+    base = Image.alpha_composite(base.convert("RGBA"),wash).convert("RGB")
+
     OUTPUT.parent.mkdir(parents=True,exist_ok=True)
     base.save(OUTPUT,format="PNG",optimize=True)
     if OUTPUT.stat().st_size < 120000:
@@ -192,4 +175,5 @@ def paint_colormap(hx, hz, nx, nz, vertices, normals, colors, world_scale):
     print("TERRAIN_V4_PAINTED_MAP_PASS:",OUTPUT.stat().st_size,
           "bytes; size=",base.size,"region brush marks=",marks,
           "world size metres=",round(hx*2),round(hz*2))
+    print("PAINTED_TERRAIN_CLEAN_PASS: 900 blurred low-opacity washes; no 12400 sharp brush polygons")
     return OUTPUT
