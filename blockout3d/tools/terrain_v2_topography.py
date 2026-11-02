@@ -42,7 +42,9 @@ def hill(u: float, v: float, cx: float, cz: float,
 
 def river_center_x(z: float) -> float:
     """Shared river path with terrain_base_test.gd (world XZ meters)."""
-    return -5.0 * math.sin((z + 55.0) * 0.047) + 1.5 * math.sin((z + 34.0) * 0.13)
+    # New 260m island: meanders are broader, while the river remains a
+    # single continuous channel across the expanded north/south world.
+    return -9.0 * math.sin((z + 99.0) * 0.0261) + 2.7 * math.sin((z + 61.0) * 0.0722)
 
 
 def height_at(x: float, z: float, half_x: float, half_z: float) -> float:
@@ -82,12 +84,12 @@ def height_at(x: float, z: float, half_x: float, half_z: float) -> float:
     # drops downstream. Three sculpted water-level steps create potential
     # waterfall sites without scattering hills over the playable flats.
     center = river_center_x(z)
-    downstream = max(0.0, min(1.0, (48.0 - z) / 90.0))
+    downstream = max(0.0, min(1.0, (0.76 * half_z - z) / (1.52 * half_z)))
     river_level = 1.40 + 4.60 * downstream
     river_floor = min(height - 0.46, river_level)
-    river_weight = math.exp(-2.20 * (abs(x - center) / 2.90) ** 4)
-    river_weight *= smoothstep(-45.0, -32.0, z)
-    river_weight *= 1.0 - smoothstep(45.0, 52.0, z)
+    river_weight = math.exp(-2.20 * (abs(x - center) / 3.60) ** 4)
+    river_weight *= smoothstep(-0.89 * half_z, -0.75 * half_z, z)
+    river_weight *= 1.0 - smoothstep(0.76 * half_z, 0.92 * half_z, z)
     height = height * (1.0 - river_weight) + river_floor * river_weight
     return height
 
