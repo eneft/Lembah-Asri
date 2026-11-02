@@ -315,6 +315,66 @@ func _run() -> void:
         return
     print("TERRAIN V2 MOBILE JOYSTICK PASS: diagonal strengths %.2f/%.2f, movement %.2fm, touch release, RUN and JUMP retained" % [
         analog_right, analog_forward, analog_distance])
+    # Camera orbit regression: joystick/WASD must always follow the DISPLAY,
+    # not the world's X/Z directions, even after rotating the camera 90/180°.
+    if not bool(player.get("camera_relative_movement")):
+        push_error("TERRAIN V3 CAMERA FAIL: screen-relative controls disabled")
+        quit(1)
+        return
+    if player.get("movement_camera") != camera:
+        push_error("TERRAIN V3 CAMERA FAIL: movement not bound to active camera")
+        quit(1)
+        return
+    world.call("_rotate_camera", PI * 0.5)
+    for frame in range(45):
+        await process_frame
+    var camera_right := camera.global_transform.basis.x
+    var camera_forward := -camera.global_transform.basis.z
+    camera_right.y = 0.0
+    camera_forward.y = 0.0
+    camera_right = camera_right.normalized()
+    camera_forward = camera_forward.normalized()
+    var right_world: Vector3 = player.call("_camera_relative_direction", Vector3(1, 0, 0))
+    var up_world: Vector3 = player.call("_camera_relative_direction", Vector3(0, 0, -1))
+    var left_world: Vector3 = player.call("_camera_relative_direction", Vector3(-1, 0, 0))
+    var down_world: Vector3 = player.call("_camera_relative_direction", Vector3(0, 0, 1))
+    if right_world.dot(camera_right) < 0.99 or up_world.dot(camera_forward) < 0.99:
+        push_error("TERRAIN V3 CAMERA FAIL: joystick directions do not match rotated camera")
+        quit(1)
+        return
+    if right_world.dot(left_world) > -0.99 or up_world.dot(down_world) > -0.99:
+        push_error("TERRAIN V3 CAMERA FAIL: left/right or up/down flipped after rotation")
+        quit(1)
+        return
+    if up_world.distance_to(Vector3(0, 0, -1)) < 0.45:
+        push_error("TERRAIN V3 CAMERA FAIL: movement is still fixed to world axes")
+        quit(1)
+        return
+    # Verify an actual physics movement after camera rotation.
+    var orbit_start := player.global_position
+    Input.action_press("touch_right")
+    for frame in range(18):
+        await physics_frame
+    Input.action_release("touch_right")
+    var orbit_displacement := player.global_position - orbit_start
+    orbit_displacement.y = 0.0
+    if orbit_displacement.length() < 0.55 or orbit_displacement.normalized().dot(right_world) < 0.65:
+        push_error("TERRAIN V3 CAMERA FAIL: rotated-screen RIGHT did not move player to the screen right")
+        quit(1)
+        return
+    world.call("_rotate_camera", PI * 0.5)
+    for frame in range(45):
+        await process_frame
+    var rearward: Vector3 = player.call("_camera_relative_direction", Vector3(0, 0, -1))
+    var new_forward := -camera.global_transform.basis.z
+    new_forward.y = 0.0
+    if rearward.dot(new_forward.normalized()) < 0.99 or rearward.dot(up_world) > -0.7:
+        push_error("TERRAIN V3 CAMERA FAIL: 180-degree orbit did not rotate movement correctly")
+        quit(1)
+        return
+    # Restore the starting camera yaw for clean gameplay.
+    world.call("_reset_camera_rotation")
+    print("TERRAIN V3 CAMERA-RELATIVE INPUT PASS: 90/180 orbit, screen-aligned axes, real right movement %.2fm" % orbit_displacement.length())
     print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
         camera.fov, cam_distance, capsule.height])
     print("TERRAIN V3 PAINTED MESH PASS: biome atlas 1024px bound, clean visual/collision topology shared, original source preserved")
