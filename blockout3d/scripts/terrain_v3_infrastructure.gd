@@ -124,15 +124,38 @@ func _make_main_bridge() -> void:
     bridge_mesh.material_override = material
     bridge_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     add_child(bridge_mesh)
-    bridge_mesh.create_trimesh_collision()
-    for body in bridge_mesh.find_children("*","StaticBody3D",true,false):
-        bridge_collider = body as StaticBody3D
-        break
-    if bridge_collider == null:
-        push_error("TERRAIN V3 BRIDGE: missing physical deck")
-        return
+    # Use three simple explicit box colliders instead of concave triangles.
+    # In Godot 4.3, the generated deck triangles passed mesh import but never
+    # produced an active raycast collision; box shapes are stable on mobile.
+    bridge_collider = StaticBody3D.new()
+    bridge_collider.name = "WalkableBridgePhysical"
     bridge_collider.collision_layer = 1
     bridge_collider.collision_mask = 0
+    add_child(bridge_collider)
+
+    var total_span := x1-x0
+    var center_shape := BoxShape3D.new()
+    center_shape.size = Vector3(total_span*0.60+0.14,0.16,BRIDGE_HALF_WIDTH*2.0)
+    var center_collision := CollisionShape3D.new()
+    center_collision.name = "CenterDeckCollision"
+    center_collision.shape = center_shape
+    center_collision.position = Vector3(bridge_center_x,deck_center_y-0.08,bridge_z)
+    bridge_collider.add_child(center_collision)
+    for side in [-1,1]:
+        var t0 := 0.0 if side == -1 else 0.80
+        var t1 := 0.20 if side == -1 else 1.0
+        var sx := lerpf(x0,x1,t0)
+        var ex := lerpf(x0,x1,t1)
+        var sy := _deck_height(t0,left_y,right_y,deck_center_y)
+        var ey := _deck_height(t1,left_y,right_y,deck_center_y)
+        var ramp := CollisionShape3D.new()
+        ramp.name = "LeftRampCollision" if side == -1 else "RightRampCollision"
+        var ramp_shape := BoxShape3D.new()
+        ramp_shape.size = Vector3((ex-sx)+0.16,0.16,BRIDGE_HALF_WIDTH*2.0)
+        ramp.shape = ramp_shape
+        ramp.position = Vector3((sx+ex)*0.5,(sy+ey)*0.5-0.08,bridge_z)
+        ramp.rotation.z = atan2(ey-sy,ex-sx)
+        bridge_collider.add_child(ramp)
 
     # Narrow wooden guard rails are visual only: no invisible trapping
     # collision boxes, and only a few simple batched primitive meshes.
