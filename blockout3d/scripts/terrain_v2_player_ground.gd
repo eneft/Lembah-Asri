@@ -3,7 +3,7 @@ extends RefCounted
 ## original underside/cliff/overlapping triangles can trap the player after
 ## their vertices were projected onto the redesigned height field.
 ## The analytic function is kept in sync with tools/terrain_v2_topography.py.
-const GRID_STEP_M := 1.5
+const GRID_STEP_M := 1.0
 
 static func _smooth(a: float, b: float, x: float) -> float:
     var t: float = clampf((x - a) / (b - a), 0.0, 1.0)
@@ -45,35 +45,36 @@ static func height_at(x: float, z: float, half_x: float, half_z: float) -> float
 
 static func build(half_x: float, half_z: float, vertical_offset: float) -> StaticBody3D:
     assert(half_x > 20.0 and half_z > 20.0)
-    var count_x: int = ceili(half_x * 2.0 / GRID_STEP_M)
-    var count_z: int = ceili(half_z * 2.0 / GRID_STEP_M)
-    var vertices := PackedVector3Array()
+    # Godot's dedicated HeightMapShape3D has an unambiguous upright collision
+    # surface and avoids concave-triangle winding/culling pitfalls. A 1-meter
+    # vertex grid is fast enough for the ~140x122m island and doesn't require
+    # the source photogrammetry's overlapping surfaces.
+    var count_x: int = 2 * ceili(half_x) + 1
+    var count_z: int = 2 * ceili(half_z) + 1
+    var values := PackedFloat32Array()
+    values.resize(count_x * count_z)
+    var x_mid: float = float(count_x - 1) * 0.5
+    var z_mid: float = float(count_z - 1) * 0.5
     for zi in range(count_z):
-        var z0: float = -half_z + float(zi) * (half_z * 2.0 / float(count_z))
-        var z1: float = -half_z + float(zi + 1) * (half_z * 2.0 / float(count_z))
+        var z: float = float(zi) - z_mid
         for xi in range(count_x):
-            var x0: float = -half_x + float(xi) * (half_x * 2.0 / float(count_x))
-            var x1: float = -half_x + float(xi + 1) * (half_x * 2.0 / float(count_x))
-            var p00 := Vector3(x0, height_at(x0, z0, half_x, half_z), z0)
-            var p01 := Vector3(x0, height_at(x0, z1, half_x, half_z), z1)
-            var p10 := Vector3(x1, height_at(x1, z0, half_x, half_z), z0)
-            var p11 := Vector3(x1, height_at(x1, z1, half_x, half_z), z1)
-            # Upward-facing winding: slope is walkable, not an inverted wall.
-            vertices.append_array(PackedVector3Array([p00, p01, p10, p10, p01, p11]))
-    var arrays: Array = []
-    arrays.resize(Mesh.ARRAY_MAX)
-    arrays[Mesh.ARRAY_VERTEX] = vertices
-    var collider_mesh := ArrayMesh.new()
-    collider_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+            var x: float = float(xi) - x_mid
+            values[zi * count_x + xi] = height_at(x, z, half_x, half_z)
+
+    var heightmap := HeightMapShape3D.new()
+    heightmap.map_width = count_x
+    heightmap.map_depth = count_z
+    heightmap.map_data = values
+
     var body := StaticBody3D.new()
     body.name = "TerrainV2PlayerGround"
     body.position.y = vertical_offset
-    body.collision_layer = 129 # bit 1: player; bit 8: river/spawn raycasts
+    body.collision_layer = 129 # player mask 1, terrain raycast mask 128
     body.collision_mask = 0
     var shape_node := CollisionShape3D.new()
     shape_node.name = "CleanHeightfieldCollider"
-    shape_node.shape = collider_mesh.create_trimesh_shape()
+    shape_node.shape = heightmap
     body.add_child(shape_node)
-    print("TERRAIN V2 CLEAN GROUND: ", count_x, " x ", count_z,
-        " grid cells, source scan collision DISABLED")
+    print("TERRAIN V2 HEIGHTMAP GROUND: ", count_x, " x ", count_z,
+        " heightmap points, Y offset ", vertical_offset)
     return body
