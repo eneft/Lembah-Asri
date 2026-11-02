@@ -68,4 +68,22 @@ for name, z in (("akses_jembatan_utama", -9.0), ("akses_jembatan_selatan", 47.0)
     assert any(abs(x-river_x) < 2.0 and abs(zz-z) < 1.0 for x, zz in points), (
         f"{name}: no waypoint aligned with physical bridge")
 
-print(f"TERRAIN V5 LAYOUT PASS: {len(PLOTS)} reserved plots, {len(PATHS)} roads, {count} clear road/plot comparisons; headwater joins mountain, bridges fixed")
+# Explicit network joins prevent visually adjacent, but disconnected, paths.
+# These critical connections must remain within one metre of each other.
+routes = {name: points for name, points, _ in PATHS}
+required_joins = (
+    ("jalan_rumah_masa_kecil", 0, "akses_sawah_barat", 0),
+    ("jalan_kampung_barat", 0, "akses_sawah_barat", 4),
+    ("akses_jembatan_barat", 0, "jalan_kampung_barat", -1),
+    ("akses_jembatan_barat", -1, "akses_jembatan_utama", 1),
+    ("akses_jembatan_utama", -2, "lorong_desa_timur", 0),
+    ("akses_jembatan_selatan", 0, "akses_sawah_barat", 5),
+    ("akses_jembatan_selatan", -1, "jalan_desa_timur", 6),
+    ("akses_nelayan", 0, "jalan_desa_timur", 6),
+)
+for first, a, second, b in required_joins:
+    point_a, point_b = routes[first][a], routes[second][b]
+    gap = math.dist(point_a, point_b)
+    assert gap <= 1.0, f"Disconnected roads: {first} -> {second} ({gap:.2f}m)"
+
+print(f"TERRAIN V5 LAYOUT PASS: {len(PLOTS)} reserved plots, {len(PATHS)} roads, {count} clear road/plot comparisons; headwater joins mountain, bridges fixed, 8 road junctions connected")

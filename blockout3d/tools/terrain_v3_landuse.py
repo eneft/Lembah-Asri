@@ -46,11 +46,11 @@ PATHS = [
     ("lorong_desa_timur", [(10,-9),(19,-7),(33,-8),(49,-7)], 1.8),
     ("jalan_rumah_timur", [(12,13),(25,13),(43,12)], 1.8),
     ("akses_sawah_barat", [(-57,-24),(-54,-19),(-48,-12),(-48,-4),(-44,7),(-33,13),(-36,27)], 2.0),
-    ("jalan_kampung_barat", [(-43,5),(-30,4),(-15,5)], 1.8),
+    ("jalan_kampung_barat", [(-44,7),(-30,4),(-15,5)], 1.8),
     # Reach the main bridge WEST approach without drawing a second fictitious
     # painted crossing over open river water.
-    ("akses_jembatan_barat", [(-17,9),(-13,1),(-12,-5.5)], 2.3),
-    ("akses_nelayan", [(35,25),(37,34),(45,41)], 1.8),
+    ("akses_jembatan_barat", [(-15,5),(-13,1),(-12,-5.5)], 2.3),
+    ("akses_nelayan", [(34,25),(37,34),(45,41)], 1.8),
 ]
 
 # Macro-scale rebuild 2026-11-02. Spread SETTLEMENT POSITIONS, not the
@@ -74,7 +74,7 @@ for _plot in PLOTS:
 # It meets both dry shores and rejoins the dispersed village pathways.
 PATHS.append(("akses_jembatan_utama", [
     (-34.0,-5.0),(-22.0,-10.0),(-15.0,-9.0),(-8.0,-9.0),
-    (-1.0,-9.0),(12.0,-12.0),(28.0,-14.0)], 2.65))
+    (-1.0,-9.0),(12.0,-12.0),(19.0,-17.0),(28.0,-14.0)], 2.65))
 # Two independent crossings and a road to the childhood-yard WEST gate.
 # Do not paint a road through the actual house footprint or fishing cottages.
 # All paths remain physical-world metres; village spacing is already applied.
@@ -82,7 +82,7 @@ PATHS += [
     ("jalan_rumah_masa_kecil", [
         (-106.0,-44.0),(-102.0,-48.0),(-95.0,-55.0),(-86.0,-56.0)], 2.25),
     ("akses_jembatan_selatan", [
-        (-52.0,29.0),(-40.0,36.0),(-22.0,44.0),(-3.0,47.0),
+        (-61.3,24.1),(-52.0,29.0),(-40.0,36.0),(-22.0,44.0),(-3.0,47.0),
         (9.0,47.0),(22.0,48.0),(43.0,48.0),(63.0,46.0)], 2.7),
 ]
 # Wider public green is a gathering plaza, NOT a football field.
