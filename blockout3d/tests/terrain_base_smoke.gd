@@ -230,6 +230,73 @@ func _run() -> void:
         quit(1)
         return
     print("TERRAIN V2 INPUT PASS: walk %.2fm, jump triggered, landed on rebuilt collision" % walked_m)
+    # Real touch joystick regression: four old D-pad buttons must be gone.
+    # Feed actual touch down/drag/up into the mobile controller and verify
+    # analog strengths, independent fingers, and world-position movement.
+    var controls := world.get_node_or_null("TouchControls/Buttons") as Node2D
+    if controls == null or controls.get_node_or_null("Run") == null or controls.get_node_or_null("Jump") == null:
+        push_error("TERRAIN V2 JOYSTICK FAIL: joystick / run / jump controls missing")
+        quit(1)
+        return
+    for old_direction in ["Forward", "Back", "Left", "Right"]:
+        if controls.get_node_or_null(old_direction) != null:
+            push_error("TERRAIN V2 JOYSTICK FAIL: old direction D-pad still exists")
+            quit(1)
+            return
+    controls.visible = true # CI runs on desktop; real Web/mobile is visible.
+    var joystick_center: Vector2 = controls.get("_joystick_center")
+    var joystick_radius: float = controls.get("_joystick_radius")
+    var touch_down := InputEventScreenTouch.new()
+    touch_down.index = 7
+    touch_down.pressed = true
+    touch_down.position = joystick_center
+    controls.call("_input", touch_down)
+    var touch_drag := InputEventScreenDrag.new()
+    touch_drag.index = 7
+    touch_drag.position = joystick_center + Vector2(joystick_radius * 0.65, -joystick_radius * 0.65)
+    controls.call("_input", touch_drag)
+    var analog_right := Input.get_action_strength("touch_right")
+    var analog_forward := Input.get_action_strength("touch_forward")
+    if analog_right < 0.25 or analog_forward < 0.25 or analog_right > 1.0 or analog_forward > 1.0:
+        push_error("TERRAIN V2 JOYSTICK FAIL: diagonal drag did not produce proportional directional strengths")
+        quit(1)
+        return
+    var movement: Vector3 = player.call("_read_movement_direction")
+    if movement.x < 0.2 or movement.z > -0.2 or movement.length() > 1.01:
+        push_error("TERRAIN V2 JOYSTICK FAIL: player did not read joystick diagonal")
+        quit(1)
+        return
+    Input.action_press("touch_run")
+    var unrelated_release := InputEventScreenTouch.new()
+    unrelated_release.index = 8
+    unrelated_release.pressed = false
+    unrelated_release.position = joystick_center
+    controls.call("_input", unrelated_release)
+    if Input.get_action_strength("touch_right") < 0.25 or not Input.is_action_pressed("touch_run"):
+        push_error("TERRAIN V2 JOYSTICK FAIL: second finger interrupted joystick/run")
+        quit(1)
+        return
+    var start_analog := player.global_position
+    for frame in range(22):
+        await physics_frame
+    var analog_distance := Vector2(player.global_position.x, player.global_position.z).distance_to(
+        Vector2(start_analog.x, start_analog.z))
+    if analog_distance < 0.4:
+        push_error("TERRAIN V2 JOYSTICK FAIL: movement animation played but player remained stuck")
+        quit(1)
+        return
+    var touch_up := InputEventScreenTouch.new()
+    touch_up.index = 7
+    touch_up.pressed = false
+    touch_up.position = touch_drag.position
+    controls.call("_input", touch_up)
+    Input.action_release("touch_run")
+    if Input.is_action_pressed("touch_right") or Input.is_action_pressed("touch_forward"):
+        push_error("TERRAIN V2 JOYSTICK FAIL: axis did not reset when finger lifted")
+        quit(1)
+        return
+    print("TERRAIN V2 MOBILE JOYSTICK PASS: diagonal strengths %.2f/%.2f, movement %.2fm, touch release, RUN and JUMP retained" % [
+        analog_right, analog_forward, analog_distance])
     print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
         camera.fov, cam_distance, capsule.height])
     print("TERRAIN BAKED RETEXTURE PASS: terrain-aligned grass sand stone shader; original atlas preserved in source; grounded FBX preserved")
