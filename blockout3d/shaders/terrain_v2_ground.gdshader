@@ -1,7 +1,7 @@
 shader_type spatial;
-render_mode depth_draw_opaque, cull_back, diffuse_lambert_wrap, specular_disabled;
+render_mode depth_draw_opaque, cull_back, diffuse_toon, specular_disabled;
 
-// Single 1K painterly atlas: grass / earth / sand / stone.
+// Soft toon light bands + single 1K painterly atlas: grass / earth / sand / stone.
 // Shore sand and proposed village locations are baked in COLOR_0, not extra
 // overlaid geometry. Mobile shader; no triplanar or costly height sampling.
 uniform sampler2D biome_atlas : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
@@ -109,5 +109,8 @@ void fragment() {
     color = mix(color,packed_earth,building_weight*0.86);
     ALBEDO = color;
     METALLIC = 0.0;
-    ROUGHNESS = 1.0;
+    // High roughness softens the edge of the built-in toon light ramp.
+    // Keep local texture pigments visible and avoid glossy CGI lighting.
+    ROUGHNESS = 0.78;
+    SPECULAR = 0.0;
 }
