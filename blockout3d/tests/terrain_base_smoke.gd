@@ -105,12 +105,30 @@ func _run() -> void:
         push_error("TERRAIN V2 FAIL: terrain-aligned shader missing")
         quit(1)
         return
-    if not terrain_material.shader.code.contains("terrain_world"):
-        push_error("TERRAIN V2 FAIL: obsolete UV atlas material active")
+    if not terrain_material.shader.code.contains("biome_atlas"):
+        push_error("TERRAIN V3 FAIL: painted biome atlas is not sampled")
+        quit(1)
+        return
+    var biome_tex := terrain_material.get_shader_parameter("biome_atlas") as Texture2D
+    if biome_tex == null or biome_tex.get_width() != 1024 or biome_tex.get_height() != 1024:
+        push_error("TERRAIN V3 FAIL: missing or incorrect 1024px painted atlas")
         quit(1)
         return
     if mesh.mesh == null or mesh.mesh.get_faces().size() < 1000:
         push_error("TERRAIN BASE FAIL: imported geometry absent")
+        quit(1)
+        return
+    if collider.get_parent() != mesh:
+        push_error("TERRAIN V3 FAIL: collision not derived from same visible mesh")
+        quit(1)
+        return
+    var collider_shape := collider.get_node_or_null("CollisionShape3D") as CollisionShape3D
+    if collider_shape == null or not (collider_shape.shape is ConcavePolygonShape3D):
+        push_error("TERRAIN V3 FAIL: missing matching clean triangle collider")
+        quit(1)
+        return
+    if mesh.mesh.get_faces().size() < 15000:
+        push_error("TERRAIN V3 FAIL: inadequate rebuilt visual geometry")
         quit(1)
         return
     if not terrain.visible or (collider.collision_layer & 128) == 0:
@@ -299,7 +317,7 @@ func _run() -> void:
         analog_right, analog_forward, analog_distance])
     print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
         camera.fov, cam_distance, capsule.height])
-    print("TERRAIN BAKED RETEXTURE PASS: terrain-aligned grass sand stone shader; original atlas preserved in source; grounded FBX preserved")
-    print("TERRAIN V2 PLAYABLE TEST PASS: wide plains, north landmark mountain, island coast/ocean, river, original 3/4 camera and FBX")
+    print("TERRAIN V3 PAINTED MESH PASS: biome atlas 1024px bound, clean visual/collision topology shared, original source preserved")
+    print("TERRAIN V3 PLAYABLE TEST PASS: matched coastline collider, 1K hand-painted atlas, river, 3/4 camera, original FBX and joystick")
     print("TERRAIN BASE SMOKE PASS: ONLY uploaded terrain + real collider + original controllable FBX + camera and lighting; no old objects")
     quit(0)
