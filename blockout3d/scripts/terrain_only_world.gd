@@ -30,19 +30,50 @@ func _world_light() -> void:
     var sun := get_node_or_null("PagiJawa") as DirectionalLight3D
     if sun != null:
         sun.light_color = Color("fff0d7")
-        sun.light_energy = 0.87
+        sun.light_energy = 1.00
         sun.shadow_enabled = true
     var atmosphere := get_node_or_null("Atmosphere") as WorldEnvironment
     if atmosphere != null and atmosphere.environment != null:
         atmosphere.environment.ambient_light_color = Color("e5ede1")
-        atmosphere.environment.ambient_light_energy = 0.60
+        atmosphere.environment.ambient_light_energy = 0.48
 
 func _load_island() -> void:
     # Do not instantiate the old island, houses, roads, trees, or collision.
     pass
 
+# Terrain-preview toon pass is NON-DESTRUCTIVE: only duplicate imported
+# material resources for this scene. Albedo textures, transparency, mesh,
+# skeleton weights and all four FBX animation clips remain exactly as loaded.
+var toon_character_materials := 0
+
+func _apply_character_toon() -> void:
+    var visual := player.get_node_or_null("Visual") as Node3D
+    if visual == null:
+        return
+    toon_character_materials = 0
+    for node in visual.find_children("*", "MeshInstance3D", true, false):
+        var body_mesh := node as MeshInstance3D
+        if body_mesh.mesh == null:
+            continue
+        for i in range(body_mesh.mesh.get_surface_count()):
+            var original := body_mesh.get_active_material(i) as BaseMaterial3D
+            if original == null:
+                continue
+            var toon := original.duplicate() as BaseMaterial3D
+            if toon == null:
+                continue
+            toon.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+            toon.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+            toon.metallic = 0.0
+            toon.roughness = 0.78
+            body_mesh.set_surface_override_material(i,toon)
+            toon_character_materials += 1
+    print("TERRAIN V3 CHARACTER TOON PASS: ",toon_character_materials,
+          " preserved FBX material surfaces use scene-local toon diffuse")
+
 func _make_player() -> void:
     super._make_player()
+    _apply_character_toon()
     player.collision_mask = 1
     # The existing FBX is auto-fitted to 1.78m. Scale ONLY the visible avatar,
     # leaving its original rig, skeleton and animation times unchanged.
@@ -153,7 +184,7 @@ func _make_hud() -> void:
         title.text = "LEMBAH ASRI | TERRAIN V3 | KAMERA BEBAS"
     var house_status := get_node_or_null("BlockoutHUD/HouseAssetStatus") as Label
     if house_status != null:
-        house_status.text = "V3 | SMOOTH CAMERA | KARAKTER 55% | JOYSTICK 3/4"
+        house_status.text = "V3 | SOFT TOON • PAINTED TEXTURES • KARAKTER 55%"
     var control_label := get_node_or_null("BlockoutHUD/Controls") as Label
     if control_label != null:
         control_label.text = "HP: Joystick + Geser layar untuk kamera | PC: WASD / Shift / Space / Q-E"
