@@ -111,7 +111,9 @@ func _make_riverbank_stones() -> void:
     source.rings = 4
     var stone_material := StandardMaterial3D.new()
     stone_material.albedo_color = Color(0.49, 0.47, 0.39)
-    stone_material.roughness = 1.0
+    stone_material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+    stone_material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+    stone_material.roughness = 0.78
     source.material = stone_material
     for i in range(68):
         var z := -31.0 + float(i) * 1.08
