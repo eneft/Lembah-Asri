@@ -76,7 +76,7 @@ func _make_solid_planks(x0: float,x1: float,left_y: float,right_y: float) -> voi
         var ya := _deck_height(t0,left_y,right_y,deck_center_y)
         var yb := _deck_height(t1,left_y,right_y,deck_center_y)
         var angle := atan2(yb-ya,xb-xa)
-        var scale_basis := Basis(Vector3.FORWARD,angle).scaled(
+        var scale_basis := Basis(Vector3.BACK,angle).scaled(
             Vector3((xb-xa)-0.024,1.0,1.0))
         var center := Vector3((xa+xb)*0.5,(ya+yb)*0.5-PLANK_THICKNESS*0.5,bridge_z)
         batch.set_instance_transform(i,Transform3D(scale_basis,center))
