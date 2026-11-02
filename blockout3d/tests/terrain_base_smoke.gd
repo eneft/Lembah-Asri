@@ -90,6 +90,32 @@ func _run() -> void:
         push_error("TERRAIN V3 BRIDGE FAIL: wooden bridge or physical deck missing")
         quit(1)
         return
+    # The visual crossing must have thickness/opaque solid timber, not the
+    # old one-sided transparent-looking surface sheet.
+    var solid_planks := infra.get_node_or_null("SolidOpaqueTimberPlanks") as MultiMeshInstance3D
+    if solid_planks == null or solid_planks.multimesh == null or solid_planks.multimesh.instance_count != 32:
+        push_error("TERRAIN V3 TIMBER FAIL: 32 solid instanced planks not installed")
+        quit(1)
+        return
+    var timber_mesh := solid_planks.multimesh.mesh as BoxMesh
+    if timber_mesh == null or timber_mesh.size.y < 0.16:
+        push_error("TERRAIN V3 TIMBER FAIL: bridge deck lacks real thickness")
+        quit(1)
+        return
+    var timber_material := timber_mesh.material as StandardMaterial3D
+    if timber_material == null or timber_material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+        push_error("TERRAIN V3 TIMBER FAIL: timber is not fully opaque")
+        quit(1)
+        return
+    if solid_planks.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_ON:
+        push_error("TERRAIN V3 TIMBER FAIL: shaded timber is not casting shadows")
+        quit(1)
+        return
+    if walkable_bridge.visible:
+        push_error("TERRAIN V3 TIMBER FAIL: old paper-thin visual deck still showing")
+        quit(1)
+        return
+    print("TERRAIN V3 SOLID TIMBER PASS: 32 opaque thick planks, cast shadows, legacy plane hidden")
     if (bridge_body.collision_layer & player.collision_mask) == 0:
         push_error("TERRAIN V3 BRIDGE FAIL: bridge collision doesn't match player mask")
         quit(1)
@@ -216,6 +242,10 @@ func _run() -> void:
             transitional_points += 1
     if coastal_points < 100 or transitional_points < 25:
         push_error("TERRAIN V3 BEACH FAIL: no smooth near-shore sand gradient")
+        quit(1)
+        return
+    if not terrain_material.shader.code.contains("rock_boundary_noise") or not terrain_material.shader.code.contains("moss_breakup"):
+        push_error("TERRAIN V3 ROCK FAIL: organic illustrated rock variation is missing")
         quit(1)
         return
     if not terrain_material.shader.code.contains("cliff_rock") or not terrain_material.shader.code.contains("wet_earth"):
