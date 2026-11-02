@@ -63,6 +63,53 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: water should have no additional collision")
         quit(1)
         return
+    # Environment C + D: prove river is animated and continuous, and that
+    # crossing the river is physical (not a decorative bridge floating above).
+    var river_material := river.material_override as ShaderMaterial
+    if river_material == null or not river_material.shader.code.contains("TIME"):
+        push_error("TERRAIN V3 WATER FAIL: river has no flowing shader")
+        quit(1)
+        return
+    if int(water.get("stream_segment_count")) < 45:
+        push_error("TERRAIN V3 WATER FAIL: river mesh has too few contiguous spans")
+        quit(1)
+        return
+    var bank_stones := water.get_node_or_null("IllustratedRiverbankStones") as MultiMeshInstance3D
+    if bank_stones == null or bank_stones.multimesh == null or bank_stones.multimesh.instance_count < 15:
+        push_error("TERRAIN V3 BANK FAIL: batched illustrated river rocks missing")
+        quit(1)
+        return
+    var infra := terrain.get_node_or_null("TerrainV3Infrastructure") as Node3D
+    if infra == null:
+        push_error("TERRAIN V3 PATHS FAIL: new village infrastructure not installed")
+        quit(1)
+        return
+    var walkable_bridge := infra.get_node_or_null("WalkableBridgeDeck") as MeshInstance3D
+    var bridge_body := infra.get("bridge_collider") as StaticBody3D
+    if walkable_bridge == null or walkable_bridge.mesh == null or bridge_body == null:
+        push_error("TERRAIN V3 BRIDGE FAIL: wooden bridge or physical deck missing")
+        quit(1)
+        return
+    if (bridge_body.collision_layer & player.collision_mask) == 0:
+        push_error("TERRAIN V3 BRIDGE FAIL: bridge collision doesn't match player mask")
+        quit(1)
+        return
+    var crossing := Vector3(float(infra.get("bridge_center_x")),
+                            float(infra.get("deck_center_y")), 9.0)
+    var bridge_ray := PhysicsRayQueryParameters3D.create(
+        crossing + Vector3(0.0,5.0,0.0), crossing-Vector3(0.0,2.0,0.0))
+    bridge_ray.collision_mask = player.collision_mask
+    var bridge_hit := world.get_world_3d().direct_space_state.intersect_ray(bridge_ray)
+    if bridge_hit.is_empty() or bridge_hit.collider != bridge_body:
+        push_error("TERRAIN V3 BRIDGE FAIL: crossing ray did not hit walkable plank deck")
+        quit(1)
+        return
+    if int(infra.get("trail_detail_count")) < 6:
+        push_error("TERRAIN V3 PATHS FAIL: roadside markers not placed on real walkable ground")
+        quit(1)
+        return
+    print("TERRAIN V3 WATER+BRIDGE PASS: flowing river, %d batched rocks, one physical crossing, %d path details" % [
+        bank_stones.multimesh.instance_count, int(infra.get("trail_detail_count"))])
     if mesh.get_aabb().size.y * 140.0 < 19.0:
         push_error("TERRAIN BASE FAIL: northern landmark mountain too low")
         quit(1)
@@ -164,6 +211,10 @@ func _run() -> void:
             transitional_points += 1
     if coastal_points < 100 or transitional_points < 25:
         push_error("TERRAIN V3 BEACH FAIL: no smooth near-shore sand gradient")
+        quit(1)
+        return
+    if not terrain_material.shader.code.contains("cliff_rock") or not terrain_material.shader.code.contains("wet_earth"):
+        push_error("TERRAIN V3 ROCK FAIL: illustrated hill rock or damp riverbanks aren't shaded")
         quit(1)
         return
     if not terrain_material.shader.code.contains("shoreline_sand") or not terrain_material.shader.code.contains("smooth_noise"):
