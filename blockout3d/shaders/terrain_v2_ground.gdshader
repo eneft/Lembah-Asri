@@ -58,12 +58,30 @@ void fragment() {
     float shore = clamp(shoreline_sand,0.0,1.0);
     float low_sand = 1.0-smoothstep(0.75,3.6,height_m+soft_shift);
     float beach = max(low_sand*0.30, shore*0.89);
-    float soil = smoothstep(0.18,0.55,tilt)*0.35;
-    float rock = smoothstep(0.38,0.70,tilt)*(1.0-shore*0.60);
+    float soil = smoothstep(0.15,0.45,tilt)*0.30;
+    // Mountain and minor hillfaces need visible ILLUSTRATED STONE, not a
+    // blanket of grass. Blend sculpted slope plus altitude: highland ridges
+    // become rocky while broad northern village plateau stays green.
+    float highland = smoothstep(7.0, 15.5, height_m);
+    float cliff_rock = smoothstep(0.18,0.48,tilt);
+    float ridge_rock = highland * smoothstep(0.07,0.25,tilt) * 0.66;
+    float rock = clamp(max(cliff_rock,ridge_rock) * (1.0-shore*0.70),0.0,0.96);
 
     vec3 color = mix(grass,earth,soil);
     color = mix(color,sand,clamp(beach,0.0,1.0));
     color = mix(color,stone,rock);
+    // Incised riverbed: shaded moist soil and river pebbles on both banks.
+    // Analytic center follows the same deterministic curve in topography.py.
+    float river_x = -5.0*sin((pos.y+55.0)*0.047)
+                    + 1.5*sin((pos.y+34.0)*0.13);
+    float river_region = smoothstep(-35.0,-28.0,pos.y)
+                       * (1.0-smoothstep(44.0,51.0,pos.y));
+    float bank_distance = abs(pos.x-river_x);
+    float damp_bank = smoothstep(1.4,2.6,bank_distance)
+                    * (1.0-smoothstep(4.1,5.7,bank_distance))
+                    * river_region;
+    vec3 wet_earth = mix(earth,stone,0.30) * 0.81;
+    color = mix(color,wet_earth,damp_bank*0.78);
     // A little broad color drift, while retaining the approved hand-painted
     // blade detail. Smooth gradients avoid patterned rectangular grass areas.
     color *= 0.95 + 0.10*macro;
