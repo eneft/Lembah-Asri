@@ -7,6 +7,7 @@ render_mode depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
 uniform sampler2D biome_atlas : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 varying vec3 terrain_world;
 varying vec3 terrain_normal;
+varying vec3 landuse_weights; // Vertex R=building dirt, G=yard, B=footpath
 
 float hash12(vec2 v) {
     return fract(sin(dot(v, vec2(127.1, 311.7))) * 43758.5453);
@@ -21,6 +22,7 @@ vec2 tile_uv(vec2 world, vec2 tile, float meters_per_tile) {
 void vertex() {
     terrain_world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
     terrain_normal = normalize(MODEL_NORMAL_MATRIX * NORMAL);
+    landuse_weights = COLOR.rgb;
 }
 
 void fragment() {
@@ -42,6 +44,18 @@ void fragment() {
     vec3 color = mix(grass, earth, soil);
     color = mix(color, sand, beach);
     color = mix(color, stone, rock * (1.0 - beach * 0.55));
+    // Future construction footprint / lawn / village trails baked into the
+    // terrain vertex colors, not additional meshes or heavyweight GPU loops.
+    // Keep the approved painterly grass intact elsewhere on the island.
+    float yard_weight = clamp(landuse_weights.g, 0.0, 1.0);
+    float path_weight = clamp(landuse_weights.b, 0.0, 1.0);
+    float building_weight = clamp(landuse_weights.r, 0.0, 1.0);
+    vec3 trimmed_lawn = mix(grass, earth, 0.23) * vec3(0.96, 0.95, 0.92);
+    vec3 village_path = mix(earth, stone, 0.13);
+    vec3 packed_earth = mix(earth, sand, 0.17);
+    color = mix(color, trimmed_lawn, yard_weight * 0.76);
+    color = mix(color, village_path, path_weight * 0.93);
+    color = mix(color, packed_earth, building_weight * 0.97);
     ALBEDO = color;
     METALLIC = 0.0;
     ROUGHNESS = 0.97;
