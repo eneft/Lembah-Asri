@@ -147,10 +147,10 @@ func _make_main_bridge() -> void:
         # Rails float above deck across middle, not block entry ramps.
         _wood_box("BridgeHandrail",
                  Vector3(bridge_center_x,deck_center_y+0.61,
-                         BRIDGE_Z+side*(BRIDGE_HALF_WIDTH+0.03)),
+                         bridge_z+side*(BRIDGE_HALF_WIDTH+0.03)),
                  Vector3(bridge_half_span*1.53,0.12,0.15),
                  Color(0.56,0.37,0.22))
-    print("TERRAIN V3 BRIDGE PASS: 1 walkable bridge at z=",bridge_z," span=",bridge_half_span*2.0,,
+    print("TERRAIN V3 BRIDGE PASS: 1 walkable bridge at z=",bridge_z," span=",bridge_half_span*2.0,
           " left=",left_y," right=",right_y," deck=",deck_center_y)
 
 func _wood_box(label: String, position_m: Vector3, dimensions: Vector3, tint: Color) -> void:
