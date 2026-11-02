@@ -137,6 +137,11 @@ func _install_terrain() -> void:
     infrastructure_root.set_script(INFRASTRUCTURE_SCRIPT)
     world.add_child(infrastructure_root)
     infrastructure_root.call("configure")
+    # StaticBody3D collision shapes created during an idle callback become
+    # queryable AFTER the next physics server sync. The old smoke test ran a
+    # ray in the same tick and wrongly concluded that the bridge was absent.
+    await get_tree().physics_frame
+    await get_tree().physics_frame
 
     # Terrain has coast / holes; choose a real walkable triangle instead of
     # relying on the old village coordinates.
