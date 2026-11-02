@@ -63,11 +63,27 @@ for _plot in PLOTS:
 PATHS = [(_name, [(_x * BLUEPRINT_SPACING, _z * BLUEPRINT_SPACING)
                    for _x,_z in _points], _width)
          for _name,_points,_width in PATHS]
+# Move the childhood homestead from the south-west lowland to a naturally
+# elevated west-north-west farm terrace, separated from the village.
+for _plot in PLOTS:
+    if _plot["id"] == "rumah_masa_kecil":
+        _plot["center"] = (-74.0, -56.0)
+        _plot["yard"] = (21.0, 19.0)
+        break
 # Approach path remains aligned to the actual crossing at river x≈-8,z≈-9.
 # It meets both dry shores and rejoins the dispersed village pathways.
 PATHS.append(("akses_jembatan_utama", [
     (-34.0,-5.0),(-22.0,-10.0),(-15.0,-9.0),(-8.0,-9.0),
     (-1.0,-9.0),(12.0,-12.0),(28.0,-14.0)], 2.65))
+# Two independent crossings and a road up to the nostalgic childhood house.
+# All paths remain physical-world metres; village spacing is already applied.
+PATHS += [
+    ("jalan_rumah_masa_kecil", [
+        (-96.0,-34.0),(-87.0,-43.0),(-75.0,-56.0),(-69.0,-64.0)], 2.25),
+    ("akses_jembatan_selatan", [
+        (-52.0,21.0),(-40.0,33.0),(-22.0,44.0),(-3.0,47.0),
+        (9.0,47.0),(22.0,48.0),(40.0,58.0),(61.0,71.0)], 2.7),
+]
 # Wider public green is a gathering plaza, NOT a football field.
 for _plot in PLOTS:
     if _plot["kind"] == "square":

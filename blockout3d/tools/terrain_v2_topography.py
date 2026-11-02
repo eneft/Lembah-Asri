@@ -56,18 +56,33 @@ def height_at(x: float, z: float, half_x: float, half_z: float) -> float:
     # Naturally sloping 2.6m south land, broad 4.1m central/northern plains.
     height = 2.65 + 1.40 * (1.0 - smoothstep(-0.15, 0.75, v))
 
-    # A WEST: big flat-topped terraced fields with smooth ramps.
+    # WEST: a broad farm tableland with THREE gently ramped rice-terrace
+    # tiers. They are physically sculpted into the same ground/collider,
+    # rather than painted stripes or extra box meshes.
     height += mesa(u, v, -0.57, -0.35, 0.45, 0.39, 2.65)
+    farm_x = 1.0 - smoothstep(0.20, 0.41, abs(u + 0.57))
+    farm_z = 1.0 - smoothstep(0.22, 0.45, abs(v + 0.35))
+    farm_zone = farm_x * farm_z
+    terraces = (0.38*smoothstep(-0.74,-0.68,u)
+                + 0.36*smoothstep(-0.59,-0.53,u)
+                + 0.31*smoothstep(-0.43,-0.37,u))
+    height += farm_zone * terraces
     # C: continuous, level village/central plateau.
     height += mesa(u, v, 0.12, -0.10, 0.53, 0.38, 0.72)
     # D: very gentle west/south agricultural plots.
     height += mesa(u, v, -0.50, 0.33, 0.32, 0.26, 0.32)
 
-    # A: ONE obvious landmark mountain in northern rear.
-    height += hill(u, v, 0.08, -0.73, 0.19, 0.19, 20.0)
-    # E: only two modest secondary hills at northeast/northwest.
-    height += hill(u, v, 0.64, -0.55, 0.19, 0.17, 7.5)
-    height += hill(u, v, -0.71, -0.68, 0.14, 0.16, 4.0)
+    # NORTH-EAST: ONE dominant lookout mountain in the rear-right, as in
+    # the village illustration, not a giant mound blocking central fields.
+    height += hill(u, v, 0.49, -0.74, 0.18, 0.20, 19.4)
+    # Two moderate forested rocky hills support the mountain silhouette;
+    # childhood house and agricultural terrace are on WESTERN high ground.
+    height += hill(u, v, 0.78, -0.39, 0.16, 0.18, 6.4)
+    height += hill(u, v, -0.73, -0.70, 0.16, 0.18, 5.2)
+    # Short, sculpted coastal rock shelves near lighthouse / eastern coast.
+    # Their modest relief avoids adding artificial gameplay-sized hills.
+    height += mesa(u, v, -0.79, 0.79, 0.14, 0.14, 1.65)
+    height += mesa(u, v, 0.83, 0.45, 0.14, 0.18, 1.25)
 
     # G: southern/eastern beaches descend gently to the sea, while northern
     # and western rocky coastlines keep short dramatic cliffs (as in concept).

@@ -15,10 +15,15 @@ var bridge_z := BRIDGE_Z
 var bridge_half_span := 6.0
 var deck_center_y := 0.0
 var trail_detail_count := 0
+var secondary_bridge_collider: StaticBody3D
+var secondary_bridge_center_x := 0.0
+var secondary_bridge_z := 0.0
+var secondary_deck_y := 0.0
 
 func configure() -> void:
     name = "TerrainV3Infrastructure"
     _make_main_bridge()
+    _make_secondary_bridge()
     _make_trail_edges()
 
 func _river_x(z: float) -> float:
@@ -90,14 +95,14 @@ func _make_solid_planks(x0: float,x1: float,left_y: float,right_y: float) -> voi
     add_child(planks)
 
 
-func _make_main_bridge() -> void:
+func _make_main_bridge(candidates: Array[float] = [-9.0,-8.0,-10.0,-7.0,
+        -11.0,-5.0,-12.0,-4.0,0.0,9.0]) -> void:
     # Source scan's island silhouette contains a few low coastal gaps.
     # Choose BOTH bridge landings on dry, comparable-height terrain. The
     # earlier fixed +/-7.5m bridge had a 3.5m cliff at its western endpoint!
     var left_hit: Dictionary = {}
     var right_hit: Dictionary = {}
-    var candidate_z: Array[float] = [-9.0, -8.0, -10.0, -7.0, -11.0,
-                                    -5.0, -12.0, -4.0, 0.0, 9.0]
+    var candidate_z: Array[float] = candidates
     var candidate_spans: Array[float] = [6.6,7.5,8.2,9.0]
     var suitable := false
     for crossing_z in candidate_z:
@@ -220,6 +225,38 @@ func _make_main_bridge() -> void:
     print("TERRAIN V3 BRIDGE PASS: 1 walkable bridge at z=",bridge_z," span=",bridge_half_span*2.0,
           " left=",left_y," right=",right_y," deck=",deck_center_y)
 
+func _make_secondary_bridge() -> void:
+    # Reuse the exact same mesh, proper deck/ramp collision, timber materials
+    # and handrails as the north crossing. Names and main smoke-test refs
+    # are preserved; the second independent bridge crosses near z=47m.
+    var old_mesh := bridge_mesh
+    var old_body := bridge_collider
+    var old_x := bridge_center_x
+    var old_z := bridge_z
+    var old_span := bridge_half_span
+    var old_height := deck_center_y
+    var first_new := get_child_count()
+    bridge_collider = null
+    _make_main_bridge([47.0,46.0,48.0,45.0,49.0,43.0,51.0,40.0,54.0])
+    if bridge_collider != null and get_child_count() > first_new:
+        secondary_bridge_collider = bridge_collider
+        secondary_bridge_center_x = bridge_center_x
+        secondary_bridge_z = bridge_z
+        secondary_deck_y = deck_center_y
+        for index in range(first_new,get_child_count()):
+            var piece := get_child(index)
+            piece.name = "Southern" + piece.name
+        print("TERRAIN V5 SECOND BRIDGE PASS: x=",secondary_bridge_center_x,
+              " z=",secondary_bridge_z, " deck=",secondary_deck_y)
+    else:
+        push_error("TERRAIN V5 SECOND BRIDGE FAIL: missing safe southern river crossing")
+    bridge_mesh = old_mesh
+    bridge_collider = old_body
+    bridge_center_x = old_x
+    bridge_z = old_z
+    bridge_half_span = old_span
+    deck_center_y = old_height
+
 func _wood_box(label: String, position_m: Vector3, dimensions: Vector3, tint: Color) -> void:
     var n := MeshInstance3D.new()
     n.name = label
@@ -248,8 +285,14 @@ func _make_trail_edges() -> void:
         Vector2(25,35),Vector2(44,42)
     ]
     var objects: Array[Transform3D] = []
+    # Most pre-existing sign coordinates belong to the former 140m map.
+    # Relocate them to scaled village routes, with extra markers at the new
+    # childhood house and coastal footbridge.
+    locations.append_array([
+        Vector2(-90,-42),Vector2(-74,-57),Vector2(-39,33),
+        Vector2(-19,44),Vector2(24,50),Vector2(43,62)])
     for i in range(locations.size()):
-        var p := locations[i]
+        var p: Vector2 = locations[i] if i >= 17 else locations[i]*(260.0/140.0)
         if absf(p.x-_river_x(p.y)) < 6.0:
             continue
         var contact := _terrain_at(p.x,p.y)

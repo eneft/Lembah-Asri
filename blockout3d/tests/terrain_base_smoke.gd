@@ -90,6 +90,33 @@ func _run() -> void:
         push_error("TERRAIN V3 BRIDGE FAIL: wooden bridge or physical deck missing")
         quit(1)
         return
+    # Two distinct, usable footbridges must connect the expanded west/east
+    # settlement routes. Count actual colliders, not decorative model props.
+    var southern_body := infra.get("secondary_bridge_collider") as StaticBody3D
+    if southern_body == null or southern_body == bridge_body:
+        push_error("TERRAIN V5 BRIDGES FAIL: second independent physical crossing missing")
+        quit(1)
+        return
+    var second_z := float(infra.get("secondary_bridge_z"))
+    if absf(float(infra.get("bridge_z"))-second_z) < 28.0:
+        push_error("TERRAIN V5 BRIDGES FAIL: two crossings too close together")
+        quit(1)
+        return
+    var second_point := Vector3(float(infra.get("secondary_bridge_center_x")),
+                                float(infra.get("secondary_deck_y")), second_z)
+    var second_ray := PhysicsRayQueryParameters3D.create(
+        second_point+Vector3.UP*5.0,second_point-Vector3.UP*2.0)
+    second_ray.collision_mask = player.collision_mask
+    await physics_frame
+    await physics_frame
+    var second_hit := world.get_world_3d().direct_space_state.intersect_ray(second_ray)
+    if second_hit.is_empty() or second_hit.collider != southern_body:
+        push_error("TERRAIN V5 BRIDGES FAIL: south footbridge is not walkable")
+        quit(1)
+        return
+    print("TERRAIN V5 TWO BRIDGES PASS: river crossing north z=",
+          infra.get("bridge_z")," and south z=",second_z,
+          " both physical; roads retargeted")
     # The visual crossing must have thickness/opaque solid timber, not the
     # old one-sided transparent-looking surface sheet.
     var solid_planks := infra.get_node_or_null("SolidOpaqueTimberPlanks") as MultiMeshInstance3D

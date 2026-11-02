@@ -139,6 +139,27 @@ def footprint(g: dict, blob: bytes):
             k = j*nx+i
             if not (dilated[k-1] and dilated[k+1] and dilated[k-nx] and dilated[k+nx]):
                 cleaned[k] = 0
+    # Carve a true U-shaped south-eastern fishing cove out of the LAND
+    # footprint, rather than only drawing blue water over a solid collider.
+    # The mouth opens into the south sea; nearby fishing lots remain dry at
+    # z~65-74m and the harbour receives a gently curved beach rim.
+    cove_removed = 0
+    for j in range(nz):
+        z = -hz + (j+0.5)*dz
+        if z < 84.0:
+            continue
+        for i in range(nx):
+            x = -hx + (i+0.5)*dx
+            if 44.0 < x < 101.0 and z > 86.0 + 0.016*(x-72.0)**2:
+                k = j*nx+i
+                if cleaned[k]:
+                    cleaned[k] = 0
+                    cove_removed += 1
+    if cove_removed < 12:
+        print("TERRAIN_V4_COVE_NOTICE: coast footprint sparse; inlet removed", cove_removed)
+    else:
+        print("TERRAIN_V5_FISHING_COVE_SCULPTED:",cove_removed,
+              "physical land cells carved; no phantom terrain collider")
     amount = sum(cleaned)
     if amount < nx*nz*.25:
         raise ValueError(f"Footprint unexpectedly sparse: {amount}/{nx*nz}")
