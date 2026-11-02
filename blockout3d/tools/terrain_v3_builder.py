@@ -273,40 +273,77 @@ def _wrap_quadrant(core: Image.Image) -> Image.Image:
 
 
 def _paint_illustrated_rock(core_size: int) -> Image.Image:
-    """Tileable stylized stone strata and hand-painted cracks (not oval noise)."""
+    """Hand-painted, tileable irregular rock faces. No periodic strata rows.
+
+    The previous 23px horizontal bands made hills resemble brickwork.
+    Paint broad angular outcrops, uneven face shading, broken fissures and
+    sparse moss in deterministic, wrapped strokes instead.
+    """
     rng = random.Random(30814)
-    base = Image.new("RGB", (core_size, core_size), (114, 112, 98))
+    base = Image.new("RGB", (core_size, core_size), (112, 111, 98))
     draw = ImageDraw.Draw(base)
-    tones = [(104,105,96), (123,121,103), (140,132,109),
-             (91,94,86), (151,141,117), (116,112,97)]
-    for y in range(-64, core_size+64, 23):
-        rise = rng.randint(-12, 12)
-        color = tones[rng.randrange(len(tones))]
-        for shift_y in (-core_size, 0, core_size):
-            draw.polygon([
-                (0,y+shift_y+rise), (core_size//3,y+shift_y+rise-6),
-                (2*core_size//3,y+shift_y+rise+4),
-                (core_size,y+shift_y+rise), (core_size,y+shift_y+rise+20),
-                (0,y+shift_y+rise+18)], fill=color)
-    for k in range(750):
-        x,y=rng.randrange(core_size),rng.randrange(core_size)
-        rw,rh=rng.randint(4,25),rng.randint(2,9)
-        col=tones[rng.randrange(len(tones))]
-        points=[(x-rw,y-rh),(x+rw//3,y-rh-rng.randint(0,3)),
-                (x+rw,y+rh//2),(x,y+rh)]
-        for ox in (-core_size,0,core_size):
-            for oy in (-core_size,0,core_size):
-                draw.polygon([(px+ox,py+oy) for px,py in points],fill=col)
-    for k in range(470):
-        x,y=rng.randrange(core_size),rng.randrange(core_size)
-        length=rng.randint(7,53)
-        dye=(66,73,70) if k%3 else (177,163,128)
-        dy=rng.randint(-6,5)
-        for ox in (-core_size,0,core_size):
-            for oy in (-core_size,0,core_size):
-                draw.line([(x+ox,y+oy),(x+ox+length,y+oy+dy)],
-                          fill=dye,width=1 if k%4 else 2)
-    return base.filter(ImageFilter.GaussianBlur(0.35))
+    shadow = [(75, 79, 76), (91, 91, 83), (98, 95, 86)]
+    facets = [(122, 119, 100), (137, 129, 108), (145, 139, 119),
+              (102, 106, 99), (120, 113, 96), (153, 143, 116)]
+    moss = [(96, 108, 83), (113, 120, 85), (86, 99, 80)]
+
+    def polygon_wrap(points, color):
+        for ox in (-core_size, 0, core_size):
+            for oy in (-core_size, 0, core_size):
+                draw.polygon([(x + ox, y + oy) for x, y in points], fill=color)
+
+    def line_wrap(points, color, width=1):
+        for ox in (-core_size, 0, core_size):
+            for oy in (-core_size, 0, core_size):
+                draw.line([(x + ox, y + oy) for x, y in points],
+                          fill=color, width=width, joint="curve")
+
+    # Broad, irregular stone masses, not neat repeating narrow layers.
+    for index in range(260):
+        x, y = rng.randrange(core_size), rng.randrange(core_size)
+        rx, ry = rng.randint(10, 48), rng.randint(7, 34)
+        lean = rng.uniform(-0.55, 0.55)
+        n = rng.randint(5, 8)
+        points = []
+        for k in range(n):
+            a = 2 * math.pi * k / n + rng.uniform(-0.24, 0.24)
+            radius = rng.uniform(0.68, 1.23)
+            points.append((x + math.cos(a)*rx*radius + lean*math.sin(a)*ry,
+                           y + math.sin(a)*ry*radius))
+        polygon_wrap([(px+2.6, py+3.8) for px, py in points],
+                     shadow[rng.randrange(len(shadow))])
+        polygon_wrap(points, facets[rng.randrange(len(facets))])
+        # One softer hand-highlight inside, deliberately not all matching.
+        if index % 3 != 0:
+            pale = facets[rng.randrange(len(facets))]
+            polygon_wrap([(x+(px-x)*0.61-1.7, y+(py-y)*0.63-2.2)
+                          for px,py in points], pale)
+
+    # Short broken branching fissures rather than long ruler-straight lines.
+    for index in range(170):
+        x, y = rng.randrange(core_size), rng.randrange(core_size)
+        angle = rng.uniform(-math.pi, math.pi)
+        steps = rng.randint(2, 4)
+        points = [(x,y)]
+        for j in range(steps):
+            dist = rng.randint(5, 13)
+            angle += rng.uniform(-0.60, 0.60)
+            x += math.cos(angle)*dist
+            y += math.sin(angle)*dist
+            points.append((x,y))
+        line_wrap(points, shadow[rng.randrange(len(shadow))], 1)
+        if index % 3 == 0:
+            line_wrap([(xx-1.2,yy-1.4) for xx,yy in points],
+                      (164,151,123), 1)
+
+    # Sparse vegetation stains make the rock belong to the green hills.
+    for index in range(95):
+        x, y = rng.randrange(core_size),rng.randrange(core_size)
+        w,h = rng.randint(3,12),rng.randint(2,8)
+        polygon_wrap([(x-w,y),(x-w//2,y-h),(x+w,y-h//2),
+                      (x+w//2,y+h),(x-w//3,y+h)],
+                     moss[rng.randrange(len(moss))])
+    return base.filter(ImageFilter.GaussianBlur(0.47))
 
 
 def make_atlas() -> bytes:
@@ -358,7 +395,7 @@ def make_atlas() -> bytes:
     print("TERRAIN_V3_GRASS_REFERENCE_PASS: user-approved painterly grass",
           grass_source.stat().st_size, "source bytes, wrapped seamless 496px core")
     print("TERRAIN_V3_TEXTURE_PASS: one 1024x1024 baked painted atlas",
-          len(out.getvalue()), "bytes; painted grass and STRATIFIED ROCK, soil, sand")
+          len(out.getvalue()), "bytes; painted grass, IRREGULAR FACETED ROCK, soil, sand")
     return out.getvalue()
 
 
