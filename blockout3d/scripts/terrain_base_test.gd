@@ -5,7 +5,6 @@ const WEB_TERRAIN := "res://assets/environment/island/terrain_base_web.glb"
 const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
 const WATER_SCRIPT := preload("res://scripts/terrain_v2_water.gd")
 const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
-const CLEAN_GROUND := preload("res://scripts/terrain_v2_player_ground.gd")
 const TERRAIN_RAY_LAYER := 1 << 7
 const PLAYER_GROUND_LAYER := 1
 const SPAWN_XZ := Vector2(6.0, 15.0)
@@ -92,12 +91,12 @@ func _install_terrain() -> void:
     if original == null or original.albedo_texture == null:
         push_error("TERRAIN BASE FAIL: baked retexture albedo missing")
         return
-    # The source atlas was painted for a different, mountainous mesh. Its UV
-    # colors make cliff/soil polygons appear across newly flat village land.
-    # Keep source mesh and baked source GLB intact, but render this V2 test
-    # with clean position/slope-based ground materials instead.
+    # V3 imports only the CLEAN terrain plus a 1K painterly grass/earth/sand/rock
+    # atlas. Feed the imported texture to the material; otherwise a 4K source
+    # atlas would be baked but the screen would still show flat procedural color.
     var ground_material := ShaderMaterial.new()
     ground_material.shader = GROUND_SHADER
+    ground_material.set_shader_parameter("biome_atlas", original.albedo_texture)
     new_mesh.material_override = ground_material
     # Center the supplied mesh in the world. No old model is loaded for alignment.
     var bounds := _bounds_global(new_mesh)
@@ -105,16 +104,18 @@ func _install_terrain() -> void:
     new_root.global_position.z -= bounds.get_center().z
     vertical_offset = -bounds.position.y
     new_root.global_position.y += vertical_offset
-    # A rebuilt scan still contains legacy overlapping/underside faces. Never
-    # give those faces player physics: it can trap the capsule and prevent jump.
-    # Independently reconstruct the SAME V2 sculpt as a clean heightfield.
-    # Place it under this test root so it stays unscaled (visual GLB is 140x).
-    # Original scan is visual-only; keep player/FBX/camera unchanged.
-    for old_body in new_root.find_children("*", "CollisionObject3D", true, false):
-        (old_body as CollisionObject3D).collision_layer = 0
-        (old_body as CollisionObject3D).collision_mask = 0
-    new_collision = CLEAN_GROUND.build(bounds.size.x * 0.5, bounds.size.z * 0.5, vertical_offset)
-    add_child(new_collision)
+    # New V3 mesh has a consistent grid, no scan undersides, and a deliberate
+    # coastline mask. Physics MUST use precisely these visible triangles, not
+    # a rectangular independent heightmap that allows walking on open water.
+    new_mesh.create_trimesh_collision()
+    for body in new_mesh.find_children("*", "StaticBody3D", true, false):
+        new_collision = body as StaticBody3D
+        break
+    if new_collision == null:
+        push_error("TERRAIN V3 FAIL: clean surface collision was not generated")
+        return
+    new_collision.collision_layer = TERRAIN_RAY_LAYER | PLAYER_GROUND_LAYER
+    new_collision.collision_mask = 0
     await get_tree().physics_frame
 
     # Blueprint V2: a lightweight ocean around the entire island and
@@ -165,13 +166,13 @@ func _install_terrain() -> void:
     player.reset_physics_interpolation()
     is_ready = true
     _refresh_text()
-    print("TERRAIN V2 PLAYABLE PASS: 1 north mountain, western fields, central/south plains, sea plane 360m, river ribbon")
+    print("TERRAIN V3 PLAYABLE PASS: clean mesh and matched coastline collision, painterly atlas, island river/ocean")
     print("TERRAIN BASE TEST PASS: V2 derived GLB terrain, collider_layer=%d, player_mask=%d, size=%s, spawn_xz=%s, spawn_height=%.3f" % [
         new_collision.collision_layer, player.collision_mask, str(_bounds_global(new_mesh).size), str(spawn_xz), hit.position.y])
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "V2 GAMEPLAY FIX R2 | CLEAN COLLISION | WASD + SPACE"
+        status.text = "TERRAIN V3 | CLEAN MESH + PAINTED ATLAS | JOYSTICK"
 
 func _unhandled_input(event: InputEvent) -> void:
     if not is_ready or not (event is InputEventKey):
