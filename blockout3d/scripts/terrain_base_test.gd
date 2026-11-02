@@ -129,29 +129,54 @@ func _install_terrain() -> void:
 
     # Terrain has coast / holes; choose a real walkable triangle instead of
     # relying on the old village coordinates.
+    # A ray hit near the jagged coast is NOT a playable spawn. V3 scans for
+    # dry, mostly flat land with at least 5m clearance in every direction.
+    # In the prior build (6,15) spawned at Y=0.548 beside the 0.45m sea,
+    # trapping character travel immediately at a shoreline triangle.
     var sample_points: Array[Vector2] = [
-        SPAWN_XZ, Vector2.ZERO, Vector2(12, 0), Vector2(-12, 0),
-        Vector2(0, 12), Vector2(0, -12), Vector2(12, 12),
-        Vector2(-12, -12), Vector2(-12, 12), Vector2(12, -12)
+        Vector2.ZERO, Vector2(-12,0), Vector2(12,0), Vector2(-24,-8),
+        Vector2(24,-8), Vector2(0,-16), Vector2(0,16),
+        Vector2(-20,16), Vector2(20,16), Vector2(-36,0),
+        Vector2(36,0), Vector2(-15,-24), Vector2(15,-24)
     ]
-    for radius in [24.0, 36.0, 48.0]:
-        for xsign in [-1.0, 0.0, 1.0]:
-            for zsign in [-1.0, 0.0, 1.0]:
+    for radius in [18.0, 27.0, 36.0, 45.0]:
+        for xsign in [-1.0, -0.5, 0.0, 0.5, 1.0]:
+            for zsign in [-1.0, -0.5, 0.0, 0.5, 1.0]:
                 sample_points.append(Vector2(xsign * radius, zsign * radius))
+    var probe_offsets: Array[Vector2] = [
+        Vector2(0,-5), Vector2(0,5), Vector2(-5,0), Vector2(5,0),
+        Vector2(-3.5,-3.5), Vector2(3.5,-3.5), Vector2(-3.5,3.5), Vector2(3.5,3.5)
+    ]
     var hit: Dictionary = {}
     var spawn_xz := Vector2.ZERO
     for point in sample_points:
         var query := PhysicsRayQueryParameters3D.create(
-            Vector3(point.x, 120.0, point.y),
-            Vector3(point.x, -60.0, point.y))
+            Vector3(point.x, 120.0, point.y), Vector3(point.x, -60.0, point.y))
         query.collision_mask = TERRAIN_RAY_LAYER
         var candidate := world.get_world_3d().direct_space_state.intersect_ray(query)
-        if not candidate.is_empty():
+        if candidate.is_empty():
+            continue
+        if candidate.position.y <= 2.2 or candidate.normal.y < 0.91:
+            continue
+        var has_clearance := true
+        for delta in probe_offsets:
+            var around := PhysicsRayQueryParameters3D.create(
+                Vector3(point.x + delta.x, 120.0, point.y + delta.y),
+                Vector3(point.x + delta.x, -60.0, point.y + delta.y))
+            around.collision_mask = TERRAIN_RAY_LAYER
+            var neighbor := world.get_world_3d().direct_space_state.intersect_ray(around)
+            if neighbor.is_empty() or neighbor.normal.y < 0.78:
+                has_clearance = false
+                break
+            if neighbor.position.y < 1.8 or absf(neighbor.position.y - candidate.position.y) > 1.25:
+                has_clearance = false
+                break
+        if has_clearance:
             hit = candidate
             spawn_xz = point
             break
     if hit.is_empty():
-        push_error("TERRAIN BASE FAIL: no walkable terrain collision anywhere in scanned map")
+        push_error("TERRAIN V3 FAIL: no safe dry 5m-radius walkable spawn in clean island")
         return
     var player := world.get_node_or_null("Player3D") as CharacterBody3D
     if player == null:
