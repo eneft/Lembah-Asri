@@ -85,8 +85,8 @@ func _run() -> void:
         return
     var visual := player.get_node_or_null("Visual") as Node3D
     var capsule_node := player.get_node_or_null("PlayerCollision") as CollisionShape3D
-    if visual == null or not is_equal_approx(visual.scale.x, 0.74):
-        push_error("TERRAIN BASE FAIL: character not reduced to 74 percent")
+    if visual == null or not is_equal_approx(visual.scale.x, 0.55):
+        push_error("TERRAIN BASE FAIL: character size must be 55 percent")
         quit(1)
         return
     if capsule_node == null or not (capsule_node.shape is CapsuleShape3D):
@@ -94,7 +94,7 @@ func _run() -> void:
         quit(1)
         return
     var capsule := capsule_node.shape as CapsuleShape3D
-    if absf(capsule.height - 1.31) > 0.01 or absf(capsule.radius - 0.245) > 0.01:
+    if absf(capsule.height - 0.99) > 0.01 or absf(capsule.radius - 0.19) > 0.01:
         push_error("TERRAIN BASE FAIL: capsule not scaled with character")
         quit(1)
         return
@@ -445,9 +445,25 @@ func _run() -> void:
         push_error("TERRAIN V3 CAMERA SHAKE FAIL: camera smoothing never initialized")
         quit(1)
         return
+    # New 3/4 is actually closer, even with a visibly smaller avatar.
+    var camera_offset_distance := camera.global_position.distance_to(pivot)
+    if camera_offset_distance < 5.6 or camera_offset_distance > 11.0:
+        push_error("TERRAIN V3 CAMERA FAIL: close perspective camera distance is outside 5.6m..11m")
+        quit(1)
+        return
+    if not player.has_method("get_camera_follow_position"):
+        push_error("TERRAIN V3 CAMERA FAIL: no interpolated physics follow samples")
+        quit(1)
+        return
+    var interpolated_player: Vector3 = player.call("get_camera_follow_position")
+    if interpolated_player.distance_to(player.global_position) > 1.5:
+        push_error("TERRAIN V3 CAMERA FAIL: camera interpolated position diverged from physics character")
+        quit(1)
+        return
+    print("TERRAIN V3 SMOOTH CLOSE CAMERA PASS: 55%% avatar, %.2fm orbit distance, render-step interpolation" % camera_offset_distance)
     print("TERRAIN V3 CAMERA STABILITY PASS: aim and smoothed follow pivot aligned while walking")
     print("TERRAIN V3 CAMERA-RELATIVE INPUT PASS: 90/180 orbit, screen-aligned axes, real right movement %.2fm" % orbit_displacement.length())
-    print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
+    print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=55%%, capsule_height=%.2f" % [
         camera.fov, cam_distance, capsule.height])
     print("TERRAIN V3 PAINTED MESH PASS: biome atlas 1024px bound, clean visual/collision topology shared, original source preserved")
     print("TERRAIN V3 PLAYABLE TEST PASS: matched coastline collider, 1K hand-painted atlas, river, 3/4 camera, original FBX and joystick")
