@@ -90,10 +90,10 @@ func _make_hud() -> void:
         title.text = "LEMBAH ASRI | BAKED RETEXTURE | CAMERA 3/4"
     var house_status := get_node_or_null("BlockoutHUD/HouseAssetStatus") as Label
     if house_status != null:
-        house_status.text = "V2 CLEAN COLLISION | WASD + LOMPAT | Karakter 74%"
+        house_status.text = "V2 | JOYSTICK ANALOG HP | COLLISION FIX | Karakter 74%"
     var control_label := get_node_or_null("BlockoutHUD/Controls") as Label
     if control_label != null:
-        control_label.text = "WASD Jalan | Shift Lari | Space Salto | C Kamera 3/4 | Q/E Putar | Scroll Zoom"
+        control_label.text = "HP: Joystick / LARI / LOMPAT  |  PC: WASD / Shift / Space"
 
 func _physics_process(_delta: float) -> void:
     if is_instance_valid(player) and player.global_position.y < -8.0:
