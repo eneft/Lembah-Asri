@@ -17,7 +17,8 @@ import random
 import struct
 
 from PIL import Image, ImageDraw, ImageFilter
-from terrain_v2_topography import height_at, WORLD_SCALE
+from terrain_v2_topography import height_at, river_center_x, WORLD_SCALE
+from terrain_v3_landuse import surface_weights, validate_layout
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets/environment/island/terrain base.glb"
@@ -176,6 +177,7 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
     heights = []
     vertices = []
     uvs = []
+    shore_per_vertex = []
     for j in range(nz+1):
         z = -hz + j*dz
         for i in range(nx+1):
@@ -191,6 +193,7 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
             beach = smooth(0.0,6.0,distance)
             h = 0.14+(raw_height-0.14)*beach
             heights.append(h)
+            shore_per_vertex.append(distance)
             vertices.append((x/WORLD_SCALE,h/WORLD_SCALE,z/WORLD_SCALE))
             uvs.append(((x+hx)/(2*hx), (z+hz)/(2*hz)))
     normals = []
@@ -203,6 +206,16 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
             n=(-slope_x,1.0,-slope_z)
             mag=math.sqrt(sum(v*v for v in n))
             normals.append(tuple(v/mag for v in n))
+    colors = []
+    for j in range(nz+1):
+        z = -hz + j*dz
+        river_x = river_center_x(z)
+        for i in range(nx+1):
+            idx = j*(nx+1)+i
+            x = -hx + i*dx
+            lot, yard, path = surface_weights(x, z, heights[idx], normals[idx][1],
+                                               shore_per_vertex[idx], river_x)
+            colors.append((lot, yard, path, 1.0))
     indices = []
     for j in range(nz):
         for i in range(nx):
@@ -219,7 +232,16 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
         raise ValueError("Invalid clean mesh index buffer")
     print("TERRAIN_V3_TOPOLOGY_PASS:",len(vertices),"grid vertices",len(indices)//3,
           "non-overlapping upward-facing triangles", "waterline",SEA_Y)
-    return vertices,normals,uvs,indices
+    active = [c for c in colors if max(c[0],c[1],c[2]) > 0.15]
+    marked_lots = sum(c[0] > 0.4 for c in active)
+    marked_yards = sum(c[1] > 0.4 for c in active)
+    marked_paths = sum(c[2] > 0.4 for c in active)
+    if marked_lots < 100 or marked_yards < 180 or marked_paths < 100:
+        raise ValueError("Terrain V3 future plot masks too sparse; revisit actual coastline/layout")
+    print("TERRAIN_V3_PLOTS_PASS:", len(colors), "vertex colors",
+          marked_lots, "building-footprint", marked_yards, "yard", marked_paths,
+          "path marked vertices; open public green retained")
+    return vertices,normals,uvs,colors,indices
 
 
 def _wrap_quadrant(core: Image.Image) -> Image.Image:
@@ -288,7 +310,7 @@ def make_atlas() -> bytes:
     return out.getvalue()
 
 
-def export_glb(vertices,normals,uvs,indices,atlas):
+def export_glb(vertices,normals,uvs,colors,indices,atlas):
     binary=bytearray()
     views=[]
     def append(payload: bytes, target=None):
@@ -303,10 +325,12 @@ def export_glb(vertices,normals,uvs,indices,atlas):
     position_data=b"".join(struct.pack("<3f",*p) for p in vertices)
     normal_data=b"".join(struct.pack("<3f",*n) for n in normals)
     uv_data=b"".join(struct.pack("<2f",*uv) for uv in uvs)
+    color_data=b"".join(struct.pack("<4f",*color) for color in colors)
     index_data=struct.pack("<"+"I"*len(indices),*indices)
     pos_view=append(position_data,34962)
     normal_view=append(normal_data,34962)
     uv_view=append(uv_data,34962)
+    color_view=append(color_data,34962)
     index_view=append(index_data,34963)
     image_view=append(atlas)
     xs=[p[0] for p in vertices];ys=[p[1] for p in vertices];zs=[p[2] for p in vertices]
@@ -315,8 +339,8 @@ def export_glb(vertices,normals,uvs,indices,atlas):
       "scene":0,"scenes":[{"nodes":[0]}],
       "nodes":[{"name":"TerrainV3CleanIsland","mesh":0}],
       "meshes":[{"name":"TerrainV3CleanIsland","primitives":[{
-        "attributes":{"POSITION":0,"NORMAL":1,"TEXCOORD_0":2},
-        "indices":3,"material":0,"mode":4
+        "attributes":{"POSITION":0,"NORMAL":1,"TEXCOORD_0":2,"COLOR_0":3},
+        "indices":4,"material":0,"mode":4
       }]}],
       "materials":[{"name":"LembahAsriV3PainterlyAtlas","doubleSided":False,
         "pbrMetallicRoughness":{"baseColorTexture":{"index":0},
@@ -330,6 +354,7 @@ def export_glb(vertices,normals,uvs,indices,atlas):
          "min":[min(xs),min(ys),min(zs)],"max":[max(xs),max(ys),max(zs)]},
         {"bufferView":normal_view,"componentType":5126,"count":len(normals),"type":"VEC3"},
         {"bufferView":uv_view,"componentType":5126,"count":len(uvs),"type":"VEC2"},
+        {"bufferView":color_view,"componentType":5126,"count":len(colors),"type":"VEC4"},
         {"bufferView":index_view,"componentType":5125,"count":len(indices),"type":"SCALAR",
          "min":[min(indices)],"max":[max(indices)]}
       ],
@@ -351,9 +376,10 @@ def export_glb(vertices,normals,uvs,indices,atlas):
 
 def main():
     g,source_blob=load_source()
+    print("TERRAIN_V3_LAYOUT_PLAN:", validate_layout(), "planned lots/paths")
     hx,hz,nx,nz,dx,dz,occupied=footprint(g,source_blob)
-    vertices,normals,uvs,indices=make_geometry(hx,hz,nx,nz,dx,dz,occupied)
-    export_glb(vertices,normals,uvs,indices,make_atlas())
+    vertices,normals,uvs,colors,indices=make_geometry(hx,hz,nx,nz,dx,dz,occupied)
+    export_glb(vertices,normals,uvs,colors,indices,make_atlas())
 
 
 if __name__=="__main__":
