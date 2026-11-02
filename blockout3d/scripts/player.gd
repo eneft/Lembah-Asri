@@ -22,6 +22,28 @@ func get_camera_follow_position() -> Vector3:
     var blend := clampf(Engine.get_physics_interpolation_fraction(), 0.0, 1.0)
     return _render_previous_position.lerp(_render_current_position, blend)
 
+func reset_camera_follow_interpolation() -> void:
+    # Scene spawn/teleport: never blend across the previous location.
+    _render_previous_position = global_position
+    _render_current_position = global_position
+    _render_position_initialized = true
+    var visual := get_node_or_null("Visual") as Node3D
+    if visual != null and camera_relative_movement:
+        visual.position = Vector3.ZERO
+
+func _process(_delta: float) -> void:
+    # Godot 4.3 interpolates 2D render transforms only, not 3D physics nodes.
+    # Camera was already sampling this interpolated position, but the VISUAL
+    # avatar was still rendered at stepped CharacterBody3D physics coordinates.
+    # Use the identical interpolated target for BOTH. Keep collision physics
+    # and raw CharacterBody3D translation untouched.
+    if not camera_relative_movement:
+        return
+    var visual := get_node_or_null("Visual") as Node3D
+    if visual == null:
+        return
+    visual.position = get_camera_follow_position() - global_position
+
 
 func _ready() -> void:
     floor_snap_length = 0.35
