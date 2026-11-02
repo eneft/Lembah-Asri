@@ -53,6 +53,28 @@ PATHS = [
     ("akses_nelayan", [(35,25),(37,34),(45,41)], 1.8),
 ]
 
+# Macro-scale rebuild 2026-11-02. Spread SETTLEMENT POSITIONS, not the
+# dimensions of a human, a house or a road. This makes the journey from the
+# isolated childhood home through fields, central village and beach longer,
+# without creating a miniature house scaled up 1.86x.
+BLUEPRINT_SPACING = 260.0 / 140.0
+for _plot in PLOTS:
+    _plot["center"] = tuple(_v * BLUEPRINT_SPACING for _v in _plot["center"])
+PATHS = [(_name, [(_x * BLUEPRINT_SPACING, _z * BLUEPRINT_SPACING)
+                   for _x,_z in _points], _width)
+         for _name,_points,_width in PATHS]
+# Approach path remains aligned to the actual crossing at river x≈-8,z≈-9.
+# It meets both dry shores and rejoins the dispersed village pathways.
+PATHS.append(("akses_jembatan_utama", [
+    (-34.0,-5.0),(-22.0,-10.0),(-15.0,-9.0),(-8.0,-9.0),
+    (-1.0,-9.0),(12.0,-12.0),(28.0,-14.0)], 2.65))
+# Wider public green is a gathering plaza, NOT a football field.
+for _plot in PLOTS:
+    if _plot["kind"] == "square":
+        _plot["yard"] = (31.0, 26.0)
+        break
+
+
 def _smooth(a: float, b: float, x: float) -> float:
     t = max(0.0, min(1.0, (x-a)/max(0.00001,b-a)))
     return t*t*(3.0-2.0*t)
@@ -113,5 +135,5 @@ def validate_layout():
     assert any(p["kind"]=="square" for p in PLOTS)
     for p in PLOTS:
         assert p["foot"][0] <= p["yard"][0] and p["foot"][1] <= p["yard"][1]
-        assert max(p["yard"]) < 25
+        assert max(p["yard"]) < (35 if p["kind"]=="square" else 25)
     return len(PLOTS),len(PATHS)
