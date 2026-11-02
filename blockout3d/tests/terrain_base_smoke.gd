@@ -461,6 +461,43 @@ func _run() -> void:
         quit(1)
         return
     print("TERRAIN V3 SMOOTH CLOSE CAMERA PASS: 55%% avatar, %.2fm orbit distance, render-step interpolation" % camera_offset_distance)
+    # Godot 4.3 ONLY interpolates 2D physics transforms natively. The
+    # CAMERA sampled interpolated 3D positions while the FBX VISUAL previously
+    # displayed stepped raw CharacterBody3D positions, creating judder.
+    # The visual must share the EXACT camera render target every frame.
+    if absf(Engine.physics_jitter_fix) > 0.001:
+        push_error("TERRAIN V3 JITTER FAIL: conflicting Godot physics jitter fix enabled")
+        quit(1)
+        return
+    var visual_render := player.get_node_or_null("Visual") as Node3D
+    if visual_render == null:
+        push_error("TERRAIN V3 JITTER FAIL: no visual node to interpolate")
+        quit(1)
+        return
+    var largest_render_disagreement := 0.0
+    Input.action_press("touch_forward")
+    for sample in range(22):
+        await physics_frame
+        # A camera/visual render update MUST be checked, not just physics
+        # transforms or camera look_at correctness.
+        player.call("_process", 1.0/120.0)
+        world.call("_process", 1.0/120.0)
+        var expected: Vector3 = player.call("get_camera_follow_position")
+        var disagreement := visual_render.global_position.distance_to(expected)
+        largest_render_disagreement = maxf(largest_render_disagreement, disagreement)
+        if disagreement > 0.01:
+            Input.action_release("touch_forward")
+            push_error("TERRAIN V3 JITTER FAIL: FBX visual and camera interpolate DIFFERENT positions: %.4fm" % disagreement)
+            quit(1)
+            return
+    Input.action_release("touch_forward")
+    player.call("reset_camera_follow_interpolation")
+    player.call("_process", 1.0/60.0)
+    if visual_render.global_position.distance_to(player.global_position) > 0.01:
+        push_error("TERRAIN V3 JITTER FAIL: visual did not reset after teleport")
+        quit(1)
+        return
+    print("TERRAIN V3 RENDER SYNC PASS: visual and camera target match over 22 physics frames, max error %.4fm" % largest_render_disagreement)
     print("TERRAIN V3 CAMERA STABILITY PASS: aim and smoothed follow pivot aligned while walking")
     print("TERRAIN V3 CAMERA-RELATIVE INPUT PASS: 90/180 orbit, screen-aligned axes, real right movement %.2fm" % orbit_displacement.length())
     print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=55%%, capsule_height=%.2f" % [
