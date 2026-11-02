@@ -6,6 +6,7 @@ const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
 const WATER_SCRIPT := preload("res://scripts/terrain_v2_water.gd")
 const INFRASTRUCTURE_SCRIPT := preload("res://scripts/terrain_v3_infrastructure.gd")
 const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
+const PAINTED_COLORMAP := "res://assets/environment/island/terrain_v3_painted_colormap.png"
 const TERRAIN_RAY_LAYER := 1 << 7
 const PLAYER_GROUND_LAYER := 1
 const SPAWN_XZ := Vector2(6.0, 15.0)
@@ -99,7 +100,19 @@ func _install_terrain() -> void:
     var ground_material := ShaderMaterial.new()
     ground_material.shader = GROUND_SHADER
     ground_material.set_shader_parameter("biome_atlas", original.albedo_texture)
+    # This image is baked in CI by terrain_v3_painted_map.py using EXACT
+    # source heightfield UVs; the atlas is only a 12% close-up detail layer.
+    if not ResourceLoader.exists(PAINTED_COLORMAP):
+        push_error("PAINTED TERRAIN FAIL: full-island illustration missing")
+        return
+    var painted_tex := load(PAINTED_COLORMAP) as Texture2D
+    if painted_tex == null or painted_tex.get_width() < 1024:
+        push_error("PAINTED TERRAIN FAIL: illustration image not imported or too small")
+        return
+    ground_material.set_shader_parameter("painted_colormap", painted_tex)
     new_mesh.material_override = ground_material
+    print("PAINTED TERRAIN V1 BOUND: ",painted_tex.get_size(),
+          " real non-tiled world color; original atlas retained as 12% detail")
     # Center the supplied mesh in the world. No old model is loaded for alignment.
     var bounds := _bounds_global(new_mesh)
     new_root.global_position.x -= bounds.get_center().x
@@ -217,7 +230,7 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "TERRAIN V3 | ROCK HILLS + RIVER + BRIDGE + PATHS"
+        status.text = "PAINTED TERRAIN V1 | HAND-PAINTED DIRECTION"
 
 func _unhandled_input(event: InputEvent) -> void:
     if not is_ready or not (event is InputEventKey):
