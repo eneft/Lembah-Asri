@@ -37,7 +37,7 @@ func _raycast_surface(x: float, z: float) -> Dictionary:
     return get_world_3d().direct_space_state.intersect_ray(ray)
 
 func _river_x(z: float) -> float:
-    return -5.0 * sin((z + 55.0) * 0.047) + 1.5 * sin((z + 34.0) * 0.13)
+    return -9.0 * sin((z + 99.0) * 0.0261) + 2.7 * sin((z + 61.0) * 0.0722)
 
 func _add_river_vertex(tool: SurfaceTool, point: Vector3, uv: Vector2) -> void:
     tool.set_uv(uv)
@@ -55,15 +55,15 @@ func _make_river() -> void:
     var last_z := -999.0
     stream_segment_count = 0
 
-    for i in range(86):
-        var z := -35.0 + float(i)
+    for i in range(211):
+        var z := -105.0 + float(i)
         var x := _river_x(z)
         var contact := _raycast_surface(x, z)
         if contact.is_empty():
             previous_exists = false
             continue
         var center := Vector3(x, float(contact.position.y) + 0.13, z)
-        var width := 0.92 + 0.12 * sin(z * 0.27)
+        var width := 1.38 + 0.18 * sin(z * 0.17)
         if previous_exists and z - last_z <= 1.05:
             var delta := center - previous
             var tangent := Vector3(delta.x, 0.0, delta.z).normalized()
@@ -72,8 +72,8 @@ func _make_river() -> void:
             var right_previous := previous + sideways * previous_width
             var left_current := center - sideways * width
             var right_current := center + sideways * width
-            var flow_v := (z + 35.0) * 0.9
-            var prev_v := (last_z + 35.0) * 0.9
+            var flow_v := (z + 105.0) * 0.9
+            var prev_v := (last_z + 105.0) * 0.9
             _add_river_vertex(ribbon, left_previous, Vector2(0.0, prev_v))
             _add_river_vertex(ribbon, left_current, Vector2(0.0, flow_v))
             _add_river_vertex(ribbon, right_previous, Vector2(1.0, prev_v))
@@ -86,7 +86,7 @@ func _make_river() -> void:
         last_z = z
         previous_exists = true
 
-    if stream_segment_count < 45:
+    if stream_segment_count < 85:
         push_warning("TERRAIN V3 RIVER: fewer water segments than expected")
         return
 
@@ -102,7 +102,7 @@ func _make_river() -> void:
           " continuous animated segments; no skipped-water polygons or physics")
 
 func _make_riverbank_stones() -> void:
-    # Forty stones in one instanced draw call. Keep bridge approach clear.
+    # Light batched riverbank stones along the entire enlarged island.
     var transforms: Array[Transform3D] = []
     var source := SphereMesh.new()
     source.radius = 0.5
@@ -115,13 +115,13 @@ func _make_riverbank_stones() -> void:
     stone_material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
     stone_material.roughness = 0.78
     source.material = stone_material
-    for i in range(68):
-        var z := -31.0 + float(i) * 1.08
+    for i in range(160):
+        var z := -98.0 + float(i) * 1.25
         # Leave dry, traversable approaches at the wooden bridge.
-        if absf(z - 9.0) < 5.5:
+        if absf(z + 9.0) < 5.5:
             continue
         var side := -1.0 if i % 2 == 0 else 1.0
-        var offset := 3.35 + 1.3 * absf(sin(float(i) * 2.71))
+        var offset := 4.10 + 1.4 * absf(sin(float(i) * 2.71))
         var x := _river_x(z) + side * offset
         var contact := _raycast_surface(x, z)
         if contact.is_empty() or float(contact.position.y) < OCEAN_Y + 0.4:
