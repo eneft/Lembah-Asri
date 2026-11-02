@@ -41,9 +41,9 @@ def load_source() -> tuple[dict, bytes]:
         cursor += 8
         chunks.append((kind, raw[cursor:cursor+length]))
         cursor += length
-    if len(chunks) < 2 or chunks[0][0] != b"JSON" or chunks[1][0] != b"BIN\\x00":
+    if len(chunks) < 2 or chunks[0][0] != b"JSON" or chunks[1][0] != b"BIN\x00":
         raise ValueError("GLB must contain JSON and binary chunks")
-    return json.loads(chunks[0][1].decode("utf8").rstrip(" \\x00")), chunks[1][1]
+    return json.loads(chunks[0][1].decode("utf8").rstrip(" \x00")), chunks[1][1]
 
 
 def accessor(g: dict, blob: bytes, index: int) -> list:
@@ -306,13 +306,13 @@ def export_glb(vertices,normals,uvs,indices,atlas):
     }
     j=json.dumps(g,separators=(",",":")).encode("utf-8")
     j+=b" "*((-len(j))%4)
-    binary.extend(b"\\x00"*((-len(binary))%4))
+    binary.extend(b"\x00"*((-len(binary))%4))
     total=12+8+len(j)+8+len(binary)
     with OUTPUT.open("wb") as out:
         out.write(struct.pack("<4sII",b"glTF",2,total))
         out.write(struct.pack("<I4s",len(j),b"JSON"))
         out.write(j)
-        out.write(struct.pack("<I4s",len(binary),b"BIN\\x00"))
+        out.write(struct.pack("<I4s",len(binary),b"BIN\x00"))
         out.write(binary)
     print("TERRAIN_V3_WEB_GLB_PASS:",OUTPUT.stat().st_size,"bytes",
           "original source untouched",SOURCE.stat().st_size,"bytes")
