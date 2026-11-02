@@ -15,16 +15,22 @@ func _ready() -> void:
     max_slides = 6
 
 func _read_movement_direction() -> Vector3:
-    var direction := Vector3.ZERO
-    if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP) or Input.is_action_pressed("touch_forward"):
-        direction.z -= 1.0
-    if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN) or Input.is_action_pressed("touch_back"):
-        direction.z += 1.0
-    if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT) or Input.is_action_pressed("touch_left"):
-        direction.x -= 1.0
-    if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT) or Input.is_action_pressed("touch_right"):
-        direction.x += 1.0
-    return direction.normalized()
+    # Keyboard remains digital. Mobile joystick applies its real analog
+    # strength, so a slight stick tilt walks slowly and diagonals stay smooth.
+    var keyboard := Vector3.ZERO
+    if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+        keyboard.z -= 1.0
+    if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+        keyboard.z += 1.0
+    if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+        keyboard.x -= 1.0
+    if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+        keyboard.x += 1.0
+    var joystick := Vector3.ZERO
+    if InputMap.has_action("touch_forward"):
+        joystick.x = Input.get_action_strength("touch_right") - Input.get_action_strength("touch_left")
+        joystick.z = Input.get_action_strength("touch_back") - Input.get_action_strength("touch_forward")
+    return (keyboard + joystick).limit_length(1.0)
 
 func _physics_process(delta: float) -> void:
     var direction := _read_movement_direction()
