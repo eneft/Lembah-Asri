@@ -60,10 +60,14 @@ def _rectangle(x: float, z: float, plot: dict, half: tuple[float,float], feather
     angle = math.radians(plot["angle"])
     co, si = math.cos(angle), math.sin(angle)
     u, v = abs(co*dx+si*dz), abs(-si*dx+co*dz)
-    d = math.hypot(max(0,u-half[0]),max(0,v-half[1]))
-    if u <= half[0] and v <= half[1]:
-        return 1.0
-    return 1.0 - _smooth(0.0,feather,d)
+    # Rounded, softly feathered ground transitions instead of colored tile
+    # rectangles. Footprints remain true rectangles for future building fit;
+    # only the visible soil/grass transition is gently irregular.
+    x_edge, z_edge = u-half[0], v-half[1]
+    signed_dist = (math.hypot(max(0.0,x_edge),max(0.0,z_edge))
+                   + min(max(x_edge,z_edge),0.0))
+    wobble = 0.26 * math.sin(x*0.47+z*0.28) * math.sin(z*0.61-x*0.17)
+    return 1.0 - _smooth(-0.38*feather, 0.72*feather, signed_dist+wobble)
 
 def _segment_distance(x: float,z:float,a:tuple,b:tuple) -> float:
     ux,uz = b[0]-a[0],b[1]-a[1]
@@ -87,17 +91,17 @@ def surface_weights(x:float,z:float,height:float,normal_y:float,coast_m:float,
 
     lot = lawn = path = 0.0
     for plot in PLOTS:
-        garden = _rectangle(x,z,plot,(plot["yard"][0]*.5,plot["yard"][1]*.5),1.25)
+        garden = _rectangle(x,z,plot,(plot["yard"][0]*.5,plot["yard"][1]*.5),2.6)
         lawn = max(lawn,garden)
         if plot["kind"] != "square":
-            footprint = _rectangle(x,z,plot,(plot["foot"][0]*.5,plot["foot"][1]*.5),0.95)
+            footprint = _rectangle(x,z,plot,(plot["foot"][0]*.5,plot["foot"][1]*.5),1.8)
             lot = max(lot,footprint)
         else:
             # Communal gathering grass remains open, slightly worn in center.
             lawn = max(lawn,garden)
     for _,polyline,width in PATHS:
         dist = min(_segment_distance(x,z,polyline[i],polyline[i+1]) for i in range(len(polyline)-1))
-        path = max(path,1.0-_smooth(width*.5, width*.5+0.9,dist))
+        path = max(path,1.0-_smooth(width*.40, width*.65+1.35,dist))
     return (min(1.0,lot*safe),min(1.0,lawn*safe),min(1.0,path*safe))
 
 def validate_layout():
