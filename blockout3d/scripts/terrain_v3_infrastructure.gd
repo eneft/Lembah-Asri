@@ -52,6 +52,42 @@ func _add_triangle(tool: SurfaceTool,a: Vector3,b: Vector3,c: Vector3,col: Color
     tool.set_color(col)
     tool.add_vertex(c)
 
+func _make_solid_planks(x0: float,x1: float,left_y: float,right_y: float) -> void:
+    # One drawcall: solid six-faced BoxMesh planks, not transparent flat polygons.
+    var wood := BoxMesh.new()
+    wood.size = Vector3(1.0,PLANK_THICKNESS,BRIDGE_HALF_WIDTH*2.0)
+    var mat := StandardMaterial3D.new()
+    mat.vertex_color_use_as_albedo = true
+    mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+    mat.roughness = 1.0
+    wood.material = mat
+    var batch := MultiMesh.new()
+    batch.transform_format = MultiMesh.TRANSFORM_3D
+    batch.use_colors = true
+    batch.mesh = wood
+    batch.instance_count = DECK_SEGMENTS
+    var dyes := [Color(0.58,0.40,0.26),Color(0.64,0.47,0.30),
+        Color(0.53,0.37,0.24),Color(0.60,0.43,0.27)]
+    for i in range(DECK_SEGMENTS):
+        var t0 := float(i)/float(DECK_SEGMENTS)
+        var t1 := float(i+1)/float(DECK_SEGMENTS)
+        var xa := lerpf(x0,x1,t0)
+        var xb := lerpf(x0,x1,t1)
+        var ya := _deck_height(t0,left_y,right_y,deck_center_y)
+        var yb := _deck_height(t1,left_y,right_y,deck_center_y)
+        var angle := atan2(yb-ya,xb-xa)
+        var scale_basis := Basis(Vector3.FORWARD,angle).scaled(
+            Vector3((xb-xa)-0.024,1.0,1.0))
+        var center := Vector3((xa+xb)*0.5,(ya+yb)*0.5-PLANK_THICKNESS*0.5,bridge_z)
+        batch.set_instance_transform(i,Transform3D(scale_basis,center))
+        batch.set_instance_color(i,dyes[(i*7+i/5)%dyes.size()])
+    var planks := MultiMeshInstance3D.new()
+    planks.name = "SolidOpaqueTimberPlanks"
+    planks.multimesh = batch
+    planks.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+    add_child(planks)
+
+
 func _make_main_bridge() -> void:
     # Source scan's island silhouette contains a few low coastal gaps.
     # Choose BOTH bridge landings on dry, comparable-height terrain. The
