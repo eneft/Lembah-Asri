@@ -222,38 +222,69 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
     return vertices,normals,uvs,indices
 
 
+def _wrap_quadrant(core: Image.Image) -> Image.Image:
+    """8px wrapped gutters prevent atlas cross-bleed and visible tiling seams."""
+    tile_size = ATLAS_PIXELS // 2
+    pad = 8
+    core_size = tile_size - 2 * pad
+    if core.size != (core_size, core_size):
+        raise ValueError("Painterly atlas tile core dimensions invalid")
+    tile = Image.new("RGB", (tile_size, tile_size))
+    tile.paste(core, (pad, pad))
+    tile.paste(core.crop((core_size-pad, 0, core_size, core_size)), (0, pad))
+    tile.paste(core.crop((0, 0, pad, core_size)), (pad+core_size, pad))
+    tile.paste(tile.crop((0, core_size, tile_size, core_size+pad)), (0, 0))
+    tile.paste(tile.crop((0, pad, tile_size, pad*2)), (0, pad+core_size))
+    return tile
+
+
 def make_atlas() -> bytes:
-    """Bake painterly grass / soil / sand / stone into a single inexpensive atlas."""
-    atlas = Image.new("RGB",(ATLAS_PIXELS,ATLAS_PIXELS))
+    """Bake the APPROVED hand-painted grass reference, preserving other biomes.
+
+    The 384px WebP is a carefully seam-reconciled copy of the image the user
+    selected. Unlike the previous random-oval generator, its actual painted
+    blades and natural tuft shapes appear directly in-game. This source stays
+    in the repository and is scaled inside the build step for easy iteration.
+    """
+    atlas = Image.new("RGB", (ATLAS_PIXELS, ATLAS_PIXELS))
+    core_size = ATLAS_PIXELS // 2 - 16
+    grass_source = ROOT / "assets/environment/island/grass_painterly_tile.webp"
+    if not grass_source.is_file():
+        raise FileNotFoundError("Approved Lembah Asri painterly grass asset missing: " + str(grass_source))
+    with Image.open(grass_source) as original_grass:
+        if original_grass.width < 256 or original_grass.height < 256:
+            raise ValueError("Approved grass artwork too small")
+        grass = original_grass.convert("RGB").resize((core_size, core_size), Image.Resampling.LANCZOS)
+    atlas.paste(_wrap_quadrant(grass), (0, 0))
     palettes = [
-        [(83,133,69),(99,149,80),(116,163,91),(76,124,63)], # grass
         [(129,101,72),(153,121,83),(173,139,100),(117,91,66)], # earth
         [(193,164,113),(208,179,128),(225,198,150),(175,149,102)], # sand
         [(104,101,88),(120,119,104),(139,133,114),(91,93,82)], # rock
     ]
-    tile_size = ATLAS_PIXELS//2
-    for k,palette in enumerate(palettes):
+    for idx, palette in enumerate(palettes):
+        k = idx + 1
         rng = random.Random(15143+k*7907)
-        tile = Image.new("RGB",(tile_size,tile_size),palette[0])
-        painter = ImageDraw.Draw(tile)
-        for stroke in range(13000):
-            px = rng.randrange(tile_size)
-            py = rng.randrange(tile_size)
+        core = Image.new("RGB", (core_size, core_size), palette[0])
+        painter = ImageDraw.Draw(core)
+        for stroke in range(11000):
+            px = rng.randrange(core_size)
+            py = rng.randrange(core_size)
             col = palette[rng.randrange(len(palette))]
-            radius_x = rng.randrange(1,10 if k != 3 else 13)
-            radius_y = rng.randrange(1,5 if k != 3 else 8)
-            # Wrap edge strokes to keep the tiny repeating tile continuous.
-            for ox in (-tile_size,0,tile_size):
-                for oy in (-tile_size,0,tile_size):
+            radius_x = rng.randrange(1, 10 if k != 3 else 13)
+            radius_y = rng.randrange(1, 5 if k != 3 else 8)
+            for ox in (-core_size, 0, core_size):
+                for oy in (-core_size, 0, core_size):
                     painter.ellipse((px+ox-radius_x, py+oy-radius_y,
-                        px+ox+radius_x,py+oy+radius_y),fill=col)
-        tile=tile.filter(ImageFilter.GaussianBlur(0.42))
-        # Quadrant order: grass top-left, soil top-right, sand bottom-left, rock bottom-right.
-        atlas.paste(tile,((k%2)*tile_size,(k//2)*tile_size))
-    out=io.BytesIO()
-    atlas.save(out,"JPEG",quality=90,optimize=True,subsampling=0)
+                        px+ox+radius_x, py+oy+radius_y), fill=col)
+        core = core.filter(ImageFilter.GaussianBlur(0.42))
+        atlas.paste(_wrap_quadrant(core),
+                    ((k % 2) * (ATLAS_PIXELS // 2), (k // 2) * (ATLAS_PIXELS // 2)))
+    out = io.BytesIO()
+    atlas.save(out, "JPEG", quality=91, optimize=True, subsampling=0)
+    print("TERRAIN_V3_GRASS_REFERENCE_PASS: user-approved painterly grass",
+          grass_source.stat().st_size, "source bytes, wrapped seamless 496px core")
     print("TERRAIN_V3_TEXTURE_PASS: one 1024x1024 baked painted atlas",
-          len(out.getvalue()),"bytes; grass soil sand rock")
+          len(out.getvalue()), "bytes; real grass artwork, soil sand rock")
     return out.getvalue()
 
 
