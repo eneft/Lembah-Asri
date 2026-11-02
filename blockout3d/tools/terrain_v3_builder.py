@@ -437,7 +437,7 @@ def export_glb(vertices,normals,uvs,colors,indices,atlas, destination=OUTPUT, un
         "attributes":{"POSITION":0,"NORMAL":1,"TEXCOORD_0":2,"COLOR_0":3},
         "indices":4,"material":0,"mode":4
       }]}],
-      "materials":[{"name":"LembahAsriV3PainterlyAtlas","doubleSided":False,
+      "materials":[{"name":"LembahAsriV4PaintedIsland" if unit_scale != 1.0 else "LembahAsriV3PainterlyAtlas","doubleSided":False,
         "pbrMetallicRoughness":{"baseColorTexture":{"index":0},
           "metallicFactor":0.0,"roughnessFactor":0.97}}],
       "textures":[{"sampler":0,"source":0}],
@@ -483,7 +483,15 @@ def main():
     # Blender-ready actual-metre mesh, not the Godot-specific 1/140 GLB.
     # Lives OUTSIDE the game project to avoid doubling mobile Web downloads.
     package=ROOT.parent / "build" / "island-mesh" / "Lembah_Asri_Island_260m.glb"
-    export_glb(vertices,normals,uvs,colors,indices,atlas,
+    # Standalone mesh embeds the FULL WORLD painted artwork in its own
+    # GLB material, so Blender shows the correct biome colors immediately.
+    # The game-specific GLB continues using the small microdetail atlas.
+    source_colormap=ROOT / "assets/environment/island/terrain_v3_painted_colormap.png"
+    with Image.open(source_colormap) as painted_source:
+        colored=io.BytesIO()
+        painted_source.convert("RGB").save(
+            colored,format="JPEG",quality=93,optimize=True,subsampling=0)
+    export_glb(vertices,normals,uvs,colors,indices,colored.getvalue(),
                destination=package, unit_scale=WORLD_SCALE)
     print("TERRAIN_V4_METRIC_MESH_PASS:",package,package.stat().st_size,
           "bytes; 1 GLB unit = 1 metre, no runtime scaling needed")
