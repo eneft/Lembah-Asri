@@ -6,6 +6,7 @@ const TERRAIN_RAY_LAYER := 1 << 7
 const BRIDGE_Z := 9.0
 const BRIDGE_HALF_WIDTH := 1.36
 const DECK_SEGMENTS := 32
+const PLANK_THICKNESS := 0.18
 
 var bridge_mesh: MeshInstance3D
 var bridge_collider: StaticBody3D
