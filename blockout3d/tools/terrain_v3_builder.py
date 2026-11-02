@@ -404,7 +404,7 @@ def make_atlas() -> bytes:
     return out.getvalue()
 
 
-def export_glb(vertices,normals,uvs,colors,indices,atlas):
+def export_glb(vertices,normals,uvs,colors,indices,atlas, destination=OUTPUT, unit_scale=1.0):
     binary=bytearray()
     views=[]
     def append(payload: bytes, target=None):
@@ -416,7 +416,8 @@ def export_glb(vertices,normals,uvs,colors,indices,atlas):
         views.append(view)
         binary.extend(payload)
         return len(views)-1
-    position_data=b"".join(struct.pack("<3f",*p) for p in vertices)
+    physical_vertices=[(p[0]*unit_scale,p[1]*unit_scale,p[2]*unit_scale) for p in vertices]
+    position_data=b"".join(struct.pack("<3f",*p) for p in physical_vertices)
     normal_data=b"".join(struct.pack("<3f",*n) for n in normals)
     uv_data=b"".join(struct.pack("<2f",*uv) for uv in uvs)
     color_data=b"".join(struct.pack("<4f",*color) for color in colors)
@@ -427,7 +428,7 @@ def export_glb(vertices,normals,uvs,colors,indices,atlas):
     color_view=append(color_data,34962)
     index_view=append(index_data,34963)
     image_view=append(atlas)
-    xs=[p[0] for p in vertices];ys=[p[1] for p in vertices];zs=[p[2] for p in vertices]
+    xs=[p[0] for p in physical_vertices];ys=[p[1] for p in physical_vertices];zs=[p[2] for p in physical_vertices]
     g={
       "asset":{"version":"2.0","generator":"Lembah Asri V3 clean coastal heightfield + hand painted atlas"},
       "scene":0,"scenes":[{"nodes":[0]}],
@@ -458,13 +459,14 @@ def export_glb(vertices,normals,uvs,colors,indices,atlas):
     j+=b" "*((-len(j))%4)
     binary.extend(b"\x00"*((-len(binary))%4))
     total=12+8+len(j)+8+len(binary)
-    with OUTPUT.open("wb") as out:
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    with destination.open("wb") as out:
         out.write(struct.pack("<4sII",b"glTF",2,total))
         out.write(struct.pack("<I4s",len(j),b"JSON"))
         out.write(j)
         out.write(struct.pack("<I4s",len(binary),b"BIN\x00"))
         out.write(binary)
-    print("TERRAIN_V3_WEB_GLB_PASS:",OUTPUT.stat().st_size,"bytes",
+    print("TERRAIN_V3_WEB_GLB_PASS:",destination.stat().st_size,"bytes",
           "original source untouched",SOURCE.stat().st_size,"bytes")
 
 
@@ -476,7 +478,15 @@ def main():
     # The macro world illustration is baked ONCE and follows the same grid
     # and UVs as the exported physical surface. The 1K tile is detail only.
     paint_colormap(hx,hz,nx,nz,vertices,normals,colors,WORLD_SCALE)
-    export_glb(vertices,normals,uvs,colors,indices,make_atlas())
+    atlas=make_atlas()
+    export_glb(vertices,normals,uvs,colors,indices,atlas)
+    # Blender-ready actual-metre mesh, not the Godot-specific 1/140 GLB.
+    # Lives OUTSIDE the game project to avoid doubling mobile Web downloads.
+    package=ROOT.parent / "build" / "island-mesh" / "Lembah_Asri_Island_260m.glb"
+    export_glb(vertices,normals,uvs,colors,indices,atlas,
+               destination=package, unit_scale=WORLD_SCALE)
+    print("TERRAIN_V4_METRIC_MESH_PASS:",package,package.stat().st_size,
+          "bytes; 1 GLB unit = 1 metre, no runtime scaling needed")
 
 
 if __name__=="__main__":
