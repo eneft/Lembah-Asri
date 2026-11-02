@@ -118,6 +118,36 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: imported geometry absent")
         quit(1)
         return
+    # Future home sites, yards and footpaths must be real painted marks on
+    # THIS rendered mesh, never overlapping geometry or invisible plans.
+    # GLB COLOR_0 stores R=packed-earth footprint, G=trimmed yard, B=path.
+    var terrain_surface := mesh.mesh.surface_get_arrays(0)
+    var vertex_colors = terrain_surface[Mesh.ARRAY_COLOR]
+    if not (vertex_colors is PackedColorArray) or vertex_colors.size() < 16000:
+        push_error("TERRAIN V3 PLOTS FAIL: source GLB has no baked construction/yard/path vertex colors")
+        quit(1)
+        return
+    var footprint_points := 0
+    var yard_points := 0
+    var trail_points := 0
+    for c in vertex_colors:
+        if c.r > 0.4:
+            footprint_points += 1
+        if c.g > 0.4:
+            yard_points += 1
+        if c.b > 0.4:
+            trail_points += 1
+    if footprint_points < 100 or yard_points < 180 or trail_points < 100:
+        push_error("TERRAIN V3 PLOTS FAIL: missing land-use zones (lots=%d yards=%d trails=%d)" % [
+            footprint_points, yard_points, trail_points])
+        quit(1)
+        return
+    if not terrain_material.shader.code.contains("landuse_weights") or not terrain_material.shader.code.contains("packed_earth"):
+        push_error("TERRAIN V3 PLOTS FAIL: visual shader is ignoring baked building plot mask")
+        quit(1)
+        return
+    print("TERRAIN V3 BUILD-PLOTS PASS: %d footprint / %d lawn / %d path marked vertices, no extra physics" % [
+        footprint_points, yard_points, trail_points])
     if collider.get_parent() != mesh:
         push_error("TERRAIN V3 FAIL: collision not derived from same visible mesh")
         quit(1)
