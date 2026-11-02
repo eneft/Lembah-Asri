@@ -80,7 +80,7 @@ func _make_solid_planks(x0: float,x1: float,left_y: float,right_y: float) -> voi
             Vector3((xb-xa)-0.024,1.0,1.0))
         var center := Vector3((xa+xb)*0.5,(ya+yb)*0.5-PLANK_THICKNESS*0.5,bridge_z)
         batch.set_instance_transform(i,Transform3D(scale_basis,center))
-        batch.set_instance_color(i,dyes[(i*7+i/5)%dyes.size()])
+        batch.set_instance_color(i,dyes[(i*3+(i/5))%dyes.size()])
     var planks := MultiMeshInstance3D.new()
     planks.name = "SolidOpaqueTimberPlanks"
     planks.multimesh = batch
@@ -159,8 +159,12 @@ func _make_main_bridge() -> void:
     material.vertex_color_use_as_albedo = true
     material.roughness = 0.95
     bridge_mesh.material_override = material
+    # Keep the original preview mesh for collision/debug compatibility, but
+    # render real thick, shaded boards in a single batched draw call instead.
+    bridge_mesh.visible = false
     bridge_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     add_child(bridge_mesh)
+    _make_solid_planks(x0,x1,left_y,right_y)
     # Use three simple explicit box colliders instead of concave triangles.
     # In Godot 4.3, the generated deck triangles passed mesh import but never
     # produced an active raycast collision; box shapes are stable on mobile.
@@ -210,6 +214,7 @@ func _make_main_bridge() -> void:
                          bridge_z+side*(BRIDGE_HALF_WIDTH+0.03)),
                  Vector3(bridge_half_span*1.53,0.12,0.15),
                  Color(0.56,0.37,0.22))
+    print("TERRAIN V3 SOLID BRIDGE PASS: ",DECK_SEGMENTS," opaque 18cm solid planks, cast shadow ON")
     print("TERRAIN V3 BRIDGE PASS: 1 walkable bridge at z=",bridge_z," span=",bridge_half_span*2.0,
           " left=",left_y," right=",right_y," deck=",deck_center_y)
 
@@ -224,7 +229,7 @@ func _wood_box(label: String, position_m: Vector3, dimensions: Vector3, tint: Co
     material.roughness = 1.0
     n.material_override = material
     n.position = position_m
-    n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
     add_child(n)
 
 func _make_trail_edges() -> void:
