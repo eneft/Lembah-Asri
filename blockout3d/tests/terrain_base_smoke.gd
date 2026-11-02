@@ -222,7 +222,9 @@ func _run() -> void:
     var distinct := 0
     for xy in [Vector2i(350,350),Vector2i(510,720),Vector2i(850,400),
                Vector2i(1000,1000),Vector2i(1300,1200)]:
-        if macro_image.get_pixel(xy.x,xy.y).distance_to(first_color) > 0.11:
+        var region_color := macro_image.get_pixel(xy.x,xy.y)
+        var region_delta := absf(region_color.r-first_color.r) + absf(region_color.g-first_color.g) + absf(region_color.b-first_color.b)
+        if region_delta > 0.19:
             distinct += 1
     if distinct < 2:
         push_error("PAINTED TERRAIN V1 FAIL: map has no meaningful area-specific painted color")
