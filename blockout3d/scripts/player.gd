@@ -6,6 +6,9 @@ const GRAVITY := 18.0
 const JUMP_SPEED := 8.6
 
 var _jump_was_down := false
+# Opt-in only for Terrain V3. Other preview worlds keep their old controls.
+var camera_relative_movement := false
+var movement_camera: Camera3D
 
 func _ready() -> void:
     floor_snap_length = 0.35
@@ -32,8 +35,25 @@ func _read_movement_direction() -> Vector3:
         joystick.z = Input.get_action_strength("touch_back") - Input.get_action_strength("touch_forward")
     return (keyboard + joystick).limit_length(1.0)
 
+func _camera_relative_direction(screen_input: Vector3) -> Vector3:
+    # Input direction is SCREEN-SPACE: right/down/up correspond to joystick
+    # or WASD. Camera orbit must not swap controls when the view turns 180°.
+    # Rotate only horizontal motion; never transfer camera pitch into Y.
+    if not camera_relative_movement or not is_instance_valid(movement_camera):
+        return screen_input
+    var flat_right := movement_camera.global_transform.basis.x
+    var flat_forward := -movement_camera.global_transform.basis.z
+    flat_right.y = 0.0
+    flat_forward.y = 0.0
+    if flat_right.length_squared() < 0.0001 or flat_forward.length_squared() < 0.0001:
+        return screen_input
+    flat_right = flat_right.normalized()
+    flat_forward = flat_forward.normalized()
+    return (flat_right * screen_input.x - flat_forward * screen_input.z).limit_length(1.0)
+
+
 func _physics_process(delta: float) -> void:
-    var direction := _read_movement_direction()
+    var direction := _camera_relative_direction(_read_movement_direction())
     var sprinting := Input.is_key_pressed(KEY_SHIFT) or Input.is_action_pressed("touch_run")
     var jump_down := Input.is_key_pressed(KEY_SPACE) or Input.is_action_pressed("touch_jump")
     var grounded_before := is_on_floor()
