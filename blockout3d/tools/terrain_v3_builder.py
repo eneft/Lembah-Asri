@@ -187,11 +187,15 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
                 for ci in (i-1,i):
                     if 0<=ci<nx and 0<=cj<nz:
                         near.append(shore[cj*nx+ci])
-            distance = max(near) if near else 0.0
-            # Shoreline blends into sea over roughly six metres.
+            # Average neighbour distances instead of picking the largest.
+            # The latter made a sharp stair-stepped terrace at each cell of
+            # the coastline raster. Keep the actual island footprint.
+            distance = sum(near)/len(near) if near else 0.0
             raw_height = height_at(x,z,hx,hz)
-            beach = smooth(0.0,6.0,distance)
-            h = 0.14+(raw_height-0.14)*beach
+            # A broader gently sloping beach taper makes sand meet the ocean
+            # without a steep 1m ledge. Collision uses this SAME visual mesh.
+            beach = smooth(0.0, 9.0, distance)
+            h = 0.10 + (raw_height-0.10)*beach
             heights.append(h)
             shore_per_vertex.append(distance)
             vertices.append((x/WORLD_SCALE,h/WORLD_SCALE,z/WORLD_SCALE))
@@ -215,7 +219,15 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
             x = -hx + i*dx
             lot, yard, path = surface_weights(x, z, heights[idx], normals[idx][1],
                                                shore_per_vertex[idx], river_x)
-            colors.append((lot, yard, path, 1.0))
+            # A=coastal sand band for material; protected rocky north/west
+            # has less sand than the village and fishing shore south/east.
+            # Distance-to-COAST is more robust than an absolute height cutoff.
+            v = z/hz
+            u = x/hx
+            sandy_direction = max(smooth(0.02, 0.63, v), smooth(0.35, 0.75, u))
+            coast_band = (1.0-smooth(2.0, 12.0, shore_per_vertex[idx]))
+            coastal_sand = coast_band * (0.16 + 0.84*sandy_direction)
+            colors.append((lot, yard, path, coastal_sand))
     indices = []
     for j in range(nz):
         for i in range(nx):
@@ -240,7 +252,7 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
         raise ValueError("Terrain V3 future plot masks too sparse; revisit actual coastline/layout")
     print("TERRAIN_V3_PLOTS_PASS:", len(colors), "vertex colors",
           marked_lots, "building-footprint", marked_yards, "yard", marked_paths,
-          "path marked vertices; open public green retained")
+          "path marked vertices; softened coast and sandy fringe retained")
     return vertices,normals,uvs,colors,indices
 
 
