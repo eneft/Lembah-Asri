@@ -24,7 +24,11 @@ from terrain_v3_painted_map import paint_colormap
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets/environment/island/terrain base.glb"
 OUTPUT = ROOT / "assets/environment/island/terrain_base_web.glb"
-GRID_M = 1.0
+GRID_M = 1.55
+# Physical island footprint grows from ~140x122m to ~260x226m.
+# The FBX character, houses, paths WIDTH and camera keep their metre scale.
+# 1.55m mesh grid keeps Web/mobile triangles close to the previous budget.
+ISLAND_FOOTPRINT_SCALE = 260.0
 ATLAS_PIXELS = 1024
 SEA_Y = 0.45
 
@@ -77,8 +81,8 @@ def footprint(g: dict, blob: bytes):
     zs = [v[2] for points in pos_cache.values() for v in points]
     x0, x1 = min(xs), max(xs)
     z0, z1 = min(zs), max(zs)
-    hx = (x1-x0)*WORLD_SCALE/2
-    hz = (z1-z0)*WORLD_SCALE/2
+    hx = (x1-x0)*ISLAND_FOOTPRINT_SCALE/2
+    hz = (z1-z0)*ISLAND_FOOTPRINT_SCALE/2
     if hx < 20 or hz < 20:
         raise ValueError("Source footprint bounds too small")
     nx = math.ceil(hx*2/GRID_M)
@@ -104,7 +108,7 @@ def footprint(g: dict, blob: bytes):
             if norm_l < 1e-12 or abs(norm_y)/norm_l < 0.22:
                 skipped += 1
                 continue
-            poly = [((v[0]-x0)*WORLD_SCALE/dx, (v[2]-z0)*WORLD_SCALE/dz) for v in (a,b,c)]
+            poly = [((v[0]-x0)*ISLAND_FOOTPRINT_SCALE/dx, (v[2]-z0)*ISLAND_FOOTPRINT_SCALE/dz) for v in (a,b,c)]
             (ax,az),(bx,bz),(cx,cz) = poly
             det = (bx-ax)*(cz-az)-(bz-az)*(cx-ax)
             if abs(det) < 1e-9:
@@ -138,7 +142,7 @@ def footprint(g: dict, blob: bytes):
     amount = sum(cleaned)
     if amount < nx*nz*.25:
         raise ValueError(f"Footprint unexpectedly sparse: {amount}/{nx*nz}")
-    print("TERRAIN_V3_FOOTPRINT:", nx, "x", nz, "grid", amount,
+    print("TERRAIN_V4_EXPANDED_FOOTPRINT:", round(hx*2), "x", round(hz*2), "metres;", nx,"x",nz,"grid", amount,
           "land cells", used, "top-facing original triangles", skipped, "source skirts excluded")
     return hx,hz,nx,nz,dx,dz,cleaned
 
@@ -448,7 +452,7 @@ def export_glb(vertices,normals,uvs,colors,indices,atlas):
         {"bufferView":index_view,"componentType":5125,"count":len(indices),"type":"SCALAR",
          "min":[min(indices)],"max":[max(indices)]}
       ],
-      "extras":{"terrain_revision":"V3 topology rebuild; one atlas; same mesh physics"},
+      "extras":{"terrain_revision":"V4 macro island mesh expanded to 260m footprint; hand-painted atlas and matched physics"},
     }
     j=json.dumps(g,separators=(",",":")).encode("utf-8")
     j+=b" "*((-len(j))%4)
