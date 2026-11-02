@@ -325,6 +325,7 @@ func _run() -> void:
         push_error("TERRAIN V3 CAMERA FAIL: movement not bound to active camera")
         quit(1)
         return
+    var initial_screen_up: Vector3 = player.call("_camera_relative_direction", Vector3(0, 0, -1))
     world.call("_rotate_camera", PI * 0.5)
     for frame in range(45):
         await process_frame
@@ -368,7 +369,8 @@ func _run() -> void:
     var rearward: Vector3 = player.call("_camera_relative_direction", Vector3(0, 0, -1))
     var new_forward := -camera.global_transform.basis.z
     new_forward.y = 0.0
-    if rearward.dot(new_forward.normalized()) < 0.99 or rearward.dot(up_world) > -0.7:
+    # Compare against INITIAL 0° camera, not the previous 90° direction.
+    if rearward.dot(new_forward.normalized()) < 0.99 or rearward.dot(initial_screen_up) > -0.7:
         push_error("TERRAIN V3 CAMERA FAIL: 180-degree orbit did not rotate movement correctly")
         quit(1)
         return
