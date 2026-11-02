@@ -350,6 +350,22 @@ jobs:
           test -s build/web/terrain-test/index.pck
           echo 'TERRAIN BASE WEB TEST READY: /terrain-test/'
 
+      - name: Include expanded 260m island mesh with painted map
+        run: |
+          set -euo pipefail
+          cp blockout3d/assets/environment/island/terrain_v3_painted_colormap.png build/island-mesh/terrain_v3_painted_colormap.png
+          test -s build/island-mesh/Lembah_Asri_Island_260m.glb
+          test -s build/island-mesh/terrain_v3_painted_colormap.png
+          echo "TERRAIN V4 DOWNLOAD READY: Blender GLB 1 unit = 1 metre + 1536px painted terrain colormap"
+
+      - name: Upload standalone expanded island mesh (Blender/Godot)
+        uses: actions/upload-artifact@v4
+        with:
+          name: lembah-asri-island-mesh-260m
+          path: build/island-mesh
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:
