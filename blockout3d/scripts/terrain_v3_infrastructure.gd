@@ -4,13 +4,14 @@ extends Node3D
 ## is 128, player collision layer is 1.
 const TERRAIN_RAY_LAYER := 1 << 7
 const BRIDGE_Z := 9.0
-const BRIDGE_HALF_SPAN := 7.5
 const BRIDGE_HALF_WIDTH := 1.36
 const DECK_SEGMENTS := 32
 
 var bridge_mesh: MeshInstance3D
 var bridge_collider: StaticBody3D
 var bridge_center_x := 0.0
+var bridge_z := BRIDGE_Z
+var bridge_half_span := 6.0
 var deck_center_y := 0.0
 var trail_detail_count := 0
 
@@ -51,17 +52,47 @@ func _add_triangle(tool: SurfaceTool,a: Vector3,b: Vector3,c: Vector3,col: Color
     tool.add_vertex(c)
 
 func _make_main_bridge() -> void:
-    bridge_center_x = _river_x(BRIDGE_Z)
-    var x0 := bridge_center_x-BRIDGE_HALF_SPAN
-    var x1 := bridge_center_x+BRIDGE_HALF_SPAN
-    var left_hit := _terrain_at(x0,BRIDGE_Z)
-    var right_hit := _terrain_at(x1,BRIDGE_Z)
-    if left_hit.is_empty() or right_hit.is_empty():
-        push_warning("TERRAIN V3 BRIDGE: shore landing missing, no floating bridge built")
+    # Source scan's island silhouette contains a few low coastal gaps.
+    # Choose BOTH bridge landings on dry, comparable-height terrain. The
+    # earlier fixed +/-7.5m bridge had a 3.5m cliff at its western endpoint!
+    var left_hit: Dictionary = {}
+    var right_hit: Dictionary = {}
+    var candidate_z: Array[float] = [9.0, 8.0, 10.0, 7.0, 11.0, 5.0, 13.0,
+                                    3.0, 15.0, -5.0, 19.0]
+    var candidate_spans: Array[float] = [5.0,5.8,6.6,7.5]
+    var suitable := false
+    for crossing_z in candidate_z:
+        var center_x := _river_x(crossing_z)
+        for half_span in candidate_spans:
+            var l := _terrain_at(center_x-half_span,crossing_z)
+            var r := _terrain_at(center_x+half_span,crossing_z)
+            if l.is_empty() or r.is_empty():
+                continue
+            var height_l: float = l.position.y
+            var height_r: float = r.position.y
+            if minf(height_l,height_r) < 1.80:
+                continue
+            if absf(height_l-height_r) > 0.80:
+                continue
+            if float(l.normal.y) < 0.78 or float(r.normal.y) < 0.78:
+                continue
+            bridge_center_x = center_x
+            bridge_z = crossing_z
+            bridge_half_span = half_span
+            left_hit = l
+            right_hit = r
+            suitable = true
+            break
+        if suitable:
+            break
+    if not suitable:
+        push_error("TERRAIN V3 BRIDGE: no safe two-bank crossing with walkable slopes")
         return
-    var left_y := float(left_hit.position.y)+0.055
-    var right_y := float(right_hit.position.y)+0.055
-    deck_center_y = maxf(left_y,right_y)+0.23
+    var x0 := bridge_center_x-bridge_half_span
+    var x1 := bridge_center_x+bridge_half_span
+    var left_y := float(left_hit.position.y)+0.045
+    var right_y := float(right_hit.position.y)+0.045
+    deck_center_y = maxf(left_y,right_y)+0.19
 
     var surface := SurfaceTool.new()
     surface.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -76,10 +107,10 @@ func _make_main_bridge() -> void:
         var xb := lerpf(x0,x1,t1)
         var ya := _deck_height(t0,left_y,right_y,deck_center_y)
         var yb := _deck_height(t1,left_y,right_y,deck_center_y)
-        var v0 := Vector3(xa,ya,BRIDGE_Z-BRIDGE_HALF_WIDTH)
-        var v1 := Vector3(xa,ya,BRIDGE_Z+BRIDGE_HALF_WIDTH)
-        var v2 := Vector3(xb,yb,BRIDGE_Z-BRIDGE_HALF_WIDTH)
-        var v3 := Vector3(xb,yb,BRIDGE_Z+BRIDGE_HALF_WIDTH)
+        var v0 := Vector3(xa,ya,bridge_z-BRIDGE_HALF_WIDTH)
+        var v1 := Vector3(xa,ya,bridge_z+BRIDGE_HALF_WIDTH)
+        var v2 := Vector3(xb,yb,bridge_z-BRIDGE_HALF_WIDTH)
+        var v3 := Vector3(xb,yb,bridge_z+BRIDGE_HALF_WIDTH)
         var shade: Color = wood_colors[i%wood_colors.size()]
         _add_triangle(surface,v0,v1,v2,shade)
         _add_triangle(surface,v2,v1,v3,shade)
@@ -111,15 +142,15 @@ func _make_main_bridge() -> void:
             var px := lerpf(x0,x1,t)
             var yy := _deck_height(t,left_y,right_y,deck_center_y)
             _wood_box("RailPost",Vector3(px,yy+0.34,
-                      BRIDGE_Z+side*(BRIDGE_HALF_WIDTH+0.03)),
+                      bridge_z+side*(BRIDGE_HALF_WIDTH+0.03)),
                       Vector3(0.14,0.70,0.16),Color(0.45,0.31,0.20))
         # Rails float above deck across middle, not block entry ramps.
         _wood_box("BridgeHandrail",
                  Vector3(bridge_center_x,deck_center_y+0.61,
                          BRIDGE_Z+side*(BRIDGE_HALF_WIDTH+0.03)),
-                 Vector3(BRIDGE_HALF_SPAN*1.53,0.12,0.15),
+                 Vector3(bridge_half_span*1.53,0.12,0.15),
                  Color(0.56,0.37,0.22))
-    print("TERRAIN V3 BRIDGE PASS: 1 walkable 15m bridge over river at z=9;",
+    print("TERRAIN V3 BRIDGE PASS: 1 walkable bridge at z=",bridge_z," span=",bridge_half_span*2.0,,
           " left=",left_y," right=",right_y," deck=",deck_center_y)
 
 func _wood_box(label: String, position_m: Vector3, dimensions: Vector3, tint: Color) -> void:
