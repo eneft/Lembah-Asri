@@ -79,7 +79,7 @@ func _run() -> void:
         push_error("TERRAIN V3 BANK FAIL: batched illustrated river rocks missing")
         quit(1)
         return
-    var infra := terrain.get_node_or_null("TerrainV3Infrastructure") as Node3D
+    var infra := world.get_node_or_null("TerrainV3Infrastructure") as Node3D
     if infra == null:
         push_error("TERRAIN V3 PATHS FAIL: new village infrastructure not installed")
         quit(1)
@@ -95,13 +95,14 @@ func _run() -> void:
         quit(1)
         return
     var crossing := Vector3(float(infra.get("bridge_center_x")),
-                            float(infra.get("deck_center_y")), 9.0)
+                            float(infra.get("deck_center_y")), float(infra.get("bridge_z")))
     var bridge_ray := PhysicsRayQueryParameters3D.create(
         crossing + Vector3(0.0,5.0,0.0), crossing-Vector3(0.0,2.0,0.0))
     bridge_ray.collision_mask = player.collision_mask
     var bridge_hit := world.get_world_3d().direct_space_state.intersect_ray(bridge_ray)
     if bridge_hit.is_empty() or bridge_hit.collider != bridge_body:
-        push_error("TERRAIN V3 BRIDGE FAIL: crossing ray did not hit walkable plank deck")
+        push_error("TERRAIN V3 BRIDGE FAIL: ray miss/collider mismatch at %s; actual hit=%s, actual collider=%s, deck collider=%s" % [
+            str(crossing),str(bridge_hit),str(bridge_hit.get("collider", null)),str(bridge_body)])
         quit(1)
         return
     if int(infra.get("trail_detail_count")) < 6:
@@ -257,7 +258,7 @@ func _run() -> void:
             quit(1)
             return
     for n in world.get_children():
-        if n == terrain or n == water or n == player or n == camera or n is DirectionalLight3D or n is WorldEnvironment or n is CanvasLayer:
+        if n == terrain or n == water or n == infra or n == player or n == camera or n is DirectionalLight3D or n is WorldEnvironment or n is CanvasLayer:
             continue
         push_error("TERRAIN BASE FAIL: legacy object remains: " + str(n.name))
         quit(1)
