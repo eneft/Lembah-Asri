@@ -58,6 +58,8 @@ func _make_solid_planks(x0: float,x1: float,left_y: float,right_y: float) -> voi
     wood.size = Vector3(1.0,PLANK_THICKNESS,BRIDGE_HALF_WIDTH*2.0)
     var mat := StandardMaterial3D.new()
     mat.vertex_color_use_as_albedo = true
+    mat.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+    mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
     mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
     mat.roughness = 1.0
     wood.material = mat
@@ -226,7 +228,9 @@ func _wood_box(label: String, position_m: Vector3, dimensions: Vector3, tint: Co
     n.mesh = m
     var material := StandardMaterial3D.new()
     material.albedo_color = tint
-    material.roughness = 1.0
+    material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+    material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+    material.roughness = 0.78
     n.material_override = material
     n.position = position_m
     n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
@@ -265,7 +269,9 @@ func _make_trail_edges() -> void:
     marker_mesh.radial_segments = 6
     var wood := StandardMaterial3D.new()
     wood.albedo_color = Color(0.52,0.38,0.24)
-    wood.roughness = 0.95
+    wood.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+    wood.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+    wood.roughness = 0.78
     marker_mesh.material = wood
     var multi := MultiMesh.new()
     multi.transform_format = MultiMesh.TRANSFORM_3D
