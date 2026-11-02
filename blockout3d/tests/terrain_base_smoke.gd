@@ -145,6 +145,26 @@ func _run() -> void:
         return
     print("TERRAIN V3 WATER+BRIDGE PASS: flowing river, %d batched rocks, one physical crossing, %d path details" % [
         bank_stones.multimesh.instance_count, int(infra.get("trail_detail_count"))])
+    # Actual physical island footprint, not camera dolly or object scale.
+    # Preserve the 55% avatar: more land, more travel, same human-scale props.
+    var island_width := mesh.get_aabb().size.x * 140.0
+    var island_length := mesh.get_aabb().size.z * 140.0
+    if island_width < 240.0 or island_width > 280.0 or island_length < 195.0 or island_length > 260.0:
+        push_error("TERRAIN V4 SIZE FAIL: island geometry is not expanded in real world metres: %s x %s" % [str(island_width),str(island_length)])
+        quit(1)
+        return
+    var shore_extent := river.mesh.get_aabb().size.z
+    if shore_extent < 120.0:
+        push_error("TERRAIN V4 RIVER FAIL: long river ribbon doesn't extend far enough over the enlarged island: %.1fm" % shore_extent)
+        quit(1)
+        return
+    var triangles := mesh.mesh.get_faces().size() / 3
+    if triangles > 95000:
+        push_error("TERRAIN V4 MOBILE FAIL: unnecessarily dense grid for phone browser")
+        quit(1)
+        return
+    print("TERRAIN V4 LARGE ISLAND PASS: physical size %.1fx%.1fm, %.0f triangles; river z span %.1fm; unchanged character controls" % [
+        island_width,island_length,triangles,shore_extent])
     if mesh.get_aabb().size.y * 140.0 < 19.0:
         push_error("TERRAIN BASE FAIL: northern landmark mountain too low")
         quit(1)
