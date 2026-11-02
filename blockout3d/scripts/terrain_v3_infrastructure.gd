@@ -3,7 +3,7 @@ extends Node3D
 ## visual terrain mesh and the character/camera code. Terrain raycast layer
 ## is 128, player collision layer is 1.
 const TERRAIN_RAY_LAYER := 1 << 7
-const BRIDGE_Z := 9.0
+const BRIDGE_Z := -9.0
 const BRIDGE_HALF_WIDTH := 1.36
 const DECK_SEGMENTS := 32
 const PLANK_THICKNESS := 0.18
@@ -22,7 +22,7 @@ func configure() -> void:
     _make_trail_edges()
 
 func _river_x(z: float) -> float:
-    return -5.0*sin((z+55.0)*0.047)+1.5*sin((z+34.0)*0.13)
+    return -9.0*sin((z+99.0)*0.0261)+2.7*sin((z+61.0)*0.0722)
 
 func _terrain_at(x: float,z: float) -> Dictionary:
     var q := PhysicsRayQueryParameters3D.create(
@@ -96,9 +96,9 @@ func _make_main_bridge() -> void:
     # earlier fixed +/-7.5m bridge had a 3.5m cliff at its western endpoint!
     var left_hit: Dictionary = {}
     var right_hit: Dictionary = {}
-    var candidate_z: Array[float] = [9.0, 8.0, 10.0, 7.0, 11.0, 5.0, 13.0,
-                                    3.0, 15.0, -5.0, 19.0]
-    var candidate_spans: Array[float] = [5.0,5.8,6.6,7.5]
+    var candidate_z: Array[float] = [-9.0, -8.0, -10.0, -7.0, -11.0,
+                                    -5.0, -12.0, -4.0, 0.0, 9.0]
+    var candidate_spans: Array[float] = [6.6,7.5,8.2,9.0]
     var suitable := false
     for crossing_z in candidate_z:
         var center_x := _river_x(crossing_z)
