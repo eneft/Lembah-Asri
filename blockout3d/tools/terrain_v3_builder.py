@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lembah Asri V3: rebuild CLEAN island topology and paint a small tiled atlas.
+"""Lembah Asri V3: rebuild CLEAN island topology and bake a painted world map.
 
 Source GLB provides the island's XZ footprint ONLY. We do not reuse its
 photogrammetry triangles or UV islands. Height comes from the V2 blueprint
@@ -19,6 +19,7 @@ import struct
 from PIL import Image, ImageDraw, ImageFilter
 from terrain_v2_topography import height_at, river_center_x, WORLD_SCALE
 from terrain_v3_landuse import surface_weights, validate_layout
+from terrain_v3_painted_map import paint_colormap
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets/environment/island/terrain base.glb"
@@ -468,6 +469,9 @@ def main():
     print("TERRAIN_V3_LAYOUT_PLAN:", validate_layout(), "planned lots/paths")
     hx,hz,nx,nz,dx,dz,occupied=footprint(g,source_blob)
     vertices,normals,uvs,colors,indices=make_geometry(hx,hz,nx,nz,dx,dz,occupied)
+    # The macro world illustration is baked ONCE and follows the same grid
+    # and UVs as the exported physical surface. The 1K tile is detail only.
+    paint_colormap(hx,hz,nx,nz,vertices,normals,colors,WORLD_SCALE)
     export_glb(vertices,normals,uvs,colors,indices,make_atlas())
 
 
