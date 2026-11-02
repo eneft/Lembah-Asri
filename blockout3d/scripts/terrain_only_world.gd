@@ -3,10 +3,10 @@ extends "res://scripts/world.gd"
 ## The original /blockout3d/ island, original FBX assets and all animation
 ## timings stay untouched. Only this clean /terrain-test/ world changes.
 
-const TERRAIN_CHARACTER_SCALE := 0.74
+const TERRAIN_CHARACTER_SCALE := 0.55
 const TERRAIN_CAMERA_OFFSETS := [
-    Vector3(3.8, 5.3, 9.4), # C: elevated 3/4 perspective
-    Vector3(2.7, 3.8, 7.5)  # Default: close low 3/4 perspective
+    Vector3(3.1, 4.4, 7.3),  # C: elevated 3/4; closer than before
+    Vector3(2.05, 3.05, 5.95) # Default: close 3/4, character smaller
 ]
 const TERRAIN_CAMERA_FOV := [46.0, 48.0]
 var terrain_camera_zoom := 1.0
@@ -16,8 +16,11 @@ var terrain_spawn_position := Vector3(0.0, 0.5, 0.0)
 # which visibly shook every step, especially on uneven terrain.
 var _camera_focus := Vector3.ZERO
 var _camera_focus_ready := false
-const CAMERA_FOLLOW_XZ := 11.0
+const CAMERA_FOLLOW_XZ := 10.0
 const CAMERA_FOLLOW_Y := 4.0
+const CAMERA_ORBIT_SMOOTH := 11.0
+const CAMERA_FOCUS_Y := 0.62
+var _camera_render_yaw := 0.0
 
 
 func _load_island() -> void:
@@ -37,10 +40,10 @@ func _make_player() -> void:
     var body := player.get_node_or_null("PlayerCollision") as CollisionShape3D
     if body != null:
         var capsule := CapsuleShape3D.new()
-        capsule.radius = 0.245
-        capsule.height = 1.31
+        capsule.radius = 0.19
+        capsule.height = 0.99
         body.shape = capsule
-        body.position.y = 0.67
+        body.position.y = 0.505
     # The level wrapper explicitly enables physics only after a grounded
     # spawn and the imported terrain collider are both ready.
     player.set_physics_process(false)
@@ -60,30 +63,36 @@ func _make_camera() -> void:
 func _place_camera_immediately() -> void:
     if not is_instance_valid(cam) or not is_instance_valid(player):
         return
-    _camera_focus = player.global_position + Vector3(0.0, 0.85, 0.0)
+    # Snap only at load / respawn; never snap ordinary walking frames.
+    _camera_focus = player.global_position + Vector3(0.0, CAMERA_FOCUS_Y, 0.0)
     _camera_focus_ready = true
-    var offset: Vector3 = Basis(Vector3.UP, camera_yaw) * TERRAIN_CAMERA_OFFSETS[camera_mode] * terrain_camera_zoom
+    _camera_render_yaw = camera_yaw
+    var offset: Vector3 = Basis(Vector3.UP, _camera_render_yaw) * TERRAIN_CAMERA_OFFSETS[camera_mode] * terrain_camera_zoom
     cam.global_position = _camera_focus + offset
     cam.look_at(_camera_focus, Vector3.UP)
 
 func _process(delta: float) -> void:
     if not is_instance_valid(player) or not is_instance_valid(cam):
         return
-    var desired_focus := player.global_position + Vector3(0.0, 0.85, 0.0)
+    # CharacterBody3D moves on fixed physics ticks. Sample the interpolated
+    # position at render time, not the last stepped transform.
+    var follow_position: Vector3 = player.call("get_camera_follow_position")
+    var desired_focus := follow_position + Vector3(0.0, CAMERA_FOCUS_Y, 0.0)
     if not _camera_focus_ready:
         _camera_focus = desired_focus
         _camera_focus_ready = true
     else:
-        # Frame-rate-independent smoothing. Don't transmit capsule Y bounce
-        # from the physics step directly into camera pitch or position.
         var follow_xz := 1.0 - exp(-CAMERA_FOLLOW_XZ * delta)
         var follow_y := 1.0 - exp(-CAMERA_FOLLOW_Y * delta)
         _camera_focus.x = lerpf(_camera_focus.x, desired_focus.x, follow_xz)
         _camera_focus.z = lerpf(_camera_focus.z, desired_focus.z, follow_xz)
         _camera_focus.y = lerpf(_camera_focus.y, desired_focus.y, follow_y)
-    var offset: Vector3 = Basis(Vector3.UP, camera_yaw) * TERRAIN_CAMERA_OFFSETS[camera_mode] * terrain_camera_zoom
-    var desired_camera := _camera_focus + offset
-    cam.global_position = cam.global_position.lerp(desired_camera, 1.0 - exp(-10.0 * delta))
+    # One smoothed yaw and ONE camera position derived from the same pivot.
+    # A second position smoothing pass caused rubber-banding and pitch jitter.
+    var orbit_lerp := 1.0 - exp(-CAMERA_ORBIT_SMOOTH * delta)
+    _camera_render_yaw = lerp_angle(_camera_render_yaw, camera_yaw, orbit_lerp)
+    var offset: Vector3 = Basis(Vector3.UP, _camera_render_yaw) * TERRAIN_CAMERA_OFFSETS[camera_mode] * terrain_camera_zoom
+    cam.global_position = _camera_focus + offset
     cam.look_at(_camera_focus, Vector3.UP)
 
 func _apply_camera_preset() -> void:
@@ -126,7 +135,7 @@ func _make_hud() -> void:
         title.text = "LEMBAH ASRI | TERRAIN V3 | KAMERA BEBAS"
     var house_status := get_node_or_null("BlockoutHUD/HouseAssetStatus") as Label
     if house_status != null:
-        house_status.text = "V3 | JOYSTICK SESUAI ARAH KAMERA | KARAKTER 74%"
+        house_status.text = "V3 | SMOOTH CAMERA | KARAKTER 55% | JOYSTICK 3/4"
     var control_label := get_node_or_null("BlockoutHUD/Controls") as Label
     if control_label != null:
         control_label.text = "HP: Joystick + Geser layar untuk kamera | PC: WASD / Shift / Space / Q-E"
