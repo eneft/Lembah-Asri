@@ -11,6 +11,14 @@ const TERRAIN_CAMERA_OFFSETS := [
 const TERRAIN_CAMERA_FOV := [46.0, 48.0]
 var terrain_camera_zoom := 1.0
 var terrain_spawn_position := Vector3(0.0, 0.5, 0.0)
+# One smoothed focus for both camera position AND look_at. The previous
+# camera chased an interpolated position but aimed at raw physics-frame motion,
+# which visibly shook every step, especially on uneven terrain.
+var _camera_focus := Vector3.ZERO
+var _camera_focus_ready := false
+const CAMERA_FOLLOW_XZ := 11.0
+const CAMERA_FOLLOW_Y := 4.0
+
 
 func _load_island() -> void:
     # Do not instantiate the old island, houses, roads, trees, or collision.
@@ -52,17 +60,31 @@ func _make_camera() -> void:
 func _place_camera_immediately() -> void:
     if not is_instance_valid(cam) or not is_instance_valid(player):
         return
-    var focus := player.global_position + Vector3(0.0, 0.85, 0.0)
+    _camera_focus = player.global_position + Vector3(0.0, 0.85, 0.0)
+    _camera_focus_ready = true
     var offset: Vector3 = Basis(Vector3.UP, camera_yaw) * TERRAIN_CAMERA_OFFSETS[camera_mode] * terrain_camera_zoom
-    cam.global_position = focus + offset
-    cam.look_at(focus, Vector3.UP)
+    cam.global_position = _camera_focus + offset
+    cam.look_at(_camera_focus, Vector3.UP)
 
 func _process(delta: float) -> void:
-    if is_instance_valid(player) and is_instance_valid(cam):
-        var focus := player.global_position + Vector3(0.0, 0.85, 0.0)
-        var offset: Vector3 = Basis(Vector3.UP, camera_yaw) * TERRAIN_CAMERA_OFFSETS[camera_mode] * terrain_camera_zoom
-        cam.global_position = cam.global_position.lerp(focus + offset, minf(1.0, delta * 6.0))
-        cam.look_at(focus, Vector3.UP)
+    if not is_instance_valid(player) or not is_instance_valid(cam):
+        return
+    var desired_focus := player.global_position + Vector3(0.0, 0.85, 0.0)
+    if not _camera_focus_ready:
+        _camera_focus = desired_focus
+        _camera_focus_ready = true
+    else:
+        # Frame-rate-independent smoothing. Don't transmit capsule Y bounce
+        # from the physics step directly into camera pitch or position.
+        var follow_xz := 1.0 - exp(-CAMERA_FOLLOW_XZ * delta)
+        var follow_y := 1.0 - exp(-CAMERA_FOLLOW_Y * delta)
+        _camera_focus.x = lerpf(_camera_focus.x, desired_focus.x, follow_xz)
+        _camera_focus.z = lerpf(_camera_focus.z, desired_focus.z, follow_xz)
+        _camera_focus.y = lerpf(_camera_focus.y, desired_focus.y, follow_y)
+    var offset: Vector3 = Basis(Vector3.UP, camera_yaw) * TERRAIN_CAMERA_OFFSETS[camera_mode] * terrain_camera_zoom
+    var desired_camera := _camera_focus + offset
+    cam.global_position = cam.global_position.lerp(desired_camera, 1.0 - exp(-10.0 * delta))
+    cam.look_at(_camera_focus, Vector3.UP)
 
 func _apply_camera_preset() -> void:
     # Unlike the original blockout, the terrain test NEVER uses orthographic.
