@@ -99,6 +99,10 @@ func _run() -> void:
     var bridge_ray := PhysicsRayQueryParameters3D.create(
         crossing + Vector3(0.0,5.0,0.0), crossing-Vector3(0.0,2.0,0.0))
     bridge_ray.collision_mask = player.collision_mask
+    # The bridge is spawned from a deferred install callback. Wait for the
+    # physics server to register its newly generated static triangle body.
+    await physics_frame
+    await physics_frame
     var bridge_hit := world.get_world_3d().direct_space_state.intersect_ray(bridge_ray)
     if bridge_hit.is_empty() or bridge_hit.collider != bridge_body:
         push_error("TERRAIN V3 BRIDGE FAIL: ray miss/collider mismatch at %s; actual hit=%s, actual collider=%s, deck collider=%s" % [
