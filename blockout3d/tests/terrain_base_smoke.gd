@@ -153,6 +153,25 @@ func _run() -> void:
         return
     print("TERRAIN V3 BUILD-PLOTS PASS: %d footprint / %d lawn / %d path marked vertices, no extra physics" % [
         footprint_points, yard_points, trail_points])
+    # Coastal material must have a REAL shoreline gradient encoded in vertex
+    # alpha. A binary cliff edge and elevation-only sand strips are regression.
+    var coastal_points := 0
+    var transitional_points := 0
+    for c in vertex_colors:
+        if c.a > 0.20:
+            coastal_points += 1
+        if c.a > 0.20 and c.a < 0.90:
+            transitional_points += 1
+    if coastal_points < 100 or transitional_points < 25:
+        push_error("TERRAIN V3 BEACH FAIL: no smooth near-shore sand gradient")
+        quit(1)
+        return
+    if not terrain_material.shader.code.contains("shoreline_sand") or not terrain_material.shader.code.contains("smooth_noise"):
+        push_error("TERRAIN V3 GROUND FAIL: natural shoreline/continuous macro texture not enabled")
+        quit(1)
+        return
+    print("TERRAIN V3 NATURAL GROUND PASS: %d coastal and %d transitional vertices; no blocky shader hash cells" % [
+        coastal_points, transitional_points])
     if collider.get_parent() != mesh:
         push_error("TERRAIN V3 FAIL: collision not derived from same visible mesh")
         quit(1)
@@ -411,6 +430,22 @@ func _run() -> void:
         return
     # Restore the starting camera yaw for clean gameplay.
     world.call("_reset_camera_rotation")
+    # The camera should look at its smoothed follow pivot, not raw physics
+    # capsule motion. Verify the two vectors stay aligned after actual walks.
+    for frame in range(14):
+        await process_frame
+    var pivot: Vector3 = world.get("_camera_focus")
+    var look_dir := (pivot-camera.global_position).normalized()
+    var cam_forward_now := (-camera.global_transform.basis.z).normalized()
+    if cam_forward_now.dot(look_dir) < 0.999:
+        push_error("TERRAIN V3 CAMERA SHAKE FAIL: aim diverged from smoothed camera follow pivot")
+        quit(1)
+        return
+    if not bool(world.get("_camera_focus_ready")):
+        push_error("TERRAIN V3 CAMERA SHAKE FAIL: camera smoothing never initialized")
+        quit(1)
+        return
+    print("TERRAIN V3 CAMERA STABILITY PASS: aim and smoothed follow pivot aligned while walking")
     print("TERRAIN V3 CAMERA-RELATIVE INPUT PASS: 90/180 orbit, screen-aligned axes, real right movement %.2fm" % orbit_displacement.length())
     print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=74%%, capsule_height=%.2f" % [
         camera.fov, cam_distance, capsule.height])
