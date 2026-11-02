@@ -129,14 +129,13 @@ func _install_terrain() -> void:
     world.add_child(water_root)
     water_root.call("configure")
 
-    # Bridge and sparse roadside details belong to this NEW terrain, not to
-    # the old blockout world. The parent GLB is 140x scale, but this top-level
-    # child uses physical world metres and retains player-only bridge physics.
+    # Infrastructure must live directly in the world in METRES. The source
+    # imported GLB uses a 140x transform; parenting a bridge to that mesh
+    # can silently transform its collision geometry away from visual terrain.
     infrastructure_root = Node3D.new()
     infrastructure_root.name = "TerrainV3Infrastructure"
-    infrastructure_root.top_level = true
     infrastructure_root.set_script(INFRASTRUCTURE_SCRIPT)
-    new_root.add_child(infrastructure_root)
+    world.add_child(infrastructure_root)
     infrastructure_root.call("configure")
 
     # Terrain has coast / holes; choose a real walkable triangle instead of
