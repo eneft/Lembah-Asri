@@ -49,6 +49,10 @@ func _make_player() -> void:
     player.set_physics_process(false)
 
 func _make_camera() -> void:
+    # Godot 4.3 has no native 3D physics interpolation. Our render-frame
+    # player/camera interpolation replaces the engine's default jitter fix.
+    # This scene-only entrypoint must not change other published game routes.
+    Engine.physics_jitter_fix = 0.0
     super._make_camera()
     cam.projection = Camera3D.PROJECTION_PERSPECTIVE
     cam.fov = TERRAIN_CAMERA_FOV[camera_mode]
@@ -144,3 +148,5 @@ func _physics_process(_delta: float) -> void:
     if is_instance_valid(player) and player.global_position.y < -8.0:
         player.global_position = terrain_spawn_position
         player.velocity = Vector3.ZERO
+        player.reset_camera_follow_interpolation()
+        _place_camera_immediately()
