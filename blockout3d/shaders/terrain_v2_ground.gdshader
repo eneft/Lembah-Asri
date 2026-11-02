@@ -5,6 +5,9 @@ render_mode depth_draw_opaque, cull_back, diffuse_toon, specular_disabled;
 // Shore sand and proposed village locations are baked in COLOR_0, not extra
 // overlaid geometry. Mobile shader; no triplanar or costly height sampling.
 uniform sampler2D biome_atlas : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
+// The full-island art pass owns the color composition; it is NOT tiled.
+// UV_0 follows the actual world X/Z footprint drawn by terrain_v3_painted_map.py.
+uniform sampler2D painted_colormap : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 
 varying vec3 terrain_world;
 varying vec3 terrain_normal;
@@ -107,7 +110,11 @@ void fragment() {
     color = mix(color,trimmed_lawn,yard_weight*0.58);
     color = mix(color,village_path,path_weight*0.79);
     color = mix(color,packed_earth,building_weight*0.86);
-    ALBEDO = color;
+    // Major color is baked on the ACTUAL island, not painted per 5m tile.
+    // Retain just 12% of the former microtexture: close camera still reveals
+    // blades and stone flecks, but large mountains/roads/beaches read as art.
+    vec3 painted_base = texture(painted_colormap, UV).rgb;
+    ALBEDO = clamp(mix(color, painted_base, 0.88),vec3(0.0),vec3(1.0));
     METALLIC = 0.0;
     // High roughness softens the edge of the built-in toon light ramp.
     // Keep local texture pigments visible and avoid glossy CGI lighting.
