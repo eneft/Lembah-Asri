@@ -43,6 +43,10 @@ func _make_camera() -> void:
     cam.fov = TERRAIN_CAMERA_FOV[camera_mode]
     cam.near = 0.075
     cam.far = 350.0
+    # Screen-space movement follows camera yaw, including touch drag / orbit.
+    # Camera itself remains freely orbitable and smoothly follows the player.
+    player.set("camera_relative_movement", true)
+    player.set("movement_camera", cam)
     _place_camera_immediately()
 
 func _place_camera_immediately() -> void:
@@ -70,9 +74,19 @@ func _apply_camera_preset() -> void:
 func _update_camera_mode_label() -> void:
     if is_instance_valid(camera_mode_label):
         var mode := "3/4 Elevated" if camera_mode == 0 else "3/4 Close"
-        camera_mode_label.text = "Kamera: %s Perspective | C: Mode | Q/E: Putar | R: Reset" % mode
+        camera_mode_label.text = "Kamera bebas: %s | Swipe kanan / Q-E: Putar | R: Reset" % mode
 
 func _unhandled_input(event: InputEvent) -> void:
+    # On mobile, a second finger swiping the free gameplay area rotates the
+    # view continuously. Joystick / Run / Jump touch events are consumed by
+    # their own controls. Keep camera orbit independent from movement input.
+    if event is InputEventScreenDrag:
+        var drag := event as InputEventScreenDrag
+        var screen_size := get_viewport().get_visible_rect().size
+        if drag.position.x > screen_size.x * 0.43 and drag.position.y < screen_size.y * 0.79:
+            _rotate_camera(-drag.relative.x * CAMERA_DRAG_SENSITIVITY)
+            get_viewport().set_input_as_handled()
+            return
     if event is InputEventMouseButton and event.pressed:
         # True perspective dolly zoom; Camera3D.size only works for orthographic.
         if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -87,13 +101,13 @@ func _make_hud() -> void:
     super._make_hud()
     var title := get_node_or_null("BlockoutHUD/Title") as Label
     if title != null:
-        title.text = "LEMBAH ASRI | BAKED RETEXTURE | CAMERA 3/4"
+        title.text = "LEMBAH ASRI | TERRAIN V3 | KAMERA BEBAS"
     var house_status := get_node_or_null("BlockoutHUD/HouseAssetStatus") as Label
     if house_status != null:
-        house_status.text = "V2 | JOYSTICK ANALOG HP | COLLISION FIX | Karakter 74%"
+        house_status.text = "V3 | JOYSTICK SESUAI ARAH KAMERA | KARAKTER 74%"
     var control_label := get_node_or_null("BlockoutHUD/Controls") as Label
     if control_label != null:
-        control_label.text = "HP: Joystick / LARI / LOMPAT  |  PC: WASD / Shift / Space"
+        control_label.text = "HP: Joystick + Geser layar untuk kamera | PC: WASD / Shift / Space / Q-E"
 
 func _physics_process(_delta: float) -> void:
     if is_instance_valid(player) and player.global_position.y < -8.0:
