@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode depth_draw_opaque, cull_back, diffuse_lambert_wrap, specular_disabled;
 
 // Single 1K painterly atlas: grass / earth / sand / stone.
 // Shore sand and proposed village locations are baked in COLOR_0, not extra
@@ -51,7 +51,14 @@ void fragment() {
     vec3 grass = texture(biome_atlas, tile_uv(pos,vec2(0.0,0.0),4.2)).rgb;
     vec3 earth = texture(biome_atlas, tile_uv(pos,vec2(1.0,0.0),4.8)).rgb;
     vec3 sand  = texture(biome_atlas, tile_uv(pos,vec2(0.0,1.0),5.3)).rgb;
-    vec3 stone = texture(biome_atlas, tile_uv(pos,vec2(1.0,1.0),5.1)).rgb;
+    // Softly distort the rock UVs so a 5m tile does not repeat as a chessboard.
+    // One extra octave of smooth noise stays inexpensive for mobile WebGL.
+    float rock_boundary_noise = smooth_noise(pos / 8.4 + vec2(7.1,-3.5));
+    vec2 rock_warp = vec2(rock_boundary_noise-0.5, macro-0.5)*1.65;
+    vec3 stone = texture(biome_atlas,
+                         tile_uv(pos+rock_warp,vec2(1.0,1.0),6.8)).rgb;
+    stone *= mix(vec3(0.90,0.95,0.96),vec3(1.08,1.04,0.98),
+                 rock_boundary_noise);
 
     // Beaches follow the actual shore rather than painting a sharp yellow
     // contour wherever a mountain valley happens to be low.
@@ -63,9 +70,14 @@ void fragment() {
     // blanket of grass. Blend sculpted slope plus altitude: highland ridges
     // become rocky while broad northern village plateau stays green.
     float highland = smoothstep(7.0, 15.5, height_m);
-    float cliff_rock = smoothstep(0.18,0.48,tilt);
-    float ridge_rock = highland * smoothstep(0.07,0.25,tilt) * 0.66;
+    float irregular_slope = tilt + (rock_boundary_noise-0.5)*0.22;
+    float cliff_rock = smoothstep(0.12,0.50,irregular_slope);
+    float ridge_rock = highland * smoothstep(0.04,0.26,irregular_slope)*0.77;
     float rock = clamp(max(cliff_rock,ridge_rock) * (1.0-shore*0.70),0.0,0.96);
+    // Lichen and little grass pockets interrupt the smooth stone boundary.
+    float moss_breakup = smoothstep(0.58,0.85,rock_boundary_noise)
+                         * (1.0-smoothstep(0.43,0.75,tilt))*0.35;
+    rock *= (1.0-moss_breakup);
 
     vec3 color = mix(grass,earth,soil);
     color = mix(color,sand,clamp(beach,0.0,1.0));
@@ -97,5 +109,5 @@ void fragment() {
     color = mix(color,packed_earth,building_weight*0.86);
     ALBEDO = color;
     METALLIC = 0.0;
-    ROUGHNESS = 0.97;
+    ROUGHNESS = 1.0;
 }
