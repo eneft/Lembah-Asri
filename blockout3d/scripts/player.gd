@@ -10,6 +10,19 @@ var _jump_was_down := false
 var camera_relative_movement := false
 var movement_camera: Camera3D
 
+# Physics positions for smooth camera sampling in _process() between fixed
+# physics ticks. Opt-in only: the original gameplay movement remains unchanged.
+var _render_previous_position := Vector3.ZERO
+var _render_current_position := Vector3.ZERO
+var _render_position_initialized := false
+
+func get_camera_follow_position() -> Vector3:
+    if not _render_position_initialized:
+        return global_position
+    var blend := clampf(Engine.get_physics_interpolation_fraction(), 0.0, 1.0)
+    return _render_previous_position.lerp(_render_current_position, blend)
+
+
 func _ready() -> void:
     floor_snap_length = 0.35
     floor_max_angle = deg_to_rad(50.0)
@@ -53,6 +66,13 @@ func _camera_relative_direction(screen_input: Vector3) -> Vector3:
 
 
 func _physics_process(delta: float) -> void:
+    # Keep last complete physics-step positions. The render-follow camera can
+    # interpolate these instead of receiving 60 Hz stair-step transforms.
+    if _render_position_initialized:
+        _render_previous_position = _render_current_position
+    else:
+        _render_previous_position = global_position
+        _render_position_initialized = true
     var direction := _camera_relative_direction(_read_movement_direction())
     var sprinting := Input.is_key_pressed(KEY_SHIFT) or Input.is_action_pressed("touch_run")
     var jump_down := Input.is_key_pressed(KEY_SPACE) or Input.is_action_pressed("touch_jump")
@@ -70,6 +90,10 @@ func _physics_process(delta: float) -> void:
     velocity.z = direction.z * speed
     var impact_velocity := velocity.y
     move_and_slide()
+    _render_current_position = global_position
+    # A teleport/reset must not create a huge interpolation streak.
+    if _render_previous_position.distance_to(_render_current_position) > 2.0:
+        _render_previous_position = _render_current_position
 
     var next_animation := "idle"
     if not is_on_floor():
