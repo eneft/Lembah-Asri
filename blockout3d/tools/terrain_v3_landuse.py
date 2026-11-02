@@ -42,12 +42,14 @@ PLOTS = [
 # Intended footpaths. They intentionally do not add geometry or a bridge.
 # The river channel is screened out by the guard in surface_weights().
 PATHS = [
-    ("jalan_desa_timur", [(12,-29),(26,-26),(35,-13),(36,0),(37,14),(34,25),(35,43)], 2.5),
+    ("jalan_desa_timur", [(12,-29),(26,-26),(35,-13),(36,0),(37,14),(34,25),(35,43)], 3.1),
     ("lorong_desa_timur", [(10,-9),(19,-7),(33,-8),(49,-7)], 1.8),
     ("jalan_rumah_timur", [(12,13),(25,13),(43,12)], 1.8),
     ("akses_sawah_barat", [(-49,-25),(-38,-15),(-33,-1),(-32,13),(-36,27)], 2.0),
     ("jalan_kampung_barat", [(-43,10),(-30,8),(-15,9)], 1.8),
-    ("akses_jembatan_barat", [(-17,9),(-9,9),(9,9),(13,10)], 1.6),
+    # Actual safe bridge is near z=-5. Connect its banks with west/east roads;
+    # old straight-across z=9 route would lead people into the river.
+    ("akses_jembatan_barat", [(-17,9),(-13,1),(-11,-5),(3,-5),(12,-7)], 2.3),
     ("akses_nelayan", [(35,25),(37,34),(45,41)], 1.8),
 ]
 
