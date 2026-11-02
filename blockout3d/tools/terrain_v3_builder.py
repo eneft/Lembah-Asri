@@ -272,6 +272,43 @@ def _wrap_quadrant(core: Image.Image) -> Image.Image:
     return tile
 
 
+def _paint_illustrated_rock(core_size: int) -> Image.Image:
+    """Tileable stylized stone strata and hand-painted cracks (not oval noise)."""
+    rng = random.Random(30814)
+    base = Image.new("RGB", (core_size, core_size), (114, 112, 98))
+    draw = ImageDraw.Draw(base)
+    tones = [(104,105,96), (123,121,103), (140,132,109),
+             (91,94,86), (151,141,117), (116,112,97)]
+    for y in range(-64, core_size+64, 23):
+        rise = rng.randint(-12, 12)
+        color = tones[rng.randrange(len(tones))]
+        for shift_y in (-core_size, 0, core_size):
+            draw.polygon([
+                (0,y+shift_y+rise), (core_size//3,y+shift_y+rise-6),
+                (2*core_size//3,y+shift_y+rise+4),
+                (core_size,y+shift_y+rise), (core_size,y+shift_y+rise+20),
+                (0,y+shift_y+rise+18)], fill=color)
+    for k in range(750):
+        x,y=rng.randrange(core_size),rng.randrange(core_size)
+        rw,rh=rng.randint(4,25),rng.randint(2,9)
+        col=tones[rng.randrange(len(tones))]
+        points=[(x-rw,y-rh),(x+rw//3,y-rh-rng.randint(0,3)),
+                (x+rw,y+rh//2),(x,y+rh)]
+        for ox in (-core_size,0,core_size):
+            for oy in (-core_size,0,core_size):
+                draw.polygon([(px+ox,py+oy) for px,py in points],fill=col)
+    for k in range(470):
+        x,y=rng.randrange(core_size),rng.randrange(core_size)
+        length=rng.randint(7,53)
+        dye=(66,73,70) if k%3 else (177,163,128)
+        dy=rng.randint(-6,5)
+        for ox in (-core_size,0,core_size):
+            for oy in (-core_size,0,core_size):
+                draw.line([(x+ox,y+oy),(x+ox+length,y+oy+dy)],
+                          fill=dye,width=1 if k%4 else 2)
+    return base.filter(ImageFilter.GaussianBlur(0.35))
+
+
 def make_atlas() -> bytes:
     """Bake the APPROVED hand-painted grass reference, preserving other biomes.
 
@@ -298,19 +335,22 @@ def make_atlas() -> bytes:
     for idx, palette in enumerate(palettes):
         k = idx + 1
         rng = random.Random(15143+k*7907)
-        core = Image.new("RGB", (core_size, core_size), palette[0])
-        painter = ImageDraw.Draw(core)
-        for stroke in range(11000):
-            px = rng.randrange(core_size)
-            py = rng.randrange(core_size)
-            col = palette[rng.randrange(len(palette))]
-            radius_x = rng.randrange(1, 10 if k != 3 else 13)
-            radius_y = rng.randrange(1, 5 if k != 3 else 8)
-            for ox in (-core_size, 0, core_size):
-                for oy in (-core_size, 0, core_size):
-                    painter.ellipse((px+ox-radius_x, py+oy-radius_y,
-                        px+ox+radius_x, py+oy+radius_y), fill=col)
-        core = core.filter(ImageFilter.GaussianBlur(0.42))
+        if k == 3:
+            core = _paint_illustrated_rock(core_size)
+        else:
+            core = Image.new("RGB", (core_size, core_size), palette[0])
+            painter = ImageDraw.Draw(core)
+            for stroke in range(11000):
+                px = rng.randrange(core_size)
+                py = rng.randrange(core_size)
+                col = palette[rng.randrange(len(palette))]
+                radius_x = rng.randrange(1, 10)
+                radius_y = rng.randrange(1, 5)
+                for ox in (-core_size, 0, core_size):
+                    for oy in (-core_size, 0, core_size):
+                        painter.ellipse((px+ox-radius_x, py+oy-radius_y,
+                            px+ox+radius_x, py+oy+radius_y), fill=col)
+            core = core.filter(ImageFilter.GaussianBlur(0.42))
         atlas.paste(_wrap_quadrant(core),
                     ((k % 2) * (ATLAS_PIXELS // 2), (k // 2) * (ATLAS_PIXELS // 2)))
     out = io.BytesIO()
@@ -318,7 +358,7 @@ def make_atlas() -> bytes:
     print("TERRAIN_V3_GRASS_REFERENCE_PASS: user-approved painterly grass",
           grass_source.stat().st_size, "source bytes, wrapped seamless 496px core")
     print("TERRAIN_V3_TEXTURE_PASS: one 1024x1024 baked painted atlas",
-          len(out.getvalue()), "bytes; real grass artwork, soil sand rock")
+          len(out.getvalue()), "bytes; painted grass and STRATIFIED ROCK, soil, sand")
     return out.getvalue()
 
 
