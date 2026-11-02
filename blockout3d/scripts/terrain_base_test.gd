@@ -4,6 +4,7 @@ extends Node3D
 const WEB_TERRAIN := "res://assets/environment/island/terrain_base_web.glb"
 const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
 const WATER_SCRIPT := preload("res://scripts/terrain_v2_water.gd")
+const INFRASTRUCTURE_SCRIPT := preload("res://scripts/terrain_v3_infrastructure.gd")
 const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
 const TERRAIN_RAY_LAYER := 1 << 7
 const PLAYER_GROUND_LAYER := 1
@@ -13,6 +14,7 @@ var new_root: Node3D
 var new_mesh: MeshInstance3D
 var new_collision: StaticBody3D
 var water_root: Node3D
+var infrastructure_root: Node3D
 var terrain_scale := 140.0
 var vertical_offset := 0.0
 var is_ready := false
@@ -127,6 +129,16 @@ func _install_terrain() -> void:
     world.add_child(water_root)
     water_root.call("configure")
 
+    # Bridge and sparse roadside details belong to this NEW terrain, not to
+    # the old blockout world. The parent GLB is 140x scale, but this top-level
+    # child uses physical world metres and retains player-only bridge physics.
+    infrastructure_root = Node3D.new()
+    infrastructure_root.name = "TerrainV3Infrastructure"
+    infrastructure_root.top_level = true
+    infrastructure_root.set_script(INFRASTRUCTURE_SCRIPT)
+    new_root.add_child(infrastructure_root)
+    infrastructure_root.call("configure")
+
     # Terrain has coast / holes; choose a real walkable triangle instead of
     # relying on the old village coordinates.
     # A ray hit near the jagged coast is NOT a playable spawn. V3 scans for
@@ -201,7 +213,7 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "TERRAIN V3 | CLEAN MESH + PAINTED ATLAS | JOYSTICK"
+        status.text = "TERRAIN V3 | ROCK HILLS + RIVER + BRIDGE + PATHS"
 
 func _unhandled_input(event: InputEvent) -> void:
     if not is_ready or not (event is InputEventKey):
