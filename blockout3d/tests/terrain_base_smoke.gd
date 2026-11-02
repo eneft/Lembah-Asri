@@ -123,8 +123,13 @@ func _run() -> void:
     # GLB COLOR_0 stores R=packed-earth footprint, G=trimmed yard, B=path.
     var terrain_surface := mesh.mesh.surface_get_arrays(0)
     var vertex_colors = terrain_surface[Mesh.ARRAY_COLOR]
-    if not (vertex_colors is PackedColorArray) or vertex_colors.size() < 16000:
-        push_error("TERRAIN V3 PLOTS FAIL: source GLB has no baked construction/yard/path vertex colors")
+    var render_vertex_count := (terrain_surface[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+    print("TERRAIN V3 PLOTS IMPORT DIAGNOSTIC: verts=", render_vertex_count,
+        " colors=", vertex_colors.size(), " type=", type_string(typeof(vertex_colors)))
+    # Godot optimizes away source-grid vertices not referenced by an actual
+    # triangle. Do not require the original 17,484 FULL RECTANGLE vertices.
+    if not (vertex_colors is PackedColorArray) or vertex_colors.size() < 5000 or vertex_colors.size() != render_vertex_count:
+        push_error("TERRAIN V3 PLOTS FAIL: imported terrain is missing painted vertex colors")
         quit(1)
         return
     var footprint_points := 0
