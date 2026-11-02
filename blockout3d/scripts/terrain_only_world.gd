@@ -23,6 +23,20 @@ const CAMERA_FOCUS_Y := 0.62
 var _camera_render_yaw := 0.0
 
 
+func _world_light() -> void:
+    # Scene-local illustrated daytime palette. Avoid blown-out warm rock
+    # highlights and near-black timber undersides; do NOT modify legacy game.
+    super._world_light()
+    var sun := get_node_or_null("PagiJawa") as DirectionalLight3D
+    if sun != null:
+        sun.light_color = Color("fff0d7")
+        sun.light_energy = 0.87
+        sun.shadow_enabled = true
+    var atmosphere := get_node_or_null("Atmosphere") as WorldEnvironment
+    if atmosphere != null and atmosphere.environment != null:
+        atmosphere.environment.ambient_light_color = Color("e5ede1")
+        atmosphere.environment.ambient_light_energy = 0.60
+
 func _load_island() -> void:
     # Do not instantiate the old island, houses, roads, trees, or collision.
     pass
