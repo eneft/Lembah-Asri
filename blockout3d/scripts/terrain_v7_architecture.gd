@@ -284,10 +284,14 @@ func build_unique(parent: Node3D, label: String, kind: String,
         Vector3(width,wall,depth),wall_material)
     _roof(mesh_root,roof_style,width,depth,lift+wall,kind)
     var door_x := -width*0.18 if index%3==0 else (width*0.16 if index%3==1 else 0.0)
-    _box(mesh_root,"PintuUkir",Vector3(door_x,lift+wall*0.42,
-        depth*0.5+0.066),Vector3(0.94,wall*0.73,0.13),"wood_dark")
-    _box(mesh_root,"AmbangPintu",Vector3(door_x,lift+wall*0.79,
-        depth*0.5+0.105),Vector3(1.09,0.12,0.16),"wood")
+    # One world unit is one meter. Minimum 2.00m tall entry so a 1.68m
+    # adult is appropriately shorter than every house's front doorway,
+    # including the formerly too-short coastal warung entry (~1.57m).
+    var door_height := minf(wall-0.15,maxf(2.0,wall*0.75))
+    _box(mesh_root,"PintuUkir",Vector3(door_x,lift+0.02+door_height*0.5,
+        depth*0.5+0.066),Vector3(0.94,door_height,0.13),"wood_dark")
+    _box(mesh_root,"AmbangPintu",Vector3(door_x,lift+door_height+0.07,
+        depth*0.5+0.105),Vector3(1.09,0.08,0.16),"wood")
     _windows(mesh_root,width,depth,wall,lift,windows,index)
     _porch(mesh_root,kind,porch,width,depth,wall,lift)
     _annex(mesh_root,annex,width,depth,lift,wall,kind)

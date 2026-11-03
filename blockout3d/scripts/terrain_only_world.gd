@@ -3,7 +3,12 @@ extends "res://scripts/world.gd"
 ## The original /blockout3d/ island, original FBX assets and all animation
 ## timings stay untouched. Only this clean /terrain-test/ world changes.
 
-const TERRAIN_CHARACTER_SCALE := 0.72 # V7.4 avatar: 31% larger than V7.3's 55%
+# Godot world unit = meter. The original FBX is fitted to 1.78m by
+# fbx_character.gd. Preserve the original FBX animations, but make the
+# playable hero EXACTLY 168cm in the village's architectural scale.
+const AVATAR_TARGET_HEIGHT_METERS := 1.68
+const FBX_FITTED_HEIGHT_METERS := 1.78
+const TERRAIN_CHARACTER_SCALE := AVATAR_TARGET_HEIGHT_METERS / FBX_FITTED_HEIGHT_METERS
 const TERRAIN_CAMERA_OFFSETS := [
     Vector3(3.1, 4.4, 7.3),  # C: elevated 3/4; closer than before
     Vector3(2.05, 3.05, 5.95) # Default: close 3/4; avatar scaled independently
@@ -19,7 +24,7 @@ var _camera_focus_ready := false
 const CAMERA_FOLLOW_XZ := 10.0
 const CAMERA_FOLLOW_Y := 4.0
 const CAMERA_ORBIT_SMOOTH := 11.0
-const CAMERA_FOCUS_Y := 0.76 # upper torso of 1.30m enlarged avatar
+const CAMERA_FOCUS_Y := 1.00 # upper torso / face for 1.68m protagonist
 var _camera_render_yaw := 0.0
 # Free yaw with physically safe elevation limits, not fixed 3/4 presets.
 const CAMERA_MIN_ELEVATION := deg_to_rad(10.0)
@@ -83,8 +88,8 @@ func _make_player() -> void:
     super._make_player()
     _apply_character_toon()
     player.collision_mask = 1
-    # The existing FBX is auto-fitted to 1.78m. Scale ONLY the visible avatar,
-    # leaving its original rig, skeleton and animation times unchanged.
+    # The FBX loader normalizes to 1.78m. Apply 1.68/1.78 to the avatar
+    # visual ONLY; do not stretch the level/house meshes or FBX animations.
     var visual := player.get_node_or_null("Visual") as Node3D
     if visual != null:
         visual.scale = Vector3.ONE * TERRAIN_CHARACTER_SCALE
@@ -93,13 +98,12 @@ func _make_player() -> void:
     var body := player.get_node_or_null("PlayerCollision") as CollisionShape3D
     if body != null:
         var capsule := CapsuleShape3D.new()
-        # Keep physical capsule proportional to the enlarged 72% avatar.
-        # Collision bottom stays ~5 mm above CharacterBody3D origin, so
-        # existing terrain spawn, jump/landing and bridge traversals still work.
-        capsule.radius = 0.25
-        capsule.height = 1.30
+        # Full human-height collision in meters. Feet remain 5mm above
+        # body origin, preserving the terrain ray spawn and bridge ramps.
+        capsule.radius = 0.30
+        capsule.height = AVATAR_TARGET_HEIGHT_METERS
         body.shape = capsule
-        body.position.y = 0.655
+        body.position.y = AVATAR_TARGET_HEIGHT_METERS * 0.5 + 0.005
     # The level wrapper explicitly enables physics only after a grounded
     # spawn and the imported terrain collider are both ready.
     player.set_physics_process(false)
@@ -267,7 +271,7 @@ func _make_hud() -> void:
         title.text = "LEMBAH ASRI | V7.2 | KAMERA AMAN"
     var house_status := get_node_or_null("BlockoutHUD/HouseAssetStatus") as Label
     if house_status != null:
-        house_status.text = "V7.4 | SOFT TOON • VEGETASI • KARAKTER 72%"
+        house_status.text = "V7.5 | SOFT TOON • VEGETASI • KARAKTER 168 CM"
     var control_label := get_node_or_null("BlockoutHUD/Controls") as Label
     if control_label != null:
         control_label.text = "HP: Geser area kanan untuk orbit | PC: Klik kanan + geser / PgUp-PgDn / Q-E"
