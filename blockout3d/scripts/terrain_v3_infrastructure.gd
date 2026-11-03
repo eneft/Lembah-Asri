@@ -267,7 +267,13 @@ func _make_secondary_bridge() -> void:
         secondary_bridge_mesh = bridge_mesh
         for index in range(first_new,get_child_count()):
             var piece := get_child(index)
-            piece.name = "Southern" + piece.name
+            # Godot automatically disambiguates duplicate sibling names when
+            # the second bridge is created. Identify the second physical rail
+            # by node type, not its temporary auto-generated node name.
+            if piece is StaticBody3D and piece != secondary_bridge_collider:
+                piece.name = "SouthernBridgeRailGuardCollision"
+            else:
+                piece.name = "Southern" + piece.name
         print("TERRAIN V5 SECOND BRIDGE PASS: x=",secondary_bridge_center_x,
               " z=",secondary_bridge_z, " deck=",secondary_deck_y)
     else:
