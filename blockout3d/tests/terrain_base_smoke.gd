@@ -72,7 +72,7 @@ func _run() -> void:
                     quit(1)
                     return
                 heights.append(float(hit.position.y))
-        var difference := heights.max()-heights.min()
+        var difference: float = float(heights.max()) - float(heights.min())
         if difference > 0.16:
             push_error("TERRAIN V6.5 PAD FAIL: exported mesh foundation not level at %s (%.3fm)" % [pad["name"],difference])
             quit(1)
