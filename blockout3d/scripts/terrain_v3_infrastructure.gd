@@ -207,8 +207,26 @@ func _make_main_bridge(candidates: Array[float] = [-9.0,-8.0,-10.0,-7.0,
         collision.shape = shape
         bridge_collider.add_child(collision)
 
-    # Narrow wooden guard rails are visual only: no invisible trapping
-    # collision boxes, and only a few simple batched primitive meshes.
+    # Physical rail guards protect against accidental SIDEWAYS falls while
+    # leaving BOTH ramp entries clear. Separate body: deck still has exactly
+    # 32 segment shapes for its precise visual/collision regression.
+    var rail_physics := StaticBody3D.new()
+    rail_physics.name = "BridgeRailGuardCollision"
+    rail_physics.collision_layer = 1
+    rail_physics.collision_mask = 0
+    add_child(rail_physics)
+    for side in [-1.0,1.0]:
+        var rail_shape := BoxShape3D.new()
+        rail_shape.size = Vector3(bridge_half_span*1.53,0.78,0.20)
+        var rail_guard := CollisionShape3D.new()
+        rail_guard.name = "SideGuardL" if side < 0.0 else "SideGuardR"
+        rail_guard.shape = rail_shape
+        rail_guard.position = Vector3(bridge_center_x,deck_center_y+0.35,
+                        bridge_z+side*(BRIDGE_HALF_WIDTH+0.08))
+        rail_physics.add_child(rail_guard)
+
+    # Narrow wooden rails and posts remain visually hand-painted.
+    # Their physical guards do not block either end of the walkway.
     for side in [-1.0,1.0]:
         for i in range(6):
             var t := 0.11+float(i)*0.155

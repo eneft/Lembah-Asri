@@ -159,4 +159,27 @@ func _run() -> void:
         _fail("not all bridges crossed")
         return
     print("TERRAIN V6 TRAVERSAL PASS: both bridges physically crossed IN BOTH DIRECTIONS by original 55% player capsule")
+
+    # V6.4: test the actual player against both handrail guards from BOTH
+    # sides, not merely the deck floor under the middle of the bridge.
+    for bridge in bridges.slice(0,2):
+        var cx: float = float(bridge["cx"])
+        var z: float = float(bridge["z"])
+        var deck_y: float = float(infra.get("deck_center_y")) if z < 0.0 else float(infra.get("secondary_deck_y"))
+        var rails_name := "BridgeRailGuardCollision" if z < 0.0 else "SouthernBridgeRailGuardCollision"
+        var rail_body := infra.get_node_or_null(rails_name) as StaticBody3D
+        if rail_body == null or rail_body.get_child_count() != 2:
+            _fail("missing both physical side guards: " + rails_name)
+            return
+        for side in [-1.0,1.0]:
+            player.global_position = Vector3(cx,deck_y+0.22,z)
+            player.velocity = Vector3.ZERO
+            for step in range(38):
+                player.velocity = Vector3(0.0,-1.3,side*2.8)
+                player.move_and_slide()
+                await physics_frame
+            if absf(player.global_position.z-z) > 1.42:
+                _fail("player escaped bridge handrail: " + rails_name)
+                return
+    print("TERRAIN V6.4 SIDE GUARD PASS: both bridges prevent sideways player falls from either side")
     quit(0)
