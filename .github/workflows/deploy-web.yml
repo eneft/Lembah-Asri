@@ -394,6 +394,38 @@ jobs:
           echo 'V7.8 WEB PACK SMOKE PASS: actual packed terrain-test boots and paints world'
           echo 'TERRAIN BASE WEB TEST READY: /terrain-test/'
 
+      - name: Verify actual WebGL render in Chromium browser
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          cd blockout3d/tools
+          npm install --no-save --silent playwright@1.56.1 pngjs@7.0.0
+          if command -v google-chrome >/dev/null 2>&1; then
+            export CHROME_PATH="$(command -v google-chrome)"
+          elif command -v chromium >/dev/null 2>&1; then
+            export CHROME_PATH="$(command -v chromium)"
+          else
+            npx playwright install chromium
+          fi
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p build/browser-audit
+          python3 -m http.server 8767 --bind 127.0.0.1 --directory build/web >build/browser-audit/http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          export AUDIT_DIR="$GITHUB_WORKSPACE/build/browser-audit"
+          export AUDIT_URL="http://127.0.0.1:8767/terrain-test/"
+          timeout 170s node blockout3d/tools/terrain_browser_smoke.cjs 2>&1 | tee build/browser-audit/console.log
+          grep -q '"ok":true' build/browser-audit/console.log
+
+      - name: Upload browser render diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lembah-asri-browser-audit
+          path: build/browser-audit
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Include expanded 260m island mesh with painted map
         run: |
           set -euo pipefail
