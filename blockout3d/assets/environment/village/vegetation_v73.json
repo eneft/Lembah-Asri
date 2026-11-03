@@ -1,0 +1,3542 @@
+{
+  "revision": "V7.3",
+  "purpose": "Phase 1: village yards, civic hall, river, coastal access",
+  "source": "terrain_v3_landuse.PLOTS / PATHS and village_art.gd",
+  "seed": 1517549079,
+  "protect": "Open gathering green, doors, footprints, all paths and both bridge approaches",
+  "target": {
+    "shade": 14,
+    "banana": 10,
+    "shrub": 40,
+    "grass": 107,
+    "palm": 8
+  },
+  "zones": [
+    {
+      "id": "desa_inti",
+      "bounds": [
+        14,
+        -54,
+        104,
+        47
+      ],
+      "specs": {
+        "shade": 6,
+        "banana": 3,
+        "shrub": 11,
+        "grass": 34
+      }
+    },
+    {
+      "id": "pekarangan_barat",
+      "bounds": [
+        -105,
+        -60,
+        -24,
+        39
+      ],
+      "specs": {
+        "shade": 3,
+        "banana": 5,
+        "shrub": 8,
+        "grass": 21
+      }
+    },
+    {
+      "id": "balai_desa",
+      "bounds": [
+        39,
+        21,
+        74,
+        61
+      ],
+      "specs": {
+        "shade": 2,
+        "banana": 1,
+        "shrub": 4,
+        "grass": 12
+      }
+    },
+    {
+      "id": "tepi_sungai",
+      "bounds": [
+        -35,
+        -38,
+        35,
+        56
+      ],
+      "specs": {
+        "shade": 3,
+        "banana": 1,
+        "shrub": 9,
+        "grass": 18
+      }
+    },
+    {
+      "id": "akses_pesisir",
+      "bounds": [
+        34,
+        48,
+        109,
+        91
+      ],
+      "specs": {
+        "palm": 8,
+        "shrub": 8,
+        "grass": 22
+      }
+    }
+  ],
+  "plots": [
+    {
+      "id": "rumah_masa_kecil",
+      "kind": "home",
+      "center": [
+        -74,
+        -56
+      ],
+      "foot": [
+        10,
+        8.5
+      ],
+      "yard": [
+        21,
+        19
+      ],
+      "yaw": -8
+    },
+    {
+      "id": "rumah_barat_01",
+      "kind": "home",
+      "center": [
+        -48.2857,
+        -16.7143
+      ],
+      "foot": [
+        9,
+        7
+      ],
+      "yard": [
+        15,
+        13
+      ],
+      "yaw": 8
+    },
+    {
+      "id": "rumah_barat_02",
+      "kind": "home",
+      "center": [
+        -72.4286,
+        -9.2857
+      ],
+      "foot": [
+        9,
+        7
+      ],
+      "yard": [
+        15,
+        13
+      ],
+      "yaw": -9
+    },
+    {
+      "id": "rumah_barat_03",
+      "kind": "home",
+      "center": [
+        -42.7143,
+        20.4286
+      ],
+      "foot": [
+        9,
+        7
+      ],
+      "yard": [
+        14,
+        13
+      ],
+      "yaw": -4
+    },
+    {
+      "id": "gudang_kebun",
+      "kind": "farm",
+      "center": [
+        -87.2857,
+        -42.7143
+      ],
+      "foot": [
+        9,
+        8
+      ],
+      "yard": [
+        16,
+        15
+      ],
+      "yaw": 6
+    },
+    {
+      "id": "rumah_desa_01",
+      "kind": "home",
+      "center": [
+        29.7143,
+        -35.2857
+      ],
+      "foot": [
+        9,
+        7.5
+      ],
+      "yard": [
+        14,
+        13
+      ],
+      "yaw": 5
+    },
+    {
+      "id": "rumah_desa_02",
+      "kind": "home",
+      "center": [
+        57.5714,
+        -37.1429
+      ],
+      "foot": [
+        9.5,
+        7.5
+      ],
+      "yard": [
+        15,
+        13
+      ],
+      "yaw": -6
+    },
+    {
+      "id": "rumah_desa_03",
+      "kind": "home",
+      "center": [
+        83.5714,
+        -31.5714
+      ],
+      "foot": [
+        9,
+        7
+      ],
+      "yard": [
+        14,
+        12
+      ],
+      "yaw": 5
+    },
+    {
+      "id": "rumah_desa_04",
+      "kind": "home",
+      "center": [
+        24.1429,
+        -3.7143
+      ],
+      "foot": [
+        9,
+        7.5
+      ],
+      "yard": [
+        14,
+        13
+      ],
+      "yaw": -8
+    },
+    {
+      "id": "rumah_desa_05",
+      "kind": "home",
+      "center": [
+        85.4286,
+        0
+      ],
+      "foot": [
+        9,
+        7.5
+      ],
+      "yard": [
+        14,
+        13
+      ],
+      "yaw": 11
+    },
+    {
+      "id": "rumah_desa_06",
+      "kind": "home",
+      "center": [
+        24.1429,
+        35.2857
+      ],
+      "foot": [
+        9,
+        7.5
+      ],
+      "yard": [
+        14,
+        13
+      ],
+      "yaw": 7
+    },
+    {
+      "id": "rumah_desa_07",
+      "kind": "home",
+      "center": [
+        85.4286,
+        37.1429
+      ],
+      "foot": [
+        9,
+        7.5
+      ],
+      "yard": [
+        14,
+        13
+      ],
+      "yaw": -5
+    },
+    {
+      "id": "lapangan_berkumpul",
+      "kind": "square",
+      "center": [
+        54.7857,
+        2.7857
+      ],
+      "foot": [
+        12,
+        10
+      ],
+      "yard": [
+        31,
+        26
+      ],
+      "yaw": 0
+    },
+    {
+      "id": "balai_desa",
+      "kind": "public",
+      "center": [
+        55.7143,
+        39
+      ],
+      "foot": [
+        11,
+        9
+      ],
+      "yard": [
+        17,
+        15
+      ],
+      "yaw": 0
+    },
+    {
+      "id": "rumah_nelayan_01",
+      "kind": "fishing",
+      "center": [
+        35.2857,
+        68.7143
+      ],
+      "foot": [
+        8,
+        6.5
+      ],
+      "yard": [
+        13,
+        11
+      ],
+      "yaw": -6
+    },
+    {
+      "id": "rumah_nelayan_02",
+      "kind": "fishing",
+      "center": [
+        63.1429,
+        72.4286
+      ],
+      "foot": [
+        8,
+        6.5
+      ],
+      "yard": [
+        13,
+        11
+      ],
+      "yaw": 8
+    },
+    {
+      "id": "warung_pesisir",
+      "kind": "fishing",
+      "center": [
+        89.1429,
+        65
+      ],
+      "foot": [
+        9,
+        7
+      ],
+      "yard": [
+        14,
+        12
+      ],
+      "yaw": -7
+    },
+    {
+      "id": "pos_ronda_balai",
+      "kind": "watch_post",
+      "center": [
+        48.7143,
+        39
+      ],
+      "foot": [
+        2.4,
+        2.3
+      ],
+      "yard": [
+        2.4,
+        2.3
+      ],
+      "yaw": 0
+    }
+  ],
+  "paths": [
+    {
+      "id": "jalan_desa_timur",
+      "points": [
+        [
+          22.2857,
+          -53.8571
+        ],
+        [
+          42.7143,
+          -52
+        ],
+        [
+          44.5714,
+          -37.1429
+        ],
+        [
+          44.5714,
+          -20.4286
+        ],
+        [
+          66.8571,
+          0
+        ],
+        [
+          68.7143,
+          26
+        ],
+        [
+          63.1429,
+          46.4286
+        ],
+        [
+          48.2857,
+          52
+        ],
+        [
+          46.4286,
+          66.8571
+        ],
+        [
+          44.5714,
+          81.7143
+        ]
+      ],
+      "width": 3.1
+    },
+    {
+      "id": "lorong_desa_timur",
+      "points": [
+        [
+          18.5714,
+          -16.7143
+        ],
+        [
+          35.2857,
+          -13
+        ],
+        [
+          61.2857,
+          -14.8571
+        ],
+        [
+          91,
+          -13
+        ]
+      ],
+      "width": 1.8
+    },
+    {
+      "id": "jalan_rumah_timur",
+      "points": [
+        [
+          22.2857,
+          24.1429
+        ],
+        [
+          46.4286,
+          24.1429
+        ],
+        [
+          79.8571,
+          22.2857
+        ]
+      ],
+      "width": 1.8
+    },
+    {
+      "id": "akses_sawah_barat",
+      "points": [
+        [
+          -105.8571,
+          -44.5714
+        ],
+        [
+          -100.2857,
+          -35.2857
+        ],
+        [
+          -89.1429,
+          -22.2857
+        ],
+        [
+          -89.1429,
+          -7.4286
+        ],
+        [
+          -81.7143,
+          13
+        ],
+        [
+          -61.2857,
+          24.1429
+        ],
+        [
+          -66.8571,
+          50.1429
+        ]
+      ],
+      "width": 2
+    },
+    {
+      "id": "jalan_kampung_barat",
+      "points": [
+        [
+          -81.7143,
+          13
+        ],
+        [
+          -55.7143,
+          7.4286
+        ],
+        [
+          -27.8571,
+          9.2857
+        ]
+      ],
+      "width": 1.8
+    },
+    {
+      "id": "akses_jembatan_barat",
+      "points": [
+        [
+          -27.8571,
+          9.2857
+        ],
+        [
+          -24.1429,
+          1.8571
+        ],
+        [
+          -22.2857,
+          -10.2143
+        ]
+      ],
+      "width": 2.3
+    },
+    {
+      "id": "akses_nelayan",
+      "points": [
+        [
+          63.1429,
+          46.4286
+        ],
+        [
+          68.7143,
+          63.1429
+        ],
+        [
+          83.5714,
+          76.1429
+        ]
+      ],
+      "width": 1.8
+    },
+    {
+      "id": "akses_jembatan_utama",
+      "points": [
+        [
+          -34,
+          -5
+        ],
+        [
+          -22,
+          -10
+        ],
+        [
+          -15,
+          -9
+        ],
+        [
+          -8,
+          -9
+        ],
+        [
+          -1,
+          -9
+        ],
+        [
+          12,
+          -12
+        ],
+        [
+          19,
+          -17
+        ],
+        [
+          28,
+          -14
+        ]
+      ],
+      "width": 2.65
+    },
+    {
+      "id": "jalan_rumah_masa_kecil",
+      "points": [
+        [
+          -106,
+          -44
+        ],
+        [
+          -102,
+          -48
+        ],
+        [
+          -95,
+          -55
+        ],
+        [
+          -86,
+          -56
+        ]
+      ],
+      "width": 2.25
+    },
+    {
+      "id": "akses_jembatan_selatan",
+      "points": [
+        [
+          -61.3,
+          24.1
+        ],
+        [
+          -52,
+          29
+        ],
+        [
+          -40,
+          36
+        ],
+        [
+          -22,
+          44
+        ],
+        [
+          -3,
+          47
+        ],
+        [
+          9,
+          47
+        ],
+        [
+          22,
+          48
+        ],
+        [
+          43,
+          48
+        ],
+        [
+          63,
+          46
+        ]
+      ],
+      "width": 2.7
+    }
+  ],
+  "candidates": [
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 75.46,
+      "z": -20.97,
+      "scale": 0.855,
+      "yaw": 56.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 74.35,
+      "z": 3.03,
+      "scale": 1.083,
+      "yaw": 78.2
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 75.15,
+      "z": 33.67,
+      "scale": 1.111,
+      "yaw": 78.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 71.39,
+      "z": 42.19,
+      "scale": 1.085,
+      "yaw": 159.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 70.24,
+      "z": -22.02,
+      "scale": 1.046,
+      "yaw": 335.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 33.91,
+      "z": -4.88,
+      "scale": 0.893,
+      "yaw": 320.6
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 69.07,
+      "z": -36.43,
+      "scale": 1.038,
+      "yaw": 187.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 36.4,
+      "z": -29.17,
+      "scale": 1.031,
+      "yaw": 58.1
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 24.03,
+      "z": -20.53,
+      "scale": 0.935,
+      "yaw": 18.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 85.36,
+      "z": -9.11,
+      "scale": 1.098,
+      "yaw": 240.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 73.68,
+      "z": -38.45,
+      "scale": 1.084,
+      "yaw": 210.1
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shade",
+      "x": 33.59,
+      "z": 10.34,
+      "scale": 1.016,
+      "yaw": 340.6
+    },
+    {
+      "zone": "desa_inti",
+      "type": "banana",
+      "x": 16.02,
+      "z": 33.62,
+      "scale": 0.832,
+      "yaw": 135.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "banana",
+      "x": 78.13,
+      "z": -44.36,
+      "scale": 1.015,
+      "yaw": 103.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "banana",
+      "x": 19.2,
+      "z": -27.69,
+      "scale": 0.937,
+      "yaw": 154.2
+    },
+    {
+      "zone": "desa_inti",
+      "type": "banana",
+      "x": 95.8,
+      "z": -22.4,
+      "scale": 1.164,
+      "yaw": 150.3
+    },
+    {
+      "zone": "desa_inti",
+      "type": "banana",
+      "x": 44.37,
+      "z": 36.32,
+      "scale": 0.833,
+      "yaw": 312.5
+    },
+    {
+      "zone": "desa_inti",
+      "type": "banana",
+      "x": 103.78,
+      "z": 43.62,
+      "scale": 0.988,
+      "yaw": 333
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 98.9,
+      "z": 21.38,
+      "scale": 0.963,
+      "yaw": 328.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 18.22,
+      "z": 20.51,
+      "scale": 0.96,
+      "yaw": 74.2
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 100.69,
+      "z": -14.23,
+      "scale": 1.115,
+      "yaw": 51.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 92.18,
+      "z": 8.67,
+      "scale": 1.026,
+      "yaw": 330.1
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 22.98,
+      "z": -32.65,
+      "scale": 0.893,
+      "yaw": 289
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 62.14,
+      "z": -20.8,
+      "scale": 0.943,
+      "yaw": 254.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 77.3,
+      "z": -53.1,
+      "scale": 0.956,
+      "yaw": 353.5
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 79.21,
+      "z": 27.13,
+      "scale": 0.999,
+      "yaw": 313.2
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 84.8,
+      "z": 22.01,
+      "scale": 1.018,
+      "yaw": 35.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 89.47,
+      "z": -33.58,
+      "scale": 1.076,
+      "yaw": 76.6
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 90.77,
+      "z": -40.11,
+      "scale": 0.885,
+      "yaw": 73.6
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 76.81,
+      "z": 11.98,
+      "scale": 0.908,
+      "yaw": 315.3
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 99.79,
+      "z": -28.38,
+      "scale": 0.984,
+      "yaw": 119.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 39.37,
+      "z": 37.2,
+      "scale": 0.948,
+      "yaw": 12.5
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 90.99,
+      "z": 5.68,
+      "scale": 0.899,
+      "yaw": 38.3
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 95.99,
+      "z": 9.39,
+      "scale": 0.922,
+      "yaw": 273.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 79.32,
+      "z": 10.02,
+      "scale": 0.952,
+      "yaw": 279.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 30.69,
+      "z": -10.83,
+      "scale": 1.136,
+      "yaw": 262
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 88.97,
+      "z": -17.53,
+      "scale": 1.133,
+      "yaw": 8.1
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 79.12,
+      "z": -16.8,
+      "scale": 0.906,
+      "yaw": 105.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 99.38,
+      "z": -22.15,
+      "scale": 0.985,
+      "yaw": 326.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "shrub",
+      "x": 22.68,
+      "z": -39.52,
+      "scale": 0.928,
+      "yaw": 225.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 21.53,
+      "z": -42.1,
+      "scale": 1.161,
+      "yaw": 233.6
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 76.14,
+      "z": -3.49,
+      "scale": 0.896,
+      "yaw": 19.3
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 88.25,
+      "z": 31.23,
+      "scale": 1.023,
+      "yaw": 124.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 55.13,
+      "z": -21.96,
+      "scale": 0.84,
+      "yaw": 35.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 75.81,
+      "z": -29.76,
+      "scale": 0.979,
+      "yaw": 211.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 37,
+      "z": -48.37,
+      "scale": 0.965,
+      "yaw": 150.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 72.75,
+      "z": -50.83,
+      "scale": 0.992,
+      "yaw": 264.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 47.96,
+      "z": 33.67,
+      "scale": 1.035,
+      "yaw": 90.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 54.69,
+      "z": -50.86,
+      "scale": 1.105,
+      "yaw": 56
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 94.25,
+      "z": -37.37,
+      "scale": 0.95,
+      "yaw": 141.2
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 98.79,
+      "z": -43.29,
+      "scale": 1.037,
+      "yaw": 98.3
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 93.92,
+      "z": -6.52,
+      "scale": 0.981,
+      "yaw": 152.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 41.67,
+      "z": 18.73,
+      "scale": 0.971,
+      "yaw": 176.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 28.69,
+      "z": -46.42,
+      "scale": 0.872,
+      "yaw": 299.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 86.41,
+      "z": -41.26,
+      "scale": 1.011,
+      "yaw": 9.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 92.88,
+      "z": -53.98,
+      "scale": 0.863,
+      "yaw": 292.5
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 95.74,
+      "z": 6.72,
+      "scale": 0.877,
+      "yaw": 231.6
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 20.49,
+      "z": 29.72,
+      "scale": 1.048,
+      "yaw": 230.2
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 93.53,
+      "z": 37.66,
+      "scale": 0.98,
+      "yaw": 116.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 81.38,
+      "z": 32.84,
+      "scale": 0.886,
+      "yaw": 290.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 103.04,
+      "z": 7.66,
+      "scale": 0.98,
+      "yaw": 92.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 99.51,
+      "z": 46.08,
+      "scale": 1.035,
+      "yaw": 259.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 30.28,
+      "z": -42.36,
+      "scale": 1.048,
+      "yaw": 215.6
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 55.61,
+      "z": -20.43,
+      "scale": 0.944,
+      "yaw": 180.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 59.8,
+      "z": 32.1,
+      "scale": 1.062,
+      "yaw": 182.1
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 14.61,
+      "z": 6,
+      "scale": 0.93,
+      "yaw": 205.6
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 54.19,
+      "z": 18.06,
+      "scale": 1.11,
+      "yaw": 148
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 66.7,
+      "z": -41.88,
+      "scale": 1.088,
+      "yaw": 240.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 35.21,
+      "z": 34.92,
+      "scale": 0.907,
+      "yaw": 86.2
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 66.63,
+      "z": -17.34,
+      "scale": 0.873,
+      "yaw": 252.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 20.72,
+      "z": -43.04,
+      "scale": 0.864,
+      "yaw": 180.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 90.68,
+      "z": 19.38,
+      "scale": 0.911,
+      "yaw": 212
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 53.19,
+      "z": -29.22,
+      "scale": 1.137,
+      "yaw": 359.6
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 94.21,
+      "z": -48.14,
+      "scale": 0.895,
+      "yaw": 138.1
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 94.23,
+      "z": 1.47,
+      "scale": 1.023,
+      "yaw": 167.1
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 14.15,
+      "z": 37.94,
+      "scale": 1.129,
+      "yaw": 237.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 18.06,
+      "z": 23.01,
+      "scale": 1.152,
+      "yaw": 333.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 83.3,
+      "z": -40.37,
+      "scale": 0.914,
+      "yaw": 279
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 76.34,
+      "z": 16.41,
+      "scale": 0.857,
+      "yaw": 67.2
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 18.48,
+      "z": -24.79,
+      "scale": 1.126,
+      "yaw": 258.3
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 33.32,
+      "z": -45.85,
+      "scale": 1.128,
+      "yaw": 13.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 94.06,
+      "z": 39.13,
+      "scale": 0.874,
+      "yaw": 169.5
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 90.63,
+      "z": -25.28,
+      "scale": 1.05,
+      "yaw": 321.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 103.16,
+      "z": -33.59,
+      "scale": 1.009,
+      "yaw": 261.2
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 35.67,
+      "z": 16.06,
+      "scale": 1.077,
+      "yaw": 62
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 21.55,
+      "z": -9.82,
+      "scale": 1.088,
+      "yaw": 93.3
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 96.24,
+      "z": -34.49,
+      "scale": 1.038,
+      "yaw": 246.1
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 30.28,
+      "z": -22.19,
+      "scale": 0.834,
+      "yaw": 29.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 82.61,
+      "z": 19.3,
+      "scale": 1.141,
+      "yaw": 88.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 75.32,
+      "z": -10.05,
+      "scale": 1.019,
+      "yaw": 196.2
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 99.63,
+      "z": 35.72,
+      "scale": 1.151,
+      "yaw": 345.5
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 42.68,
+      "z": 39.94,
+      "scale": 0.921,
+      "yaw": 83
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 99.49,
+      "z": -3.01,
+      "scale": 1.062,
+      "yaw": 66.7
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 14.49,
+      "z": -42.09,
+      "scale": 0.825,
+      "yaw": 121.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 33.32,
+      "z": -16.35,
+      "scale": 1.108,
+      "yaw": 344.5
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 33.3,
+      "z": 41.73,
+      "scale": 1.155,
+      "yaw": 272.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 93.01,
+      "z": -2.41,
+      "scale": 1.085,
+      "yaw": 327.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 26.29,
+      "z": 8.1,
+      "scale": 0.91,
+      "yaw": 204.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 65.98,
+      "z": -49.97,
+      "scale": 0.838,
+      "yaw": 50.1
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 94.87,
+      "z": 36.75,
+      "scale": 1.117,
+      "yaw": 144.9
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 36.16,
+      "z": 2.45,
+      "scale": 1.145,
+      "yaw": 230.5
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 14.42,
+      "z": 19.95,
+      "scale": 1.041,
+      "yaw": 208.8
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 17.31,
+      "z": 41.97,
+      "scale": 0.961,
+      "yaw": 221.6
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 97.3,
+      "z": -29.36,
+      "scale": 1.049,
+      "yaw": 250.4
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 39.66,
+      "z": 43.82,
+      "scale": 1.068,
+      "yaw": 232.3
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 72.86,
+      "z": -33.39,
+      "scale": 0.847,
+      "yaw": 271.5
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 98.43,
+      "z": -36.83,
+      "scale": 1.043,
+      "yaw": 7.3
+    },
+    {
+      "zone": "desa_inti",
+      "type": "grass",
+      "x": 72.99,
+      "z": -3.76,
+      "scale": 1.167,
+      "yaw": 64.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shade",
+      "x": -102.53,
+      "z": -15.61,
+      "scale": 1.151,
+      "yaw": 190.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shade",
+      "x": -27.35,
+      "z": -58.97,
+      "scale": 1.024,
+      "yaw": 251.5
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shade",
+      "x": -36.08,
+      "z": -43.09,
+      "scale": 0.838,
+      "yaw": 148.5
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shade",
+      "x": -55.57,
+      "z": 19.29,
+      "scale": 0.988,
+      "yaw": 274.5
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shade",
+      "x": -50.27,
+      "z": -58.82,
+      "scale": 1.088,
+      "yaw": 61.3
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shade",
+      "x": -64.51,
+      "z": -25.75,
+      "scale": 0.886,
+      "yaw": 86.8
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "banana",
+      "x": -97.9,
+      "z": -0.58,
+      "scale": 0.975,
+      "yaw": 33.1
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "banana",
+      "x": -98.51,
+      "z": 28.53,
+      "scale": 0.942,
+      "yaw": 302.5
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "banana",
+      "x": -50.87,
+      "z": 13.44,
+      "scale": 0.972,
+      "yaw": 91.9
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "banana",
+      "x": -57.96,
+      "z": -9.87,
+      "scale": 0.939,
+      "yaw": 191.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "banana",
+      "x": -30.22,
+      "z": 1.92,
+      "scale": 0.962,
+      "yaw": 93.4
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "banana",
+      "x": -70.35,
+      "z": 23.43,
+      "scale": 1.034,
+      "yaw": 11.4
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "banana",
+      "x": -97.06,
+      "z": -57.97,
+      "scale": 0.87,
+      "yaw": 87.1
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "banana",
+      "x": -62.39,
+      "z": 1.34,
+      "scale": 1.166,
+      "yaw": 298.8
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "banana",
+      "x": -101.83,
+      "z": -20.84,
+      "scale": 1.128,
+      "yaw": 306.4
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "banana",
+      "x": -99.17,
+      "z": 36.3,
+      "scale": 1.046,
+      "yaw": 300.8
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -31.82,
+      "z": -50.54,
+      "scale": 1.067,
+      "yaw": 358.7
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -79.65,
+      "z": 19.01,
+      "scale": 0.917,
+      "yaw": 126.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -35.31,
+      "z": -35.82,
+      "scale": 0.912,
+      "yaw": 109
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -100.58,
+      "z": -4.69,
+      "scale": 1.156,
+      "yaw": 29.3
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -76.84,
+      "z": 7.08,
+      "scale": 1.068,
+      "yaw": 122.1
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -40.67,
+      "z": 12.82,
+      "scale": 0.867,
+      "yaw": 333.4
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -89.7,
+      "z": 29.51,
+      "scale": 0.901,
+      "yaw": 334.1
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -60,
+      "z": -8.03,
+      "scale": 0.868,
+      "yaw": 121.4
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -36.02,
+      "z": -14.3,
+      "scale": 1.047,
+      "yaw": 181.4
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -34.34,
+      "z": 21.11,
+      "scale": 1.098,
+      "yaw": 224.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -102.46,
+      "z": -27.9,
+      "scale": 1.016,
+      "yaw": 318
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -96.37,
+      "z": -16.84,
+      "scale": 1.073,
+      "yaw": 42.9
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -98.59,
+      "z": 22.51,
+      "scale": 0.842,
+      "yaw": 247.1
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -33.08,
+      "z": 3.91,
+      "scale": 1.075,
+      "yaw": 291.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -25.02,
+      "z": -24.71,
+      "scale": 1.043,
+      "yaw": 303
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "shrub",
+      "x": -103.27,
+      "z": 30.79,
+      "scale": 0.966,
+      "yaw": 185.3
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -26.2,
+      "z": 14.65,
+      "scale": 0.837,
+      "yaw": 73.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -66.2,
+      "z": 30.19,
+      "scale": 0.885,
+      "yaw": 171.6
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -69.04,
+      "z": -41.24,
+      "scale": 0.943,
+      "yaw": 152.1
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -34.58,
+      "z": 30.26,
+      "scale": 0.932,
+      "yaw": 17.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -64.22,
+      "z": -44.66,
+      "scale": 1.103,
+      "yaw": 274
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -66.83,
+      "z": -4.34,
+      "scale": 1.016,
+      "yaw": 235.9
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -38.64,
+      "z": -16.74,
+      "scale": 1.158,
+      "yaw": 148.9
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -64.7,
+      "z": -50.77,
+      "scale": 1.057,
+      "yaw": 58.7
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -69.39,
+      "z": -49.81,
+      "scale": 1.024,
+      "yaw": 164.5
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -36.75,
+      "z": 29.3,
+      "scale": 1.057,
+      "yaw": 269
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -49.8,
+      "z": -42.28,
+      "scale": 1.081,
+      "yaw": 122.7
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -96.85,
+      "z": -14.2,
+      "scale": 1.169,
+      "yaw": 22.8
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -79.89,
+      "z": -24.9,
+      "scale": 0.892,
+      "yaw": 327.9
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -57.22,
+      "z": -30,
+      "scale": 0.975,
+      "yaw": 142.6
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -34.66,
+      "z": -21.94,
+      "scale": 1.091,
+      "yaw": 41.4
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -49.48,
+      "z": -39.32,
+      "scale": 0.965,
+      "yaw": 118.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -54.52,
+      "z": -45.82,
+      "scale": 1.04,
+      "yaw": 63.5
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -70.7,
+      "z": -15.24,
+      "scale": 1.075,
+      "yaw": 30.3
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -96.23,
+      "z": 19.97,
+      "scale": 1.174,
+      "yaw": 264.6
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -32.96,
+      "z": -53.69,
+      "scale": 0.834,
+      "yaw": 299.5
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -65.48,
+      "z": 0.51,
+      "scale": 0.882,
+      "yaw": 292.7
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -29.33,
+      "z": 33.27,
+      "scale": 0.921,
+      "yaw": 35.7
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -46.02,
+      "z": -46.26,
+      "scale": 1.058,
+      "yaw": 213.9
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -88.48,
+      "z": 19.01,
+      "scale": 1.169,
+      "yaw": 3.6
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -39.22,
+      "z": 4.02,
+      "scale": 1.009,
+      "yaw": 357.4
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -25.3,
+      "z": -29.74,
+      "scale": 1.029,
+      "yaw": 177.6
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -92.81,
+      "z": 12.54,
+      "scale": 1.173,
+      "yaw": 217
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -38.09,
+      "z": 3.99,
+      "scale": 0.834,
+      "yaw": 93.8
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -51.73,
+      "z": -25.6,
+      "scale": 1.135,
+      "yaw": 19.5
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -76.49,
+      "z": -20.05,
+      "scale": 1.109,
+      "yaw": 326.5
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -45.97,
+      "z": -48.27,
+      "scale": 0.858,
+      "yaw": 193.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -62.09,
+      "z": -9.89,
+      "scale": 1.096,
+      "yaw": 323.4
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -63.01,
+      "z": -1.53,
+      "scale": 1.115,
+      "yaw": 318.3
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -32.58,
+      "z": -33.34,
+      "scale": 1.117,
+      "yaw": 204
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -51.24,
+      "z": -45.95,
+      "scale": 0.9,
+      "yaw": 337.7
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -61.11,
+      "z": -17.54,
+      "scale": 1.06,
+      "yaw": 21
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -44.73,
+      "z": 14.71,
+      "scale": 1.03,
+      "yaw": 176.9
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -81.87,
+      "z": -12.13,
+      "scale": 1.112,
+      "yaw": 141.5
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -103.39,
+      "z": 27.84,
+      "scale": 0.896,
+      "yaw": 332.2
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -29.42,
+      "z": -43.48,
+      "scale": 1.063,
+      "yaw": 211.1
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -74.49,
+      "z": -32.17,
+      "scale": 1.108,
+      "yaw": 83.7
+    },
+    {
+      "zone": "pekarangan_barat",
+      "type": "grass",
+      "x": -36.88,
+      "z": -50.55,
+      "scale": 1.148,
+      "yaw": 49
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shade",
+      "x": 60.54,
+      "z": 53.09,
+      "scale": 1.147,
+      "yaw": 150
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shade",
+      "x": 58.33,
+      "z": 60.29,
+      "scale": 0.916,
+      "yaw": 252.6
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shade",
+      "x": 52.98,
+      "z": 58.74,
+      "scale": 1.071,
+      "yaw": 206.9
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shade",
+      "x": 39.48,
+      "z": 57.03,
+      "scale": 1.061,
+      "yaw": 327.1
+    },
+    {
+      "zone": "balai_desa",
+      "type": "banana",
+      "x": 49.21,
+      "z": 31.35,
+      "scale": 1.038,
+      "yaw": 6.4
+    },
+    {
+      "zone": "balai_desa",
+      "type": "banana",
+      "x": 70.86,
+      "z": 49.17,
+      "scale": 0.839,
+      "yaw": 21.2
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shrub",
+      "x": 73.8,
+      "z": 50.21,
+      "scale": 1.094,
+      "yaw": 319.2
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shrub",
+      "x": 54.51,
+      "z": 31.79,
+      "scale": 0.948,
+      "yaw": 99.3
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shrub",
+      "x": 60.59,
+      "z": 27.25,
+      "scale": 1.024,
+      "yaw": 83.7
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shrub",
+      "x": 53.51,
+      "z": 26.75,
+      "scale": 1.074,
+      "yaw": 124.4
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shrub",
+      "x": 52.42,
+      "z": 29.17,
+      "scale": 1.073,
+      "yaw": 18.8
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shrub",
+      "x": 41.83,
+      "z": 28.19,
+      "scale": 0.992,
+      "yaw": 314.7
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shrub",
+      "x": 47.81,
+      "z": 41.6,
+      "scale": 0.857,
+      "yaw": 152.9
+    },
+    {
+      "zone": "balai_desa",
+      "type": "shrub",
+      "x": 68.18,
+      "z": 48.41,
+      "scale": 0.911,
+      "yaw": 35.9
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 60.92,
+      "z": 30.27,
+      "scale": 1.158,
+      "yaw": 220.7
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 63.49,
+      "z": 60.62,
+      "scale": 1.149,
+      "yaw": 219.6
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 70.45,
+      "z": 58.61,
+      "scale": 1.056,
+      "yaw": 283.9
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 55.64,
+      "z": 54.3,
+      "scale": 1.128,
+      "yaw": 132
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 61.06,
+      "z": 32.18,
+      "scale": 0.89,
+      "yaw": 281.6
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 47.72,
+      "z": 28.25,
+      "scale": 1.056,
+      "yaw": 211.7
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 72.64,
+      "z": 57.16,
+      "scale": 1.128,
+      "yaw": 69.5
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 48.91,
+      "z": 35.07,
+      "scale": 1.111,
+      "yaw": 270.9
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 63.48,
+      "z": 26.9,
+      "scale": 1.048,
+      "yaw": 252.6
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 46.05,
+      "z": 44.42,
+      "scale": 0.826,
+      "yaw": 228.9
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 63.78,
+      "z": 56.74,
+      "scale": 1.111,
+      "yaw": 86.3
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 72.7,
+      "z": 54.88,
+      "scale": 1.016,
+      "yaw": 209.7
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 69.66,
+      "z": 56.81,
+      "scale": 1.103,
+      "yaw": 132.3
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 69.62,
+      "z": 52.63,
+      "scale": 1.027,
+      "yaw": 240.5
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 40.1,
+      "z": 33.97,
+      "scale": 0.954,
+      "yaw": 47.6
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 40.95,
+      "z": 30.98,
+      "scale": 1.153,
+      "yaw": 359.1
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 63.89,
+      "z": 30.85,
+      "scale": 0.96,
+      "yaw": 339.2
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 41.51,
+      "z": 35.06,
+      "scale": 0.846,
+      "yaw": 8.4
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 45.38,
+      "z": 42.59,
+      "scale": 1.035,
+      "yaw": 331
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 44.37,
+      "z": 56.3,
+      "scale": 0.904,
+      "yaw": 282.1
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 44.24,
+      "z": 58.67,
+      "scale": 0.849,
+      "yaw": 103.3
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 62.55,
+      "z": 34.54,
+      "scale": 1.088,
+      "yaw": 325.9
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 41.27,
+      "z": 32.57,
+      "scale": 1.143,
+      "yaw": 167.7
+    },
+    {
+      "zone": "balai_desa",
+      "type": "grass",
+      "x": 73.32,
+      "z": 26.2,
+      "scale": 1.045,
+      "yaw": 3.8
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shade",
+      "x": -7.3,
+      "z": 39.21,
+      "scale": 1.017,
+      "yaw": 16.1
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shade",
+      "x": 27.14,
+      "z": 28.63,
+      "scale": 0.955,
+      "yaw": 240.1
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shade",
+      "x": 13.09,
+      "z": -18.69,
+      "scale": 0.862,
+      "yaw": 137.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shade",
+      "x": -24.05,
+      "z": -15.08,
+      "scale": 0.882,
+      "yaw": 59.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shade",
+      "x": 5.68,
+      "z": -36.21,
+      "scale": 0.909,
+      "yaw": 262.1
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shade",
+      "x": 6.45,
+      "z": 0.75,
+      "scale": 0.928,
+      "yaw": 299
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "banana",
+      "x": 12.96,
+      "z": -26.92,
+      "scale": 1.135,
+      "yaw": 133.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "banana",
+      "x": -19.49,
+      "z": 39.36,
+      "scale": 0.896,
+      "yaw": 324.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -20.02,
+      "z": 4.71,
+      "scale": 0.904,
+      "yaw": 295.7
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -15.51,
+      "z": 14.22,
+      "scale": 0.837,
+      "yaw": 132.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": 19.75,
+      "z": -30.52,
+      "scale": 1.174,
+      "yaw": 61.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -14.67,
+      "z": -0.15,
+      "scale": 1.105,
+      "yaw": 184.4
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": 2.67,
+      "z": 10.99,
+      "scale": 1.091,
+      "yaw": 181.7
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": 17.38,
+      "z": 25.54,
+      "scale": 1.16,
+      "yaw": 128.7
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -31.25,
+      "z": -25.15,
+      "scale": 0.954,
+      "yaw": 190.1
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": 28.87,
+      "z": 0.76,
+      "scale": 0.849,
+      "yaw": 208.6
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": 1.28,
+      "z": -30.8,
+      "scale": 0.925,
+      "yaw": 236.8
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -20.48,
+      "z": 18.56,
+      "scale": 0.926,
+      "yaw": 332.8
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -13.61,
+      "z": -2.93,
+      "scale": 1.047,
+      "yaw": 233.1
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -19.07,
+      "z": -15.91,
+      "scale": 1.019,
+      "yaw": 358.4
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -16.9,
+      "z": -30.98,
+      "scale": 0.974,
+      "yaw": 286.9
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -26.8,
+      "z": 33.28,
+      "scale": 0.826,
+      "yaw": 125.8
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -10.17,
+      "z": 25.14,
+      "scale": 1.023,
+      "yaw": 102.7
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": 16.8,
+      "z": -4.3,
+      "scale": 1.088,
+      "yaw": 57.9
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": -13.56,
+      "z": -37.87,
+      "scale": 0.976,
+      "yaw": 247.9
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "shrub",
+      "x": 9.19,
+      "z": -28.32,
+      "scale": 1.179,
+      "yaw": 33.1
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 13.58,
+      "z": -3.81,
+      "scale": 1.082,
+      "yaw": 150.7
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 10.82,
+      "z": 23.14,
+      "scale": 1.076,
+      "yaw": 311.5
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -19.84,
+      "z": -34.7,
+      "scale": 0.823,
+      "yaw": 139.4
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 5.66,
+      "z": -30.93,
+      "scale": 0.893,
+      "yaw": 8.8
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -28.23,
+      "z": 25.31,
+      "scale": 1.064,
+      "yaw": 208.1
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 10.74,
+      "z": 6.9,
+      "scale": 1.128,
+      "yaw": 133.1
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 30.34,
+      "z": 5.51,
+      "scale": 1.123,
+      "yaw": 192
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -16.56,
+      "z": 18.39,
+      "scale": 1.085,
+      "yaw": 344
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -21.5,
+      "z": 9.35,
+      "scale": 0.894,
+      "yaw": 289.3
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 22.72,
+      "z": -35.29,
+      "scale": 1.109,
+      "yaw": 28.5
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 0.43,
+      "z": 43.47,
+      "scale": 1.022,
+      "yaw": 259.7
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -21.26,
+      "z": 29.97,
+      "scale": 1.076,
+      "yaw": 295.9
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 18.98,
+      "z": 4.81,
+      "scale": 0.873,
+      "yaw": 319.6
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -27.86,
+      "z": -36.25,
+      "scale": 1.083,
+      "yaw": 286.7
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 9.19,
+      "z": 13.16,
+      "scale": 0.993,
+      "yaw": 316.7
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -26.24,
+      "z": 30.12,
+      "scale": 0.833,
+      "yaw": 168.7
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -30.33,
+      "z": 49.19,
+      "scale": 1.122,
+      "yaw": 167
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -7.89,
+      "z": 33.58,
+      "scale": 1.076,
+      "yaw": 191.9
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 16.27,
+      "z": -10.72,
+      "scale": 1.008,
+      "yaw": 292.9
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 13.92,
+      "z": 4.73,
+      "scale": 1.12,
+      "yaw": 349.7
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -15.02,
+      "z": -17.6,
+      "scale": 1.014,
+      "yaw": 201.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -20.66,
+      "z": 55.92,
+      "scale": 0.907,
+      "yaw": 337.1
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 6.63,
+      "z": 25.93,
+      "scale": 0.91,
+      "yaw": 10.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 17.64,
+      "z": 1.76,
+      "scale": 0.864,
+      "yaw": 166.3
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -14.92,
+      "z": 40.47,
+      "scale": 0.921,
+      "yaw": 228.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 23.16,
+      "z": -9.22,
+      "scale": 0.999,
+      "yaw": 330.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -12.29,
+      "z": -23.58,
+      "scale": 0.928,
+      "yaw": 246.4
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 17.8,
+      "z": -22.31,
+      "scale": 1.078,
+      "yaw": 306.4
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -31.77,
+      "z": 47.14,
+      "scale": 1.008,
+      "yaw": 195.2
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 11.41,
+      "z": -36.3,
+      "scale": 0.981,
+      "yaw": 234.3
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 34.13,
+      "z": 0.23,
+      "scale": 0.854,
+      "yaw": 128.9
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 18.61,
+      "z": 40.06,
+      "scale": 0.984,
+      "yaw": 87.9
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 9.79,
+      "z": 20.68,
+      "scale": 0.9,
+      "yaw": 261.6
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -31.54,
+      "z": 27.32,
+      "scale": 1.067,
+      "yaw": 1.4
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": 30.07,
+      "z": 4.24,
+      "scale": 0.895,
+      "yaw": 203.3
+    },
+    {
+      "zone": "tepi_sungai",
+      "type": "grass",
+      "x": -12.72,
+      "z": -20.46,
+      "scale": 1.139,
+      "yaw": 8.3
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 68.3,
+      "z": 82.72,
+      "scale": 1.023,
+      "yaw": 313.5
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 73.83,
+      "z": 76.93,
+      "scale": 1.163,
+      "yaw": 142.2
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 104.59,
+      "z": 88.51,
+      "scale": 1.027,
+      "yaw": 338.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 78.53,
+      "z": 61.37,
+      "scale": 0.864,
+      "yaw": 164.1
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 89.71,
+      "z": 55.85,
+      "scale": 0.826,
+      "yaw": 202.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 56.49,
+      "z": 71.02,
+      "scale": 1.017,
+      "yaw": 226.6
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 107.37,
+      "z": 71.96,
+      "scale": 1.008,
+      "yaw": 166.4
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 61.14,
+      "z": 84.59,
+      "scale": 0.868,
+      "yaw": 306
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 91.87,
+      "z": 88.6,
+      "scale": 1.154,
+      "yaw": 81.2
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 94.63,
+      "z": 56.59,
+      "scale": 1.009,
+      "yaw": 185.5
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 97.96,
+      "z": 89.38,
+      "scale": 1.144,
+      "yaw": 115.4
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 101.3,
+      "z": 58.81,
+      "scale": 0.959,
+      "yaw": 60.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 59.85,
+      "z": 65.93,
+      "scale": 1.017,
+      "yaw": 81.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 44.13,
+      "z": 87.95,
+      "scale": 0.871,
+      "yaw": 44.7
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 97.79,
+      "z": 65.11,
+      "scale": 1.069,
+      "yaw": 195.1
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "palm",
+      "x": 99.94,
+      "z": 73.33,
+      "scale": 0.857,
+      "yaw": 191.8
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 57.36,
+      "z": 88.39,
+      "scale": 0.911,
+      "yaw": 254
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 89.59,
+      "z": 48.94,
+      "scale": 1.028,
+      "yaw": 290.8
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 76.58,
+      "z": 52.81,
+      "scale": 1.068,
+      "yaw": 95.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 34.48,
+      "z": 63.91,
+      "scale": 0.972,
+      "yaw": 281.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 39.69,
+      "z": 82.99,
+      "scale": 1.016,
+      "yaw": 87.8
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 106.52,
+      "z": 60.39,
+      "scale": 0.992,
+      "yaw": 128.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 108.92,
+      "z": 62.65,
+      "scale": 0.984,
+      "yaw": 351.8
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 52.07,
+      "z": 79.69,
+      "scale": 1.015,
+      "yaw": 73.6
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 105.69,
+      "z": 76.47,
+      "scale": 1.051,
+      "yaw": 166.7
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 80.68,
+      "z": 83.74,
+      "scale": 0.934,
+      "yaw": 245.1
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 73.28,
+      "z": 63.32,
+      "scale": 1.025,
+      "yaw": 32.6
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 84.2,
+      "z": 53.77,
+      "scale": 1.15,
+      "yaw": 94.2
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 51.03,
+      "z": 88.05,
+      "scale": 1.14,
+      "yaw": 84.2
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 98.6,
+      "z": 82.14,
+      "scale": 0.872,
+      "yaw": 324.4
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 34.33,
+      "z": 86.57,
+      "scale": 0.994,
+      "yaw": 56.3
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "shrub",
+      "x": 91.29,
+      "z": 76.33,
+      "scale": 0.925,
+      "yaw": 181.3
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 88.53,
+      "z": 77.98,
+      "scale": 0.829,
+      "yaw": 283.1
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 77.99,
+      "z": 55.14,
+      "scale": 1.006,
+      "yaw": 7.8
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 64.34,
+      "z": 58.81,
+      "scale": 1.013,
+      "yaw": 121.4
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 104.6,
+      "z": 79.99,
+      "scale": 1.126,
+      "yaw": 92.5
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 39.86,
+      "z": 63.39,
+      "scale": 0.905,
+      "yaw": 114.4
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 70.57,
+      "z": 88.17,
+      "scale": 0.843,
+      "yaw": 213
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 69.53,
+      "z": 55.44,
+      "scale": 0.837,
+      "yaw": 149.5
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 54.83,
+      "z": 63.74,
+      "scale": 0.962,
+      "yaw": 25
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 107.5,
+      "z": 81.52,
+      "scale": 0.988,
+      "yaw": 181
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 90.01,
+      "z": 82.93,
+      "scale": 1.177,
+      "yaw": 124.6
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 80.02,
+      "z": 86.24,
+      "scale": 0.919,
+      "yaw": 7.1
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 50.37,
+      "z": 76.33,
+      "scale": 0.995,
+      "yaw": 227
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 74.45,
+      "z": 54.78,
+      "scale": 0.884,
+      "yaw": 250.4
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 50.36,
+      "z": 81.64,
+      "scale": 1.089,
+      "yaw": 148.2
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 38.42,
+      "z": 63.06,
+      "scale": 1.03,
+      "yaw": 265
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 101.91,
+      "z": 67.94,
+      "scale": 1.045,
+      "yaw": 202.8
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 76.49,
+      "z": 66.45,
+      "scale": 0.975,
+      "yaw": 73.1
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 95.47,
+      "z": 48.92,
+      "scale": 1.083,
+      "yaw": 201.1
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 49.08,
+      "z": 85.34,
+      "scale": 1.144,
+      "yaw": 45
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 95.38,
+      "z": 81.91,
+      "scale": 0.984,
+      "yaw": 30.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 41.4,
+      "z": 52.58,
+      "scale": 1.172,
+      "yaw": 328.5
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 102.82,
+      "z": 65.82,
+      "scale": 1.035,
+      "yaw": 60.5
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 36.36,
+      "z": 88.04,
+      "scale": 0.976,
+      "yaw": 159.7
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 88.75,
+      "z": 75.2,
+      "scale": 1.028,
+      "yaw": 124
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 83.07,
+      "z": 50.01,
+      "scale": 1.049,
+      "yaw": 42.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 64.9,
+      "z": 67.89,
+      "scale": 1.086,
+      "yaw": 220.7
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 87.19,
+      "z": 78.04,
+      "scale": 1.132,
+      "yaw": 236
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 50.18,
+      "z": 67.37,
+      "scale": 0.977,
+      "yaw": 183.6
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 43.1,
+      "z": 52.8,
+      "scale": 1.082,
+      "yaw": 97.5
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 74.58,
+      "z": 90.53,
+      "scale": 1.07,
+      "yaw": 118.1
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 50.43,
+      "z": 74.34,
+      "scale": 0.987,
+      "yaw": 81
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 71.06,
+      "z": 72.47,
+      "scale": 1.043,
+      "yaw": 277.6
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 48.66,
+      "z": 75.82,
+      "scale": 1.143,
+      "yaw": 224.8
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 82.57,
+      "z": 67.89,
+      "scale": 0.888,
+      "yaw": 210.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 66.49,
+      "z": 77.5,
+      "scale": 0.964,
+      "yaw": 157.8
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 92.77,
+      "z": 81.25,
+      "scale": 0.831,
+      "yaw": 346.2
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 93.64,
+      "z": 49.55,
+      "scale": 0.898,
+      "yaw": 358.4
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 81.52,
+      "z": 88.68,
+      "scale": 1.125,
+      "yaw": 341.2
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 55.35,
+      "z": 78.12,
+      "scale": 1.124,
+      "yaw": 266.1
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 67.25,
+      "z": 90.93,
+      "scale": 0.988,
+      "yaw": 27.4
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 83.66,
+      "z": 79.76,
+      "scale": 0.94,
+      "yaw": 234.7
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 100.03,
+      "z": 53.07,
+      "scale": 1.126,
+      "yaw": 29.2
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 79.84,
+      "z": 79.51,
+      "scale": 0.841,
+      "yaw": 175.9
+    },
+    {
+      "zone": "akses_pesisir",
+      "type": "grass",
+      "x": 65.8,
+      "z": 66.53,
+      "scale": 1.138,
+      "yaw": 316.5
+    }
+  ]
+}
