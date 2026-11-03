@@ -428,7 +428,10 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Pages can sit in updating_pages for more than ten minutes when
+    # processing this multi-route Godot archive; the old 10m job limit
+    # cancelled a valid uploaded artifact without any Godot errors.
+    timeout-minutes: 35
     permissions:
       pages: write
       id-token: write
@@ -439,3 +442,6 @@ jobs:
       - name: Deploy Godot game
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Override the action's OWN 600000ms timeout as well.
+          timeout: 1800000
