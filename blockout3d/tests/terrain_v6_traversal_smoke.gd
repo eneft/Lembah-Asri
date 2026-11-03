@@ -103,6 +103,9 @@ func _run() -> void:
                 player.global_position + Vector3.UP*1.5,
                 player.global_position - Vector3.UP*1.2)
             probe.collision_mask = player.collision_mask
+            # A ray emitted through the player must exclude its own capsule;
+            # otherwise the query can hit the player instead of the deck.
+            probe.exclude = [player.get_rid()]
             var floor_hit := world.get_world_3d().direct_space_state.intersect_ray(probe)
             if not floor_hit.is_empty() and floor_hit.collider == body:
                 deck_samples += 1
