@@ -7,6 +7,12 @@ const HOUSE_GLB := "res://assets/environment/houses/main_house/rumah_utama.glb"
 const ARCHITECTURE_SCRIPT := preload("res://scripts/terrain_v7_architecture.gd")
 const GROUND_LAYER := 1 << 7
 const BUILDING_LAYER := 1
+# Human-height architectural reference. This is a REAL world height, not an
+# arbitrary scale multiplier; 1 Godot unit is 1 meter throughout V7.5+.
+const ADULT_HEIGHT_M := 1.68
+const CHILDHOOD_HOUSE_HEIGHT_M := 4.05
+const CHILDHOOD_HOUSE_WIDTH_M := 7.25
+const CHILDHOOD_HOUSE_DEPTH_M := 6.10
 var building_count := 0
 var source_house_count := 0
 var unique_house_count := 0
@@ -213,16 +219,35 @@ func configure(world: Node3D) -> void:
             if b.size.x < 0.01 or b.size.z < 0.01 or b.size.y < 0.01:
                 push_error("V7.2 SETTLEMENT FAIL: original childhood GLB bounds invalid")
                 return
-            var factor := minf(footprint.x*0.82/b.size.x,footprint.y*0.76/b.size.z)
-            model.scale = Vector3.ONE * factor
-            model.position = Vector3(-(b.position.x+b.size.x*0.5)*factor,
-                -b.position.y*factor+0.10,
-                -(b.position.z+b.size.z*0.5)*factor)
+            # V7.6: the unique childhood GLB previously scaled ONLY to the
+            # 10m plot and might tower over (or dwarf) a 1.68m adult. Fit the
+            # existing model without replacing its textured mesh, so the
+            # building itself measures ~7.25m x <=6.10m x 4.05m.
+            # The height normalization is separate because generated GLB
+            # source units need not be metres; the ground footprint still
+            # controls width/depth and preserves surrounding walkable yards.
+            var xz_factor := minf(
+                minf(CHILDHOOD_HOUSE_WIDTH_M/b.size.x,
+                     CHILDHOOD_HOUSE_DEPTH_M/b.size.z),
+                minf(footprint.x*0.77/b.size.x,footprint.y*0.76/b.size.z))
+            var y_factor := CHILDHOOD_HOUSE_HEIGHT_M/b.size.y
+            model.scale = Vector3(xz_factor,y_factor,xz_factor)
+            model.position = Vector3(-(b.position.x+b.size.x*0.5)*xz_factor,
+                -b.position.y*y_factor+0.10,
+                -(b.position.z+b.size.z*0.5)*xz_factor)
             _material_variant(model,i,kind)
-            _box(house,"StoneFoundation",Vector3(0,0,0),
-                Vector3(footprint.x*0.81,0.20,footprint.y*0.78),"plinth")
-            _collision(house,Vector3(footprint.x*0.68,
-                clampf(b.size.y*factor*0.70,1.9,4.6),footprint.y*0.64))
+            var actual_width := b.size.x*xz_factor
+            var actual_depth := b.size.z*xz_factor
+            var actual_height := b.size.y*y_factor
+            _box(house,"StoneFoundation",Vector3(0,0.0,0),
+                Vector3(actual_width*0.94,0.20,actual_depth*0.92),"plinth")
+            _collision(house,Vector3(actual_width*0.83,
+                clampf(actual_height*0.72,2.65,3.05),actual_depth*0.79))
+            house.set_meta("building_width_m",actual_width)
+            house.set_meta("building_depth_m",actual_depth)
+            house.set_meta("building_height_m",actual_height)
+            print("V7.6 CHILDHOOD HOUSE: body %.2f x %.2f x %.2fm, avatar %.2fm" % [
+                actual_width,actual_depth,actual_height,ADULT_HEIGHT_M])
             source_house_count += 1
         else:
             # Authored 3D mesh variants from the pre-existing village-art kit,
@@ -237,7 +262,12 @@ func configure(world: Node3D) -> void:
                 return
             geometry_signatures[signature] = label
             _collision(house,built["body_dimensions"])
-            _accessories(house,kind,footprint)
+            # Yard reserves walking space; accessories MUST reference the
+            # smaller 1.68m-relative house facade, not the larger empty plot.
+            _accessories(house,kind,built["actual_footprint"])
+            house.set_meta("building_width_m",built["actual_footprint"].x)
+            house.set_meta("building_depth_m",built["actual_footprint"].y)
+            house.set_meta("wall_height_m",float((built["body_dimensions"] as Vector3).y))
             unique_house_count += 1
         building_count += 1
     set_meta("building_count",building_count)
