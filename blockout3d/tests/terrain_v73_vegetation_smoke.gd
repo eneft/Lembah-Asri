@@ -99,7 +99,9 @@ func _run() -> void:
         var leaves := 0
         for child in plant.find_children("*","MeshInstance3D",true,false):
             var m := child as MeshInstance3D
-            var material := m.get_active_material(0) as BaseMaterial3D if m.mesh!=null else null
+            var material: BaseMaterial3D = null
+            if m.mesh!=null and m.mesh.get_surface_count()>0:
+                material = m.get_active_material(0) as BaseMaterial3D
             if material!=null and material.albedo_texture!=null:
                 leaves += 1
         if leaves<2:
