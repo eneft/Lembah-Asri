@@ -6,6 +6,7 @@ Pillow/Godot, so it can reject bad layout changes before expensive Web export.
 """
 from __future__ import annotations
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -86,4 +87,31 @@ for first, a, second, b in required_joins:
     gap = math.dist(point_a, point_b)
     assert gap <= 1.0, f"Disconnected roads: {first} -> {second} ({gap:.2f}m)"
 
+# 3D trail markers must be physically near the authoritative painted paths.
+# Guard against the obsolete pre-expansion 140m scene coordinates returning.
+marker_script = (Path(__file__).resolve().parents[1] /
+                 "scripts" / "terrain_v3_infrastructure.gd").read_text(encoding="utf-8")
+match = re.search(
+    r"var locations: Array\\[Vector2\\] = \\[(.*?)\\]\\s*var objects: Array\\[Transform3D\\]",
+    marker_script, re.S)
+assert match, "Roadside markers array missing from V6 infrastructure"
+marker_coords = [tuple(map(float, pair)) for pair in
+                 re.findall(r"Vector2\\((-?[\\d.]+),\\s*(-?[\\d.]+)\\)", match.group(1))]
+assert len(marker_coords) >= 20, "V6 route landmarks too sparse"
+
+
+def distance_to_segment(point, a, b):
+    dx, dz = b[0]-a[0], b[1]-a[1]
+    d2 = dx*dx+dz*dz
+    t = max(0.0, min(1.0, ((point[0]-a[0])*dx +
+                            (point[1]-a[1])*dz)/max(1e-8,d2)))
+    return math.hypot(point[0] - a[0] - t*dx, point[1] - a[1] - t*dz)
+
+
+for marker in marker_coords:
+    distance = min(distance_to_segment(marker, a, b)
+                   for points in routes.values() for a, b in zip(points, points[1:]))
+    assert distance < 2.8, f"Old or off-road trail marker {marker}: {distance:.2f}m"
+
+print(f"TERRAIN V6 MARKERS PASS: {len(marker_coords)} landmarks aligned with 260m routes")
 print(f"TERRAIN V5 LAYOUT PASS: {len(PLOTS)} reserved plots, {len(PATHS)} roads, {count} clear road/plot comparisons; headwater joins mountain, bridges fixed, 8 road junctions connected")

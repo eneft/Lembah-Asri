@@ -289,15 +289,15 @@ func _make_trail_edges() -> void:
     var locations: Array[Vector2] = [
         # Childhood home, west agricultural path and west village.
         Vector2(-102,-48),Vector2(-95,-55),Vector2(-86,-56),
-        Vector2(-106,-44),Vector2(-89,-35),Vector2(-81,-22),
+        Vector2(-106,-44),Vector2(-100,-35),Vector2(-89,-22),
         Vector2(-89,-7),Vector2(-82,13),Vector2(-61,24),
-        Vector2(-56,7),Vector2(-28,5),Vector2(-34,-5),
+        Vector2(-56,7),Vector2(-28,9),Vector2(-34,-5),
         Vector2(-22,-10),Vector2(19,-17),
         # South bridge landings and village eastern paths.
         Vector2(-52,29),Vector2(-40,36),Vector2(-22,44),
         Vector2(22,48),Vector2(43,48),Vector2(63,46),
         Vector2(22,-54),Vector2(44,-37),Vector2(44,-20),
-        Vector2(67,26),Vector2(48,52),Vector2(45,82),
+        Vector2(69,26),Vector2(48,52),Vector2(45,82),
         # Fishing village; last waypoints intentionally close to the cove.
         Vector2(69,63),Vector2(84,76)
     ]
