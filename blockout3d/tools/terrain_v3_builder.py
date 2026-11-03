@@ -184,6 +184,10 @@ def footprint(g: dict, blob: bytes):
                 irregular = 0.55*math.sin(x*0.17+z*0.11)*math.sin(z*0.14-x*0.06)
                 if rotated_pad_distance(x,z,plot)>margin+irregular:
                     continue
+                # The fishing inlet was deliberately carved out of LAND:
+                # never undo the physical U-shaped cove while fixing lots.
+                if 44.0 < x < 101.0 and z > 86.0 + 0.016*(x-72.0)**2:
+                    continue
                 k=j*nx+i
                 if not cleaned[k]:
                     cleaned[k]=1
