@@ -317,6 +317,66 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: capsule not scaled with character")
         quit(1)
         return
+    # Independent measurement of the ACTUAL imported FBX geometry, including
+    # all node transforms and the Visual scale. A numeric 168cm constant by
+    # itself is not proof that the final rendered character is human-height.
+    var fitted_fbx := player.get_node_or_null("Visual/FbxCharacter/SingleImportedMixamoModel") as Node3D
+    if fitted_fbx == null:
+        push_error("V7.5 REAL SCALE FAIL: original playable FBX model is absent")
+        quit(1)
+        return
+    var visual_low := INF
+    var visual_high := -INF
+    var body_parts := 0
+    for item in fitted_fbx.find_children("*","MeshInstance3D",true,false):
+        var body_mesh := item as MeshInstance3D
+        if body_mesh.mesh == null:
+            continue
+        var box := body_mesh.get_aabb()
+        if box.size.length_squared() < 0.00001:
+            continue
+        body_parts += 1
+        for i in range(8):
+            var corner := box.position + Vector3(
+                box.size.x if (i & 1) != 0 else 0.0,
+                box.size.y if (i & 2) != 0 else 0.0,
+                box.size.z if (i & 4) != 0 else 0.0)
+            var world_point := visual.to_local(body_mesh.to_global(corner))
+            visual_low = minf(visual_low,world_point.y)
+            visual_high = maxf(visual_high,world_point.y)
+    var measured_height := visual_high - visual_low
+    if body_parts == 0 or absf(measured_height - 1.68) > 0.035:
+        push_error("V7.5 REAL SCALE FAIL: rendered FBX height %.3fm, expected 1.680m" % measured_height)
+        quit(1)
+        return
+    var village := world.get_node_or_null("VillageBuildingsV7") as Node3D
+    if village == null:
+        push_error("V7.5 REAL SCALE FAIL: houses missing for real-world height comparison")
+        quit(1)
+        return
+    var measured_house_count := 0
+    for building in village.get_children():
+        var house_mesh := building.get_node_or_null("UniqueVillageMesh") as Node3D
+        if house_mesh == null:
+            continue # Childhood GLB and the independently modelled watch post
+        var wall_mesh := house_mesh.get_node_or_null("DindingBangunan") as MeshInstance3D
+        var door_mesh := house_mesh.get_node_or_null("PintuUkir") as MeshInstance3D
+        if wall_mesh == null or door_mesh == null or wall_mesh.mesh == null or door_mesh.mesh == null:
+            push_error("V7.5 REAL SCALE FAIL: missing house wall or front door")
+            quit(1)
+            return
+        var wall_m := wall_mesh.mesh.get_aabb().size.y
+        var door_m := door_mesh.mesh.get_aabb().size.y
+        if wall_m < measured_height * 1.25 or door_m < 2.0 - 0.005 or door_m < measured_height + 0.25:
+            push_error("V7.5 REAL SCALE FAIL: entrance too short for 168cm protagonist in %s: wall=%.2f, door=%.2f" % [building.name,wall_m,door_m])
+            quit(1)
+            return
+        measured_house_count += 1
+    if measured_house_count != 15:
+        push_error("V7.5 REAL SCALE FAIL: did not measure all 15 distinct village houses")
+        quit(1)
+        return
+    print("V7.5 REAL SCALE PASS: actual rendered hero %.3fm (168cm); all 15 house wall/door sizes fit adult human" % measured_height)
     # Keep feet on the SAME physical terrain after enlarging the model; the
     # capsule is not allowed to float above ground or sink into the mesh.
     if absf(capsule_node.position.y - capsule.height * 0.5) > 0.025:

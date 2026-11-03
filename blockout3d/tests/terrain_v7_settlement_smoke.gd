@@ -107,6 +107,11 @@ func _run() -> void:
         if valid_textures == 0 or generated_geometry < 1:
             _fail("house lost its painted 3D geometry: "+str(building.name))
             return
+        if str(building.name) != "rumah_masa_kecil":
+            var doorway := model.get_node_or_null("PintuUkir") as MeshInstance3D
+            if doorway == null or doorway.mesh == null or doorway.mesh.get_aabb().size.y < 1.995:
+                _fail("V7.5: household entry must be at least 2.00m for 1.68m adult: "+str(building.name))
+                return
         painted += 1
     if painted != 16 or childhood_glb != 1 or signatures.size() != 15:
         _fail("17 buildings must contain 1 original textured GLB and 15 UNIQUE textured meshes")
