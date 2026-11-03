@@ -56,8 +56,11 @@ BOOT_UI = r'''
     }
     function ready() {
         if (problem || finished || !canvas) return;
-        const loaded = loader && (loader.style.display === "none" ||
-             window.getComputedStyle(loader).display === "none");
+        // Godot 4.3 exports sometimes omit the optional #status element:
+        // if it isn't there, the game's explicit ready signal is authority.
+        // The former loader && check never hid the panel on these exports.
+        const loaded = !loader || loader.style.display === "none" ||
+             window.getComputedStyle(loader).display === "none";
         if (loaded && canvas.width > 0 && canvas.height > 0 &&
             window.__lembahTerrainReadyV78 === true) {
             finished = true;
@@ -122,6 +125,8 @@ def verify(path: Path, revision: str) -> None:
         raise ValueError("Missing/duplicated independent loading and error UI")
     if "Build: " + revision not in html:
         raise ValueError("Incorrect published GitHub commit ID")
+    if 'const loaded = !loader ||' not in html:
+        raise ValueError("Godot Web exports can omit #status; do not deadlock loading panel")
     if 'window.__lembahTerrainReadyV78 === true' not in html:
         raise ValueError("Canvas-only ready check can hide loader on a blank render")
     if 'window.location.reload()' not in html or "webglcontextlost" not in html:
