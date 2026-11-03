@@ -301,6 +301,11 @@ func _install_terrain() -> void:
         JavaScriptBridge.eval("window.__lembahTerrainReadyV78 = true;")
     beach_button.disabled = false
     _refresh_text()
+    var regular_meshes := world.find_children("*","MeshInstance3D",true,false).size()
+    var gpu_batches := world.find_children("*","MultiMeshInstance3D",true,false).size()
+    print("V7.8 WEB RENDER BUDGET: ",regular_meshes," MeshInstance3D + ",
+        gpu_batches," MultiMeshInstance3D (total ",regular_meshes+gpu_batches,
+        "), original tree visuals GPU-instanced; ground, buildings and bridges unchanged")
     print("TERRAIN V3 PLAYABLE PASS: clean mesh and matched coastline collision, painterly atlas, island river/ocean")
     print("TERRAIN BASE TEST PASS: V2 derived GLB terrain, collider_layer=%d, player_mask=%d, size=%s, spawn_xz=%s, spawn_height=%.3f" % [
         new_collision.collision_layer, player.collision_mask, str(_bounds_global(new_mesh).size), str(spawn_xz), hit.position.y])

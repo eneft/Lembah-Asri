@@ -53,8 +53,26 @@ func _run() -> void:
     var textured: int = 0
     var tree_hits: int = 0
     var species: Dictionary = {}
+    var rendered_parts := 0
+    var batches := 0
+    var accumulated_parts := 0
     for item in vegetation.get_children():
         if item == grass:
+            continue
+        if item is MultiMeshInstance3D:
+            var batch := item as MultiMeshInstance3D
+            if not str(batch.name).begins_with("FoliageBatch_") or batch.multimesh==null:
+                _fail("unexpected unvalidated 3D foliage batch")
+                return
+            var mat := batch.material_override as BaseMaterial3D
+            if mat==null or mat.albedo_texture==null or mat.normal_texture==null:
+                _fail("foliage batch lost hand-painted texture/normal source")
+                return
+            if batch.multimesh.instance_count < 1:
+                _fail("empty GPU foliage batch")
+                return
+            batches += 1
+            accumulated_parts += batch.multimesh.instance_count
             continue
         var plant := item as Node3D
         if plant == null:
@@ -96,22 +114,25 @@ func _run() -> void:
         elif trunk!=null:
             _fail("banana/shrub should be pass-through, not obstruct walking")
             return
-        var leaves := 0
-        for child in plant.find_children("*","MeshInstance3D",true,false):
-            var m := child as MeshInstance3D
-            var material: BaseMaterial3D = null
-            if m.mesh!=null and m.mesh.get_surface_count()>0:
-                material = m.get_active_material(0) as BaseMaterial3D
-            if material!=null and material.albedo_texture!=null:
-                leaves += 1
-        if leaves<2:
-            _fail("vegetation missing illustrated texture and 3D foliage")
+        # Each plant is still a real grounded physical placement, but its
+        # painted meshes are drawn by sibling GPU MultiMesh batches.
+        var leaves: int = int(plant.get_meta("painted_parts",0))
+        if leaves<2 or not plant.find_children("*","MeshInstance3D",true,false).is_empty():
+            _fail("vegetation must have painterly MultiMesh parts, no duplicated mesh nodes")
             return
+        rendered_parts += leaves
         textured += 1
         tested += 1
     if tested != total-grass_count or textured!=tested or tree_hits!=solid:
         _fail("vegetation counts/colliders mismatch; species "+str(species))
         return
+    if batches<25 or batches>45 or rendered_parts!=accumulated_parts or (
+        int(vegetation.get("foliage_batch_count"))!=batches):
+        _fail("GPU batching incomplete or excessive foliage drawcalls; batches="+str(batches)+
+            " expected parts="+str(rendered_parts)+" real="+str(accumulated_parts))
+        return
+    print("V7.8 WEB FOLIAGE BATCH PASS: ",rendered_parts,
+        " original textured parts draw in ",batches," instanced batches")
     var zones: Dictionary = vegetation.get("zone_counts")
     for name in ["desa_inti","pekarangan_barat","balai_desa","tepi_sungai","akses_pesisir"]:
         if not zones.has(name) or zones[name].is_empty():

@@ -28,6 +28,13 @@ var _prototypes: Dictionary = {}
 var _template_holder: Node3D
 var _grass_transforms: Array[Transform3D] = []
 var _grass_tints: Array[Color] = []
+# WebGL2/GLES compatibility has a practical visible mesh count budget.
+# The original forest made hundreds of MeshInstance3D nodes; combine every
+# identical tree part into one native GPU MultiMesh, preserving its exact
+# textured mesh, plant transform, silhouette and selective trunk collider.
+var _foliage_batches: Dictionary = {}
+var foliage_batch_count := 0
+var foliage_part_instances := 0
 var _plot_guards: Array = []
 var _road_guards: Array = []
 
@@ -133,6 +140,52 @@ func _grass_mesh() -> ArrayMesh:
     st.generate_tangents()
     return st.commit()
 
+func _collect_foliage_parts(kind: String, placement: Transform3D) -> int:
+    var template := _prototypes[kind] as Node3D
+    var painted := 0
+    var index := 0
+    for node in template.get_children():
+        var part := node as MeshInstance3D
+        if part == null or part.mesh == null:
+            continue
+        var material := part.get_active_material(0) as BaseMaterial3D
+        if material != null and material.albedo_texture != null:
+            painted += 1
+        var batch_id := kind + "_" + str(index)
+        if not _foliage_batches.has(batch_id):
+            _foliage_batches[batch_id] = {
+                "mesh":part.mesh,
+                "material":part.material_override,
+                "transforms":[],
+                "shadow":part.cast_shadow
+            }
+        var record: Dictionary = _foliage_batches[batch_id]
+        var transforms: Array = record["transforms"]
+        transforms.append(placement * part.transform)
+        foliage_part_instances += 1
+        index += 1
+    return painted
+
+func _finalize_foliage_batches() -> void:
+    for id in _foliage_batches.keys():
+        var record: Dictionary = _foliage_batches[id]
+        var instances: Array = record["transforms"]
+        if instances.is_empty():
+            continue
+        var mm := MultiMesh.new()
+        mm.transform_format = MultiMesh.TRANSFORM_3D
+        mm.mesh = record["mesh"] as Mesh
+        mm.instance_count = instances.size()
+        for index in range(instances.size()):
+            mm.set_instance_transform(index,instances[index])
+        var display := MultiMeshInstance3D.new()
+        display.name = "FoliageBatch_" + str(id)
+        display.multimesh = mm
+        display.material_override = record["material"] as Material
+        display.cast_shadow = record["shadow"]
+        add_child(display)
+        foliage_batch_count += 1
+
 func _plant(world: Node3D, entry: Dictionary) -> bool:
     var kind: String = str(entry["type"])
     var x: float = float(entry["x"])
@@ -157,16 +210,21 @@ func _plant(world: Node3D, entry: Dictionary) -> bool:
         _grass_tints.append(tint)
         grass_count += 1
     else:
-        var model := (_prototypes[kind] as Node3D).duplicate() as Node3D
-        model.name = "Vegetation_%s_%04d" % [kind,planted_count]
-        model.position = pos
-        model.rotation.y = yaw
-        model.scale = Vector3.ONE * scale_m
-        model.set_meta("plant_type",kind)
-        model.set_meta("zone",str(entry["zone"]))
-        add_child(model)
+        # Preserve 72 individual plant metadata/physics roots but do NOT
+        # create ~400 separate GPU mesh instances. The same source painterly
+        # meshes are rendered via shared MultiMesh batches below.
+        var plant := Node3D.new()
+        plant.name = "Vegetation_%s_%04d" % [kind,planted_count]
+        plant.position = pos
+        plant.rotation.y = yaw
+        plant.scale = Vector3.ONE * scale_m
+        plant.set_meta("plant_type",kind)
+        plant.set_meta("zone",str(entry["zone"]))
+        add_child(plant)
+        var painted: int = _collect_foliage_parts(kind,plant.transform)
+        plant.set_meta("painted_parts",painted)
         if kind in ["shade","palm"]:
-            _add_trunk_collision(model,kind)
+            _add_trunk_collision(plant,kind)
     counts[kind] = int(counts.get(kind,0))+1
     var zone: String = str(entry["zone"])
     var by_zone: Dictionary = zone_counts.get(zone,{})
@@ -222,9 +280,9 @@ func configure(world: Node3D) -> void:
             continue
         _plant(world,entry)
     _finalize_grass()
-    # Prototypes have already been duplicated into world-space plants, with
-    # shared Resource refs retained. Release the temporary source meshes to
-    # prevent GLES3/PagedAllocator leaks reported by the V7.3 smoke test.
+    _finalize_foliage_batches()
+    # All material/geometry source Resources are held by the MultiMeshes;
+    # discard the source templates without allocating hundreds of objects.
     _template_holder.free()
     _template_holder = null
     _prototypes.clear()
@@ -233,6 +291,10 @@ func configure(world: Node3D) -> void:
         return
     set_meta("vegetation_count",planted_count)
     set_meta("trunk_count",solid_trunks)
+    set_meta("foliage_batch_count",foliage_batch_count)
     finished = true
+    print("V7.8 WEB FOLIAGE BATCH PASS: ",foliage_part_instances,
+        " painted tree/shrub mesh parts drawn through ",foliage_batch_count,
+        " GPU MultiMeshes; root colliders and transforms kept")
     print("V7.3 VEGETATION PASS: ",planted_count," grounded hand-painted plants; ",
         counts,"; solid trunks=",solid_trunks,"; grass instanced, public green clear")
