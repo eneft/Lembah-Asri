@@ -18,8 +18,8 @@ import struct
 
 from PIL import Image, ImageDraw, ImageFilter
 from terrain_v2_topography import river_center_x, WORLD_SCALE
-from terrain_v3_site_grading import graded_height_at
-from terrain_v3_landuse import surface_weights, validate_layout
+from terrain_v3_site_grading import graded_height_at, rotated_pad_distance, APRON_METRES
+from terrain_v3_landuse import surface_weights, validate_layout, PLOTS
 from terrain_v3_painted_map import paint_colormap
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -161,6 +161,40 @@ def footprint(g: dict, blob: bytes):
     else:
         print("TERRAIN_V5_FISHING_COVE_SCULPTED:",cove_removed,
               "physical land cells carved; no phantom terrain collider")
+    # V6.6: preserve a continuous real-physics ground beneath every planned
+    # house, even where the old scan's projected footprint contained holes.
+    # Only extend within a natural feather apron around actual building pads.
+    restored_total = 0
+    repaired_sites = []
+    margin = APRON_METRES + 9.5
+    for plot in PLOTS:
+        if plot["kind"] == "square":
+            continue
+        cx, cz = plot["center"]
+        radius = max(plot["foot"])*0.75 + margin + 2.0
+        i0=max(0,int((cx-radius+hx)/dx)-1)
+        i1=min(nx-1,int((cx+radius+hx)/dx)+1)
+        j0=max(0,int((cz-radius+hz)/dz)-1)
+        j1=min(nz-1,int((cz+radius+hz)/dz)+1)
+        restored = 0
+        for j in range(j0,j1+1):
+            z=-hz+(j+0.5)*dz
+            for i in range(i0,i1+1):
+                x=-hx+(i+0.5)*dx
+                irregular = 0.55*math.sin(x*0.17+z*0.11)*math.sin(z*0.14-x*0.06)
+                if rotated_pad_distance(x,z,plot)>margin+irregular:
+                    continue
+                k=j*nx+i
+                if not cleaned[k]:
+                    cleaned[k]=1
+                    restored+=1
+        if restored:
+            repaired_sites.append((plot["id"],restored))
+            restored_total+=restored
+    if restored_total > nx*nz*0.12:
+        raise ValueError("V6.6 site repair modified too much of the coast")
+    print("TERRAIN V6.6 BUILDING SITE LAND PASS: 16 building sites;",
+          restored_total,"missing land cells repaired;",repaired_sites)
     amount = sum(cleaned)
     if amount < nx*nz*.25:
         raise ValueError(f"Footprint unexpectedly sparse: {amount}/{nx*nz}")
