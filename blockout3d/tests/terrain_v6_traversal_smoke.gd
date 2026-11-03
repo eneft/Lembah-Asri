@@ -53,6 +53,39 @@ func _run() -> void:
          "z":float(infra.get("secondary_bridge_z")),
          "span":float(infra.get("secondary_bridge_half_span")), "direction":-1.0}
     ]
+    # Four journeys: test entry and exit at BOTH ends of EACH bridge.
+    var reverse_crossings: Array = []
+    for crossing in bridges:
+        var reverse: Dictionary = crossing.duplicate()
+        reverse["direction"] = -float(crossing["direction"])
+        reverse["label"] = str(crossing["label"]) + "-reverse"
+        reverse_crossings.append(reverse)
+    bridges.append_array(reverse_crossings)
+    # Ray-test each rendered segment midpoint against its solid physics top.
+    for pair in [
+        [infra.get("bridge_mesh"),deck_north],
+        [infra.get("secondary_bridge_mesh"),deck_south]
+    ]:
+        var visual := pair[0] as MeshInstance3D
+        var body := pair[1] as StaticBody3D
+        if visual == null or body.get_child_count() != 32:
+            _fail("missing segmented visual/collision deck")
+            return
+        var arrays := visual.mesh.surface_get_arrays(0)
+        var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+        for segment in range(32):
+            var expected := (vertices[segment*6]+vertices[segment*6+2])*0.5
+            expected.z = (vertices[segment*6].z+vertices[segment*6+1].z)*0.5
+            expected = visual.to_global(expected)
+            var query := PhysicsRayQueryParameters3D.create(
+                expected+Vector3.UP,expected-Vector3.UP)
+            query.collision_mask = player.collision_mask
+            query.exclude = [player.get_rid()]
+            var contact := world.get_world_3d().direct_space_state.intersect_ray(query)
+            if contact.is_empty() or contact.collider != body or absf(contact.position.y-expected.y) > 0.015:
+                _fail("visual/collision mismatch at deck segment " + str(segment))
+                return
+    print("TERRAIN V6 DECK MATCH PASS: 64 segment midpoints within 1.5cm of visual surface")
     var crossings_ok := 0
     for bridge in bridges:
         var label: String = str(bridge["label"])
@@ -122,8 +155,8 @@ func _run() -> void:
         print("TERRAIN V6 CAPSULE CROSSING PASS: ",label,
               " grounded_ticks=",grounded," deck_ticks=",deck_samples)
 
-    if crossings_ok != 2:
+    if crossings_ok != 4:
         _fail("not all bridges crossed")
         return
-    print("TERRAIN V6 TRAVERSAL PASS: both bridges physically crossed by original 55% player capsule")
+    print("TERRAIN V6 TRAVERSAL PASS: both bridges physically crossed IN BOTH DIRECTIONS by original 55% player capsule")
     quit(0)

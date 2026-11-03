@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from terrain_v3_landuse import PATHS, PLOTS, validate_layout  # noqa: E402
-from terrain_v2_topography import river_center_x  # noqa: E402
+from terrain_v2_topography import river_center_x, height_at  # noqa: E402
 
 SAFE_EDGE = 0.18  # paint feather / near-footprint clearance, metres
 SAMPLE_STEP = 0.30
@@ -115,3 +115,12 @@ for marker in marker_coords:
 
 print(f"TERRAIN V6 MARKERS PASS: {len(marker_coords)} landmarks aligned with 260m routes")
 print(f"TERRAIN V5 LAYOUT PASS: {len(PLOTS)} reserved plots, {len(PATHS)} roads, {count} clear road/plot comparisons; headwater joins mountain, bridges fixed, 8 road junctions connected")
+
+# Distinct benches must survive future topography edits, without steep steps.
+bench_heights = [height_at(u*130.0,-0.35*113.5,130.0,113.5)
+                 for u in (-0.74,-0.68,-0.59,-0.53,-0.43,-0.37)]
+for a,b in ((0,1),(2,3),(4,5)):
+    assert 0.60 < bench_heights[b]-bench_heights[a] < 0.85, "Rice terrace rise lost"
+for a,b in ((1,2),(3,4)):
+    assert abs(bench_heights[b]-bench_heights[a]) < 0.12, "Rice bench is not level"
+print("TERRAIN V6 TERRACES PASS: three distinct 65-75cm rises with level benches")

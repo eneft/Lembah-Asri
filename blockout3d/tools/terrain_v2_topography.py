@@ -68,9 +68,10 @@ def height_at(x: float, z: float, half_x: float, half_z: float) -> float:
     farm_x = 1.0 - smoothstep(0.20, 0.41, abs(u + 0.57))
     farm_z = 1.0 - smoothstep(0.22, 0.45, abs(v + 0.35))
     farm_zone = farm_x * farm_z
-    terraces = (0.38*smoothstep(-0.74,-0.68,u)
-                + 0.36*smoothstep(-0.59,-0.53,u)
-                + 0.31*smoothstep(-0.43,-0.37,u))
+    # Distinct flat benches: 65-75cm rises over ~3.9m walkable ramps.
+    terraces = (0.75*smoothstep(-0.725,-0.695,u)
+                + 0.70*smoothstep(-0.575,-0.545,u)
+                + 0.65*smoothstep(-0.415,-0.385,u))
     height += farm_zone * terraces
     # C: continuous, level village/central plateau.
     height += mesa(u, v, 0.12, -0.10, 0.53, 0.38, 0.72)
