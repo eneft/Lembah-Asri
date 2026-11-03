@@ -239,7 +239,6 @@ func configure(world: Node3D) -> void:
             _collision(house,built["body_dimensions"])
             _accessories(house,kind,footprint)
             unique_house_count += 1
-            source_house_count += 1
         building_count += 1
     set_meta("building_count",building_count)
     set_meta("house_glb_count",source_house_count)
