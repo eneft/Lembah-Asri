@@ -65,9 +65,12 @@ async function main(){
   const last=report.snapshots.length?report.snapshots[report.snapshots.length-1].state:null;
   const visible=!!(report.pixels&&report.pixels.variety>=18&&report.pixels.blackFraction<0.97);
   const ready=!!(last&&last.ready);
-  const ok=ready&&visible&&!report.fatal&&!report.failures.length&&
+  // A real scene behind a permanently visible loading panel is still a
+  // broken Web experience. Test both actual pixels AND loader dismissal.
+  const loaderHidden=!!(last&&last.loader&&last.loader.hidden);
+  const ok=ready&&visible&&loaderHidden&&!report.fatal&&!report.failures.length&&
     report.requests.every(r=>r.status<400);
-  console.log("V7.8 BROWSER RENDER:",JSON.stringify({ready,visible,ok,pixels:report.pixels,
+  console.log("V7.8 BROWSER RENDER:",JSON.stringify({ready,visible,loaderHidden,ok,pixels:report.pixels,
     secs:Math.round((Date.now()-begin)/1000),state:last,
     requests:report.requests,failures:report.failures.slice(0,5),
     errors:report.errors.slice(0,8),fatal:report.fatal}));
