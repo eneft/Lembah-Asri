@@ -80,10 +80,16 @@ func _camera_relative_direction(screen_input: Vector3) -> Vector3:
     var flat_forward := -movement_camera.global_transform.basis.z
     flat_right.y = 0.0
     flat_forward.y = 0.0
-    if flat_right.length_squared() < 0.0001 or flat_forward.length_squared() < 0.0001:
+    if flat_right.length_squared() < 0.0001:
         return screen_input
     flat_right = flat_right.normalized()
-    flat_forward = flat_forward.normalized()
+    # When the camera looks STRAIGHT down or up in full free orbit, its
+    # projected forward vector vanishes. Preserve camera-relative horizontal
+    # movement instead of snapping the joystick back to world axes.
+    if flat_forward.length_squared() < 0.0001:
+        flat_forward = Vector3(flat_right.z, 0.0, -flat_right.x)
+    else:
+        flat_forward = flat_forward.normalized()
     return (flat_right * screen_input.x - flat_forward * screen_input.z).limit_length(1.0)
 
 

@@ -719,6 +719,60 @@ func _run() -> void:
         return
     # Restore the starting camera yaw for clean gameplay.
     world.call("_reset_camera_rotation")
+    # V7.1: vertical orbit is genuinely FREE, not locked to the two
+    # preselected 3/4 camera elevations. Exercise both input surfaces.
+    var mouse_orbit := InputEventMouseMotion.new()
+    mouse_orbit.button_mask = MOUSE_BUTTON_MASK_RIGHT
+    mouse_orbit.relative = Vector2(42.0, -73.0)
+    var pitch_before := float(world.get("camera_pitch"))
+    world.call("_unhandled_input", mouse_orbit)
+    if float(world.get("camera_pitch")) < pitch_before + 0.50:
+        push_error("V7.1 FREE CAMERA FAIL: right mouse vertical drag did not change elevation")
+        quit(1)
+        return
+    var phone_orbit := InputEventScreenDrag.new()
+    phone_orbit.position = get_viewport().get_visible_rect().size * Vector2(0.78,0.42)
+    phone_orbit.relative = Vector2(-21.0, 84.0)
+    var pitch_mouse := float(world.get("camera_pitch"))
+    world.call("_unhandled_input",phone_orbit)
+    if float(world.get("camera_pitch")) > pitch_mouse - 0.60:
+        push_error("V7.1 FREE CAMERA FAIL: mobile vertical drag did not change elevation")
+        quit(1)
+        return
+    # >90 degrees in either direction proves there is NO up/down clamp.
+    world.call("_reset_camera_rotation")
+    world.call("_orbit_camera",0.0,deg_to_rad(110.0))
+    for frame in range(38):
+        await process_frame
+    var upper_focus: Vector3 = world.get("_camera_focus")
+    if camera.global_position.y > upper_focus.y - 0.6:
+        push_error("V7.1 FREE CAMERA FAIL: top-down view cannot orbit past the vertical pole")
+        quit(1)
+        return
+    if (-camera.global_transform.basis.z).dot((upper_focus-camera.global_position).normalized()) < 0.999:
+        push_error("V7.1 FREE CAMERA FAIL: 360-degree orbit no longer aims at player")
+        quit(1)
+        return
+    world.call("_orbit_camera",0.0,deg_to_rad(-230.0))
+    for frame in range(50):
+        await process_frame
+    var lower_focus: Vector3 = world.get("_camera_focus")
+    if camera.global_position.y < lower_focus.y + 0.6:
+        push_error("V7.1 FREE CAMERA FAIL: lower view locked above the camera's lower pole")
+        quit(1)
+        return
+    if (-camera.global_transform.basis.z).dot((lower_focus-camera.global_position).normalized()) < 0.999:
+        push_error("V7.1 FREE CAMERA FAIL: negative pitch orbit no longer aims at player")
+        quit(1)
+        return
+    world.call("_reset_camera_rotation")
+    for frame in range(38):
+        await process_frame
+    if absf(float(world.get("camera_pitch"))) > 0.001:
+        push_error("V7.1 FREE CAMERA FAIL: R reset did not restore original 3/4 angle")
+        quit(1)
+        return
+    print("V7.1 FREE CAMERA PASS: desktop RMB and mobile drag, unclamped up/down >90°, smooth view and reset")
     # The camera should look at its smoothed follow pivot, not raw physics
     # capsule motion. Verify the two vectors stay aligned after actual walks.
     for frame in range(14):
