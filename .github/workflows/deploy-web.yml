@@ -373,6 +373,25 @@ jobs:
           test -s build/web/terrain-test/index.html
           test -s build/web/terrain-test/index.wasm
           test -s build/web/terrain-test/index.pck
+          # V7.8 audit: verify the REAL exported Web pack, not only the
+          # editor-side .tscn. This catches missing resources / wrong entrypoint
+          # which the previous pre-export smoke tests could not detect.
+          python3 blockout3d/tools/terrain_web_boot_audit.py --selftest
+          python3 blockout3d/tools/terrain_web_boot_audit.py --patch build/web/terrain-test/index.html --revision "${GITHUB_SHA:0:8}"
+          python3 blockout3d/tools/terrain_web_boot_audit.py --verify build/web/terrain-test/index.html --revision "${GITHUB_SHA:0:8}"
+          echo "TERRAIN WEB PACK BYTES: $(stat -c %s build/web/terrain-test/index.pck)"
+          set -o pipefail
+          mkdir -p /tmp/lembah-packed-terrain-audit
+          (
+            cd /tmp/lembah-packed-terrain-audit
+            timeout 120s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/terrain-test/index.pck" --quit-after 220 2>&1 | tee "$GITHUB_WORKSPACE/terrain-web-packed-smoke.log"
+          )
+          if grep -E 'SCRIPT ERROR|ERROR:|TERRAIN BASE FAIL|V7 SETTLEMENT FAIL|V7.3 VEGETATION FAIL' terrain-web-packed-smoke.log; then
+            echo "V7.8 WEB PACK FAIL: exported game has runtime errors"
+            exit 1
+          fi
+          grep -q 'TERRAIN BASE TEST PASS:' terrain-web-packed-smoke.log
+          echo 'V7.8 WEB PACK SMOKE PASS: actual packed terrain-test boots and paints world'
           echo 'TERRAIN BASE WEB TEST READY: /terrain-test/'
 
       - name: Include expanded 260m island mesh with painted map
