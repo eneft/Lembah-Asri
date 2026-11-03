@@ -469,7 +469,7 @@ func _run() -> void:
             quit(1)
             return
     for n in world.get_children():
-        if n == terrain or n == water or n == infra or n == player or n == camera or n is DirectionalLight3D or n is WorldEnvironment or n is CanvasLayer:
+        if n == terrain or n == water or n == infra or n == player or n == camera or str(n.name) == "VillageBuildingsV7" or n is DirectionalLight3D or n is WorldEnvironment or n is CanvasLayer:
             continue
         push_error("TERRAIN BASE FAIL: legacy object remains: " + str(n.name))
         quit(1)

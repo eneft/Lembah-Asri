@@ -5,6 +5,7 @@ const WEB_TERRAIN := "res://assets/environment/island/terrain_base_web.glb"
 const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
 const WATER_SCRIPT := preload("res://scripts/terrain_v2_water.gd")
 const INFRASTRUCTURE_SCRIPT := preload("res://scripts/terrain_v3_infrastructure.gd")
+const SETTLEMENT_SCRIPT := preload("res://scripts/terrain_v7_settlement.gd")
 const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
 const PAINTED_COLORMAP := "res://assets/environment/island/terrain_v3_painted_colormap.png"
 const TERRAIN_RAY_LAYER := 1 << 7
@@ -16,6 +17,7 @@ var new_mesh: MeshInstance3D
 var new_collision: StaticBody3D
 var water_root: Node3D
 var infrastructure_root: Node3D
+var settlement_root: Node3D
 var terrain_scale := 140.0
 var vertical_offset := 0.0
 var is_ready := false
@@ -174,6 +176,17 @@ func _install_terrain() -> void:
     infrastructure_root.set_script(INFRASTRUCTURE_SCRIPT)
     world.add_child(infrastructure_root)
     infrastructure_root.call("configure")
+    # A separate V7 building layer over the exact V6.8 terrain mesh.
+    # Build after the authoritative ground collider has synchronized.
+    await get_tree().physics_frame
+    settlement_root = Node3D.new()
+    settlement_root.name = "VillageBuildingsV7"
+    settlement_root.set_script(SETTLEMENT_SCRIPT)
+    world.add_child(settlement_root)
+    settlement_root.call("configure", world)
+    if not bool(settlement_root.get("finished")):
+        push_error("V7 SETTLEMENT FAIL: buildings failed to initialize")
+        return
     # StaticBody3D collision shapes created during an idle callback become
     # queryable AFTER the next physics server sync. The old smoke test ran a
     # ray in the same tick and wrongly concluded that the bridge was absent.
