@@ -21,10 +21,14 @@ const CAMERA_FOLLOW_Y := 4.0
 const CAMERA_ORBIT_SMOOTH := 11.0
 const CAMERA_FOCUS_Y := 0.62
 var _camera_render_yaw := 0.0
-# Real free 3D orbit: pitch is user-controlled across the complete sphere.
-# 0 preserves the original close 3/4 default; NO upper/lower clamp.
+# Free yaw with physically safe elevation limits, not fixed 3/4 presets.
+const CAMERA_MIN_ELEVATION := deg_to_rad(10.0)
+const CAMERA_MAX_ELEVATION := deg_to_rad(70.0)
+const CAMERA_GROUND_MARGIN := 0.38
+const CAMERA_OBSTACLE_MARGIN := 0.34
 var camera_pitch := 0.0
 var _camera_render_pitch := 0.0
+var _camera_last_collision := false
 
 
 func _world_light() -> void:
@@ -123,23 +127,57 @@ func _place_camera_immediately() -> void:
     _camera_render_pitch = camera_pitch
     _position_free_camera()
 
+func _base_camera_elevation() -> float:
+    var offset: Vector3 = TERRAIN_CAMERA_OFFSETS[camera_mode]
+    return atan2(offset.y, Vector2(offset.x, offset.z).length())
+
+func _safe_elevation(angle: float) -> float:
+    return clampf(angle, CAMERA_MIN_ELEVATION, CAMERA_MAX_ELEVATION)
+
+func _ground_at_camera(x: float, z: float) -> Dictionary:
+    var q := PhysicsRayQueryParameters3D.create(
+        Vector3(x, 120.0, z), Vector3(x, -60.0, z))
+    q.collision_mask = 1 << 7
+    return get_world_3d().direct_space_state.intersect_ray(q)
+
 func _position_free_camera() -> void:
-    # Explicit yaw + pitch camera basis, not look_at(UP). look_at becomes
-    # undefined at straight-up/down poles and flips suddenly on a 360 orbit.
-    # The orientation below is stable for a COMPLETE vertical rotation and
-    # always looks at the same smoothed character-centered pivot.
-    var original: Vector3 = TERRAIN_CAMERA_OFFSETS[camera_mode]
-    var base_yaw: float = atan2(original.x, original.z)
-    var horizontal_radius: float = Vector2(original.x, original.z).length()
-    var elevation: float = atan2(original.y, horizontal_radius) + _camera_render_pitch
-    var orientation := Basis(Vector3.UP, _camera_render_yaw + base_yaw) * Basis(Vector3.RIGHT, -elevation)
-    var distance: float = original.length() * terrain_camera_zoom
-    cam.global_transform = Transform3D(orientation, _camera_focus + orientation.z * distance)
+    # Physics-aware spring arm: the camera cannot tunnel into hills, terrain
+    # or house walls even when the player hugs a cliff or building.
+    var offset: Vector3 = TERRAIN_CAMERA_OFFSETS[camera_mode]
+    var heading: float = atan2(offset.x, offset.z)
+    var elevation: float = _safe_elevation(_base_camera_elevation() + _camera_render_pitch)
+    var basis := Basis(Vector3.UP, _camera_render_yaw + heading) * Basis(Vector3.RIGHT, -elevation)
+    var direction: Vector3 = basis.z.normalized()
+    var requested: float = offset.length() * terrain_camera_zoom
+    var safe_distance: float = requested
+    _camera_last_collision = false
+    var q := PhysicsRayQueryParameters3D.create(_camera_focus,
+        _camera_focus + direction * requested)
+    q.collision_mask = (1 << 7) | 1
+    if is_instance_valid(player):
+        q.exclude = [player.get_rid()]
+    var hit := get_world_3d().direct_space_state.intersect_ray(q)
+    if not hit.is_empty():
+        safe_distance = clampf(_camera_focus.distance_to(hit.position)
+            - CAMERA_OBSTACLE_MARGIN, 0.55, requested)
+        _camera_last_collision = true
+    var position_m: Vector3 = _camera_focus + direction * safe_distance
+    # Second guard covers short cliff edges missed by the camera center ray.
+    var ground := _ground_at_camera(position_m.x, position_m.z)
+    if not ground.is_empty() and position_m.y < float(ground.position.y) + CAMERA_GROUND_MARGIN:
+        for i in range(10):
+            safe_distance *= 0.68
+            position_m = _camera_focus + direction * safe_distance
+            ground = _ground_at_camera(position_m.x, position_m.z)
+            if ground.is_empty() or position_m.y >= float(ground.position.y) + CAMERA_GROUND_MARGIN:
+                break
+        _camera_last_collision = true
+    cam.global_transform = Transform3D(basis, position_m)
 
 func _orbit_camera(yaw_delta: float, pitch_delta: float) -> void:
     camera_yaw = wrapf(camera_yaw + yaw_delta, -PI, PI)
-    # Full unrestricted orbit; wrap for stable interpolation, not a clamp.
-    camera_pitch = wrapf(camera_pitch + pitch_delta, -PI, PI)
+    var baseline := _base_camera_elevation()
+    camera_pitch = _safe_elevation(baseline + camera_pitch + pitch_delta) - baseline
     _update_camera_mode_label()
 
 func _reset_camera_rotation() -> void:
@@ -167,7 +205,7 @@ func _process(delta: float) -> void:
     # A second position smoothing pass caused rubber-banding and pitch jitter.
     var orbit_lerp := 1.0 - exp(-CAMERA_ORBIT_SMOOTH * delta)
     _camera_render_yaw = lerp_angle(_camera_render_yaw, camera_yaw, orbit_lerp)
-    _camera_render_pitch = lerp_angle(_camera_render_pitch, camera_pitch, orbit_lerp)
+    _camera_render_pitch = lerpf(_camera_render_pitch, camera_pitch, orbit_lerp)
     _position_free_camera()
 
 func _apply_camera_preset() -> void:
@@ -175,12 +213,13 @@ func _apply_camera_preset() -> void:
     if is_instance_valid(cam):
         cam.projection = Camera3D.PROJECTION_PERSPECTIVE
         cam.fov = TERRAIN_CAMERA_FOV[camera_mode]
+    camera_pitch = _safe_elevation(_base_camera_elevation() + camera_pitch) - _base_camera_elevation()
     _update_camera_mode_label()
 
 func _update_camera_mode_label() -> void:
     if is_instance_valid(camera_mode_label):
         var mode := "3/4 Elevated" if camera_mode == 0 else "3/4 Close"
-        camera_mode_label.text = "Kamera 360°: %s | Geser kanan: kiri/kanan + atas/bawah | R: Reset" % mode
+        camera_mode_label.text = "Kamera bebas: %s | Sudut 10°–70° | Geser kanan / RMB | R: Reset" % mode
 
 func _unhandled_input(event: InputEvent) -> void:
     # Mobile drag on free right-side screen rotates BOTH yaw and pitch.
@@ -222,13 +261,13 @@ func _make_hud() -> void:
     super._make_hud()
     var title := get_node_or_null("BlockoutHUD/Title") as Label
     if title != null:
-        title.text = "LEMBAH ASRI | DESA V7 | KAMERA 360°"
+        title.text = "LEMBAH ASRI | V7.2 | KAMERA AMAN"
     var house_status := get_node_or_null("BlockoutHUD/HouseAssetStatus") as Label
     if house_status != null:
         house_status.text = "V3 | SOFT TOON • PAINTED TEXTURES • KARAKTER 55%"
     var control_label := get_node_or_null("BlockoutHUD/Controls") as Label
     if control_label != null:
-        control_label.text = "HP: Geser kanan layar untuk putar 360° | PC: Drag kanan mouse / PgUp-PgDn / Q-E"
+        control_label.text = "HP: Geser area kanan untuk orbit | PC: Klik kanan + geser / PgUp-PgDn / Q-E"
 
 func _physics_process(_delta: float) -> void:
     if is_instance_valid(player) and player.global_position.y < -8.0:

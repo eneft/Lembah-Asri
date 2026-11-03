@@ -739,40 +739,48 @@ func _run() -> void:
         push_error("V7.1 FREE CAMERA FAIL: mobile vertical drag did not change elevation")
         quit(1)
         return
-    # >90 degrees in either direction proves there is NO up/down clamp.
+    # Aggressive vertical swipes must CLAMP to practical low-sky and overhead.
     world.call("_reset_camera_rotation")
-    world.call("_orbit_camera",0.0,deg_to_rad(-125.0))
-    for frame in range(38):
+    world.call("_orbit_camera", 0.0, deg_to_rad(-125.0))
+    var min_angle: float = float(world.call("_base_camera_elevation")) + float(world.get("camera_pitch"))
+    if absf(min_angle - deg_to_rad(10.0)) > 0.001:
+        push_error("V7.2 CAMERA FAIL: lower pitch clamp does not prevent excessive sky")
+        quit(1)
+        return
+    for frame in range(40):
         await process_frame
-    var upper_focus: Vector3 = world.get("_camera_focus")
-    if camera.global_position.y > upper_focus.y - 0.6:
-        push_error("V7.1 FREE CAMERA FAIL: view cannot orbit below vertical pole")
+    var focus_low: Vector3 = world.get("_camera_focus")
+    if camera.global_position.y < focus_low.y + 0.3:
+        push_error("V7.2 CAMERA FAIL: camera can fall below its player pivot")
         quit(1)
         return
-    if (-camera.global_transform.basis.z).dot((upper_focus-camera.global_position).normalized()) < 0.999:
-        push_error("V7.1 FREE CAMERA FAIL: 360-degree orbit no longer aims at player")
+    world.call("_orbit_camera", 0.0, deg_to_rad(240.0))
+    var max_angle: float = float(world.call("_base_camera_elevation")) + float(world.get("camera_pitch"))
+    if absf(max_angle - deg_to_rad(70.0)) > 0.001:
+        push_error("V7.2 CAMERA FAIL: upper pitch clamp can pass vertical pole")
         quit(1)
         return
-    world.call("_orbit_camera",0.0,deg_to_rad(230.0))
-    for frame in range(50):
+    for frame in range(52):
         await process_frame
-    var lower_focus: Vector3 = world.get("_camera_focus")
-    if camera.global_position.y < lower_focus.y + 0.6:
-        push_error("V7.1 FREE CAMERA FAIL: view cannot cross back above vertical pole")
+    var focus_high: Vector3 = world.get("_camera_focus")
+    if (-camera.global_transform.basis.z).dot((focus_high-camera.global_position).normalized()) < 0.999:
+        push_error("V7.2 CAMERA FAIL: free camera lost its player focus")
         quit(1)
         return
-    if (-camera.global_transform.basis.z).dot((lower_focus-camera.global_position).normalized()) < 0.999:
-        push_error("V7.1 FREE CAMERA FAIL: negative pitch orbit no longer aims at player")
+    var ground_at_cam: Dictionary = world.call("_ground_at_camera", camera.global_position.x, camera.global_position.z)
+    if not ground_at_cam.is_empty() and camera.global_position.y < float(ground_at_cam.position.y) + 0.35:
+        push_error("V7.2 CAMERA FAIL: camera intersects physical terrain")
         quit(1)
         return
     world.call("_reset_camera_rotation")
     for frame in range(38):
         await process_frame
     if absf(float(world.get("camera_pitch"))) > 0.001:
-        push_error("V7.1 FREE CAMERA FAIL: R reset did not restore original 3/4 angle")
+        push_error("V7.2 CAMERA FAIL: reset did not restore default 3/4 angle")
         quit(1)
         return
-    print("V7.1 FREE CAMERA PASS: desktop RMB and mobile drag, unclamped up/down >90°, smooth view and reset")
+    print("V7.2 CAMERA LIMIT PASS: mobile and RMB orbit, 10-70 degree elevation, ground clearance")
+
     # The camera should look at its smoothed follow pivot, not raw physics
     # capsule motion. Verify the two vectors stay aligned after actual walks.
     for frame in range(14):
