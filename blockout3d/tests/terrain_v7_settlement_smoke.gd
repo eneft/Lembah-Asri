@@ -107,11 +107,74 @@ func _run() -> void:
         if valid_textures == 0 or generated_geometry < 1:
             _fail("house lost its painted 3D geometry: "+str(building.name))
             return
-        if str(building.name) != "rumah_masa_kecil":
-            var doorway := model.get_node_or_null("PintuUkir") as MeshInstance3D
-            if doorway == null or doorway.mesh == null or doorway.mesh.get_aabb().size.y < 1.995:
-                _fail("V7.5: household entry must be at least 2.00m for 1.68m adult: "+str(building.name))
+        if str(building.name) == "rumah_masa_kecil":
+            # Original one-of-a-kind GLB also needs real 1m/world-unit
+            # calibration, not just matching a 10m zoning plot.
+            var source_bounds: AABB = settlement.call("_bounds",model)
+            var real_width: float = source_bounds.size.x*model.scale.x
+            var real_depth: float = source_bounds.size.z*model.scale.z
+            var real_height: float = source_bounds.size.y*model.scale.y
+            if absf(real_height-4.05)>0.07 or real_width>7.34 or real_depth>6.20 or real_width<2.5 or real_depth<2.5:
+                _fail("V7.6: childhood GLB out of real human proportions: %s x %s x %s" % [
+                    str(real_width),str(real_depth),str(real_height)])
                 return
+            if absf(float(building.get_meta("building_height_m",0.0))-real_height)>0.02:
+                _fail("V7.6: childhood building size metadata differs from visible GLB")
+                return
+        else:
+            var wall_visual := model.get_node_or_null("DindingBangunan") as MeshInstance3D
+            var doorway := model.get_node_or_null("PintuUkir") as MeshInstance3D
+            if wall_visual==null or wall_visual.mesh==null or doorway==null or doorway.mesh==null:
+                _fail("V7.6: missing visible human-scale house or front door: "+str(building.name))
+                return
+            var physical_width := wall_visual.mesh.get_aabb().size.x
+            var physical_depth := wall_visual.mesh.get_aabb().size.z
+            var physical_height := wall_visual.mesh.get_aabb().size.y
+            var entry_height := doorway.mesh.get_aabb().size.y
+            var entry_width := doorway.mesh.get_aabb().size.x
+            var public_hall := str(building.name)=="balai_desa"
+            if absf(physical_width-float(model.get_meta("actual_width_m",0.0)))>0.015 or absf(physical_depth-float(model.get_meta("actual_depth_m",0.0)))>0.015:
+                _fail("V7.6: actual house dimensions do not match painted wall mesh: "+str(building.name))
+                return
+            if physical_width < 5.0 or physical_width > (8.6 if public_hall else 7.15) or physical_depth < 4.5 or physical_depth > 6.50:
+                _fail("V7.6: building too wide/narrow for the 168cm avatar: "+str(building.name))
+                return
+            if physical_height < 2.45 or physical_height > (3.10 if public_hall else 2.85):
+                _fail("V7.6: house eave/wall not in a realistic adult scale: "+str(building.name))
+                return
+            if entry_height < 2.075 or entry_height > 2.5 or entry_width < 0.94 or entry_width > 1.35:
+                _fail("V7.6: door clearance incompatible with 1.68m adult: "+str(building.name))
+                return
+            var physical_block := shape.shape as BoxShape3D
+            if absf(physical_block.size.x-physical_width*0.96)>0.02 or absf(physical_block.size.z-physical_depth*0.96)>0.02:
+                _fail("V7.6: invisible collision walls no longer fit resized house: "+str(building.name))
+                return
+            # Avoid front windows visually covering the entry after shrinking
+            # the facades; validate spatial separation, not just counts.
+            for fixture in model.get_children():
+                var window := fixture as MeshInstance3D
+                if window!=null and str(window.name).begins_with("Jendela_") and window.mesh!=null:
+                    var separation: float = absf(window.position.x-doorway.position.x)
+                    var necessary: float = (window.mesh.get_aabb().size.x+entry_width)*0.5+0.04
+                    if separation < necessary:
+                        _fail("V7.6: window overlaps front door: "+str(building.name))
+                        return
+            var porch_floor := model.get_node_or_null("LantaiTeras") as MeshInstance3D
+            var porch_canopy := model.get_node_or_null("KanopiTeras") as MeshInstance3D
+            if porch_floor!=null and porch_canopy!=null:
+                var porch_top: float = porch_floor.position.y+porch_floor.mesh.get_aabb().size.y*0.5
+                var canopy_bottom: float = porch_canopy.mesh.get_aabb().position.y
+                if canopy_bottom-porch_top<2.14:
+                    _fail("V7.6: 168cm player lacks natural porch headroom: "+str(building.name))
+                    return
+            if public_hall:
+                # The supporting posts must follow the new actual facade,
+                # not the obsolete larger 11m empty plot.
+                for fixture in building.get_children():
+                    var post := fixture as MeshInstance3D
+                    if post!=null and str(post.name)=="TiangBalai" and absf(post.position.x)>physical_width*0.5:
+                        _fail("V7.6: balai porch pillar has drifted outside resized roof")
+                        return
         painted += 1
     if painted != 16 or childhood_glb != 1 or signatures.size() != 15:
         _fail("17 buildings must contain 1 original textured GLB and 15 UNIQUE textured meshes")
@@ -141,6 +204,7 @@ func _run() -> void:
     if player.global_position.x > hall.global_position.x - 3.4:
         _fail("original player capsule passed through balai wall")
         return
+    print("V7.6 BUILDING SCALE PASS: 168cm player, 15 residential/public doors, 1 calibrated childhood GLB and appropriately sized balai/watch post")
     print("V7 SETTLEMENT PHYSICS PASS: original player capsule blocked by village hall")
     print("V7 SETTLEMENT SMOKE PASS: 17 grounded buildings, 1 original childhood GLB, 15 unique hand-painted 3D meshes, open square, solid player collision")
     quit(0)
