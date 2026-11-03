@@ -46,8 +46,10 @@ BOOT_UI = r'''
     let problem = false;
     retry.addEventListener("click", function () { window.location.reload(); });
     function showProblem(detail) {
-        if (finished || problem) return;
+        if (problem) return;
         problem = true;
+        finished = false;
+        indicator.hidden = false;
         indicator.classList.add("la-failed");
         message.textContent = detail;
         retry.hidden = false;
@@ -56,7 +58,8 @@ BOOT_UI = r'''
         if (problem || finished || !canvas) return;
         const loaded = loader && (loader.style.display === "none" ||
              window.getComputedStyle(loader).display === "none");
-        if (loaded && canvas.width > 0 && canvas.height > 0) {
+        if (loaded && canvas.width > 0 && canvas.height > 0 &&
+            window.__lembahTerrainReadyV78 === true) {
             finished = true;
             indicator.hidden = true;
             window.clearInterval(checkTimer);
@@ -119,6 +122,8 @@ def verify(path: Path, revision: str) -> None:
         raise ValueError("Missing/duplicated independent loading and error UI")
     if "Build: " + revision not in html:
         raise ValueError("Incorrect published GitHub commit ID")
+    if 'window.__lembahTerrainReadyV78 === true' not in html:
+        raise ValueError("Canvas-only ready check can hide loader on a blank render")
     if 'window.location.reload()' not in html or "webglcontextlost" not in html:
         raise ValueError("Missing browser recovery diagnostics")
     print("V7.8 WEB BOOT AUDIT PASS: exported shell includes WASM/pack and loading-error recovery; revision", revision)

@@ -273,6 +273,9 @@ func _install_terrain() -> void:
     # Otherwise the camera lerps across the whole map on the first few frames.
     world.call("_place_camera_immediately")
     is_ready = true
+    # Signal browser only after terrain, houses, foliage, character and camera are ready.
+    if OS.has_feature("web"):
+        JavaScriptBridge.eval("window.__lembahTerrainReadyV78 = true;")
     beach_button.disabled = false
     _refresh_text()
     print("TERRAIN V3 PLAYABLE PASS: clean mesh and matched coastline collision, painterly atlas, island river/ocean")
