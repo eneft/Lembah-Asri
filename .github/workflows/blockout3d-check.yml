@@ -26,6 +26,8 @@ jobs:
           include-templates: true
       - name: Validate V5 village road clearance and river source
         run: python3 blockout3d/tests/terrain_v5_layout_audit.py
+      - name: Validate V7 settlement alignment with house pads and roads
+        run: python3 blockout3d/tests/terrain_v7_layout_audit.py
       - name: Build web-optimized uploaded terrain GLB
         run: |
           python3 -m pip install --user Pillow
@@ -47,6 +49,12 @@ jobs:
           timeout 110s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_base_smoke.gd 2>&1 | tee terrain-base-smoke.log
           if grep -E 'SCRIPT ERROR|ERROR:|TERRAIN BASE FAIL' terrain-base-smoke.log; then exit 1; fi
           grep -q 'TERRAIN BASE SMOKE PASS:' terrain-base-smoke.log
+      - name: Check V7 real buildings and player-wall collision
+        run: |
+          set -o pipefail
+          timeout 125s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v7_settlement_smoke.gd 2>&1 | tee terrain-v7.log
+          if grep -E 'SCRIPT ERROR|ERROR:|V7 SETTLEMENT FAIL' terrain-v7.log; then exit 1; fi
+          grep -q 'V7 SETTLEMENT SMOKE PASS:' terrain-v7.log
       - name: Walk real player capsule across both bridges
         run: |
           set -o pipefail
