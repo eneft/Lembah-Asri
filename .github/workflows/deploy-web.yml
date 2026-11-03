@@ -330,6 +330,13 @@ jobs:
           if grep -E 'SCRIPT ERROR|ERROR:|TERRAIN BASE FAIL' terrain-base-deploy.log; then exit 1; fi
           grep -q 'TERRAIN BASE SMOKE PASS:' terrain-base-deploy.log
 
+      - name: Walk real player capsule across both bridges
+        run: |
+          set -o pipefail
+          timeout 120s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v6_traversal_smoke.gd 2>&1 | tee terrain-v6-traversal.log
+          if grep -E 'SCRIPT ERROR|ERROR:|TERRAIN V6 TRAVERSAL FAIL' terrain-v6-traversal.log; then exit 1; fi
+          grep -q 'TERRAIN V6 TRAVERSAL PASS:' terrain-v6-traversal.log
+
       - name: Export independent new terrain comparison at /terrain-test/
         run: |
           set -euo pipefail

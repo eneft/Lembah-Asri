@@ -283,23 +283,27 @@ func _wood_box(label: String, position_m: Vector3, dimensions: Vector3, tint: Co
 func _make_trail_edges() -> void:
     # Sparse road-edge markers where a village pathway bends. Avoid
     # house plots and the river: one MultiMesh for the whole collection.
+    # World-space positions from the actual 260m V5 paths, NOT the old
+    # 140m village positions. Keep sparse and instance everything together.
+    # No invisible collision, and no markers inside the river channel.
     var locations: Array[Vector2] = [
-        Vector2(11,-29),Vector2(26,-28),Vector2(36,-14),
-        Vector2(37,1),Vector2(37,15),Vector2(36,29),
-        Vector2(18,-7),Vector2(48,-9),Vector2(14,12),
-        Vector2(45,12),Vector2(-48,-25),Vector2(-39,-13),
-        Vector2(-33,0),Vector2(-32,15),Vector2(-43,27),
-        Vector2(25,35),Vector2(44,42)
+        # Childhood home, west agricultural path and west village.
+        Vector2(-102,-48),Vector2(-95,-55),Vector2(-86,-56),
+        Vector2(-106,-44),Vector2(-89,-35),Vector2(-81,-22),
+        Vector2(-89,-7),Vector2(-82,13),Vector2(-61,24),
+        Vector2(-56,7),Vector2(-28,5),Vector2(-34,-5),
+        Vector2(-22,-10),Vector2(19,-17),
+        # South bridge landings and village eastern paths.
+        Vector2(-52,29),Vector2(-40,36),Vector2(-22,44),
+        Vector2(22,48),Vector2(43,48),Vector2(63,46),
+        Vector2(22,-54),Vector2(44,-37),Vector2(44,-20),
+        Vector2(67,26),Vector2(48,52),Vector2(45,82),
+        # Fishing village; last waypoints intentionally close to the cove.
+        Vector2(69,63),Vector2(84,76)
     ]
     var objects: Array[Transform3D] = []
-    # Most pre-existing sign coordinates belong to the former 140m map.
-    # Relocate them to scaled village routes, with extra markers at the new
-    # childhood house and coastal footbridge.
-    locations.append_array([
-        Vector2(-90,-42),Vector2(-74,-57),Vector2(-39,33),
-        Vector2(-19,44),Vector2(24,50),Vector2(43,62)])
     for i in range(locations.size()):
-        var p: Vector2 = locations[i] if i >= 17 else locations[i]*(260.0/140.0)
+        var p: Vector2 = locations[i]
         if absf(p.x-_river_x(p.y)) < 6.0:
             continue
         var contact := _terrain_at(p.x,p.y)
