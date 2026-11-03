@@ -68,7 +68,7 @@ func _run() -> void:
                 q.collision_mask = 1 << 7
                 var hit := world.get_world_3d().direct_space_state.intersect_ray(q)
                 if hit.is_empty() or hit.collider != collider:
-                    push_error("TERRAIN V6.5 PAD FAIL: missing physical soil at " + str(pad["name"]))
+                    push_error("TERRAIN V6.5 PAD FAIL: missing physical soil at %s x=%.2f z=%.2f hit=%s" % [str(pad["name"]),x,z,str(hit)])
                     quit(1)
                     return
                 heights.append(float(hit.position.y))
