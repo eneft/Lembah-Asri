@@ -47,23 +47,37 @@ async function main(){
     if(rect&&rect.width>=50&&rect.height>=50){
       const buffer=await canvas.screenshot({path:path.join(out,"terrain-canvas.png"),timeout:20000});
       const pic=PNG.sync.read(buffer);
-      const colors=new Set();let black=0,count=0;
-      for(let y=0;y<pic.height;y+=Math.max(1,Math.ceil(pic.height/30))){
-        for(let x=0;x<pic.width;x+=Math.max(1,Math.ceil(pic.width/45))){
+      const colors=new Set(),middleColors=new Set(),middleLuma=[];
+      let black=0,count=0;
+      for(let y=0;y<pic.height;y+=Math.max(1,Math.ceil(pic.height/44))){
+        for(let x=0;x<pic.width;x+=Math.max(1,Math.ceil(pic.width/68))){
           const i=(y*pic.width+x)*4;
           const rgb=[pic.data[i],pic.data[i+1],pic.data[i+2]];
-          colors.add(rgb.map(v=>Math.round(v/12)).join("."));
+          const key=rgb.map(v=>Math.round(v/8)).join(".");
+          colors.add(key);
           if(rgb[0]+rgb[1]+rgb[2]<45)black++;
           count++;
+          // Only inspect unobstructed world view: no HUD text, virtual
+          // joysticks or HTML boot panel. The earlier test counted colored
+          // UI pixels as "3D scene visible" even when ONLY sky was shown.
+          if(x>pic.width*0.23 && x<pic.width*0.77 &&
+             y>pic.height*0.25 && y<pic.height*0.68){
+            middleColors.add(key);
+            middleLuma.push((rgb[0]+rgb[1]+rgb[2])/3);
+          }
         }
       }
-      report.pixels={variety:colors.size,blackFraction:Number((black/count).toFixed(3))};
+      const mean=middleLuma.reduce((a,b)=>a+b,0)/Math.max(1,middleLuma.length);
+      const variance=middleLuma.reduce((a,b)=>a+(b-mean)*(b-mean),0)/Math.max(1,middleLuma.length);
+      report.pixels={variety:colors.size,blackFraction:Number((black/count).toFixed(3)),
+        worldVariety:middleColors.size,worldLumaStd:Number(Math.sqrt(variance).toFixed(2))};
     }
   }catch(e){report.fatal=String(e.stack||e).slice(-1200)}
   finally{if(browser)await browser.close()}
   fs.writeFileSync(path.join(out,"terrain-browser-report.json"),JSON.stringify(report,null,2)+"\n");
   const last=report.snapshots.length?report.snapshots[report.snapshots.length-1].state:null;
-  const visible=!!(report.pixels&&report.pixels.variety>=18&&report.pixels.blackFraction<0.97);
+  const visible=!!(report.pixels&&report.pixels.variety>=30&&report.pixels.blackFraction<0.97&&
+    report.pixels.worldVariety>=32&&report.pixels.worldLumaStd>=7.0);
   const ready=!!(last&&last.ready);
   // A real scene behind a permanently visible loading panel is still a
   // broken Web experience. Test both actual pixels AND loader dismissal.
