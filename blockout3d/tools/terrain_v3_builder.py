@@ -261,7 +261,10 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
             # the unchanged physical coastal taper.
             # A broader gently sloping beach taper makes sand meet the ocean
             # without a steep 1m ledge. Collision uses this SAME visual mesh.
-            beach = smooth(0.0, 9.0, distance)
+            # V6.8: keep physically dry sand visible at walking height.
+            # Widen the real coastal shelf only slightly to preserve fishing
+            # house foundations and the existing island collision profile.
+            beach = smooth(0.0, 10.5, distance)
             h = 0.10 + (raw_height-0.10)*beach
             heights.append(h)
             shore_per_vertex.append(distance)
@@ -291,9 +294,13 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
             # Distance-to-COAST is more robust than an absolute height cutoff.
             v = z/hz
             u = x/hx
-            sandy_direction = max(smooth(0.02, 0.63, v), smooth(0.35, 0.75, u))
-            coast_band = (1.0-smooth(2.0, 12.0, shore_per_vertex[idx]))
-            coastal_sand = coast_band * (0.16 + 0.84*sandy_direction)
+            # V6.8: the previous 2..12m sand band blended into grass so
+            # quickly that a player standing inland could not discern a
+            # beach.  Build a readable 5..22m sand-to-grass transition,
+            # favoring the south/east beach without painting northern cliffs.
+            sandy_direction = max(smooth(-0.02, 0.52, v), smooth(0.23, 0.73, u))
+            coast_band = 1.0 - smooth(5.0, 22.0, shore_per_vertex[idx])
+            coastal_sand = coast_band * (0.10 + 0.90*sandy_direction)
             colors.append((lot, yard, path, coastal_sand))
     indices = []
     for j in range(nz):

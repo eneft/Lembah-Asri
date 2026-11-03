@@ -20,6 +20,9 @@ var terrain_scale := 140.0
 var vertical_offset := 0.0
 var is_ready := false
 var status: Label
+var beach_button: Button
+var village_button: Button
+var village_spawn := Vector3.ZERO
 var world: Node3D
 
 func _ready() -> void:
@@ -45,6 +48,27 @@ func _make_hud() -> void:
     style.bg_color = Color(0.06, 0.14, 0.12, 0.88)
     style.set_content_margin_all(6)
     panel.add_theme_stylebox_override("panel", style)
+    # Mobile-friendly landmark preview. No changes to the normal game spawn,
+    # camera movement, avatar, or terrain navigation.
+    var travel := HBoxContainer.new()
+    travel.name = "CoastPreviewControls"
+    travel.position = Vector2(18.0, 165.0)
+    travel.add_theme_constant_override("separation", 6)
+    ui.add_child(travel)
+    beach_button = Button.new()
+    beach_button.name = "VisitBeach"
+    beach_button.text = "Pantai"
+    beach_button.custom_minimum_size = Vector2(108.0, 46.0)
+    beach_button.disabled = true
+    beach_button.pressed.connect(_visit_beach)
+    travel.add_child(beach_button)
+    village_button = Button.new()
+    village_button.name = "ReturnVillage"
+    village_button.text = "Kembali Desa"
+    village_button.custom_minimum_size = Vector2(134.0, 46.0)
+    village_button.visible = false
+    village_button.pressed.connect(_return_to_village)
+    travel.add_child(village_button)
 
 func _bounds_global(mesh: MeshInstance3D) -> AABB:
     var aabb := mesh.get_aabb()
@@ -216,6 +240,7 @@ func _install_terrain() -> void:
     player.global_position = hit.position + Vector3(0.0, 0.13, 0.0)
     player.velocity = Vector3.ZERO
     world.set("terrain_spawn_position", player.global_position)
+    village_spawn = player.global_position
     player.reset_camera_follow_interpolation()
     player.set_physics_process(true)
     player.reset_physics_interpolation()
@@ -223,6 +248,7 @@ func _install_terrain() -> void:
     # Otherwise the camera lerps across the whole map on the first few frames.
     world.call("_place_camera_immediately")
     is_ready = true
+    beach_button.disabled = false
     _refresh_text()
     print("TERRAIN V3 PLAYABLE PASS: clean mesh and matched coastline collision, painterly atlas, island river/ocean")
     print("TERRAIN BASE TEST PASS: V2 derived GLB terrain, collider_layer=%d, player_mask=%d, size=%s, spawn_xz=%s, spawn_height=%.3f" % [
@@ -230,12 +256,70 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "PAINTED TERRAIN V1 | HAND-PAINTED DIRECTION"
+        status.text = "TERRAIN V6.8 | PESISIR BERPASIR • P: PANTAI • H: DESA"
+
+func _move_to_ground(where: Vector3, yaw: float) -> void:
+    var actor := world.get_node_or_null("Player3D") as CharacterBody3D
+    if actor == null:
+        return
+    actor.global_position = where
+    actor.velocity = Vector3.ZERO
+    actor.reset_camera_follow_interpolation()
+    actor.reset_physics_interpolation()
+    # The beach is SOUTH (+Z). Place the camera on the inland/north
+    # side of the player so the sea is in the picture, not behind the viewer.
+    world.set("camera_yaw", yaw)
+    world.call("_place_camera_immediately")
+
+func _visit_beach() -> void:
+    if not is_ready:
+        return
+    # Real terrain/cove shape determines the target; never teleport the
+    # player onto a guess, water, or an invisible fake coastal floor.
+    for x_candidate in [72.0, 65.0, 78.0, 58.0, 84.0, 49.0]:
+        for z_candidate in [78.0, 76.0, 74.0, 72.0, 69.0]:
+            var x := float(x_candidate)
+            var z := float(z_candidate)
+            var land_query := PhysicsRayQueryParameters3D.create(
+                Vector3(x, 120.0, z), Vector3(x, -40.0, z))
+            land_query.collision_mask = TERRAIN_RAY_LAYER
+            var bank := world.get_world_3d().direct_space_state.intersect_ray(land_query)
+            if bank.is_empty() or float(bank.position.y) < 0.85 or float(bank.normal.y) < 0.82:
+                continue
+            var water_query := PhysicsRayQueryParameters3D.create(
+                Vector3(x, 120.0, z + 14.0), Vector3(x, -40.0, z + 14.0))
+            water_query.collision_mask = TERRAIN_RAY_LAYER
+            var offshore := world.get_world_3d().direct_space_state.intersect_ray(water_query)
+            if not offshore.is_empty():
+                continue
+            _move_to_ground(bank.position + Vector3(0.0, 0.13, 0.0), PI)
+            village_button.visible = true
+            beach_button.visible = false
+            if status != null:
+                status.text = "PANTAI SELATAN | Laut di depan kamera • H: kembali"
+            print("TERRAIN V6.8 BEACH PREVIEW PASS: dry land=",bank.position,
+                " offshore=("+str(x)+","+str(z+14.0)+")")
+            return
+    push_error("TERRAIN V6.8 BEACH FAIL: no dry accessible south-coast view")
+
+func _return_to_village() -> void:
+    if not is_ready:
+        return
+    _move_to_ground(village_spawn, 0.0)
+    village_button.visible = false
+    beach_button.visible = true
+    _refresh_text()
 
 func _unhandled_input(event: InputEvent) -> void:
     if not is_ready or not (event is InputEventKey):
         return
     if not event.pressed or event.echo:
+        return
+    if event.keycode == KEY_P or event.physical_keycode == KEY_P:
+        _visit_beach()
+        return
+    if event.keycode == KEY_H or event.physical_keycode == KEY_H:
+        _return_to_village()
         return
     if event.keycode == KEY_EQUAL or event.keycode == KEY_KP_ADD:
         vertical_offset += 0.5

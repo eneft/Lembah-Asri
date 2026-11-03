@@ -788,6 +788,41 @@ func _run() -> void:
         return
     print("TERRAIN V3 RENDER SYNC PASS: visual and camera target match over 22 physics frames, max error %.4fm" % largest_render_disagreement)
     print("TERRAIN V3 CAMERA STABILITY PASS: aim and smoothed follow pivot aligned while walking")
+    # The published Web terrain preview starts in the island's CENTER, over
+    # 60m from its beach. On iPhone users need a visible, working coast
+    # action, and the sand must be a physically DRY part of the 3D terrain.
+    var beach_control := test.get_node_or_null("TerrainTestHUD/CoastPreviewControls/VisitBeach") as Button
+    var village_control := test.get_node_or_null("TerrainTestHUD/CoastPreviewControls/ReturnVillage") as Button
+    if beach_control == null or village_control == null or beach_control.disabled:
+        push_error("TERRAIN V6.8 BEACH FAIL: mobile beach preview controls unavailable")
+        quit(1)
+        return
+    beach_control.pressed.emit()
+    await physics_frame
+    await physics_frame
+    var beach_pos := player.global_position
+    if beach_pos.z < 62.0 or beach_pos.y < 0.85 or absf(float(world.get("camera_yaw"))-PI) > 0.001:
+        push_error("TERRAIN V6.8 BEACH FAIL: teleport did not reach visible southern dry beach")
+        quit(1)
+        return
+    var offshore_q := PhysicsRayQueryParameters3D.create(
+        beach_pos + Vector3(0.0, 80.0, 14.0),
+        beach_pos + Vector3(0.0, -40.0, 14.0))
+    offshore_q.collision_mask = 1 << 7
+    if not world.get_world_3d().direct_space_state.intersect_ray(offshore_q).is_empty():
+        push_error("TERRAIN V6.8 BEACH FAIL: ocean remains covered by land in front of beach")
+        quit(1)
+        return
+    if not village_control.visible:
+        push_error("TERRAIN V6.8 BEACH FAIL: return navigation missing")
+        quit(1)
+        return
+    village_control.pressed.emit()
+    if player.global_position.distance_to(Vector3(world.get("terrain_spawn_position"))) > 0.2:
+        push_error("TERRAIN V6.8 BEACH FAIL: village return did not restore original spawn")
+        quit(1)
+        return
+    print("TERRAIN V6.8 BEACH NAV PASS: dry southern shore, sea forward, mobile buttons, village return")
     print("TERRAIN V3 CAMERA-RELATIVE INPUT PASS: 90/180 orbit, screen-aligned axes, real right movement %.2fm" % orbit_displacement.length())
     print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=55%%, capsule_height=%.2f" % [
         camera.fov, cam_distance, capsule.height])
