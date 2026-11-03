@@ -6,6 +6,7 @@ const SOURCE_TERRAIN := "res://assets/environment/island/terrain base.glb"
 const WATER_SCRIPT := preload("res://scripts/terrain_v2_water.gd")
 const INFRASTRUCTURE_SCRIPT := preload("res://scripts/terrain_v3_infrastructure.gd")
 const SETTLEMENT_SCRIPT := preload("res://scripts/terrain_v7_settlement.gd")
+const VEGETATION_SCRIPT := preload("res://scripts/terrain_v7_vegetation.gd")
 const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
 const PAINTED_COLORMAP := "res://assets/environment/island/terrain_v3_painted_colormap.png"
 const TERRAIN_RAY_LAYER := 1 << 7
@@ -18,6 +19,7 @@ var new_collision: StaticBody3D
 var water_root: Node3D
 var infrastructure_root: Node3D
 var settlement_root: Node3D
+var vegetation_root: Node3D
 var terrain_scale := 140.0
 var vertical_offset := 0.0
 var is_ready := false
@@ -187,6 +189,16 @@ func _install_terrain() -> void:
     if not bool(settlement_root.get("finished")):
         push_error("V7 SETTLEMENT FAIL: buildings failed to initialize")
         return
+    # Phase 1 V7.3 lives in a separate layer. Plant only after terrain and
+    # buildings exist: all shrubs/grass and trunks are matched to real ground.
+    vegetation_root = Node3D.new()
+    vegetation_root.name = "VillageVegetationV73"
+    vegetation_root.set_script(VEGETATION_SCRIPT)
+    world.add_child(vegetation_root)
+    vegetation_root.call("configure", world)
+    if not bool(vegetation_root.get("finished")):
+        push_error("V7.3 VEGETATION FAIL: no safe grounded foliage scene")
+        return
     # StaticBody3D collision shapes created during an idle callback become
     # queryable AFTER the next physics server sync. The old smoke test ran a
     # ray in the same tick and wrongly concluded that the bridge was absent.
@@ -269,7 +281,7 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "TERRAIN V6.8 | PESISIR BERPASIR • P: PANTAI • H: DESA"
+        status.text = "LEMBAH ASRI V7.3 | VEGETASI DESA • P: PANTAI • H: DESA"
 
 func _move_to_ground(where: Vector3, yaw: float) -> void:
     var actor := world.get_node_or_null("Player3D") as CharacterBody3D
