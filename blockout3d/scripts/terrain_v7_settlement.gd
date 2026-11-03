@@ -261,13 +261,15 @@ func configure(world: Node3D) -> void:
                 push_error("V7.2 SETTLEMENT FAIL: duplicate physical architecture "+label)
                 return
             geometry_signatures[signature] = label
-            _collision(house,built["body_dimensions"])
+            var real_footprint: Vector2 = built["actual_footprint"]
+            var body_dimensions: Vector3 = built["body_dimensions"]
+            _collision(house,body_dimensions)
             # Yard reserves walking space; accessories MUST reference the
             # smaller 1.68m-relative house facade, not the larger empty plot.
-            _accessories(house,kind,built["actual_footprint"])
-            house.set_meta("building_width_m",built["actual_footprint"].x)
-            house.set_meta("building_depth_m",built["actual_footprint"].y)
-            house.set_meta("wall_height_m",float((built["body_dimensions"] as Vector3).y))
+            _accessories(house,kind,real_footprint)
+            house.set_meta("building_width_m",real_footprint.x)
+            house.set_meta("building_depth_m",real_footprint.y)
+            house.set_meta("wall_height_m",body_dimensions.y)
             unique_house_count += 1
         building_count += 1
     set_meta("building_count",building_count)
