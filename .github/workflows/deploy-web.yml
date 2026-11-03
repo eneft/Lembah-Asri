@@ -16,7 +16,7 @@ jobs:
   build:
     name: Build Godot Web
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 22
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -425,6 +425,33 @@ jobs:
           path: build/browser-audit
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Verify actual WebGL2 terrain render using real Chromium browser
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-audit --no-fund playwright-core@1.57.0
+          CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            echo "No installed Chromium binary; install Playwright chromium"
+            npx playwright install chromium
+            CHROME_BIN="$(find "$HOME/.cache/ms-playwright" -path "*/chrome-linux64/chrome" -type f | head -1)"
+          fi
+          if [ -z "$CHROME_BIN" ]; then echo "V7.8 CHROMIUM FAIL: no browser executable"; exit 1; fi
+          export CHROME_BIN
+          python3 -m http.server 9137 --bind 127.0.0.1 --directory build/web > /tmp/lembah-e2e-http.log 2>&1 &
+          SERVER=$!
+          trap 'kill "$SERVER" || true' EXIT
+          sleep 2
+          timeout 155s node blockout3d/tests/terrain_browser_boot.cjs
+          python3 blockout3d/tests/terrain_browser_pixels.py
+      - name: Upload actual WebGL screenshot and browser console report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lembah-terrain-webgl-diagnostics
+          path: /tmp/lembah-terrain-chromium
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Include expanded 260m island mesh with painted map
         run: |
