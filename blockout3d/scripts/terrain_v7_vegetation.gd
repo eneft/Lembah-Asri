@@ -25,6 +25,7 @@ var zone_counts: Dictionary = {}
 var grass_count := 0
 var _art: RefCounted
 var _prototypes: Dictionary = {}
+var _template_holder: Node3D
 var _grass_transforms: Array[Transform3D] = []
 var _grass_tints: Array[Color] = []
 var _plot_guards: Array = []
@@ -32,14 +33,17 @@ var _road_guards: Array = []
 
 func _make_prototypes() -> void:
     _art = VILLAGE_ART.new()
-    var shades := Node3D.new()
-    var bananas := Node3D.new()
-    var palms := Node3D.new()
-    _prototypes["shade"] = _art.call("build_tree", shades, Vector3.ZERO, 1.0)
-    _prototypes["banana"] = _art.call("build_banana", bananas, Vector3.ZERO)
-    _prototypes["palm"] = _art.call("build_palm", palms, Vector3.ZERO)
+    # All original geometry is transient and NEVER enters the world tree.
+    # Parent it to a holder and free the holder once placed clones exist;
+    # otherwise 34 prototype mesh buffers leak at Godot engine shutdown.
+    _template_holder = Node3D.new()
+    _template_holder.name = "TemporaryVegetationTemplates"
+    _prototypes["shade"] = _art.call("build_tree", _template_holder, Vector3.ZERO, 1.0)
+    _prototypes["banana"] = _art.call("build_banana", _template_holder, Vector3.ZERO)
+    _prototypes["palm"] = _art.call("build_palm", _template_holder, Vector3.ZERO)
     var shrub := Node3D.new()
     shrub.name = "SemakTropis"
+    _template_holder.add_child(shrub)
     _art.call("_sphere",shrub,"DaunSemakKiri",Vector3(-0.36,0.49,0.02),
         Vector3(0.58,0.48,0.51),"leaf_dark")
     _art.call("_sphere",shrub,"DaunSemakKanan",Vector3(0.34,0.57,-0.12),
@@ -218,6 +222,12 @@ func configure(world: Node3D) -> void:
             continue
         _plant(world,entry)
     _finalize_grass()
+    # Prototypes have already been duplicated into world-space plants, with
+    # shared Resource refs retained. Release the temporary source meshes to
+    # prevent GLES3/PagedAllocator leaks reported by the V7.3 smoke test.
+    _template_holder.free()
+    _template_holder = null
+    _prototypes.clear()
     if planted_count < 76 or int(counts.get("shade",0))<7 or int(counts.get("banana",0))<5 or int(counts.get("palm",0))<5:
         push_error("V7.3 VEGETATION FAIL: not enough living trees/ground cover on real dry island: "+str(counts))
         return
