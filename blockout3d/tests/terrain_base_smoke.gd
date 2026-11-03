@@ -341,9 +341,12 @@ func _run() -> void:
                 box.size.x if (i & 1) != 0 else 0.0,
                 box.size.y if (i & 2) != 0 else 0.0,
                 box.size.z if (i & 4) != 0 else 0.0)
-            var world_point := visual.to_local(body_mesh.to_global(corner))
-            visual_low = minf(visual_low,world_point.y)
-            visual_high = maxf(visual_high,world_point.y)
+            # CharacterBody3D local coordinates INCLUDE the Visual parent
+            # scale (1.68/1.78). Visual.to_local() would cancel that scale
+            # and falsely measure the original unscaled 1.78m FBX.
+            var player_point := player.to_local(body_mesh.to_global(corner))
+            visual_low = minf(visual_low,player_point.y)
+            visual_high = maxf(visual_high,player_point.y)
     var measured_height := visual_high - visual_low
     if body_parts == 0 or absf(measured_height - 1.68) > 0.035:
         push_error("V7.5 REAL SCALE FAIL: rendered FBX height %.3fm, expected 1.680m" % measured_height)
