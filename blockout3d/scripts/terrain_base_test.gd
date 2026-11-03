@@ -272,6 +272,29 @@ func _install_terrain() -> void:
     # Starting perspective must already be at the actual spawn location.
     # Otherwise the camera lerps across the whole map on the first few frames.
     world.call("_place_camera_immediately")
+    # Imported FBX / original childhood GLB can contain Camera3D nodes.
+    # Never assume the viewport kept our approved follow camera as current
+    # after the full village is instantiated. Without an active world camera,
+    # Godot draws only the clear sky while all CanvasLayer HUD controls work.
+    var follow_camera: Camera3D = world.get("cam") as Camera3D
+    if follow_camera == null:
+        push_error("TERRAIN WEB CAMERA FAIL: approved 3/4 follow camera missing")
+        return
+    follow_camera.make_current()
+    var current_camera: Camera3D = get_viewport().get_camera_3d()
+    if current_camera != follow_camera:
+        push_error("TERRAIN WEB CAMERA FAIL: viewport draws another imported camera")
+        return
+    var view_forward: Vector3 = -follow_camera.global_transform.basis.z.normalized()
+    var target_direction: Vector3 = (player.global_position + Vector3.UP -
+        follow_camera.global_position).normalized()
+    if view_forward.dot(target_direction) < 0.75:
+        push_error("TERRAIN WEB CAMERA FAIL: actual active camera looks away from the avatar")
+        return
+    print("TERRAIN WEB CAMERA PASS: viewport current=",current_camera.get_path(),
+        " position=",current_camera.global_position,
+        " target=",player.global_position,
+        " direction dot=",snappedf(view_forward.dot(target_direction),0.001))
     is_ready = true
     # Signal browser only after terrain, houses, foliage, character and camera are ready.
     if OS.has_feature("web"):
