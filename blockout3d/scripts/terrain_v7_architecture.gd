@@ -53,6 +53,8 @@ func _material(kind: String) -> StandardMaterial3D:
         lookup = "roof"
     elif kind == "stucco":
         lookup = "plaster"
+    elif kind == "roof_edge":
+        lookup = "roof_edge"
     var base := _art.call("_material", lookup) as StandardMaterial3D
     var m := base.duplicate() as StandardMaterial3D
     m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
@@ -67,6 +69,8 @@ func _material(kind: String) -> StandardMaterial3D:
         m.albedo_color = Color("c8b7ac")
     elif kind == "stucco":
         m.albedo_color = Color("f5ece0")
+    elif kind == "roof_edge":
+        m.albedo_color = Color("f6e4d0")
     _materials[kind] = m
     return m
 
@@ -99,6 +103,57 @@ func _panel(parent: Node3D, name: String, points: Array[Vector3],
     item.material_override = _material(mat_name)
     parent.add_child(item)
 
+# Decorative edge rails only. No collision geometry or extra script physics.
+func _roof_rail(parent: Node3D, label: String,
+                start: Vector3, finish: Vector3, radius: float,
+                paint: String) -> void:
+    var direction := finish - start
+    if direction.length() < 0.001:
+        return
+    var rail := MeshInstance3D.new()
+    rail.name = label
+    var mesh := CylinderMesh.new()
+    mesh.height = direction.length()
+    mesh.top_radius = radius
+    mesh.bottom_radius = radius * 1.04
+    mesh.radial_segments = 6
+    rail.mesh = mesh
+    rail.material_override = _material(paint)
+    rail.position = (start+finish)*0.5
+    rail.quaternion = Quaternion(Vector3.UP,direction.normalized())
+    rail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    parent.add_child(rail)
+
+# A small batched mesh of roof clay-tile relief marks, not hundreds of
+# objects. The illustrated pigment comes from the shared 192px atlas.
+func _tile_ribbons(parent: Node3D, width: float, depth: float,
+                   eave_y: float, rise: float, peak: float) -> void:
+    var half_w := width*0.5+0.32
+    var half_d := depth*0.5+0.36
+    var st := SurfaceTool.new()
+    st.begin(Mesh.PRIMITIVE_TRIANGLES)
+    for side in range(2):
+        for row in range(1,8):
+            var t := float(row)/8.0
+            var x := lerpf(-half_w,peak,t) if side==0 else lerpf(peak,half_w,t)
+            var y := eave_y + (rise*t if side==0 else rise*(1.0-t)) + 0.052
+            var thickness := 0.024
+            var p := [
+                Vector3(x-thickness,y,-half_d+0.04),
+                Vector3(x+thickness,y,-half_d+0.04),
+                Vector3(x+thickness,y,half_d-0.04),
+                Vector3(x-thickness,y,half_d-0.04)]
+            for i in [0,1,2,0,2,3]:
+                st.set_uv(Vector2(float(i%3)*0.25,t))
+                st.add_vertex(p[i])
+    st.generate_normals()
+    var stripes := MeshInstance3D.new()
+    stripes.name = "GentengSapuanBertingkat"
+    stripes.mesh = st.commit()
+    stripes.material_override = _material("roof_edge")
+    stripes.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    parent.add_child(stripes)
+
 func _gable(parent: Node3D, width: float, depth: float,
             eave_y: float, rise: float, mat: String, shift: float = 0.0) -> void:
     var w := width * 0.5 + 0.32
@@ -117,6 +172,11 @@ func _gable(parent: Node3D, width: float, depth: float,
             Vector3(peak,eave_y+rise-0.1,side*(d-0.15))],"stucco")
     _box(parent,"BubunganGenteng",Vector3(peak,eave_y+rise,-0.0),
         Vector3(0.13,0.12,depth+0.85),mat)
+    _tile_ribbons(parent,width,depth,eave_y,rise,peak)
+    _roof_rail(parent,"LisTepiGentengKiri",
+        Vector3(-w,eave_y,-d),Vector3(-w,eave_y,d),0.055,"wood")
+    _roof_rail(parent,"LisTepiGentengKanan",
+        Vector3(w,eave_y,-d),Vector3(w,eave_y,d),0.055,"wood")
 
 func _hip(parent: Node3D, width: float, depth: float,
           eave_y: float, rise: float, mat: String, ridge: float = 0.30) -> void:
@@ -138,6 +198,11 @@ func _hip(parent: Node3D, width: float, depth: float,
         Vector3(rw,upper,0.0)],mat)
     _box(parent,"BubunganLimasan",Vector3(0.0,upper,0.0),
         Vector3(rw*2.0+0.1,0.10,0.15),mat)
+    for side in [-1.0,1.0]:
+        for far in [-1.0,1.0]:
+            _roof_rail(parent,"LisSudutLimasan",
+                Vector3(side*w,eave_y,far*d),
+                Vector3(side*rw,upper,0.0),0.042,"roof_edge")
 
 func _shed(parent: Node3D, width: float, depth: float,
            y: float, mat: String, backwards: bool = false) -> void:
@@ -152,6 +217,10 @@ func _shed(parent: Node3D, width: float, depth: float,
         var x := lerpf(-w+0.17,w-0.17,float(i)/3.0)
         _box(parent,"RengAtapMiring",Vector3(x,y+0.24,0.0),
             Vector3(0.075,0.09,depth+0.85),"wood_dark")
+    _roof_rail(parent,"LisTepiAtapMiringDepan",
+        Vector3(-w,last,d),Vector3(w,last,d),0.042,"wood")
+    _roof_rail(parent,"LisTepiAtapMiringBelakang",
+        Vector3(-w,first,-d),Vector3(w,first,-d),0.042,"wood")
 
 func _roof(parent: Node3D, style: String, w: float, d: float,
            top: float, kind: String) -> void:
@@ -198,7 +267,10 @@ func _windows(parent: Node3D, width: float, depth: float,
             Vector3(0.72,0.95,0.08),"wood_dark")
         _box(parent,"KacaJendela_"+str(placed),
             Vector3(x,lift+1.50,z+0.052),
-            Vector3(0.56,0.78,0.06),"leaf_dark")
+            Vector3(0.56,0.78,0.06),"glass")
+        _box(parent,"AmbangJendela_"+str(placed),
+            Vector3(x,lift+1.00,z+0.10),
+            Vector3(0.88,0.085,0.18),"wood")
         if index%3==1:
             _box(parent,"KisiJendela_"+str(placed),
                 Vector3(x,lift+1.50,z+0.09),
@@ -209,7 +281,7 @@ func _windows(parent: Node3D, width: float, depth: float,
         _box(parent,"JendelaSamping",Vector3(side*width*0.5+side*0.045,
             lift+1.51,side_z),Vector3(0.075,0.91,0.77),"wood_dark")
         _box(parent,"KacaSamping",Vector3(side*width*0.5+side*0.09,
-            lift+1.51,side_z),Vector3(0.06,0.74,0.61),"leaf_dark")
+            lift+1.51,side_z),Vector3(0.06,0.74,0.61),"glass")
 
 func _porch(parent: Node3D, kind: String, porch: String,
             width: float, depth: float, wall: float, lift: float) -> void:
@@ -301,9 +373,42 @@ func build_unique(parent: Node3D, label: String, kind: String,
                     Vector3(0.28,lift+0.03,0.28),"wood_dark")
         _box(mesh_root,"LantaiPanggung",Vector3(0,lift-0.06,0),
             Vector3(width+0.14,0.18,depth+0.10),"wood")
-    _box(mesh_root,"DindingBangunan",Vector3(0,lift+wall*0.5,0),
+    var walls := _box(mesh_root,"DindingBangunan",Vector3(0,lift+wall*0.5,0),
         Vector3(width,wall,depth),wall_material)
+    # Muted limewash variations retain the hand-painted shared albedo+normal.
+    var plaster_tints := [
+        Color("fff4e7"),Color("e6ede0"),Color("f8e5da"),
+        Color("f4e9d7"),Color("e6e8d8"),Color("f1e2c9")
+    ]
+    var wall_paint := (walls.material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
+    wall_paint.albedo_color *= plaster_tints[index%plaster_tints.size()]
+    walls.material_override = wall_paint
     _roof(mesh_root,roof_style,width,depth,lift+wall,kind)
+    # Little fascia details make even shaded silhouettes read as crafted
+    # Javanese houses. All these additions are MESH ONLY, not colliders.
+    if kind!="fishing":
+        _box(mesh_root,"LisPlintDindingDepan",
+            Vector3(0.0,lift+0.24,depth*0.5+0.055),
+            Vector3(width-0.12,0.13,0.09),"stone")
+    for side in [-1.0,1.0]:
+        _box(mesh_root,"KusenSudutDepan",
+            Vector3(side*(width*0.5-0.09),lift+wall*0.5,depth*0.5+0.059),
+            Vector3(0.11,wall*0.93,0.12),"wood")
+    var roof_tints := [
+        Color("fae2cf"),Color("e8e1d7"),Color("f4ead6"),
+        Color("e4d6cb"),Color("f0dec8"),Color("eee7d4")
+    ]
+    for item in mesh_root.get_children():
+        var roof_mesh := item as MeshInstance3D
+        if roof_mesh == null or roof_mesh.mesh == null:
+            continue
+        var mesh_name: String = str(roof_mesh.name)
+        if mesh_name.begins_with("Genteng") or mesh_name.begins_with("Limasan") or mesh_name.begins_with("AtapMiringSatuBidang") or mesh_name.begins_with("Bubungan"):
+            var original_roof := roof_mesh.material_override as StandardMaterial3D
+            if original_roof != null:
+                var tinted := original_roof.duplicate() as StandardMaterial3D
+                tinted.albedo_color *= roof_tints[index%roof_tints.size()]
+                roof_mesh.material_override = tinted
     var door_x := -width*0.12 if index%3==0 else (width*0.12 if index%3==1 else 0.0)
     var door_height := minf(wall-0.24,maxf(DOOR_CLEAR_HEIGHT_M,wall*0.80))
     var door_width := 1.26 if kind=="public" else (1.03 if kind=="fishing" else 0.96)
@@ -320,7 +425,8 @@ func build_unique(parent: Node3D, label: String, kind: String,
         roof_style,width,depth,wall,porch,annex,lift,windows]
     mesh_root.set_meta("architecture_signature",signature)
     mesh_root.set_meta("roof_style",roof_style)
-    mesh_root.set_meta("texture_source","village_art painterly atlas+normal")
+    mesh_root.set_meta("texture_source","village_art handpainted plaster, wood and roof atlas+normal V7.7")
+    mesh_root.set_meta("visual_polish_version","V7.7")
     mesh_root.set_meta("human_reference_height_m",ADULT_HEIGHT_M)
     mesh_root.set_meta("actual_width_m",width)
     mesh_root.set_meta("actual_depth_m",depth)
