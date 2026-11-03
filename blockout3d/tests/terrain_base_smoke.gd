@@ -323,8 +323,12 @@ func _run() -> void:
         push_error("V7.4 CHARACTER FAIL: capsule floor clearance inconsistent")
         quit(1)
         return
-    if absf(float(world.get("CAMERA_FOCUS_Y")) - 0.76) > 0.03:
-        push_error("V7.4 CHARACTER FAIL: camera focus does not follow taller avatar")
+    # Verify the ACTUAL camera pivot, not a script constant lookup.
+    # Godot Object.get() does not expose GDScript constants as properties.
+    world.call("_place_camera_immediately")
+    var camera_pivot: Vector3 = world.get("_camera_focus")
+    if absf((camera_pivot.y - player.global_position.y) - 0.76) > 0.03:
+        push_error("V7.4 CHARACTER FAIL: camera pivot does not match the taller avatar")
         quit(1)
         return
     # New V2 terrain deliberately avoids the old scan UV colors; the baked
