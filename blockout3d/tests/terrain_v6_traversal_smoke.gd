@@ -158,7 +158,7 @@ func _run() -> void:
     if crossings_ok != 4:
         _fail("not all bridges crossed")
         return
-    print("TERRAIN V6 TRAVERSAL PASS: both bridges physically crossed IN BOTH DIRECTIONS by original 55% player capsule")
+    print("TERRAIN V6 TRAVERSAL PASS: both bridges physically crossed IN BOTH DIRECTIONS by enlarged 72% player capsule")
 
     # V6.4: test the actual player against both handrail guards from BOTH
     # sides, not merely the deck floor under the middle of the bridge.

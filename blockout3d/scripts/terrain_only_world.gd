@@ -3,10 +3,10 @@ extends "res://scripts/world.gd"
 ## The original /blockout3d/ island, original FBX assets and all animation
 ## timings stay untouched. Only this clean /terrain-test/ world changes.
 
-const TERRAIN_CHARACTER_SCALE := 0.55
+const TERRAIN_CHARACTER_SCALE := 0.72 # V7.4 avatar: 31% larger than V7.3's 55%
 const TERRAIN_CAMERA_OFFSETS := [
     Vector3(3.1, 4.4, 7.3),  # C: elevated 3/4; closer than before
-    Vector3(2.05, 3.05, 5.95) # Default: close 3/4, character smaller
+    Vector3(2.05, 3.05, 5.95) # Default: close 3/4; avatar scaled independently
 ]
 const TERRAIN_CAMERA_FOV := [46.0, 48.0]
 var terrain_camera_zoom := 1.0
@@ -19,7 +19,7 @@ var _camera_focus_ready := false
 const CAMERA_FOLLOW_XZ := 10.0
 const CAMERA_FOLLOW_Y := 4.0
 const CAMERA_ORBIT_SMOOTH := 11.0
-const CAMERA_FOCUS_Y := 0.62
+const CAMERA_FOCUS_Y := 0.76 # upper torso of 1.30m enlarged avatar
 var _camera_render_yaw := 0.0
 # Free yaw with physically safe elevation limits, not fixed 3/4 presets.
 const CAMERA_MIN_ELEVATION := deg_to_rad(10.0)
@@ -93,10 +93,13 @@ func _make_player() -> void:
     var body := player.get_node_or_null("PlayerCollision") as CollisionShape3D
     if body != null:
         var capsule := CapsuleShape3D.new()
-        capsule.radius = 0.19
-        capsule.height = 0.99
+        # Keep physical capsule proportional to the enlarged 72% avatar.
+        # Collision bottom stays ~5 mm above CharacterBody3D origin, so
+        # existing terrain spawn, jump/landing and bridge traversals still work.
+        capsule.radius = 0.25
+        capsule.height = 1.30
         body.shape = capsule
-        body.position.y = 0.505
+        body.position.y = 0.655
     # The level wrapper explicitly enables physics only after a grounded
     # spawn and the imported terrain collider are both ready.
     player.set_physics_process(false)
@@ -264,7 +267,7 @@ func _make_hud() -> void:
         title.text = "LEMBAH ASRI | V7.2 | KAMERA AMAN"
     var house_status := get_node_or_null("BlockoutHUD/HouseAssetStatus") as Label
     if house_status != null:
-        house_status.text = "V3 | SOFT TOON • PAINTED TEXTURES • KARAKTER 55%"
+        house_status.text = "V7.4 | SOFT TOON • VEGETASI • KARAKTER 72%"
     var control_label := get_node_or_null("BlockoutHUD/Controls") as Label
     if control_label != null:
         control_label.text = "HP: Geser area kanan untuk orbit | PC: Klik kanan + geser / PgUp-PgDn / Q-E"

@@ -263,7 +263,7 @@ func _run() -> void:
     print("TERRAIN V3 WATER+BRIDGE PASS: flowing river, %d batched rocks, one physical crossing, %d path details" % [
         bank_stones.multimesh.instance_count, int(infra.get("trail_detail_count"))])
     # Actual physical island footprint, not camera dolly or object scale.
-    # Preserve the 55% avatar: more land, more travel, same human-scale props.
+    # V7.4 avatar is 72%, while V6.8 island dimensions and road scale remain unchanged.
     var island_width := mesh.get_aabb().size.x * 140.0
     var island_length := mesh.get_aabb().size.z * 140.0
     if island_width < 240.0 or island_width > 280.0 or island_length < 195.0 or island_length > 260.0:
@@ -304,8 +304,8 @@ func _run() -> void:
         return
     var visual := player.get_node_or_null("Visual") as Node3D
     var capsule_node := player.get_node_or_null("PlayerCollision") as CollisionShape3D
-    if visual == null or not is_equal_approx(visual.scale.x, 0.55):
-        push_error("TERRAIN BASE FAIL: character size must be 55 percent")
+    if visual == null or not is_equal_approx(visual.scale.x, 0.72):
+        push_error("TERRAIN BASE FAIL: V7.4 character size must be 72 percent")
         quit(1)
         return
     if capsule_node == null or not (capsule_node.shape is CapsuleShape3D):
@@ -313,8 +313,18 @@ func _run() -> void:
         quit(1)
         return
     var capsule := capsule_node.shape as CapsuleShape3D
-    if absf(capsule.height - 0.99) > 0.01 or absf(capsule.radius - 0.19) > 0.01:
+    if absf(capsule.height - 1.30) > 0.01 or absf(capsule.radius - 0.25) > 0.01:
         push_error("TERRAIN BASE FAIL: capsule not scaled with character")
+        quit(1)
+        return
+    # Keep feet on the SAME physical terrain after enlarging the model; the
+    # capsule is not allowed to float above ground or sink into the mesh.
+    if absf(capsule_node.position.y - capsule.height * 0.5) > 0.025:
+        push_error("V7.4 CHARACTER FAIL: capsule floor clearance inconsistent")
+        quit(1)
+        return
+    if absf(float(world.get("CAMERA_FOCUS_Y")) - 0.76) > 0.03:
+        push_error("V7.4 CHARACTER FAIL: camera focus does not follow taller avatar")
         quit(1)
         return
     # New V2 terrain deliberately avoids the old scan UV colors; the baked
@@ -811,7 +821,7 @@ func _run() -> void:
         push_error("TERRAIN V3 CAMERA FAIL: camera interpolated position diverged from physics character")
         quit(1)
         return
-    print("TERRAIN V3 SMOOTH CLOSE CAMERA PASS: 55%% avatar, %.2fm orbit distance, render-step interpolation" % camera_offset_distance)
+    print("TERRAIN V7.4 SMOOTH CLOSE CAMERA PASS: 72%% avatar, %.2fm orbit distance, render-step interpolation" % camera_offset_distance)
     # Godot 4.3 ONLY interpolates 2D physics transforms natively. The
     # CAMERA sampled interpolated 3D positions while the FBX VISUAL previously
     # displayed stepped raw CharacterBody3D positions, creating judder.
@@ -886,7 +896,7 @@ func _run() -> void:
         return
     print("TERRAIN V6.8 BEACH NAV PASS: dry southern shore, sea forward, mobile buttons, village return")
     print("TERRAIN V3 CAMERA-RELATIVE INPUT PASS: 90/180 orbit, screen-aligned axes, real right movement %.2fm" % orbit_displacement.length())
-    print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=55%%, capsule_height=%.2f" % [
+    print("TERRAIN BASE HD CAMERA PASS: worldspace_material=1, perspective FOV=%.1f, camera_distance=%.2f, character=72%%, capsule_height=%.2f" % [
         camera.fov, cam_distance, capsule.height])
     print("TERRAIN V3 PAINTED MESH PASS: biome atlas 1024px bound, clean visual/collision topology shared, original source preserved")
     print("TERRAIN V3 PLAYABLE TEST PASS: matched coastline collider, 1K hand-painted atlas, river, 3/4 camera, original FBX and joystick")
