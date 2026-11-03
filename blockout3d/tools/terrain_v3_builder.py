@@ -17,7 +17,8 @@ import random
 import struct
 
 from PIL import Image, ImageDraw, ImageFilter
-from terrain_v2_topography import height_at, river_center_x, WORLD_SCALE
+from terrain_v2_topography import river_center_x, WORLD_SCALE
+from terrain_v3_site_grading import graded_height_at
 from terrain_v3_landuse import surface_weights, validate_layout
 from terrain_v3_painted_map import paint_colormap
 
@@ -217,7 +218,9 @@ def make_geometry(hx,hz,nx,nz,dx,dz,occupied):
             # The latter made a sharp stair-stepped terrace at each cell of
             # the coastline raster. Keep the actual island footprint.
             distance = sum(near)/len(near) if near else 0.0
-            raw_height = height_at(x,z,hx,hz)
+            raw_height = graded_height_at(x,z,hx,hz)
+            # Level future building footprints (with a soft apron) before applying
+            # the unchanged physical coastal taper.
             # A broader gently sloping beach taper makes sand meet the ocean
             # without a steep 1m ledge. Collision uses this SAME visual mesh.
             beach = smooth(0.0, 9.0, distance)

@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from terrain_v3_landuse import PATHS, PLOTS, validate_layout  # noqa: E402
 from terrain_v2_topography import river_center_x, height_at  # noqa: E402
+from terrain_v3_site_grading import graded_height_at, rotated_pad_distance, APRON_METRES  # noqa: E402
 
 SAFE_EDGE = 0.18  # paint feather / near-footprint clearance, metres
 SAMPLE_STEP = 0.30
@@ -124,3 +125,29 @@ for a,b in ((0,1),(2,3),(4,5)):
 for a,b in ((1,2),(3,4)):
     assert abs(bench_heights[b]-bench_heights[a]) < 0.12, "Rice bench is not level"
 print("TERRAIN V6 TERRACES PASS: three distinct 65-75cm rises with level benches")
+
+# A clear road is NOT sufficient: houses must have physically level pads.
+# The site-grading function is the same one used by the exported triangle mesh.
+graded_plots = 0
+for plot in PLOTS:
+    if plot["kind"] == "square":
+        continue
+    cx, cz = plot["center"]
+    angle = math.radians(plot["angle"])
+    levels = []
+    for u in (-0.48, 0.0, 0.48):
+        for v in (-0.48, 0.0, 0.48):
+            lx, lz = u*plot["foot"][0], v*plot["foot"][1]
+            x = cx + math.cos(angle)*lx - math.sin(angle)*lz
+            z = cz + math.sin(angle)*lx + math.cos(angle)*lz
+            levels.append(graded_height_at(x,z,130.0,113.5))
+            assert rotated_pad_distance(x,z,plot) < 0.0001
+    assert max(levels)-min(levels) < 0.025, (
+        f"{plot['id']} has an uneven building pad: {max(levels)-min(levels):.3f}m")
+    # At the outside of the apron, original farmland/coastline height returns.
+    x = cx + math.cos(angle)*(plot["foot"][0]*0.5+APRON_METRES+0.2)
+    z = cz + math.sin(angle)*(plot["foot"][0]*0.5+APRON_METRES+0.2)
+    assert abs(graded_height_at(x,z,130.0,113.5) -
+               height_at(x,z,130.0,113.5)) < 0.01, "Grading leaks beyond pad"
+    graded_plots += 1
+print(f"TERRAIN V6.1 BUILDING PADS PASS: {graded_plots} level pads, soft aprons, natural surrounding terrain")
