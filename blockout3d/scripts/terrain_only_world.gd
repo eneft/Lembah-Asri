@@ -42,13 +42,16 @@ func _world_light() -> void:
     super._world_light()
     var sun := get_node_or_null("PagiJawa") as DirectionalLight3D
     if sun != null:
-        sun.light_color = Color("fff0d7")
-        sun.light_energy = 1.00
+        sun.light_color = Color("fff0dd")
+        sun.light_energy = 0.92
         sun.shadow_enabled = true
+        sun.shadow_bias = 0.045
+        sun.shadow_normal_bias = 0.48
     var atmosphere := get_node_or_null("Atmosphere") as WorldEnvironment
     if atmosphere != null and atmosphere.environment != null:
-        atmosphere.environment.ambient_light_color = Color("e5ede1")
-        atmosphere.environment.ambient_light_energy = 0.48
+        atmosphere.environment.ambient_light_color = Color("e2ecdf")
+        atmosphere.environment.ambient_light_energy = 0.56
+        atmosphere.environment.background_color = Color("bed8dc")
 
 func _load_island() -> void:
     # Do not instantiate the old island, houses, roads, trees, or collision.
@@ -116,6 +119,8 @@ func _make_camera() -> void:
     super._make_camera()
     cam.projection = Camera3D.PROJECTION_PERSPECTIVE
     cam.fov = TERRAIN_CAMERA_FOV[camera_mode]
+    # Keep mobile aspect natural while preserving the approved free camera.
+    cam.keep_aspect = Camera3D.KEEP_HEIGHT
     cam.near = 0.075
     cam.far = 350.0
     # Screen-space movement follows camera yaw, including touch drag / orbit.
@@ -271,7 +276,7 @@ func _make_hud() -> void:
         title.text = "LEMBAH ASRI | V7.2 | KAMERA AMAN"
     var house_status := get_node_or_null("BlockoutHUD/HouseAssetStatus") as Label
     if house_status != null:
-        house_status.text = "V7.5 | SOFT TOON • VEGETASI • KARAKTER 168 CM"
+        house_status.text = "V7.7 | PAINTERLY • DESA 168 CM • VEGETASI"
     var control_label := get_node_or_null("BlockoutHUD/Controls") as Label
     if control_label != null:
         control_label.text = "HP: Geser area kanan untuk orbit | PC: Klik kanan + geser / PgUp-PgDn / Q-E"

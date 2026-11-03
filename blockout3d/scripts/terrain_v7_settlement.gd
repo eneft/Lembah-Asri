@@ -95,7 +95,10 @@ func _material_variant(model: Node3D, index: int, kind: String) -> void:
             var original := mesh.get_active_material(s) as BaseMaterial3D
             if original != null:
                 var painted := original.duplicate() as BaseMaterial3D
-                painted.albedo_color = tint
+                # Preserve imported pigments, especially roof and timber,
+                # instead of washing EVERY original GLB surface one color.
+                var original_pigment: Color = original.albedo_color
+                painted.albedo_color = original_pigment.lerp(original_pigment * tint,0.15)
                 painted.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
                 painted.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
                 painted.metallic = 0.0

@@ -16,7 +16,9 @@ func _material(kind: String) -> StandardMaterial3D:
         "plaster": Color("dfcfab"),
         "old_plaster": Color("b7ae87"),
         "roof": Color("ae624b"),
+        "roof_edge": Color("c68162"),
         "wood": Color("77513b"),
+        "glass": Color("607b81"),
         "leaf": Color("608f58"),
         "leaf_light": Color("80a76b"),
         "leaf_dark": Color("46734a"),
@@ -30,14 +32,21 @@ func _material(kind: String) -> StandardMaterial3D:
     noise.seed = 117 + kind.length() * 41
     noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
     noise.frequency = 0.043
+    var paint_noise := FastNoiseLite.new()
+    paint_noise.seed = 1701 + kind.length() * 59
+    paint_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+    paint_noise.frequency = 0.13
 
     var albedo := Image.create(TEX_SIZE, TEX_SIZE, false, Image.FORMAT_RGBA8)
     var normal := Image.create(TEX_SIZE, TEX_SIZE, false, Image.FORMAT_RGBA8)
     for y in range(TEX_SIZE):
         for x in range(TEX_SIZE):
             var variation := noise.get_noise_2d(float(x), float(y))
-            var fine := sin(float(x) * 0.65 + float(y) * 0.23) * 0.025
-            var wash := 0.5 + variation * 0.22 + fine
+            # Painted wash: broad forms + restrained brush directionality,
+            # baked once into the existing small atlas rather than a shader.
+            var bristle := sin(float(x) * 0.29 + variation * 3.5 + float(y)*0.11)
+            var fine := bristle * 0.034 + paint_noise.get_noise_2d(float(x),float(y))*0.043
+            var wash := 0.53 + variation * 0.25 + fine
             if kind == "roof":
                 # Brick-red interlocking tile rows with staggered vertical joints.
                 var row := int(y / 23)
@@ -49,9 +58,9 @@ func _material(kind: String) -> StandardMaterial3D:
             elif kind == "wood" or kind == "bark":
                 wash += sin(float(x) * 0.13 + variation * 4.0) * 0.11
             elif kind == "plaster" or kind == "old_plaster":
-                wash -= maxf(0.0, variation * 0.18)
-                if kind == "old_plaster" and y > 126 and variation > 0.06:
-                    wash -= 0.22
+                wash -= maxf(0.0, variation * 0.16)
+                if y > 126 and variation > 0.06:
+                    wash -= 0.17 if kind == "old_plaster" else 0.075
             elif kind.begins_with("leaf"):
                 wash += sin(float(x + y) * 0.22) * 0.05
             var color: Color = base.darkened(0.27).lerp(base.lightened(0.16), clampf(wash, 0.0, 1.0))
@@ -69,7 +78,9 @@ func _material(kind: String) -> StandardMaterial3D:
     mat.albedo_texture = ImageTexture.create_from_image(albedo)
     mat.normal_enabled = true
     mat.normal_texture = ImageTexture.create_from_image(normal)
-    mat.normal_scale = 0.35
+    mat.normal_scale = 0.19
+    mat.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+    mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
     mat.roughness = 0.96
     mat.metallic = 0.0
     mat.cull_mode = BaseMaterial3D.CULL_DISABLED
