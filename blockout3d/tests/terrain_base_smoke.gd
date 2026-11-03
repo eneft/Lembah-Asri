@@ -37,6 +37,47 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: missing new terrain, collider, character or camera")
         quit(1)
         return
+    # V6.5: sample the ACTUAL exported triangle mesh collision at the most
+    # demanding building pads. A flat Python heightfield alone is insufficient
+    # if grid sampling or coastal taper introduces uneven foundation points.
+    var level_pads := [
+        {"name":"rumah_barat_02","center":Vector2(-72.428571,-9.285714),
+         "foot":Vector2(9.0,7.0),"angle":-9.0},
+        {"name":"rumah_desa_03","center":Vector2(83.571429,-31.571429),
+         "foot":Vector2(9.0,7.0),"angle":5.0},
+        {"name":"rumah_masa_kecil","center":Vector2(-74.0,-56.0),
+         "foot":Vector2(10.0,8.5),"angle":-8.0},
+        {"name":"warung_pesisir","center":Vector2(89.142857,65.0),
+         "foot":Vector2(9.0,7.0),"angle":-7.0}
+    ]
+    for pad in level_pads:
+        var heights: Array[float] = []
+        var angle: float = deg_to_rad(float(pad["angle"]))
+        var ca := cos(angle)
+        var sa := sin(angle)
+        var center: Vector2 = pad["center"]
+        var foot: Vector2 = pad["foot"]
+        for local_x in [-0.30,0.0,0.30]:
+            for local_z in [-0.30,0.0,0.30]:
+                var ox: float = float(local_x)*foot.x
+                var oz: float = float(local_z)*foot.y
+                var x := center.x + ca*ox - sa*oz
+                var z := center.y + sa*ox + ca*oz
+                var q := PhysicsRayQueryParameters3D.create(
+                    Vector3(x,120.0,z),Vector3(x,-40.0,z))
+                q.collision_mask = 1 << 7
+                var hit := world.get_world_3d().direct_space_state.intersect_ray(q)
+                if hit.is_empty() or hit.collider != collider:
+                    push_error("TERRAIN V6.5 PAD FAIL: missing physical soil at " + str(pad["name"]))
+                    quit(1)
+                    return
+                heights.append(float(hit.position.y))
+        var difference := heights.max()-heights.min()
+        if difference > 0.16:
+            push_error("TERRAIN V6.5 PAD FAIL: exported mesh foundation not level at %s (%.3fm)" % [pad["name"],difference])
+            quit(1)
+            return
+    print("TERRAIN V6.5 EXPORTED PADS PASS: physical triangle collision level at four priority construction sites")
     # Blueprint V2 must actually contain a large surrounding ocean and
     # an independent stream, not just a label claiming an island.
     if water == null or ocean == null or river == null:
@@ -63,6 +104,12 @@ func _run() -> void:
     var coast_tex := coast_material.get_shader_parameter("coastal_proximity") as Texture2D
     if coast_tex == null or coast_tex.get_width() != 512 or coast_tex.get_height() != 512:
         push_error("TERRAIN V6.2 OCEAN FAIL: coastline-aware 512px distance map missing")
+        quit(1)
+        return
+    var coast_image := coast_tex.get_image()
+    if coast_image == null or (coast_image.get_pixel(256,256).r -
+                             coast_image.get_pixel(0,0).r) < 0.50:
+        push_error("TERRAIN V6.5 OCEAN FAIL: nearshore and deep sea do not differ")
         quit(1)
         return
     if not coast_material.shader.code.contains("texture(coastal_proximity,mask_uv)"):
