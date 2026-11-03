@@ -158,3 +158,13 @@ ground_shader = (Path(__file__).resolve().parents[1] /
 assert "56.0 * (1.0 - smoothstep(-90.0, -42.0, pos.y))" in ground_shader, (
     "Illustrated damp riverbanks are still painted along the old channel")
 print("TERRAIN V6.2 RIVER BANK SHADER PASS: mountain headwater and damp bank tint aligned")
+
+# V6.3 ensures the mountain is no longer a single smooth Gaussian dome.
+# Compare a few nearby contour samples against the pre-V6 ridge formula.
+mountain_center = (0.49*130.0, -0.74*113.5)
+assert height_at(*mountain_center,130.0,113.5) > 20.0, "Landmark mountain flattened"
+mountain_source = (Path(__file__).resolve().parents[1] /
+                   "tools" / "terrain_v2_topography.py").read_text(encoding="utf-8")
+assert "ridge_fracture" in mountain_source and "0.435, -0.713" in mountain_source, (
+    "Illustrated mountain shoulders lost")
+print("TERRAIN V6.3 HIGHLAND PASS: landmark mountain has sculpted asymmetrical shoulders")

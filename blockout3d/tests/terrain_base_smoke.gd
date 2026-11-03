@@ -297,7 +297,7 @@ func _run() -> void:
         push_error("PAINTED TERRAIN V1 FAIL: missing bound large-format colormap")
         quit(1)
         return
-    if not terrain_material.shader.code.contains("texture(painted_colormap, UV)") or not terrain_material.shader.code.contains("0.88"):
+    if not terrain_material.shader.code.contains("texture(painted_colormap, UV)") or not terrain_material.shader.code.contains("0.88") or not terrain_material.shader.code.contains("CAMERA_POSITION_WORLD"):
         push_error("PAINTED TERRAIN V1 FAIL: shader still prioritizes small repeating atlas")
         quit(1)
         return

@@ -81,10 +81,29 @@ def height_at(x: float, z: float, half_x: float, half_z: float) -> float:
     # NORTH-EAST: ONE dominant lookout mountain in the rear-right, as in
     # the village illustration, not a giant mound blocking central fields.
     height += hill(u, v, 0.49, -0.74, 0.18, 0.20, 19.4)
+    # V6.3: break the main Gaussian dome into asymmetrical rocky shoulders
+    # and gentle, irregular ridgelines. These are real metre-scale vertices,
+    # not a stone pattern pasted onto a completely rounded mound.
+    mountain_weight = math.exp(-2.7 * (
+        ((u-0.49)/0.18)**2 + ((v+0.74)/0.20)**2))
+    height += hill(u, v, 0.435, -0.713, 0.075, 0.115, 1.55)
+    height += hill(u, v, 0.548, -0.795, 0.070, 0.090, 1.20)
+    ridge_fracture = (
+        0.38 * math.sin(37.0*(u-0.49)+11.0*(v+0.74))
+             * math.sin(17.0*(v+0.74)-5.0*(u-0.49))
+        + 0.22 * math.sin(44.0*(u-0.49)-29.0*(v+0.74))
+    )
+    height += mountain_weight * ridge_fracture
     # Two moderate forested rocky hills support the mountain silhouette;
     # childhood house and agricultural terrace are on WESTERN high ground.
     height += hill(u, v, 0.78, -0.39, 0.16, 0.18, 6.4)
     height += hill(u, v, -0.73, -0.70, 0.16, 0.18, 5.2)
+    # Modest broken hill shoulders, preserving the walkable central plain.
+    for hx, hz, rx, rz in ((0.78,-0.39,0.16,0.18),
+                           (-0.73,-0.70,0.16,0.18)):
+        local_ridge = math.exp(-2.7*(
+            ((u-hx)/rx)**2 + ((v-hz)/rz)**2))
+        height += 0.20*local_ridge * math.sin(29.0*(u-hx)+18.0*(v-hz))
     # Short, sculpted coastal rock shelves near lighthouse / eastern coast.
     # Their modest relief avoids adding artificial gameplay-sized hills.
     height += mesa(u, v, -0.79, 0.79, 0.14, 0.14, 1.65)

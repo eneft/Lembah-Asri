@@ -118,7 +118,13 @@ void fragment() {
     // Retain just 12% of the former microtexture: close camera still reveals
     // blades and stone flecks, but large mountains/roads/beaches read as art.
     vec3 painted_base = texture(painted_colormap, UV).rgb;
-    ALBEDO = clamp(mix(color, painted_base, 0.88),vec3(0.0),vec3(1.0));
+    // Keep the nonrepeating illustration dominant at long range, but show
+    // genuine hand-painted grass and rock strokes when the camera is near.
+    // No additional texture reads or expensive triplanar projections.
+    float near_focus = 1.0 - smoothstep(6.0, 27.0,
+                         distance(CAMERA_POSITION_WORLD, terrain_world));
+    float painted_weight = 0.88 - 0.20*near_focus;
+    ALBEDO = clamp(mix(color, painted_base, painted_weight),vec3(0.0),vec3(1.0));
     METALLIC = 0.0;
     // High roughness softens the edge of the built-in toon light ramp.
     // Keep local texture pigments visible and avoid glossy CGI lighting.
