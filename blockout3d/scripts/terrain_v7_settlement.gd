@@ -4,10 +4,12 @@ extends Node3D
 ## Footprint collisions are cheap BoxShape3D; NO per-triangle house physics.
 const BLUEPRINT := "res://assets/environment/village/settlement_v7.json"
 const HOUSE_GLB := "res://assets/environment/houses/main_house/rumah_utama.glb"
+const ARCHITECTURE_SCRIPT := preload("res://scripts/terrain_v7_architecture.gd")
 const GROUND_LAYER := 1 << 7
 const BUILDING_LAYER := 1
 var building_count := 0
 var source_house_count := 0
+var unique_house_count := 0
 var finished := false
 var _paint: Dictionary = {}
 
@@ -170,7 +172,9 @@ func configure(world: Node3D) -> void:
     if packed == null:
         push_error("V7 SETTLEMENT FAIL: user's original textured house GLB unavailable")
         return
+    var architecture := ARCHITECTURE_SCRIPT.new()
     var unique: Dictionary = {}
+    var geometry_signatures: Dictionary = {}
     for i in range(buildings.size()):
         var plot: Dictionary = buildings[i]
         var label := str(plot["id"])
@@ -197,16 +201,17 @@ func configure(world: Node3D) -> void:
         var kind := str(plot["kind"])
         if kind == "watch_post":
             _build_watch_post(house)
-        else:
+        elif label == "rumah_masa_kecil":
+            # Keep the one original user's Meshy GLB as a UNIQUE nostalgic home.
             var model := packed.instantiate() as Node3D
             if model == null:
-                push_error("V7 SETTLEMENT FAIL: imported original house is not Node3D")
+                push_error("V7.2 SETTLEMENT FAIL: original childhood house invalid")
                 return
             model.name = "OriginalTexturedHouse"
             house.add_child(model)
             var b := _bounds(model)
             if b.size.x < 0.01 or b.size.z < 0.01 or b.size.y < 0.01:
-                push_error("V7 SETTLEMENT FAIL: invalid imported GLB bounds")
+                push_error("V7.2 SETTLEMENT FAIL: original childhood GLB bounds invalid")
                 return
             var factor := minf(footprint.x*0.82/b.size.x,footprint.y*0.76/b.size.z)
             model.scale = Vector3.ONE * factor
@@ -218,12 +223,28 @@ func configure(world: Node3D) -> void:
                 Vector3(footprint.x*0.81,0.20,footprint.y*0.78),"plinth")
             _collision(house,Vector3(footprint.x*0.68,
                 clampf(b.size.y*factor*0.70,1.9,4.6),footprint.y*0.64))
+            source_house_count += 1
+        else:
+            # Authored 3D mesh variants from the pre-existing village-art kit,
+            # not another instance of the childhood-house GLB.
+            var built: Dictionary = architecture.build_unique(house,label,kind,footprint)
+            if built.is_empty():
+                push_error("V7.2 SETTLEMENT FAIL: missing architecture for "+label)
+                return
+            var signature := str(built["signature"])
+            if geometry_signatures.has(signature):
+                push_error("V7.2 SETTLEMENT FAIL: duplicate physical architecture "+label)
+                return
+            geometry_signatures[signature] = label
+            _collision(house,built["body_dimensions"])
             _accessories(house,kind,footprint)
+            unique_house_count += 1
             source_house_count += 1
         building_count += 1
     set_meta("building_count",building_count)
     set_meta("house_glb_count",source_house_count)
+    set_meta("unique_house_count",unique_house_count)
     finished = true
-    print("V7 SETTLEMENT PASS: ",building_count,
-        " actual buildings (",source_house_count,
-        " reused textured GLB + 1 watch post), 16 physical house pads; lapangan open")
+    print("V7.2 SETTLEMENT PASS: ",building_count," buildings; ",source_house_count,
+        " original childhood GLB + ",unique_house_count,
+        " individually authored painted meshes + 1 pos ronda; lapangan open")

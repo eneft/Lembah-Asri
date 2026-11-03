@@ -1,6 +1,6 @@
 {
-  "revision": "V7.0",
-  "source": "terrain_v3_landuse.py / 16 authored building pads + one balai annex",
+  "revision": "V7.2",
+  "source": "V6.8 physical plots + childhood Meshy GLB + 15 authored Javanese village meshes",
   "open_space": "lapangan_berkumpul",
   "buildings": [
     {
@@ -29,7 +29,8 @@
         7
       ],
       "yaw": 8,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_barat_01"
     },
     {
       "id": "rumah_barat_02",
@@ -43,7 +44,8 @@
         7
       ],
       "yaw": -9,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_barat_02"
     },
     {
       "id": "rumah_barat_03",
@@ -57,7 +59,8 @@
         7
       ],
       "yaw": -4,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_barat_03"
     },
     {
       "id": "gudang_kebun",
@@ -71,7 +74,8 @@
         8
       ],
       "yaw": 6,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "gudang_kebun"
     },
     {
       "id": "rumah_desa_01",
@@ -85,7 +89,8 @@
         7.5
       ],
       "yaw": 5,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_desa_01"
     },
     {
       "id": "rumah_desa_02",
@@ -99,7 +104,8 @@
         7.5
       ],
       "yaw": -6,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_desa_02"
     },
     {
       "id": "rumah_desa_03",
@@ -113,7 +119,8 @@
         7
       ],
       "yaw": 5,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_desa_03"
     },
     {
       "id": "rumah_desa_04",
@@ -127,7 +134,8 @@
         7.5
       ],
       "yaw": -8,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_desa_04"
     },
     {
       "id": "rumah_desa_05",
@@ -141,7 +149,8 @@
         7.5
       ],
       "yaw": 11,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_desa_05"
     },
     {
       "id": "rumah_desa_06",
@@ -155,7 +164,8 @@
         7.5
       ],
       "yaw": 7,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_desa_06"
     },
     {
       "id": "rumah_desa_07",
@@ -169,7 +179,8 @@
         7.5
       ],
       "yaw": -5,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_desa_07"
     },
     {
       "id": "balai_desa",
@@ -183,7 +194,8 @@
         9
       ],
       "yaw": 0,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "balai_desa"
     },
     {
       "id": "rumah_nelayan_01",
@@ -197,7 +209,8 @@
         6.5
       ],
       "yaw": -6,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_nelayan_01"
     },
     {
       "id": "rumah_nelayan_02",
@@ -211,7 +224,8 @@
         6.5
       ],
       "yaw": 8,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "rumah_nelayan_02"
     },
     {
       "id": "warung_pesisir",
@@ -225,7 +239,8 @@
         7
       ],
       "yaw": -7,
-      "asset": "rumah_utama.glb"
+      "asset": "unique_painted_mesh",
+      "mesh_id": "warung_pesisir"
     },
     {
       "id": "pos_ronda_balai",

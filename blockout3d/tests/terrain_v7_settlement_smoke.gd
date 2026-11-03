@@ -26,8 +26,11 @@ func _run() -> void:
     if settlement.get_child_count() != 17 or int(settlement.get("building_count")) != 17:
         _fail("expected exactly 17 independent 3D structures")
         return
-    if int(settlement.get("source_house_count")) != 16:
-        _fail("16 authored-lot Meshy GLB instances must be present")
+    if int(settlement.get("source_house_count")) != 1:
+        _fail("the user's original childhood GLB must be used only ONCE")
+        return
+    if int(settlement.get("unique_house_count")) != 15:
+        _fail("15 geometrically unique authored Javanese meshes must be present")
         return
     if settlement.get_node_or_null("lapangan_berkumpul") != null:
         _fail("public gathering green was occupied by a building")
@@ -35,7 +38,9 @@ func _run() -> void:
     await physics_frame
     await physics_frame
     var unique := {}
+    var signatures := {}
     var painted := 0
+    var childhood_glb := 0
     for node in settlement.get_children():
         var building := node as Node3D
         if building == null or unique.has(str(building.name)):
@@ -70,25 +75,41 @@ func _run() -> void:
                 _fail("watch post should be a separate small structure")
                 return
             continue
-        var model := building.get_node_or_null("OriginalTexturedHouse") as Node3D
+        var model: Node3D
+        if str(building.name) == "rumah_masa_kecil":
+            model = building.get_node_or_null("OriginalTexturedHouse") as Node3D
+            childhood_glb += 1
+        else:
+            if building.get_node_or_null("OriginalTexturedHouse") != null:
+                _fail("duplicate childhood GLB used as another house: "+str(building.name))
+                return
+            model = building.get_node_or_null("UniqueVillageMesh") as Node3D
+            if model != null:
+                var signature := str(model.get_meta("architecture_signature",""))
+                if signature.is_empty() or signatures.has(signature):
+                    _fail("duplicate physical house mesh design: "+str(building.name))
+                    return
+                signatures[signature] = true
         if model == null:
-            _fail("original Meshy GLB missing: "+str(building.name))
+            _fail("authored 3D house mesh missing: "+str(building.name))
             return
         var valid_textures := 0
+        var generated_geometry := 0
         for child in model.find_children("*","MeshInstance3D",true,false):
             var mesh := child as MeshInstance3D
             if mesh.mesh == null:
                 continue
+            generated_geometry += 1
             for surface in range(mesh.mesh.get_surface_count()):
                 var material := mesh.get_active_material(surface) as BaseMaterial3D
                 if material != null and material.albedo_texture != null:
                     valid_textures += 1
-        if valid_textures == 0:
-            _fail("house lost painterly albedo/UV: "+str(building.name))
+        if valid_textures == 0 or generated_geometry < 1:
+            _fail("house lost its painted 3D geometry: "+str(building.name))
             return
         painted += 1
-    if painted != 16:
-        _fail("some source buildings are not textured")
+    if painted != 16 or childhood_glb != 1 or signatures.size() != 15:
+        _fail("17 buildings must contain 1 original textured GLB and 15 UNIQUE textured meshes")
         return
     var player := world.get_node_or_null("Player3D") as CharacterBody3D
     var hall := settlement.get_node_or_null("balai_desa") as Node3D
@@ -116,5 +137,5 @@ func _run() -> void:
         _fail("original player capsule passed through balai wall")
         return
     print("V7 SETTLEMENT PHYSICS PASS: original player capsule blocked by village hall")
-    print("V7 SETTLEMENT SMOKE PASS: 17 grounded buildings, 16 shared textured GLB, open square, solid player collision")
+    print("V7 SETTLEMENT SMOKE PASS: 17 grounded buildings, 1 original childhood GLB, 15 unique hand-painted 3D meshes, open square, solid player collision")
     quit(0)

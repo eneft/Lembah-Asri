@@ -234,12 +234,15 @@ func _annex(parent: Node3D, annex: String, width: float,
     if annex=="none":
         return
     if annex in ["grain","side"]:
-        var x := width*0.56
+        var wing := Node3D.new()
+        wing.name = "PaviliunSamping"
+        wing.position = Vector3(width*0.56,0.0,depth*-0.12)
+        parent.add_child(wing)
         var d := depth*0.52
         var h := top*0.61
-        _box(parent,"PaviliunSamping",Vector3(x,lift+h*0.5,depth*-0.12),
+        _box(wing,"DindingSayap",Vector3(0.0,lift+h*0.5,0.0),
             Vector3(1.3,h,d),"wood" if annex=="grain" else "stucco")
-        _shed(parent,1.3,d,lift+h+0.11,
+        _shed(wing,1.3,d,lift+h+0.11,
             "tin" if annex=="grain" else "roof",annex=="grain")
     elif annex=="net":
         for i in range(6):

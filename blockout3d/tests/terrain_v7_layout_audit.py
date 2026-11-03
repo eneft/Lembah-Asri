@@ -14,7 +14,11 @@ buildings=data["buildings"]
 assert len(buildings)==17 and len({p["id"] for p in buildings})==17
 assert data["open_space"]=="lapangan_berkumpul"
 assert (ROOT/"assets/environment/houses/main_house/rumah_utama.glb").stat().st_size>100000
-assert sum(b["asset"]=="rumah_utama.glb" for b in buildings)==16
+assert sum(b["asset"]=="rumah_utama.glb" for b in buildings)==1
+authored=[b for b in buildings if b["asset"]=="unique_painted_mesh"]
+assert len(authored)==15
+assert len({b["mesh_id"] for b in authored})==15
+assert all(b["mesh_id"]==b["id"] for b in authored)
 assert sum(b["kind"]=="watch_post" for b in buildings)==1
 open_plot=next(p for p in PLOTS if p["kind"]=="square")
 for plot in PLOTS:
@@ -47,4 +51,4 @@ for name,poly,width in PATHS:
     least=min(line_dist(cx,cz,a,b) for a,b in zip(poly,poly[1:]))
     assert least>width/2+extra["foot"][0]/2+1.0,("Watch post blocks road",name,least)
 
-print("V7 LAYOUT PASS: 16 existing house footprints + 1 balai watch post, open lapangan preserved, no road conflicts")
+print("V7.2 LAYOUT PASS: 1 childhood GLB + 15 distinct 3D mesh designs + 1 pos ronda; open lapangan, roads clear")
