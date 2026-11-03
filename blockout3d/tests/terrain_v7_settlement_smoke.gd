@@ -175,6 +175,33 @@ func _run() -> void:
                     if post!=null and str(post.name)=="TiangBalai" and absf(post.position.x)>physical_width*0.5:
                         _fail("V7.6: balai porch pillar has drifted outside resized roof")
                         return
+        if str(building.name)!="rumah_masa_kecil":
+            var painted_wall := model.get_node_or_null("DindingBangunan") as MeshInstance3D
+            if painted_wall == null or painted_wall.mesh == null:
+                _fail("V7.7: building lost real painterly wall mesh: "+str(building.name))
+                return
+            var wall_mat := painted_wall.get_active_material(0) as StandardMaterial3D
+            if wall_mat == null or wall_mat.albedo_texture == null or wall_mat.normal_texture == null:
+                _fail("V7.7: hand-painted stucco atlas or painted normal absent: "+str(building.name))
+                return
+            if wall_mat.diffuse_mode != BaseMaterial3D.DIFFUSE_TOON or wall_mat.metallic>0.001:
+                _fail("V7.7: building wall is shiny CGI, not painted toon: "+str(building.name))
+                return
+            if str(model.get_meta("visual_polish_version",""))!="V7.7":
+                _fail("V7.7: village visual mesh polish not installed: "+str(building.name))
+                return
+            if model.get_node_or_null("KusenSudutDepan")==null:
+                _fail("V7.7: facade lacks hand-built timber edge: "+str(building.name))
+                return
+            var roof_shape := str(model.get_meta("roof_style",""))
+            if roof_shape in ["pelana","asymmetric","tin_gable"]:
+                if model.get_node_or_null("GentengSapuanBertingkat")==null:
+                    _fail("V7.7: tiled gable roof lacks batched painted detail: "+str(building.name))
+                    return
+            elif roof_shape in ["joglo","limasan"]:
+                if model.get_node_or_null("LisSudutLimasan")==null:
+                    _fail("V7.7: hip roof lacks low-poly raised edges: "+str(building.name))
+                    return
         painted += 1
     if painted != 16 or childhood_glb != 1 or signatures.size() != 15:
         _fail("17 buildings must contain 1 original textured GLB and 15 UNIQUE textured meshes")
@@ -204,6 +231,7 @@ func _run() -> void:
     if player.global_position.x > hall.global_position.x - 3.4:
         _fail("original player capsule passed through balai wall")
         return
+    print("V7.7 VISUAL POLISH PASS: unique hand-painted 3D facades/roof details on 15 buildings; original GLB colors retained")
     print("V7.6 BUILDING SCALE PASS: 168cm player, 15 residential/public doors, 1 calibrated childhood GLB and appropriately sized balai/watch post")
     print("V7 SETTLEMENT PHYSICS PASS: original player capsule blocked by village hall")
     print("V7 SETTLEMENT SMOKE PASS: 17 grounded buildings, 1 original childhood GLB, 15 unique hand-painted 3D meshes, open square, solid player collision")

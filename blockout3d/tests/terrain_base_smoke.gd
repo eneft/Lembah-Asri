@@ -292,6 +292,23 @@ func _run() -> void:
         return
     print("TERRAIN V2 OCEAN PASS: 360m tropical sea, river surface, no overlapping physics, mountain/flatland range=%.2fm" % [
         mesh.get_aabb().size.y * 140.0])
+    # V7.7 visual-only daylight and camera regression; actual height, mesh,
+    # player physics and 10-70 degree orbit constraints remain unchanged.
+    var day_sun := world.get_node_or_null("PagiJawa") as DirectionalLight3D
+    var daylight := world.get_node_or_null("Atmosphere") as WorldEnvironment
+    if day_sun==null or not day_sun.shadow_enabled or daylight==null or daylight.environment==null:
+        push_error("V7.7 VISUAL FAIL: illustrated daylight or physical cast shadows missing")
+        quit(1)
+        return
+    if absf(day_sun.light_energy-0.92)>0.02 or daylight.environment.ambient_light_energy<0.53:
+        push_error("V7.7 VISUAL FAIL: warm shadows and readable village ambient changed unexpectedly")
+        quit(1)
+        return
+    if camera.keep_aspect!=Camera3D.KEEP_HEIGHT:
+        push_error("V7.7 VISUAL FAIL: mobile camera no longer preserves 3D aspect ratio")
+        quit(1)
+        return
+    print("V7.7 LIGHT/CAMERA PASS: scene-local soft toon shadows, painted ambient, perspective mobile aspect; camera controls kept")
     # Regression: terrain-only route must use a close, true 3/4 perspective,
     # never the old orthographic isometric camera.
     if camera.projection != Camera3D.PROJECTION_PERSPECTIVE:
