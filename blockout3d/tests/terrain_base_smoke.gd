@@ -731,7 +731,7 @@ func _run() -> void:
         quit(1)
         return
     var phone_orbit := InputEventScreenDrag.new()
-    phone_orbit.position = get_viewport().get_visible_rect().size * Vector2(0.78,0.42)
+    phone_orbit.position = root.get_visible_rect().size * Vector2(0.78,0.42)
     phone_orbit.relative = Vector2(-21.0, 84.0)
     var pitch_mouse := float(world.get("camera_pitch"))
     world.call("_unhandled_input",phone_orbit)
@@ -741,24 +741,24 @@ func _run() -> void:
         return
     # >90 degrees in either direction proves there is NO up/down clamp.
     world.call("_reset_camera_rotation")
-    world.call("_orbit_camera",0.0,deg_to_rad(110.0))
+    world.call("_orbit_camera",0.0,deg_to_rad(-125.0))
     for frame in range(38):
         await process_frame
     var upper_focus: Vector3 = world.get("_camera_focus")
     if camera.global_position.y > upper_focus.y - 0.6:
-        push_error("V7.1 FREE CAMERA FAIL: top-down view cannot orbit past the vertical pole")
+        push_error("V7.1 FREE CAMERA FAIL: view cannot orbit below vertical pole")
         quit(1)
         return
     if (-camera.global_transform.basis.z).dot((upper_focus-camera.global_position).normalized()) < 0.999:
         push_error("V7.1 FREE CAMERA FAIL: 360-degree orbit no longer aims at player")
         quit(1)
         return
-    world.call("_orbit_camera",0.0,deg_to_rad(-230.0))
+    world.call("_orbit_camera",0.0,deg_to_rad(230.0))
     for frame in range(50):
         await process_frame
     var lower_focus: Vector3 = world.get("_camera_focus")
     if camera.global_position.y < lower_focus.y + 0.6:
-        push_error("V7.1 FREE CAMERA FAIL: lower view locked above the camera's lower pole")
+        push_error("V7.1 FREE CAMERA FAIL: view cannot cross back above vertical pole")
         quit(1)
         return
     if (-camera.global_transform.basis.z).dot((lower_focus-camera.global_position).normalized()) < 0.999:
