@@ -87,8 +87,12 @@ void fragment() {
     color = mix(color,stone,rock);
     // Incised riverbed: shaded moist soil and river pebbles on both banks.
     // Analytic center follows the same deterministic curve in topography.py.
+    // Same NE-mountain headwater shift as topography.py and water.gd.
+    // Previously the damp-bank tint followed the obsolete central channel.
+    float river_source_shift = 56.0 * (1.0 - smoothstep(-90.0, -42.0, pos.y));
     float river_x = -9.0*sin((pos.y+99.0)*0.0261)
-                    + 2.7*sin((pos.y+61.0)*0.0722);
+                    + 2.7*sin((pos.y+61.0)*0.0722)
+                    + river_source_shift;
     float river_region = smoothstep(-100.0,-84.0,pos.y)
                        * (1.0-smoothstep(85.0,105.0,pos.y));
     float bank_distance = abs(pos.x-river_x);

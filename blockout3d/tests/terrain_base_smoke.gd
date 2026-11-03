@@ -59,6 +59,17 @@ func _run() -> void:
         push_error("TERRAIN BASE FAIL: light turquoise-to-blue ocean material missing")
         quit(1)
         return
+    var coast_material := ocean.material_override as ShaderMaterial
+    var coast_tex := coast_material.get_shader_parameter("coastal_proximity") as Texture2D
+    if coast_tex == null or coast_tex.get_width() != 512 or coast_tex.get_height() != 512:
+        push_error("TERRAIN V6.2 OCEAN FAIL: coastline-aware 512px distance map missing")
+        quit(1)
+        return
+    if not coast_material.shader.code.contains("texture(coastal_proximity,mask_uv)"):
+        push_error("TERRAIN V6.2 OCEAN FAIL: color not sampled along real coastline")
+        quit(1)
+        return
+    print("TERRAIN V6.2 OCEAN SHORE PASS: real island shoreline distance controls water color")
     if water.find_children("*", "CollisionObject3D", true, false).size() != 0:
         push_error("TERRAIN BASE FAIL: water should have no additional collision")
         quit(1)

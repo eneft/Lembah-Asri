@@ -494,11 +494,76 @@ def export_glb(vertices,normals,uvs,colors,indices,atlas, destination=OUTPUT, un
           "original source untouched",SOURCE.stat().st_size,"bytes")
 
 
+
+SHORE_MASK_PIXELS = 512
+SHORE_MASK_OUTPUT = ROOT / "assets/environment/island/terrain_v6_ocean_shore.png"
+
+
+def paint_ocean_shore_mask(hx, hz, nx, nz, occupied):
+    """Match tropical shallow-water coloring to the exact physical shoreline.
+
+    Use a 512px grayscale chamfer-distance field for the full 360m ocean,
+    including the physically carved fishing inlet. No runtime extra geometry.
+    """
+    n = SHORE_MASK_PIXELS
+    step = 360.0 / n
+    inf = 10**6
+    distance = [inf] * (n*n)
+    land_count = 0
+    for j in range(n):
+        z = -180.0 + (j+0.5)*step
+        if not -hz <= z < hz:
+            continue
+        iz = int((z+hz)/(2*hz)*nz)
+        for i in range(n):
+            x = -180.0 + (i+0.5)*step
+            if not -hx <= x < hx:
+                continue
+            ix = int((x+hx)/(2*hx)*nx)
+            if occupied[iz*nx+ix]:
+                distance[j*n+i] = 0
+                land_count += 1
+    if land_count < 10000:
+        raise ValueError("V6 coastline mask lost the playable island")
+    # Two chamfer sweeps approximate Euclidean shoreline distance.
+    # Integer 10=orthogonal step, 14=diagonal step.
+    for j in range(n):
+        for i in range(n):
+            k=j*n+i
+            d=distance[k]
+            if i: d=min(d,distance[k-1]+10)
+            if j: d=min(d,distance[k-n]+10)
+            if i and j: d=min(d,distance[k-n-1]+14)
+            if j and i+1<n: d=min(d,distance[k-n+1]+14)
+            distance[k]=d
+    for j in range(n-1,-1,-1):
+        for i in range(n-1,-1,-1):
+            k=j*n+i
+            d=distance[k]
+            if i+1<n: d=min(d,distance[k+1]+10)
+            if j+1<n: d=min(d,distance[k+n]+10)
+            if i+1<n and j+1<n: d=min(d,distance[k+n+1]+14)
+            if j+1<n and i: d=min(d,distance[k+n-1]+14)
+            distance[k]=d
+    # Broad 16m nearshore tint, vanishing in the open sea.
+    mask=Image.new("L",(n,n))
+    mask.putdata([round(255.0*math.exp(-(d*step/10.0)/16.0))
+                  for d in distance])
+    mask=mask.filter(ImageFilter.GaussianBlur(1.0))
+    SHORE_MASK_OUTPUT.parent.mkdir(parents=True,exist_ok=True)
+    mask.save(SHORE_MASK_OUTPUT,format="PNG",optimize=True)
+    if mask.getpixel((n//2,n//2)) <= mask.getpixel((0,0)):
+        raise ValueError("Coastal proximity map does not distinguish island and deep water")
+    print("TERRAIN V6.2 COAST MASK PASS: physical shoreline including cove,",
+          n,"pixels square; nearshore water follows real land mask")
+
+
 def main():
     g,source_blob=load_source()
     print("TERRAIN_V3_LAYOUT_PLAN:", validate_layout(), "planned lots/paths")
     hx,hz,nx,nz,dx,dz,occupied=footprint(g,source_blob)
     vertices,normals,uvs,colors,indices=make_geometry(hx,hz,nx,nz,dx,dz,occupied)
+    paint_ocean_shore_mask(hx,hz,nx,nz,occupied)
     # The macro world illustration is baked ONCE and follows the same grid
     # and UVs as the exported physical surface. The 1K tile is detail only.
     paint_colormap(hx,hz,nx,nz,vertices,normals,colors,WORLD_SCALE)

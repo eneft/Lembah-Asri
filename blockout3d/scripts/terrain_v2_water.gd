@@ -5,6 +5,7 @@ const OCEAN_SHADER := preload("res://shaders/terrain_v2_ocean.gdshader")
 const RIVER_SHADER := preload("res://shaders/terrain_v3_river.gdshader")
 const OCEAN_SIZE_M := 360.0
 const OCEAN_Y := 0.45
+const COAST_MASK := "res://assets/environment/island/terrain_v6_ocean_shore.png"
 const RIVER_LAYER := 1 << 7
 
 var ocean_surface: MeshInstance3D
@@ -26,6 +27,11 @@ func _make_ocean() -> void:
     ocean_surface.position = Vector3(0.0, OCEAN_Y, 0.0)
     var water_material := ShaderMaterial.new()
     water_material.shader = OCEAN_SHADER
+    var mask := load(COAST_MASK) as Texture2D
+    if mask == null:
+        push_error("TERRAIN V6.2 OCEAN FAIL: coastline-aware proximity mask missing")
+        return
+    water_material.set_shader_parameter("coastal_proximity", mask)
     ocean_surface.material_override = water_material
     ocean_surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     add_child(ocean_surface)

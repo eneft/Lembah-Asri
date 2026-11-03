@@ -151,3 +151,10 @@ for plot in PLOTS:
                height_at(x,z,130.0,113.5)) < 0.01, "Grading leaks beyond pad"
     graded_plots += 1
 print(f"TERRAIN V6.1 BUILDING PADS PASS: {graded_plots} level pads, soft aprons, natural surrounding terrain")
+
+# Shader bank tint must follow the V5 mountain headwater, not the old river.
+ground_shader = (Path(__file__).resolve().parents[1] /
+                 "shaders" / "terrain_v2_ground.gdshader").read_text(encoding="utf-8")
+assert "56.0 * (1.0 - smoothstep(-90.0, -42.0, pos.y))" in ground_shader, (
+    "Illustrated damp riverbanks are still painted along the old channel")
+print("TERRAIN V6.2 RIVER BANK SHADER PASS: mountain headwater and damp bank tint aligned")
