@@ -1,0 +1,245 @@
+{
+  "revision": "V7.0",
+  "source": "terrain_v3_landuse.py / 16 authored building pads + one balai annex",
+  "open_space": "lapangan_berkumpul",
+  "buildings": [
+    {
+      "id": "rumah_masa_kecil",
+      "kind": "home",
+      "center": [
+        -74,
+        -56
+      ],
+      "foot": [
+        10,
+        8.5
+      ],
+      "yaw": -8,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_barat_01",
+      "kind": "home",
+      "center": [
+        -48.28571,
+        -16.71429
+      ],
+      "foot": [
+        9,
+        7
+      ],
+      "yaw": 8,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_barat_02",
+      "kind": "home",
+      "center": [
+        -72.42857,
+        -9.28571
+      ],
+      "foot": [
+        9,
+        7
+      ],
+      "yaw": -9,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_barat_03",
+      "kind": "home",
+      "center": [
+        -42.71429,
+        20.42857
+      ],
+      "foot": [
+        9,
+        7
+      ],
+      "yaw": -4,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "gudang_kebun",
+      "kind": "farm",
+      "center": [
+        -87.28571,
+        -42.71429
+      ],
+      "foot": [
+        9,
+        8
+      ],
+      "yaw": 6,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_desa_01",
+      "kind": "home",
+      "center": [
+        29.71429,
+        -35.28571
+      ],
+      "foot": [
+        9,
+        7.5
+      ],
+      "yaw": 5,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_desa_02",
+      "kind": "home",
+      "center": [
+        57.57143,
+        -37.14286
+      ],
+      "foot": [
+        9.5,
+        7.5
+      ],
+      "yaw": -6,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_desa_03",
+      "kind": "home",
+      "center": [
+        83.57143,
+        -31.57143
+      ],
+      "foot": [
+        9,
+        7
+      ],
+      "yaw": 5,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_desa_04",
+      "kind": "home",
+      "center": [
+        24.14286,
+        -3.71429
+      ],
+      "foot": [
+        9,
+        7.5
+      ],
+      "yaw": -8,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_desa_05",
+      "kind": "home",
+      "center": [
+        85.42857,
+        0
+      ],
+      "foot": [
+        9,
+        7.5
+      ],
+      "yaw": 11,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_desa_06",
+      "kind": "home",
+      "center": [
+        24.14286,
+        35.28571
+      ],
+      "foot": [
+        9,
+        7.5
+      ],
+      "yaw": 7,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_desa_07",
+      "kind": "home",
+      "center": [
+        85.42857,
+        37.14286
+      ],
+      "foot": [
+        9,
+        7.5
+      ],
+      "yaw": -5,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "balai_desa",
+      "kind": "public",
+      "center": [
+        55.71429,
+        39
+      ],
+      "foot": [
+        11,
+        9
+      ],
+      "yaw": 0,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_nelayan_01",
+      "kind": "fishing",
+      "center": [
+        35.28571,
+        68.71429
+      ],
+      "foot": [
+        8,
+        6.5
+      ],
+      "yaw": -6,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "rumah_nelayan_02",
+      "kind": "fishing",
+      "center": [
+        63.14286,
+        72.42857
+      ],
+      "foot": [
+        8,
+        6.5
+      ],
+      "yaw": 8,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "warung_pesisir",
+      "kind": "fishing",
+      "center": [
+        89.14286,
+        65
+      ],
+      "foot": [
+        9,
+        7
+      ],
+      "yaw": -7,
+      "asset": "rumah_utama.glb"
+    },
+    {
+      "id": "pos_ronda_balai",
+      "kind": "watch_post",
+      "center": [
+        48.71429,
+        39
+      ],
+      "foot": [
+        2.4,
+        2.3
+      ],
+      "yaw": 0,
+      "asset": "native_pos_ronda"
+    }
+  ]
+}
