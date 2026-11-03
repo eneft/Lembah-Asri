@@ -92,11 +92,11 @@ for first, a, second, b in required_joins:
 marker_script = (Path(__file__).resolve().parents[1] /
                  "scripts" / "terrain_v3_infrastructure.gd").read_text(encoding="utf-8")
 match = re.search(
-    r"var locations: Array\\[Vector2\\] = \\[(.*?)\\]\\s*var objects: Array\\[Transform3D\\]",
+    r"var locations: Array\[Vector2\] = \[(.*?)\]\s*var objects: Array\[Transform3D\]",
     marker_script, re.S)
 assert match, "Roadside markers array missing from V6 infrastructure"
 marker_coords = [tuple(map(float, pair)) for pair in
-                 re.findall(r"Vector2\\((-?[\\d.]+),\\s*(-?[\\d.]+)\\)", match.group(1))]
+                 re.findall(r"Vector2\((-?[\d.]+),\s*(-?[\d.]+)\)", match.group(1))]
 assert len(marker_coords) >= 20, "V6 route landmarks too sparse"
 
 
