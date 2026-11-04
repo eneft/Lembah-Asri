@@ -149,7 +149,7 @@ def clean(source: Path, dest: Path):
     binary += bytes(-len(binary) % 4)
     glb = (b"glTF" + struct.pack("<II", 2, 12 + 8 + len(metadata) + 8 + len(binary))
            + struct.pack("<I4s", len(metadata), b"JSON") + metadata
-           + struct.pack("<I4s", len(binary), b"BIN\\x00") + binary)
+           + struct.pack("<I4s", len(binary), b"BIN\x00") + binary)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(glb)
 
