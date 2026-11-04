@@ -96,6 +96,82 @@ func _run() -> void:
     if not fisherman.has_node("V80Visuals/MeshyFishermanHouse"):
         _fail("Meshy GLB did not reappear when the player returned")
         return
+    # Audit the REAL menu signal for every option, not just the loader API.
+    # This catches failures where buttons are present but cannot safely spawn.
+    var player := world.get_node("Player3D") as CharacterBody3D
+    player.set_physics_process(false)
+    var saved_position := player.global_position
+    var area_ids := ["desa_inti","pekarangan_barat","balai_desa",
+        "tepi_sungai","akses_pesisir"]
+    for index in range(1,6):
+        var area_id: String = area_ids[index-1]
+        picker.select(index)
+        picker.emit_signal("item_selected",index)
+        if str(loader.get("debug_area")) != area_id:
+            _fail("SCENE menu cannot enter "+area_id)
+            return
+        if int(loader.get("loaded_area_count")) != 1:
+            _fail("SCENE menu did not isolate EXACTLY one area: "+area_id)
+            return
+        if not bool(level.get("debug_return_saved")):
+            _fail("SCENE menu did not save the return position")
+            return
+        var rect: Rect2 = loader.call("get_area_rect",area_id)
+        if not rect.grow(9.0).has_point(Vector2(
+            player.global_position.x,player.global_position.z)):
+            _fail("SCENE menu spawned player outside selected terrain: "+area_id)
+            return
+        var terrain_shader := level.get("new_mesh") as MeshInstance3D
+        var material := terrain_shader.material_override as ShaderMaterial
+        if not bool(material.get_shader_parameter("debug_clip_enabled")):
+            _fail("SCENE menu did not isolate the visual ground: "+area_id)
+            return
+        var beach := level.get("beach_button") as Button
+        var village := level.get("village_button") as Button
+        if not beach.disabled or not village.disabled:
+            _fail("coast teleport buttons still active inside a single area")
+            return
+        # Keyboard shortcuts call the same methods; they must not move a
+        # player beyond the isolated geometry.
+        var isolated_position := player.global_position
+        level.call("_visit_beach")
+        level.call("_return_to_village")
+        if player.global_position.distance_to(isolated_position) > 0.0001:
+            _fail("P/H shortcut escaped isolated scene: "+area_id)
+            return
+        var counter := level.get("scene_indicator") as Label
+        await process_frame
+        if counter.text != "1/5":
+            _fail("HUD scene counter stale inside isolated area: "+area_id)
+            return
+    picker.select(0)
+    picker.emit_signal("item_selected",0)
+    if str(loader.get("debug_area")) != "":
+        _fail("Open World option did not exit isolated mode")
+        return
+    if player.global_position.distance_to(saved_position) > 0.0001:
+        _fail("Open World failed to restore saved player position")
+        return
+    var after := level.get("new_mesh") as MeshInstance3D
+    var shader := after.material_override as ShaderMaterial
+    if bool(shader.get_shader_parameter("debug_clip_enabled")):
+        _fail("terrain remained visually cropped after Open World")
+        return
+    if (level.get("beach_button") as Button).disabled:
+        _fail("beach navigation was not restored after leaving debug mode")
+        return
+    # Counter must track open-world streaming without touching the picker.
+    loader.call("refresh_visibility",Vector3(83,0,78),true)
+    await process_frame
+    var live_count: int = int(loader.get("loaded_area_count"))
+    if (level.get("scene_indicator") as Label).text != "%d/5" % live_count:
+        _fail("area counter does not update during automatic streaming")
+        return
+    loader.call("refresh_visibility",player.global_position,true)
+    player.set_physics_process(true)
+    print("AREA V8.1 SCENE PICKER AUDIT PASS: all five menu selections,",
+        " safe debug spawn, terrain masking, shortcuts blocked, return,",
+        " dynamic area counter")
     print("AREA V8 REAL STREAM PASS: five independently cloned area visual scenes, unloaded 3D visuals,",
         " isolated region picker, original Meshy UV, physics, coastal automatic reload")
     quit(0)

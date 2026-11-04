@@ -34,6 +34,8 @@ var scene_indicator: Label
 var debug_return_position := Vector3.ZERO
 var debug_return_yaw := 0.0
 var debug_return_saved := false
+var debug_beach_disabled_before := false
+var debug_village_disabled_before := false
 const DEBUG_AREA_IDS := ["desa_inti","pekarangan_barat","balai_desa","tepi_sungai","akses_pesisir"]
 const DEBUG_AREA_NAMES := ["Desa Inti","Pekarangan Barat","Balai Desa","Tepi Sungai","Kawasan Pesisir"]
 var world: Node3D
@@ -82,6 +84,18 @@ func _make_hud() -> void:
     village_button.visible = false
     village_button.pressed.connect(_return_to_village)
     travel.add_child(village_button)
+
+func _process(_delta: float) -> void:
+    # The region count changes while walking; not only when the player
+    # chooses a menu option. Keep the small debug badge truthful.
+    if is_ready and is_instance_valid(scene_indicator) and is_instance_valid(area_streamer):
+        var actual := "%d/5" % int(area_streamer.get("loaded_area_count"))
+        if scene_indicator.text != actual:
+            scene_indicator.text = actual
+
+func _debug_mode_active() -> bool:
+    return is_instance_valid(area_streamer) and (
+        not str(area_streamer.get("debug_area")).is_empty())
 
 func _install_scene_picker() -> void:
     # Always available in the browser, including iPhone: no Godot Remote
@@ -170,11 +184,16 @@ func _on_scene_selected(index: int) -> void:
     if actor == null:
         return
     if index == 0:
-        area_streamer.call("set_debug_area","")
-        _apply_scene_visual_isolation("")
+        # Restore the previous safe player position before reloading the open
+        # world. Otherwise the old isolated area would briefly reload distant
+        # objects at the debug camera point, then reload a second set at home.
         if debug_return_saved:
             _move_to_ground(debug_return_position,debug_return_yaw)
+        area_streamer.call("set_debug_area","")
+        _apply_scene_visual_isolation("")
         debug_return_saved = false
+        beach_button.disabled = debug_beach_disabled_before
+        village_button.disabled = debug_village_disabled_before
         _refresh_text()
         _refresh_scene_indicator()
         return
@@ -182,12 +201,22 @@ func _on_scene_selected(index: int) -> void:
     var found := _find_debug_spawn(chosen)
     if found.is_empty():
         push_warning("AREA DEBUG: safe ground not found in "+chosen)
-        scene_picker.select(0)
+        # Preserve the previously active choice when a raycast fails.
+        # Reverting the menu to Open World while the renderer remains in a
+        # different debug area would make the UI lie about the scene.
+        var previous := DEBUG_AREA_IDS.find(str(area_streamer.get("debug_area")))
+        scene_picker.select(previous+1 if previous >= 0 else 0)
         return
     if not debug_return_saved:
         debug_return_position = actor.global_position
         debug_return_yaw = float(world.get("camera_yaw"))
+        debug_beach_disabled_before = beach_button.disabled
+        debug_village_disabled_before = village_button.disabled
         debug_return_saved = true
+    # The preview teleport controls must not move the player away from the
+    # sole rendered region. Normal open-world buttons are restored on exit.
+    beach_button.disabled = true
+    village_button.disabled = true
     area_streamer.call("set_debug_area",chosen)
     _apply_scene_visual_isolation(chosen)
     _move_to_ground(found.position+Vector3.UP*0.13,debug_return_yaw)
@@ -470,7 +499,7 @@ func _move_to_ground(where: Vector3, yaw: float) -> void:
         area_streamer.call("refresh_visibility",actor.global_position,true)
 
 func _visit_beach() -> void:
-    if not is_ready:
+    if not is_ready or _debug_mode_active():
         return
     # Real terrain/cove shape determines the target; never teleport the
     # player onto a guess, water, or an invisible fake coastal floor.
@@ -501,7 +530,7 @@ func _visit_beach() -> void:
     push_error("TERRAIN V6.8 BEACH FAIL: no dry accessible south-coast view")
 
 func _return_to_village() -> void:
-    if not is_ready:
+    if not is_ready or _debug_mode_active():
         return
     _move_to_ground(village_spawn, 0.0)
     village_button.visible = false
