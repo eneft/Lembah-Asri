@@ -2,14 +2,15 @@ extends "res://scripts/terrain_v79_area_streamer.gd"
 ## Lembah Asri V8.0 - independently instanced visual scenes.
 ##
 ## V7.9 hid far nodes but left ALL 3D nodes instantiated.
-## V8 creates PackedScene snapshots of the original authored visuals,
-## frees those live visual nodes and instantiates only active-area scenes.
+## V8 keeps authored scene node templates OFF TREE and instantiates cloned
+## visuals only for active regions. Live clones are freed on unload.
+## Avoid runtime PackedScene.pack(), which leaks GLES resources in Godot 4.3.
 ## Permanent physics stubs preserve exact static building/trunk collisions,
 ## player, terrain, river and bridges, including at region boundaries.
 ##
-## Note: PackedScene resources retain references to shared mesh/texture data.
-## Scene/node memory and render submission are reduced, but complete GPU
-## texture eviction requires external per-region asset bundles (future).
+## Note: original off-tree templates retain mesh/texture data for reuse.
+## The number of active GPU draw instances falls, but full GPU texture eviction
+## needs external per-region asset bundles (future).
 const PRELOAD_M := 47.0
 const UNLOAD_M := 65.0
 const STREAM_INTERVAL := 0.28
@@ -24,21 +25,6 @@ var _loaded: Dictionary = {}
 var _clock := 0.0
 var _transition_count := 0
 
-func _own_descendants(node: Node, packed_root: Node) -> void:
-    for child in node.get_children():
-        child.owner = packed_root
-        _own_descendants(child,packed_root)
-
-func _pack_live_group(root: Node3D) -> PackedScene:
-    _own_descendants(root,root)
-    var packed := PackedScene.new()
-    var result := packed.pack(root)
-    if result != OK:
-        push_error("AREA V8 FAIL: PackedScene snapshot failed: "+str(root.get_path())+
-            " error="+str(result))
-        return null
-    return packed
-
 func _capture_house_visuals(house: Node3D) -> bool:
     var holder := Node3D.new()
     holder.name = "V80Visuals"
@@ -50,13 +36,11 @@ func _capture_house_visuals(house: Node3D) -> bool:
         if child is CollisionObject3D:
             continue
         child.reparent(holder,true)
-    var packed := _pack_live_group(holder)
-    if packed == null:
-        return false
-    _house_templates[str(house.name)] = packed
-    # Do not retain the original scene nodes in memory: the area loader is the
-    # only owner of its visual root after the initial capture.
-    holder.free()
+    # Remove the SOURCE from the SceneTree so it has no active render or
+    # physics instance. Node.duplicate() clones it only for loaded regions.
+    # The off-tree source is explicitly free()d on exit to avoid GLES leaks.
+    house.remove_child(holder)
+    _house_templates[str(house.name)] = holder
     return true
 
 func _capture_foliage_visuals(area_id: String, foliage: Node3D) -> bool:
@@ -66,11 +50,8 @@ func _capture_foliage_visuals(area_id: String, foliage: Node3D) -> bool:
     for child in foliage.get_children():
         if child != holder:
             child.reparent(holder,true)
-    var packed := _pack_live_group(holder)
-    if packed == null:
-        return false
-    _foliage_templates[area_id] = packed
-    holder.free()
+    foliage.remove_child(holder)
+    _foliage_templates[area_id] = holder
     return true
 
 func configure(world: Node3D, settlement: Node3D, vegetation: Node3D) -> void:
@@ -89,15 +70,15 @@ func configure(world: Node3D, settlement: Node3D, vegetation: Node3D) -> void:
             return
         region.visible = false
     if _house_templates.size() != 17 or _foliage_templates.size() != 5:
-        push_error("AREA V8 FAIL: expected 17 live house visual templates and five foliage scenes")
+        push_error("AREA V8 FAIL: expected 17 detached house visual templates and five foliage scenes")
         finished = false
         return
     _loaded.clear()
     loaded_area_count = 0
     loaded_house_visual_count = 0
     set_meta("v8_real_scene_instancing",true)
-    print("AREA V8 PACK PASS: 17 authored-house PackedScenes + 5 regional GPU foliage ",
-        "PackedScenes; physical proxies stay in the world")
+    print("AREA V8 TEMPLATE PASS: 17 detached visual templates + five ",
+        "regional GPU foliage templates; physics stays in the world")
 
 func _load_area(area_id: String) -> void:
     if _loaded.has(area_id):
@@ -107,21 +88,21 @@ func _load_area(area_id: String) -> void:
     var foliage := region.get_node("Foliage") as Node3D
     var house_count := 0
     for house in houses.get_children():
-        var template := _house_templates.get(str(house.name)) as PackedScene
+        var template := _house_templates.get(str(house.name)) as Node3D
         if template == null:
             push_error("AREA V8 FAIL: absent house template "+str(house.name))
             return
-        var visuals := template.instantiate() as Node3D
+        var visuals := template.duplicate() as Node3D
         if visuals == null:
             push_error("AREA V8 FAIL: house instantiation failed "+str(house.name))
             return
         house.add_child(visuals)
         house_count += 1
-    var foliage_scene := _foliage_templates.get(area_id) as PackedScene
+    var foliage_scene := _foliage_templates.get(area_id) as Node3D
     if foliage_scene == null:
         push_error("AREA V8 FAIL: missing foliage scene "+area_id)
         return
-    var foliage_node := foliage_scene.instantiate() as Node3D
+    var foliage_node := foliage_scene.duplicate() as Node3D
     foliage.add_child(foliage_node)
     region.visible = true
     _loaded[area_id] = true
@@ -208,9 +189,16 @@ func get_area_rect(area_id: String) -> Rect2:
     return _bounds.get(area_id,Rect2())
 
 func _exit_tree() -> void:
-    # PackedScene snapshots keep mesh/texture Resources alive independently of
-    # removed nodes. Release them BEFORE Godot destroys its GLES renderer at
-    # shutdown; otherwise headless GPU regression tests report leaked RIDs.
+    # Off-tree scene source nodes are plain Objects, not RefCounted. They must
+    # be explicitly freed BEFORE Godot tears down its GPU resource server.
+    for source in _house_templates.values():
+        var source_node := source as Node3D
+        if is_instance_valid(source_node):
+            source_node.free()
+    for source in _foliage_templates.values():
+        var source_node := source as Node3D
+        if is_instance_valid(source_node):
+            source_node.free()
     _house_templates.clear()
     _foliage_templates.clear()
     _plants_by_type.clear()
