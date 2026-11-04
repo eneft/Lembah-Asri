@@ -1,27 +1,24 @@
-# Aset rumah kepala desa — Meshy original
+# Rumah Kepala Desa — aset Meshy dan hasil pembersihan atap
 
-Status: **menunggu upload berkas GLB biner asli**. Berkas belum disimpan ke GitHub; hanya folder dan identitas aset yang telah disiapkan.
+## Status: berhasil diunggah dan dibersihkan
 
-## Unggah file sumber
+| File | Status | Ukuran |
+|---|---|---:|
+| `Meshy_AI_Rumah_Merah_Putih_1104091308_texture.glb` | Sumber asli, dipertahankan | 18.709.472 byte |
+| `rumah_kepala_desa_clean.glb` | Tanaman menempel pada atap dihilangkan | 17.599.232 byte |
 
-**Nama file persis:** `Meshy_AI_Rumah_Merah_Putih_1104091308_texture.glb`
+SHA-256 model bersih: `79fab3a253138e60154c2838633ba6531c9dbdfa871e9f5e0512febcd0c434ce`.
 
-**Target path:**
-`blockout3d/assets/environment/houses/village_head/Meshy_AI_Rumah_Merah_Putih_1104091308_texture.glb`
+### Perubahan terverifikasi
 
-**Ukuran sumber:** 18,709,472 bytes (~18.7 MB)
+- Dari model asli **100.095 segitiga / 124.673 vertex**, hilang **23.244 segitiga** vegetasi atap.
+- Hasil **76.851 segitiga / 98.692 vertex**.
+- Geometri genteng, dinding, teras, pintu, jendela, bendera merah-putih, pot, rumput halaman, dan dasar rumah dipertahankan.
+- Semua **3 PNG tekstur asli byte-identik**, termasuk normal map dan metallic-roughness; array UV dan normal vector untuk vertex tersisa dibawa utuh dari GLB asli.
+- Pewarnaan daun hijau pada bagian atas tinggal 130 vertex dari 22.019 vertex semula. Ini menghilangkan tanaman besar; beberapa bercak warna hijau yang sudah menyatu pada lukisan tekstur genteng masih mungkin tampak.
+- Generator yang dapat dijalankan ulang: `blockout3d/tools/clean_village_head_roof.py`.
+- GitHub Actions berhasil mengeksekusi generator, memverifikasi hasil, lalu meng-commit GLB ke branch ini: [log pembuatan](https://github.com/eneft/Lembah-Asri/actions/runs/41839889731).
 
-**SHA-256:** `858e5b0161c23a9481a28e6a41c9377ca037e7ff7283d585cc996fbfa6c77707`
+### Keamanan baseline Lembah Asri
 
-Unggah dari komputer menggunakan GitHub web pada branch `asset/rumah-kepala-desa-meshy-source` → **Add file → Upload files**. Jangan mengganti file rumah yang dipakai di game; ini hanya aset sumber untuk proses pembersihan tumbuhan.
-
-## Hasil inspeksi berkas lokal pengguna
-- Format glTF Binary / GLB 2.0 valid.
-- **1 mesh, 1 node, 1 primitive**, 124,673 vertices, 100,095 triangles, 1 material, **3 gambar tekstur**.
-- Tumbuhan atap tampaknya menyatu dalam mesh, bukan objek terpisah bernama `plant/ivy`; pembersihan perlu segmentasi geometri/seleksi selektif supaya UV, badan rumah, warna, pintu, jendela, atap, dan material tidak rusak.
-- Hasil akhir nantinya disimpan terpisah sebagai `rumah_kepala_desa_clean.glb`, setelah divalidasi tampak depan/samping/atas dan collision serta ukuran terhadap avatar 168 cm.
-- Belum melakukan integrasi ke scene game / penggantian balai desa.
-
-## Keamanan baseline
-- Tidak mengubah scene rumah warga, balai desa, rumah nelayan, terrain, kamera, collision, atau lima scene streaming.
-- Original GLB harus dipertahankan utuh sebagai cadangan sebelum pembersihan.
+Kedua aset berada di folder cadangan, **belum dijadikan node game**. Belum mengganti `balai_desa` atau bangunan lain; tidak mengubah center/yaw bangunan, collision, streaming, terrain, kamera, atau gameplay. Integrasi ke scene dilakukan terpisah dan harus menyamakan ukuran terhadap avatar 168 cm.
