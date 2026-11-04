@@ -24,13 +24,13 @@ Ketiadaan node \`V80Visuals\` / \`V80Foliage\` pada wilayah jauh menandakan **in
 ## Cara kerja
 
 1. V7.9 mengidentifikasi lima area yang sudah ada menurut \`vegetation_v73.json\`.
-2. V8 membuat PackedScene untuk visual 17 rumah dan 5 batch vegetasi wilayah, melepas Node3D visual asli dari SceneTree.
+2. V8 memindahkan template visual 17 rumah dan 5 batch vegetasi wilayah ke luar SceneTree. Template itu tidak ikut dirender; Node3D visual aktif dibuat ulang dengan duplicate() hanya saat area dimuat.
 3. Setiap ~0,28 detik V8 mengukur jarak pemain ke batas wilayah. Area tetangga dipersiapkan sebelum dimasuki (47 m, ditambah zoom), dan dapat dilepas saat cukup jauh (65 m, plus zoom). Histeresis mencegah kedip.
 4. Debug picker mengunci tepat satu area instansi, tanpa meniadakan collision atau memindahkan blueprint.
 5. Terrain utama, laut, sungai, jalur, jembatan, karakter, dan kamera tetap aktif untuk kontinuitas dunia.
 6. Bila area dimainkan lagi, rumah yang sama diinstansiasi kembali dari template; model Meshy original tetap memakai UV dan materialnya.
 
-**Keterbatasan RAM:** file WebGL awal masih satu \`.pck\`. PackedScene template masih menyimpan referensi mesh/texture dan shader global untuk pemakaian ulang. Ini adalah **runtime scene/node streaming**, bukan HTTP lazy-downloading atau bukti bahwa RAM tekstur GPU berkurang sebanding dengan jumlah wilayah. Pengukuran iPhone nyata masih perlu dilakukan untuk menentukan apakah diperlukan pemisahan atlas/asset pack serta pembagian terrain mesh lebih lanjut.
+**Keterbatasan RAM:** file WebGL awal masih satu \`.pck\`. Template node terlepas masih menyimpan referensi mesh/texture dan shader global untuk pemakaian ulang. Ini adalah **runtime visual-node streaming**, bukan HTTP lazy-downloading atau bukti bahwa RAM tekstur GPU berkurang sebanding dengan jumlah wilayah. Pengukuran iPhone nyata masih perlu dilakukan untuk menentukan apakah diperlukan pemisahan atlas/asset pack serta pembagian terrain mesh lebih lanjut.
 
 ## Uji otomatis
 
