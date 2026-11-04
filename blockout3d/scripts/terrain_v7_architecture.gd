@@ -227,25 +227,29 @@ func _roof(parent: Node3D, style: String, w: float, d: float,
            top: float, kind: String) -> void:
     var roof_mat := "fishing_roof" if kind == "fishing" else "roof"
     if style == "pelana":
-        _gable(parent,w,d,top+0.08,1.05,roof_mat)
+        _gable(parent,w,d,top+0.08,1.22,roof_mat)
     elif style == "asymmetric":
-        _gable(parent,w,d,top+0.06,0.84,roof_mat,w*0.18)
+        _gable(parent,w,d,top+0.06,1.03,roof_mat,w*0.18)
     elif style == "limasan":
-        _hip(parent,w,d,top+0.13,1.15,roof_mat,0.23)
+        _hip(parent,w,d,top+0.13,1.27,roof_mat,0.23)
     elif style == "joglo":
-        _hip(parent,w,d,top-0.08,0.83,roof_mat,0.24)
-        # Distinctive small upper tier characteristic of Javanese joglo.
-        _hip(parent,w*0.56,d*0.58,top+0.58,0.86,roof_mat,0.19)
+        _hip(parent,w,d,top-0.08,0.95,roof_mat,0.24)
+        # The public hall gets a genuinely taller tier, not a giant scaling
+        # transform that would push porches and footprint into nearby lanes.
+        var upper_offset := 0.90 if kind=="public" else 0.64
+        var upper_rise := 1.26 if kind=="public" else 0.98
+        _hip(parent,w*0.56,d*0.58,top+upper_offset,upper_rise,roof_mat,0.19)
         for x in [-w*0.36,w*0.36]:
             for z in [-d*0.37,d*0.37]:
-                _box(parent,"SakaGuruJoglo",Vector3(x,top*0.54,z),
-                    Vector3(0.16,top*0.91,0.16),"wood")
+                var pillar_h := top*1.16 if kind=="public" else top*0.95
+                _box(parent,"SakaGuruJoglo",Vector3(x,0.05+pillar_h*0.5,z),
+                    Vector3(0.16,pillar_h,0.16),"wood")
     elif style == "shed":
         _shed(parent,w,d,top+0.17,"tin",true)
     elif style == "tin_shed":
         _shed(parent,w,d,top+0.17,"tin")
     elif style == "tin_gable":
-        _gable(parent,w,d,top+0.08,0.67,"tin")
+        _gable(parent,w,d,top+0.08,0.84,"tin")
     elif style == "warung":
         _shed(parent,w*1.13,d*1.15,top+0.37,"tin",true)
 
