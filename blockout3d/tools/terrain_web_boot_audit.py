@@ -50,6 +50,7 @@ BOOT_UI = r'''
         problem = true;
         finished = false;
         indicator.hidden = false;
+        indicator.style.display = "block";
         indicator.classList.add("la-failed");
         message.textContent = detail;
         retry.hidden = false;
@@ -65,6 +66,7 @@ BOOT_UI = r'''
             window.__lembahTerrainReadyV78 === true) {
             finished = true;
             indicator.hidden = true;
+            indicator.style.display = "none";
             window.clearInterval(checkTimer);
         }
     }
@@ -129,6 +131,8 @@ def verify(path: Path, revision: str) -> None:
         raise ValueError("Godot Web exports can omit #status; do not deadlock loading panel")
     if 'window.__lembahTerrainReadyV78 === true' not in html:
         raise ValueError("Canvas-only ready check can hide loader on a blank render")
+    if 'indicator.style.display = "none";' not in html:
+        raise ValueError("World-ready status must visibly dismiss stale loading panel")
     if 'window.location.reload()' not in html or "webglcontextlost" not in html:
         raise ValueError("Missing browser recovery diagnostics")
     print("V7.8 WEB BOOT AUDIT PASS: exported shell includes WASM/pack and loading-error recovery; revision", revision)

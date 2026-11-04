@@ -298,7 +298,14 @@ func _install_terrain() -> void:
     is_ready = true
     # Signal browser only after terrain, houses, foliage, character and camera are ready.
     if OS.has_feature("web"):
-        JavaScriptBridge.eval("window.__lembahTerrainReadyV78 = true;")
+        # V7.8: exported browser smoke can render the full world while the
+        # standalone HTML loading panel stays visible. A DOM-ready poll alone
+        # was insufficient in Chromium. Signal and dismiss together from the
+        # authoritative Godot world-ready event, never on a blank canvas.
+        JavaScriptBridge.eval(
+            "window.__lembahTerrainReadyV78 = true;" +
+            "var boot = document.getElementById('la-boot-v78');" +
+            "if (boot) { boot.hidden = true; boot.style.display = 'none'; }")
     beach_button.disabled = false
     _refresh_text()
     var regular_meshes := world.find_children("*","MeshInstance3D",true,false).size()
