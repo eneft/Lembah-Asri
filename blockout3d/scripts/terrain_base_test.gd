@@ -7,7 +7,7 @@ const WATER_SCRIPT := preload("res://scripts/terrain_v2_water.gd")
 const INFRASTRUCTURE_SCRIPT := preload("res://scripts/terrain_v3_infrastructure.gd")
 const SETTLEMENT_SCRIPT := preload("res://scripts/terrain_v7_settlement.gd")
 const VEGETATION_SCRIPT := preload("res://scripts/terrain_v7_vegetation.gd")
-const AREA_STREAMER_SCRIPT := preload("res://scripts/terrain_v79_area_streamer.gd")
+const AREA_STREAMER_SCRIPT := preload("res://scripts/terrain_v80_area_loader.gd")
 const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
 const PAINTED_COLORMAP := "res://assets/environment/island/terrain_v3_painted_colormap.png"
 const TERRAIN_RAY_LAYER := 1 << 7
@@ -29,6 +29,13 @@ var status: Label
 var beach_button: Button
 var village_button: Button
 var village_spawn := Vector3.ZERO
+var scene_picker: OptionButton
+var scene_indicator: Label
+var debug_return_position := Vector3.ZERO
+var debug_return_yaw := 0.0
+var debug_return_saved := false
+const DEBUG_AREA_IDS := ["desa_inti","pekarangan_barat","balai_desa","tepi_sungai","akses_pesisir"]
+const DEBUG_AREA_NAMES := ["Desa Inti","Pekarangan Barat","Balai Desa","Tepi Sungai","Kawasan Pesisir"]
 var world: Node3D
 
 func _ready() -> void:
@@ -75,6 +82,118 @@ func _make_hud() -> void:
     village_button.visible = false
     village_button.pressed.connect(_return_to_village)
     travel.add_child(village_button)
+
+func _install_scene_picker() -> void:
+    # Always available in the browser, including iPhone: no Godot Remote
+    # scene tree or keyboard shortcut is required to inspect one area.
+    var layer := CanvasLayer.new()
+    layer.name = "AreaDebugHUD"
+    layer.layer = 5
+    add_child(layer)
+    var holder := HBoxContainer.new()
+    holder.name = "AreaPickerBar"
+    holder.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+    holder.offset_left = -324.0
+    holder.offset_right = -12.0
+    holder.offset_top = 78.0
+    holder.offset_bottom = 132.0
+    holder.add_theme_constant_override("separation",5)
+    layer.add_child(holder)
+    var area_label := Label.new()
+    area_label.text = "SCENE"
+    area_label.add_theme_font_size_override("font_size",13)
+    holder.add_child(area_label)
+    scene_picker = OptionButton.new()
+    scene_picker.name = "AreaPicker"
+    scene_picker.custom_minimum_size = Vector2(190.0,44.0)
+    scene_picker.add_item("Open World")
+    for label in DEBUG_AREA_NAMES:
+        scene_picker.add_item(label)
+    scene_picker.item_selected.connect(_on_scene_selected)
+    holder.add_child(scene_picker)
+    scene_indicator = Label.new()
+    scene_indicator.name = "RegionCounter"
+    scene_indicator.text = "0/5"
+    scene_indicator.add_theme_font_size_override("font_size",12)
+    holder.add_child(scene_indicator)
+    _refresh_scene_indicator()
+
+func _refresh_scene_indicator() -> void:
+    if not is_instance_valid(scene_indicator) or not is_instance_valid(area_streamer):
+        return
+    scene_indicator.text = "%d/5" % int(area_streamer.get("loaded_area_count"))
+
+func _apply_scene_visual_isolation(area_id: String) -> void:
+    # Debug-only visual mask: the world collision and existing terrain texture
+    # are never modified, and normal Open World restores the original shader.
+    if new_mesh == null:
+        return
+    var shader := new_mesh.material_override as ShaderMaterial
+    if shader == null:
+        return
+    var enabled := not area_id.is_empty()
+    shader.set_shader_parameter("debug_clip_enabled",enabled)
+    if enabled:
+        var rect: Rect2 = area_streamer.call("get_area_rect",area_id)
+        shader.set_shader_parameter("debug_clip_rect",Vector4(
+            rect.position.x-9.0,rect.position.y-9.0,
+            rect.end.x+9.0,rect.end.y+9.0))
+
+func _find_debug_spawn(area_id: String) -> Dictionary:
+    var rect: Rect2 = area_streamer.call("get_area_rect",area_id)
+    var center := rect.get_center()
+    # All placements are ray-tested against the exact island (not a fake
+    # floor) and against the always-resident building/tree collision proxies.
+    for d in [Vector2.ZERO,Vector2(9,0),Vector2(-9,0),
+        Vector2(0,9),Vector2(0,-9),Vector2(16,9),Vector2(-16,-9),
+        Vector2(15,-15),Vector2(-15,15)]:
+        var p := center + d
+        var q := PhysicsRayQueryParameters3D.create(
+            Vector3(p.x,120.0,p.y),Vector3(p.x,-40.0,p.y))
+        q.collision_mask = TERRAIN_RAY_LAYER
+        var hit := world.get_world_3d().direct_space_state.intersect_ray(q)
+        if hit.is_empty() or hit.position.y < 0.94 or hit.normal.y < 0.82:
+            continue
+        var wall_ray := PhysicsRayQueryParameters3D.create(
+            hit.position+Vector3.UP*3.2,hit.position+Vector3.UP*0.26)
+        wall_ray.collision_mask = PLAYER_GROUND_LAYER
+        var wall := world.get_world_3d().direct_space_state.intersect_ray(wall_ray)
+        if not wall.is_empty():
+            continue
+        return hit
+    return {}
+
+func _on_scene_selected(index: int) -> void:
+    if not is_ready or not is_instance_valid(area_streamer):
+        return
+    var actor := world.get_node_or_null("Player3D") as CharacterBody3D
+    if actor == null:
+        return
+    if index == 0:
+        area_streamer.call("set_debug_area","")
+        _apply_scene_visual_isolation("")
+        if debug_return_saved:
+            _move_to_ground(debug_return_position,debug_return_yaw)
+        debug_return_saved = false
+        _refresh_text()
+        _refresh_scene_indicator()
+        return
+    var chosen := DEBUG_AREA_IDS[index-1] as String
+    var found := _find_debug_spawn(chosen)
+    if found.is_empty():
+        push_warning("AREA DEBUG: safe ground not found in "+chosen)
+        scene_picker.select(0)
+        return
+    if not debug_return_saved:
+        debug_return_position = actor.global_position
+        debug_return_yaw = float(world.get("camera_yaw"))
+        debug_return_saved = true
+    area_streamer.call("set_debug_area",chosen)
+    _apply_scene_visual_isolation(chosen)
+    _move_to_ground(found.position+Vector3.UP*0.13,debug_return_yaw)
+    if status != null:
+        status.text = "AREA TERPISAH: "+DEBUG_AREA_NAMES[index-1]+" | Pilih Open World untuk kembali"
+    _refresh_scene_indicator()
 
 func _bounds_global(mesh: MeshInstance3D) -> AABB:
     var aabb := mesh.get_aabb()
@@ -201,7 +320,7 @@ func _install_terrain() -> void:
     if not bool(vegetation_root.get("finished")):
         push_error("V7.3 VEGETATION FAIL: no safe grounded foliage scene")
         return
-    # V7.9: houses + spatially partitioned foliage live in five area scenes.
+    # V8.0: five separately instantiable region visuals with persistent collision.
     # Island, ocean, river and bridge physics stay permanently resident.
     area_streamer = Node3D.new()
     area_streamer.name = "AreaStreamingV79"
@@ -308,6 +427,7 @@ func _install_terrain() -> void:
         " target=",player.global_position,
         " direction dot=",snappedf(view_forward.dot(target_direction),0.001))
     area_streamer.call("refresh_visibility",player.global_position,true)
+    _install_scene_picker()
     is_ready = true
     # Signal browser only after terrain, houses, foliage, character and camera are ready.
     if OS.has_feature("web"):
@@ -332,7 +452,7 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "LEMBAH ASRI V7.9 | AREA DINAMIS • P: PANTAI • H: DESA"
+        status.text = "LEMBAH ASRI V8.0 | AREA STREAMING • P: PANTAI • H: DESA"
 
 func _move_to_ground(where: Vector3, yaw: float) -> void:
     var actor := world.get_node_or_null("Player3D") as CharacterBody3D
