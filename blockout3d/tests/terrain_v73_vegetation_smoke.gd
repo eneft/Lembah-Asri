@@ -19,6 +19,11 @@ func _run() -> void:
         _fail("terrain, settlement or vegetation startup timeout")
         return
     var world := level.get_node_or_null("World") as Node3D
+    var v8_qa := world.get_node_or_null("AreaStreamingV79") as Node3D
+    if v8_qa == null:
+        _fail("AREA V8 runtime missing")
+        return
+    v8_qa.call("debug_show_all",true)
     var vegetation := world.get_node_or_null("VillageVegetationV73") as Node3D
     var houses := world.get_node_or_null("VillageBuildingsV7") as Node3D
     if vegetation == null or not bool(vegetation.get("finished")) or houses == null:
@@ -39,7 +44,11 @@ func _run() -> void:
             return
         region_houses += homes.get_child_count()
         region_items.append_array(plants.get_children())
-        region_items.append_array(foliage.get_children())
+        var live_foliage := foliage.get_node_or_null("V80Foliage") as Node3D
+        if live_foliage == null:
+            _fail("V8 loaded area has no visual foliage scene")
+            return
+        region_items.append_array(live_foliage.get_children())
     if region_houses!=17:
         _fail("vegetation accidentally replaced some buildings")
         return

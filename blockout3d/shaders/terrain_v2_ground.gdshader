@@ -9,6 +9,10 @@ uniform sampler2D biome_atlas : source_color, filter_linear_mipmap_anisotropic, 
 // UV_0 follows the actual world X/Z footprint drawn by terrain_v3_painted_map.py.
 uniform sampler2D painted_colormap : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 
+// V8 debug-only visual crop. Default false preserves every world pixel.
+uniform bool debug_clip_enabled = false;
+uniform vec4 debug_clip_rect = vec4(-9999.0,-9999.0,9999.0,9999.0);
+
 varying vec3 terrain_world;
 varying vec3 terrain_normal;
 varying vec3 landuse_weights; // R = planned building, G = yard, B = paths.
@@ -45,6 +49,11 @@ void vertex() {
 
 void fragment() {
     vec2 pos = terrain_world.xz;
+    if (debug_clip_enabled &&
+        (pos.x < debug_clip_rect.x || pos.y < debug_clip_rect.y ||
+         pos.x > debug_clip_rect.z || pos.y > debug_clip_rect.w)) {
+        discard;
+    }
     float height_m = terrain_world.y;
     float tilt = 1.0 - clamp(abs(terrain_normal.y), 0.0, 1.0);
     // Smooth broad-scale variation; no visible hard 11m square grid.

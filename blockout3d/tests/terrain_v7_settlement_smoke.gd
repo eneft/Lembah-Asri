@@ -19,6 +19,11 @@ func _run() -> void:
         _fail("level initialization timeout")
         return
     var world := level.get_node_or_null("World") as Node3D
+    var v8_loader := world.get_node_or_null("AreaStreamingV79") as Node3D
+    if v8_loader == null:
+        _fail("V8: missing area loader")
+        return
+    v8_loader.call("debug_show_all",true)
     var settlement := world.get_node_or_null("VillageBuildingsV7") as Node3D
     if settlement == null or not bool(settlement.get("finished")):
         _fail("building layer missing")
@@ -83,25 +88,25 @@ func _run() -> void:
             _fail("wall collider not detected: "+str(building.name))
             return
         if str(building.name) == "pos_ronda_balai":
-            if building.get_node_or_null("OriginalTexturedHouse") != null:
+            if building.get_node_or_null("V80Visuals/OriginalTexturedHouse") != null:
                 _fail("watch post should be a separate small structure")
                 return
             continue
         var model: Node3D
         if str(building.name) == "rumah_masa_kecil":
-            model = building.get_node_or_null("OriginalTexturedHouse") as Node3D
+            model = building.get_node_or_null("V80Visuals/OriginalTexturedHouse") as Node3D
             childhood_glb += 1
         elif str(building.name) == "rumah_nelayan_01":
-            model = building.get_node_or_null("MeshyFishermanHouse") as Node3D
+            model = building.get_node_or_null("V80Visuals/MeshyFishermanHouse") as Node3D
             new_fisherman_glb += 1
-            if model == null or building.get_node_or_null("UniqueVillageMesh") != null:
+            if model == null or building.get_node_or_null("V80Visuals/UniqueVillageMesh") != null:
                 _fail("V7.8: uploaded Meshy fisherman house did not replace the old mesh")
                 return
         else:
-            if building.get_node_or_null("OriginalTexturedHouse") != null:
+            if building.get_node_or_null("V80Visuals/OriginalTexturedHouse") != null:
                 _fail("duplicate childhood GLB used as another house: "+str(building.name))
                 return
-            model = building.get_node_or_null("UniqueVillageMesh") as Node3D
+            model = building.get_node_or_null("V80Visuals/UniqueVillageMesh") as Node3D
             if model != null:
                 var signature := str(model.get_meta("architecture_signature",""))
                 if signature.is_empty() or signatures.has(signature):

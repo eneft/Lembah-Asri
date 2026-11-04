@@ -71,6 +71,11 @@ jobs:
           timeout 135s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v79_streaming_smoke.gd 2>&1 | tee terrain-v79-area-streaming.log
           if grep -E 'SCRIPT ERROR|ERROR:|AREA V7.9 FAIL' terrain-v79-area-streaming.log; then exit 1; fi
           grep -q 'AREA V7.9 SCENE STREAM PASS:' terrain-v79-area-streaming.log
+      - name: Verify V8.0 actual area scene instantiation/unloading and debug menu
+        run: |
+          timeout 155s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v80_scene_loading_smoke.gd 2>&1 | tee terrain-v80-stream.log
+          if grep -E 'SCRIPT ERROR|ERROR:|AREA V8 FAIL' terrain-v80-stream.log; then exit 1; fi
+          grep -q 'AREA V8 REAL STREAM PASS:' terrain-v80-stream.log
       - name: Walk real player capsule across both bridges
         run: |
           set -o pipefail

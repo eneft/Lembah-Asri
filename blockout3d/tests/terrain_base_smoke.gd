@@ -22,6 +22,12 @@ func _run() -> void:
         quit(1)
         return
     var world := test.get_node_or_null("World") as Node3D
+    var v8_qa := world.get_node_or_null("AreaStreamingV79") as Node3D
+    if v8_qa == null:
+        push_error("AREA V8 FAIL: runtime loader missing")
+        quit(1)
+        return
+    v8_qa.call("debug_show_all",true)
     var terrain := world.get_node_or_null("TerrainBaseUploadedV2") as Node3D
     var collider: StaticBody3D = test.get("new_collision")
     var mesh: MeshInstance3D = test.get("new_mesh")
@@ -384,7 +390,7 @@ func _run() -> void:
     for area in streamer.get_children():
         village_houses.append_array(area.get_node("Houses").get_children())
     for building in village_houses:
-        var house_mesh := building.get_node_or_null("UniqueVillageMesh") as Node3D
+        var house_mesh := building.get_node_or_null("V80Visuals/UniqueVillageMesh") as Node3D
         if house_mesh == null:
             continue # Childhood GLB, new Meshy fisherman GLB, and village watch post
         var wall_mesh := house_mesh.get_node_or_null("DindingBangunan") as MeshInstance3D

@@ -28,6 +28,7 @@ func _run() -> void:
     if streamer.get_child_count() != 5 or int(streamer.get("building_count")) != 17:
         _fail("zone scene and house counts changed")
         return
+    streamer.call("debug_show_all",true)
     var source_parts: int = int(streamer.get("original_foliage_instances"))
     if source_parts < 100 or int(streamer.get("area_foliage_instances")) != source_parts:
         _fail("foliage batching lost instances")
@@ -42,7 +43,11 @@ func _run() -> void:
             _fail("area scene missing its own children")
             return
         scene_bodies += homes.get_child_count()
-        for node in foliage.get_children():
+        var live_foliage := foliage.get_node_or_null("V80Foliage") as Node3D
+        if live_foliage == null:
+            _fail("V8 zone must instantiate full foliage in QA mode")
+            return
+        for node in live_foliage.get_children():
             var batch := node as MultiMeshInstance3D
             if batch == null or batch.multimesh == null:
                 _fail("regional batch no longer rendered by MultiMesh")
@@ -52,6 +57,7 @@ func _run() -> void:
         _fail("spatially partitioned source count changed")
         return
 
+    streamer.call("debug_show_all",false)
     var coast := streamer.get_node("Area_akses_pesisir") as Node3D
     var west := streamer.get_node("Area_pekarangan_barat") as Node3D
     var home := streamer.get_node("Area_pekarangan_barat/Houses/rumah_masa_kecil") as Node3D
