@@ -147,7 +147,7 @@ func _find_debug_spawn(area_id: String) -> Dictionary:
     for d in [Vector2.ZERO,Vector2(9,0),Vector2(-9,0),
         Vector2(0,9),Vector2(0,-9),Vector2(16,9),Vector2(-16,-9),
         Vector2(15,-15),Vector2(-15,15)]:
-        var p := center + d
+        var p: Vector2 = center + (d as Vector2)
         var q := PhysicsRayQueryParameters3D.create(
             Vector3(p.x,120.0,p.y),Vector3(p.x,-40.0,p.y))
         q.collision_mask = TERRAIN_RAY_LAYER
