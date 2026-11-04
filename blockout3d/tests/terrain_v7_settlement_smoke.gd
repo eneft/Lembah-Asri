@@ -23,7 +23,18 @@ func _run() -> void:
     if settlement == null or not bool(settlement.get("finished")):
         _fail("building layer missing")
         return
-    if settlement.get_child_count() != 17 or int(settlement.get("building_count")) != 17:
+    var area_streamer := world.get_node_or_null("AreaStreamingV79") as Node3D
+    var all_houses: Array = []
+    if area_streamer == null or area_streamer.get_child_count() != 5:
+        _fail("V7.9: five area scenes are missing")
+        return
+    for zone in area_streamer.get_children():
+        var house_group := zone.get_node_or_null("Houses") as Node3D
+        if house_group == null:
+            _fail("V7.9: house scene group missing in "+str(zone.name))
+            return
+        all_houses.append_array(house_group.get_children())
+    if all_houses.size() != 17 or int(settlement.get("building_count")) != 17:
         _fail("expected exactly 17 independent 3D structures")
         return
     if int(settlement.get("source_house_count")) != 1:
@@ -42,7 +53,7 @@ func _run() -> void:
     var painted := 0
     var childhood_glb := 0
     var new_fisherman_glb := 0
-    for node in settlement.get_children():
+    for node in all_houses:
         var building := node as Node3D
         if building == null or unique.has(str(building.name)):
             _fail("duplicate building IDs")
@@ -252,7 +263,7 @@ func _run() -> void:
         _fail("17 buildings must contain 1 nostalgic GLB, 1 NEW fisherman Meshy GLB and 14 unique painted houses")
         return
     var player := world.get_node_or_null("Player3D") as CharacterBody3D
-    var hall := settlement.get_node_or_null("balai_desa") as Node3D
+    var hall := area_streamer.get_node_or_null("Area_balai_desa/Houses/balai_desa") as Node3D
     if player == null or hall == null:
         _fail("avatar or village hall missing")
         return

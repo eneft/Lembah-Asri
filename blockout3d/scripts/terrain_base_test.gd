@@ -7,6 +7,7 @@ const WATER_SCRIPT := preload("res://scripts/terrain_v2_water.gd")
 const INFRASTRUCTURE_SCRIPT := preload("res://scripts/terrain_v3_infrastructure.gd")
 const SETTLEMENT_SCRIPT := preload("res://scripts/terrain_v7_settlement.gd")
 const VEGETATION_SCRIPT := preload("res://scripts/terrain_v7_vegetation.gd")
+const AREA_STREAMER_SCRIPT := preload("res://scripts/terrain_v79_area_streamer.gd")
 const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
 const PAINTED_COLORMAP := "res://assets/environment/island/terrain_v3_painted_colormap.png"
 const TERRAIN_RAY_LAYER := 1 << 7
@@ -20,6 +21,7 @@ var water_root: Node3D
 var infrastructure_root: Node3D
 var settlement_root: Node3D
 var vegetation_root: Node3D
+var area_streamer: Node3D
 var terrain_scale := 140.0
 var vertical_offset := 0.0
 var is_ready := false
@@ -199,6 +201,16 @@ func _install_terrain() -> void:
     if not bool(vegetation_root.get("finished")):
         push_error("V7.3 VEGETATION FAIL: no safe grounded foliage scene")
         return
+    # V7.9: houses + spatially partitioned foliage live in five area scenes.
+    # Island, ocean, river and bridge physics stay permanently resident.
+    area_streamer = Node3D.new()
+    area_streamer.name = "AreaStreamingV79"
+    area_streamer.set_script(AREA_STREAMER_SCRIPT)
+    world.add_child(area_streamer)
+    area_streamer.call("configure",world,settlement_root,vegetation_root)
+    if not bool(area_streamer.get("finished")):
+        push_error("AREA V7.9 FAIL: zone-scene streaming did not initialize")
+        return
     # StaticBody3D collision shapes created during an idle callback become
     # queryable AFTER the next physics server sync. The old smoke test ran a
     # ray in the same tick and wrongly concluded that the bridge was absent.
@@ -295,6 +307,7 @@ func _install_terrain() -> void:
         " position=",current_camera.global_position,
         " target=",player.global_position,
         " direction dot=",snappedf(view_forward.dot(target_direction),0.001))
+    area_streamer.call("refresh_visibility",player.global_position,true)
     is_ready = true
     # Signal browser only after terrain, houses, foliage, character and camera are ready.
     if OS.has_feature("web"):
@@ -319,7 +332,7 @@ func _install_terrain() -> void:
 
 func _refresh_text() -> void:
     if status != null:
-        status.text = "LEMBAH ASRI V7.3 | VEGETASI DESA • P: PANTAI • H: DESA"
+        status.text = "LEMBAH ASRI V7.9 | AREA DINAMIS • P: PANTAI • H: DESA"
 
 func _move_to_ground(where: Vector3, yaw: float) -> void:
     var actor := world.get_node_or_null("Player3D") as CharacterBody3D
@@ -333,6 +346,8 @@ func _move_to_ground(where: Vector3, yaw: float) -> void:
     # side of the player so the sea is in the picture, not behind the viewer.
     world.set("camera_yaw", yaw)
     world.call("_place_camera_immediately")
+    if is_instance_valid(area_streamer):
+        area_streamer.call("refresh_visibility",actor.global_position,true)
 
 func _visit_beach() -> void:
     if not is_ready:

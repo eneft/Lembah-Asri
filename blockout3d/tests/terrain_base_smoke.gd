@@ -375,7 +375,15 @@ func _run() -> void:
         quit(1)
         return
     var measured_house_count := 0
-    for building in village.get_children():
+    var streamer := world.get_node_or_null("AreaStreamingV79") as Node3D
+    if streamer == null or streamer.get_child_count() != 5:
+        push_error("V7.9 AREA FAIL: missing streamed region scene tree")
+        quit(1)
+        return
+    var village_houses: Array = []
+    for area in streamer.get_children():
+        village_houses.append_array(area.get_node("Houses").get_children())
+    for building in village_houses:
         var house_mesh := building.get_node_or_null("UniqueVillageMesh") as Node3D
         if house_mesh == null:
             continue # Childhood GLB, new Meshy fisherman GLB, and village watch post
@@ -563,7 +571,7 @@ func _run() -> void:
             quit(1)
             return
     for n in world.get_children():
-        if n == terrain or n == water or n == infra or n == player or n == camera or str(n.name) == "VillageBuildingsV7" or str(n.name) == "VillageVegetationV73" or n is DirectionalLight3D or n is WorldEnvironment or n is CanvasLayer:
+        if n == terrain or n == water or n == infra or n == player or n == camera or str(n.name) == "VillageBuildingsV7" or str(n.name) == "VillageVegetationV73" or str(n.name) == "AreaStreamingV79" or n is DirectionalLight3D or n is WorldEnvironment or n is CanvasLayer:
             continue
         push_error("TERRAIN BASE FAIL: legacy object remains: " + str(n.name))
         quit(1)

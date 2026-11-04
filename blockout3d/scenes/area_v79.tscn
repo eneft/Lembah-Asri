@@ -1,0 +1,9 @@
+[gd_scene format=3]
+
+[node name="AreaSceneV79" type="Node3D"]
+
+[node name="Houses" type="Node3D" parent="."]
+
+[node name="Plants" type="Node3D" parent="."]
+
+[node name="Foliage" type="Node3D" parent="."]

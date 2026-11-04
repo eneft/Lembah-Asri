@@ -66,6 +66,11 @@ jobs:
           timeout 145s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v73_vegetation_smoke.gd 2>&1 | tee terrain-v73-vegetation.log
           if grep -E 'SCRIPT ERROR|ERROR:|V7.3 VEGETATION FAIL' terrain-v73-vegetation.log; then exit 1; fi
           grep -q 'V7.3 VEGETATION SMOKE PASS:' terrain-v73-vegetation.log
+      - name: Verify V7.9 five separate area scenes and distance-culling physics
+        run: |
+          timeout 135s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v79_streaming_smoke.gd 2>&1 | tee terrain-v79-area-streaming.log
+          if grep -E 'SCRIPT ERROR|ERROR:|AREA V7.9 FAIL' terrain-v79-area-streaming.log; then exit 1; fi
+          grep -q 'AREA V7.9 SCENE STREAM PASS:' terrain-v79-area-streaming.log
       - name: Walk real player capsule across both bridges
         run: |
           set -o pipefail

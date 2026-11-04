@@ -24,7 +24,23 @@ func _run() -> void:
     if vegetation == null or not bool(vegetation.get("finished")) or houses == null:
         _fail("independent vegetation and 17 houses not both installed")
         return
-    if houses.get_child_count()!=17:
+    var streamer := world.get_node_or_null("AreaStreamingV79") as Node3D
+    if streamer == null or streamer.get_child_count()!=5:
+        _fail("V7.9 area scene root missing")
+        return
+    var region_items: Array = []
+    var region_houses := 0
+    for area in streamer.get_children():
+        var homes := area.get_node_or_null("Houses") as Node3D
+        var plants := area.get_node_or_null("Plants") as Node3D
+        var foliage := area.get_node_or_null("Foliage") as Node3D
+        if homes == null or plants == null or foliage == null:
+            _fail("V7.9 missing scene layers in "+str(area.name))
+            return
+        region_houses += homes.get_child_count()
+        region_items.append_array(plants.get_children())
+        region_items.append_array(foliage.get_children())
+    if region_houses!=17:
         _fail("vegetation accidentally replaced some buildings")
         return
     var total: int = int(vegetation.get("planted_count"))
@@ -40,12 +56,18 @@ func _run() -> void:
     if solid != int(counts.get("palm",0))+int(counts.get("shade",0)):
         _fail("only real large-tree trunks should have physical colliders")
         return
-    var grass := vegetation.get_node_or_null("NonCollidingGrassMultiMesh") as MultiMeshInstance3D
-    if grass==null or grass.multimesh==null or grass.multimesh.instance_count!=grass_count:
-        _fail("low-draw-call grass batch absent or incomplete")
-        return
-    if grass.get_child_count()>0:
-        _fail("grass must be non-colliding and instanced")
+    var grass_instances := 0
+    var grass_batches := 0
+    for item in region_items:
+        if item is MultiMeshInstance3D and str(item.name).begins_with("NonCollidingGrassMultiMesh_"):
+            var grass := item as MultiMeshInstance3D
+            if grass.multimesh == null or grass.get_child_count() != 0:
+                _fail("regional grass batch is missing or has child colliders")
+                return
+            grass_instances += grass.multimesh.instance_count
+            grass_batches += 1
+    if grass_instances != grass_count or grass_batches < 2:
+        _fail("spatially grouped non-colliding grass lost instances")
         return
     await physics_frame
     await physics_frame
@@ -56,8 +78,8 @@ func _run() -> void:
     var rendered_parts := 0
     var batches := 0
     var accumulated_parts := 0
-    for item in vegetation.get_children():
-        if item == grass:
+    for item in region_items:
+        if item is MultiMeshInstance3D and str(item.name).begins_with("NonCollidingGrassMultiMesh_"):
             continue
         if item is MultiMeshInstance3D:
             var batch := item as MultiMeshInstance3D
@@ -126,8 +148,8 @@ func _run() -> void:
     if tested != total-grass_count or textured!=tested or tree_hits!=solid:
         _fail("vegetation counts/colliders mismatch; species "+str(species))
         return
-    if batches<25 or batches>45 or rendered_parts!=accumulated_parts or (
-        int(vegetation.get("foliage_batch_count"))!=batches):
+    if batches<25 or batches>180 or rendered_parts!=accumulated_parts or (
+        int(streamer.get("area_batch_count"))!=batches+grass_batches):
         _fail("GPU batching incomplete or excessive foliage drawcalls; batches="+str(batches)+
             " expected parts="+str(rendered_parts)+" real="+str(accumulated_parts))
         return
