@@ -207,6 +207,15 @@ func get_loaded_area_ids() -> Array:
 func get_area_rect(area_id: String) -> Rect2:
     return _bounds.get(area_id,Rect2())
 
+func _exit_tree() -> void:
+    # PackedScene snapshots keep mesh/texture Resources alive independently of
+    # removed nodes. Release them BEFORE Godot destroys its GLES renderer at
+    # shutdown; otherwise headless GPU regression tests report leaked RIDs.
+    _house_templates.clear()
+    _foliage_templates.clear()
+    _plants_by_type.clear()
+    _loaded.clear()
+
 func _process(delta: float) -> void:
     if not finished or not is_instance_valid(_player):
         return
