@@ -4,6 +4,10 @@ extends Node3D
 ## Footprint collisions are cheap BoxShape3D; NO per-triangle house physics.
 const BLUEPRINT := "res://assets/environment/village/settlement_v7.json"
 const HOUSE_GLB := "res://assets/environment/houses/main_house/rumah_utama.glb"
+# Imported from the NEW user's Meshy 1103160840 fisherman house; 1,800 original
+# mesh triangles with its 8192px pigment baked into vertex colors (37KB GLB).
+# The other fisherman house remains an intentionally different 3D building.
+const FISHERMAN_GLB := "res://assets/environment/houses/fisherman_meshy/fisherman_meshy_web.glb"
 const ARCHITECTURE_SCRIPT := preload("res://scripts/terrain_v7_architecture.gd")
 const GROUND_LAYER := 1 << 7
 const BUILDING_LAYER := 1
@@ -103,6 +107,11 @@ func _material_variant(model: Node3D, index: int, kind: String) -> void:
                 painted.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
                 painted.metallic = 0.0
                 painted.roughness = 0.94
+                # Godot glTF material imports sometimes disable vertex colors
+                # for textureless PBR surfaces. The low-memory fisherman asset
+                # stores actual source pigment in vertex colors, not a big PNG.
+                if painted is StandardMaterial3D and original.albedo_texture == null:
+                    (painted as StandardMaterial3D).vertex_color_use_as_albedo = true
                 mesh.set_surface_override_material(s, painted)
 
 func _collision(house: Node3D, dimensions: Vector3) -> void:
@@ -181,6 +190,10 @@ func configure(world: Node3D) -> void:
     if packed == null:
         push_error("V7 SETTLEMENT FAIL: user's original textured house GLB unavailable")
         return
+    var fisherman_packed := load(FISHERMAN_GLB) as PackedScene
+    if fisherman_packed == null:
+        push_error("V7 FISHERMAN FAIL: optimized uploaded fisherman GLB unavailable")
+        return
     var architecture := ARCHITECTURE_SCRIPT.new()
     var unique: Dictionary = {}
     var geometry_signatures: Dictionary = {}
@@ -252,6 +265,43 @@ func configure(world: Node3D) -> void:
             print("V7.6 CHILDHOOD HOUSE: body %.2f x %.2f x %.2fm, avatar %.2fm" % [
                 actual_width,actual_depth,actual_height,ADULT_HEIGHT_M])
             source_house_count += 1
+        elif label == "rumah_nelayan_01":
+            # Replace ONLY this fishing cottage with the supplied Meshy GLB.
+            # Keep the other fishing house distinctive. No plot, yaw, player,
+            # terrain, bridge or physics layer is repositioned.
+            var model := fisherman_packed.instantiate() as Node3D
+            if model == null:
+                push_error("V7 FISHERMAN FAIL: optimized fisherman scene invalid")
+                return
+            model.name = "MeshyFishermanHouse"
+            house.add_child(model)
+            var b := _bounds(model)
+            if b.size.x <= 0.01 or b.size.y <= 0.01 or b.size.z <= 0.01:
+                push_error("V7 FISHERMAN FAIL: fisherman geometry is empty")
+                return
+            # 1 Godot unit = 1 metre. Fit the original generated proportions
+            # into the ORIGINAL 8 x 6.5m plot, keeping yard and footpaths open.
+            # Normalization is needed since Meshy models use arbitrary units.
+            var width := minf(5.20,footprint.x * 0.69)
+            var depth := minf(5.35,footprint.y * 0.82)
+            var height := 3.85
+            model.scale = Vector3(width / b.size.x,height / b.size.y,depth / b.size.z)
+            model.position = Vector3(
+                -(b.position.x+b.size.x*0.5)*model.scale.x,
+                -b.position.y*model.scale.y+0.06,
+                -(b.position.z+b.size.z*0.5)*model.scale.z)
+            _material_variant(model,i,kind)
+            # Retain a single cheap solid building collider, never the full
+            # scanned triangle surface: critical on WebGL/iPhone.
+            _collision(house,Vector3(width*0.87,2.72,depth*0.83))
+            house.set_meta("building_width_m",width)
+            house.set_meta("building_depth_m",depth)
+            house.set_meta("building_height_m",height)
+            house.set_meta("fisherman_source","Meshy_AI_Lembah_Asri_Fisherman_1103160840_texture.glb")
+            house.set_meta("fisherman_optimized_triangles",1800)
+            geometry_signatures["meshy_fisherman_1103160840"] = label
+            unique_house_count += 1
+            print("V7.8 FISHERMAN REPLACEMENT PASS: Meshy asset, %.2f x %.2f x %.2fm; user=1.68m" % [width,depth,height])
         else:
             # Authored 3D mesh variants from the pre-existing village-art kit,
             # not another instance of the childhood-house GLB.
@@ -281,4 +331,4 @@ func configure(world: Node3D) -> void:
     finished = true
     print("V7.2 SETTLEMENT PASS: ",building_count," buildings; ",source_house_count,
         " original childhood GLB + ",unique_house_count,
-        " individually authored painted meshes + 1 pos ronda; lapangan open")
+        " individually distinct buildings (1 imported fisherman) + 1 pos ronda; lapangan open")

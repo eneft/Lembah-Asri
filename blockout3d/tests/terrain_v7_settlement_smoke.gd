@@ -41,6 +41,7 @@ func _run() -> void:
     var signatures := {}
     var painted := 0
     var childhood_glb := 0
+    var new_fisherman_glb := 0
     for node in settlement.get_children():
         var building := node as Node3D
         if building == null or unique.has(str(building.name)):
@@ -79,6 +80,12 @@ func _run() -> void:
         if str(building.name) == "rumah_masa_kecil":
             model = building.get_node_or_null("OriginalTexturedHouse") as Node3D
             childhood_glb += 1
+        elif str(building.name) == "rumah_nelayan_01":
+            model = building.get_node_or_null("MeshyFishermanHouse") as Node3D
+            new_fisherman_glb += 1
+            if model == null or building.get_node_or_null("UniqueVillageMesh") != null:
+                _fail("V7.8: uploaded Meshy fisherman house did not replace the old mesh")
+                return
         else:
             if building.get_node_or_null("OriginalTexturedHouse") != null:
                 _fail("duplicate childhood GLB used as another house: "+str(building.name))
@@ -94,6 +101,7 @@ func _run() -> void:
             _fail("authored 3D house mesh missing: "+str(building.name))
             return
         var valid_textures := 0
+        var baked_vertex_colors := 0
         var generated_geometry := 0
         for child in model.find_children("*","MeshInstance3D",true,false):
             var mesh := child as MeshInstance3D
@@ -104,8 +112,12 @@ func _run() -> void:
                 var material := mesh.get_active_material(surface) as BaseMaterial3D
                 if material != null and material.albedo_texture != null:
                     valid_textures += 1
-        if valid_textures == 0 or generated_geometry < 1:
-            _fail("house lost its painted 3D geometry: "+str(building.name))
+                if str(building.name)=="rumah_nelayan_01" and material is StandardMaterial3D:
+                    var vertex_data: Array = mesh.mesh.surface_get_arrays(surface)
+                    if (material as StandardMaterial3D).vertex_color_use_as_albedo and vertex_data[Mesh.ARRAY_COLOR] is PackedColorArray:
+                        baked_vertex_colors += 1
+        if (valid_textures == 0 and baked_vertex_colors == 0) or generated_geometry < 1:
+            _fail("house lost its textured or baked-vertex-color 3D geometry: "+str(building.name))
             return
         if str(building.name) == "rumah_masa_kecil":
             # Original one-of-a-kind GLB also needs real 1m/world-unit
@@ -120,6 +132,24 @@ func _run() -> void:
                 return
             if absf(float(building.get_meta("building_height_m",0.0))-real_height)>0.02:
                 _fail("V7.6: childhood building size metadata differs from visible GLB")
+                return
+        elif str(building.name)=="rumah_nelayan_01":
+            var b: AABB = settlement.call("_bounds",model)
+            var actual_width: float = b.size.x * model.scale.x
+            var actual_height: float = b.size.y * model.scale.y
+            var actual_depth: float = b.size.z * model.scale.z
+            if absf(actual_width-5.20)>0.05 or absf(actual_depth-5.33)>0.05 or absf(actual_height-3.85)>0.05:
+                _fail("V7.8: fisherman GLB dimensions do not fit 1.68m avatar and original plot")
+                return
+            var expected_shape: BoxShape3D = shape.shape as BoxShape3D
+            if expected_shape == null or absf(expected_shape.size.x-actual_width*0.87)>0.05 or absf(expected_shape.size.z-actual_depth*0.83)>0.05:
+                _fail("V7.8: Meshy house collision no longer matches its visible scale")
+                return
+            if baked_vertex_colors<1 or str(building.get_meta("fisherman_source",""))!="Meshy_AI_Lembah_Asri_Fisherman_1103160840_texture.glb":
+                _fail("V7.8: missing original Meshy material pigments or source identity")
+                return
+            if int(building.get_meta("fisherman_optimized_triangles",0))!=1800:
+                _fail("V7.8: incorrect mobile-optimized fisherman geometry")
                 return
         else:
             var wall_visual := model.get_node_or_null("DindingBangunan") as MeshInstance3D
@@ -175,7 +205,7 @@ func _run() -> void:
                     if post!=null and str(post.name)=="TiangBalai" and absf(post.position.x)>physical_width*0.5:
                         _fail("V7.6: balai porch pillar has drifted outside resized roof")
                         return
-        if str(building.name)!="rumah_masa_kecil":
+        if str(building.name)!="rumah_masa_kecil" and str(building.name)!="rumah_nelayan_01":
             var painted_wall := model.get_node_or_null("DindingBangunan") as MeshInstance3D
             if painted_wall == null or painted_wall.mesh == null:
                 _fail("V7.7: building lost real painterly wall mesh: "+str(building.name))
@@ -203,8 +233,8 @@ func _run() -> void:
                     _fail("V7.7: hip roof lacks low-poly raised edges: "+str(building.name))
                     return
         painted += 1
-    if painted != 16 or childhood_glb != 1 or signatures.size() != 15:
-        _fail("17 buildings must contain 1 original textured GLB and 15 UNIQUE textured meshes")
+    if painted != 16 or childhood_glb != 1 or new_fisherman_glb != 1 or signatures.size() != 14:
+        _fail("17 buildings must contain 1 nostalgic GLB, 1 NEW fisherman Meshy GLB and 14 unique painted houses")
         return
     var player := world.get_node_or_null("Player3D") as CharacterBody3D
     var hall := settlement.get_node_or_null("balai_desa") as Node3D
@@ -231,8 +261,9 @@ func _run() -> void:
     if player.global_position.x > hall.global_position.x - 3.4:
         _fail("original player capsule passed through balai wall")
         return
-    print("V7.7 VISUAL POLISH PASS: unique hand-painted 3D facades/roof details on 15 buildings; original GLB colors retained")
+    print("V7.8 FISHERMAN INTEGRATION PASS: uploaded GLB replaces rumah_nelayan_01; 1800 triangles, 1.68m scale, original collision and 17 sites")
+    print("V7.7 VISUAL POLISH PASS: distinct hand-painted 3D facades/roof details, original childhood GLB colors retained")
     print("V7.6 BUILDING SCALE PASS: 168cm player, 15 residential/public doors, 1 calibrated childhood GLB and appropriately sized balai/watch post")
     print("V7 SETTLEMENT PHYSICS PASS: original player capsule blocked by village hall")
-    print("V7 SETTLEMENT SMOKE PASS: 17 grounded buildings, 1 original childhood GLB, 15 unique hand-painted 3D meshes, open square, solid player collision")
+    print("V7 SETTLEMENT SMOKE PASS: 17 grounded buildings, childhood GLB, NEW Meshy fisherman GLB, 14 unique hand-painted meshes, open square, solid player collision")
     quit(0)

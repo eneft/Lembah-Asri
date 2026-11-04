@@ -378,7 +378,7 @@ func _run() -> void:
     for building in village.get_children():
         var house_mesh := building.get_node_or_null("UniqueVillageMesh") as Node3D
         if house_mesh == null:
-            continue # Childhood GLB and the independently modelled watch post
+            continue # Childhood GLB, new Meshy fisherman GLB, and village watch post
         var wall_mesh := house_mesh.get_node_or_null("DindingBangunan") as MeshInstance3D
         var door_mesh := house_mesh.get_node_or_null("PintuUkir") as MeshInstance3D
         if wall_mesh == null or door_mesh == null or wall_mesh.mesh == null or door_mesh.mesh == null:
@@ -392,11 +392,11 @@ func _run() -> void:
             quit(1)
             return
         measured_house_count += 1
-    if measured_house_count != 15:
-        push_error("V7.5 REAL SCALE FAIL: did not measure all 15 distinct village houses")
+    if measured_house_count != 14:
+        push_error("V7.5 REAL SCALE FAIL: did not measure the 14 original hand-built village houses (fisherman is a separately scaled GLB)")
         quit(1)
         return
-    print("V7.5 REAL SCALE PASS: actual rendered hero %.3fm (168cm); all 15 house wall/door sizes fit adult human" % measured_height)
+    print("V7.5 REAL SCALE PASS: actual rendered hero %.3fm (168cm); 14 painted-house entries and separately scaled fisherman GLB fit adult human" % measured_height)
     # Keep feet on the SAME physical terrain after enlarging the model; the
     # capsule is not allowed to float above ground or sink into the mesh.
     if absf(capsule_node.position.y - capsule.height * 0.5) > 0.025:
