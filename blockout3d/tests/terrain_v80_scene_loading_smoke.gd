@@ -96,6 +96,6 @@ func _run() -> void:
     if not fisherman.has_node("V80Visuals/MeshyFishermanHouse"):
         _fail("Meshy GLB did not reappear when the player returned")
         return
-    print("AREA V8 REAL STREAM PASS: five independent PackedScenes, unloaded 3D visuals,",
+    print("AREA V8 REAL STREAM PASS: five independently cloned area visual scenes, unloaded 3D visuals,",
         " isolated region picker, original Meshy UV, physics, coastal automatic reload")
     quit(0)
