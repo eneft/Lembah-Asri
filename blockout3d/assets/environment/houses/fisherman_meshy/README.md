@@ -1,9 +1,31 @@
-## Meshy fisherman cottage · Lembah Asri V7.8
+# Lembah Asri — original fisherman house (UV-preserving repair)
 
-Original user upload: `Meshy_AI_Lembah_Asri_Fisherman_1103160840_texture.glb` (102,364,648 bytes). The playable `fisherman_meshy_web.glb` here is a derivative of that exact model, not a procedurally drawn house. The game asset preserves its 3D mesh silhouette while reducing ~95,121 triangles to 1,800. The 8192×8192 original pigment texture was sampled and baked into vertex colors to avoid loading 98 MB in mobile WebGL. No raw 98 MB texture is bundled.
+The screenshot with a crumpled triangular/tent-shaped house was caused by the
+previous **1,800-face vertex-color simplification**, which discarded the
+original UV-mapped 95,121-triangle Meshy source. Do not reuse that 37 KB asset
+in the playable village.
 
-The asset replaces **only** `rumah_nelayan_01`; `rumah_nelayan_02` remains a distinct stylized house. Slot positions and rotations, terrain, bridges, character height 1.68m, and all camera/gameplay behavior stay unchanged. Single BoxShape3D continues handling physics. The source model is normalized to 5.20m width × 5.33m depth × 3.85m height within the original 8m × 6.5m plot.
+Source provided by user: `Meshy_AI_Lembah_Asri_Fisherman_1103160840_texture.glb`.
 
-Source conversion: VTK quadric mesh decimation with baked original albedo, exported as glTF 2.0 vertex colors; 922 vertices, 1,800 triangles; optimized file 37,872 bytes, SHA-256 `d68d2cbcc6bfbc3cf2ccf9ecff144f6d6c70bb1128a3afc22b6f16a603833036`.
+The original model geometry and UVs are retained exactly. Only the 8192px
+painted diffuse map was resampled to 2048px (JPEG, quality 92), the normal map
+to 1024px, and the metallic map removed in favor of non-metal matte shading.
 
-Note: this is an aggressively optimized mobile LOD. For high-fidelity desktop shots, retain the original GLB separately; high-resolution texture detail is intentionally not preserved in the Web version.
+Reconstructed GLB: 8,355,972 bytes; original supplied GLB: 102,364,648
+bytes. The transport-safe compressed version is stored in eight Git blobs
+(`*.glb.gz.partXX`) with integrity hashes checked at preparation time.
+
+Before opening `blockout3d` in Godot locally, run once from repository root:
+
+```bash
+python3 blockout3d/tools/restore_fisherman_uv_glb.py
+```
+
+GitHub Actions restores this automatically **before** Godot import,
+test, and Web export. The generated `.glb` is gitignored to avoid
+accidentally checking in a second copy.
+
+Only `rumah_nelayan_01` uses this unique source. The second fisherman house,
+warung, 17-building layout, road/bridge access, and hero height 1.68m stay
+unchanged. The cottage is uniformly fitted to its original plot and retains
+a cheap single box collider, not per-triangle physics.

@@ -12,3 +12,6 @@ Thumbs.db
 !/.env.example
 *.p12
 *.keystore
+
+# Reconstructed at build time from the checked-in, SHA256-verified user GLB chunks.
+blockout3d/assets/environment/houses/fisherman_meshy/fisherman_original_uv.glb

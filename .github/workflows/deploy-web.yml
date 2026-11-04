@@ -21,6 +21,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Restore original textured fisherman house (95k triangles, UV)
+        run: python3 blockout3d/tools/restore_fisherman_uv_glb.py
+
       - name: Install Godot 4.3 with Web export templates
         uses: chickensoft-games/setup-godot@v2
         with:

@@ -4,10 +4,12 @@ extends Node3D
 ## Footprint collisions are cheap BoxShape3D; NO per-triangle house physics.
 const BLUEPRINT := "res://assets/environment/village/settlement_v7.json"
 const HOUSE_GLB := "res://assets/environment/houses/main_house/rumah_utama.glb"
-# Imported from the NEW user's Meshy 1103160840 fisherman house; 1,800 original
-# mesh triangles with its 8192px pigment baked into vertex colors (37KB GLB).
-# The other fisherman house remains an intentionally different 3D building.
-const FISHERMAN_GLB := "res://assets/environment/houses/fisherman_meshy/fisherman_meshy_web.glb"
+# FULL-TOPOLOGY repair of the user's Meshy GLB. Preserve the original
+# 95,121 triangles and UVs; resample painted albedo 8192px -> 2048px JPEG,
+# subtle normals 4096px -> 1024px. Do NOT use the destroyed 1,800-face
+# vertex-color silhouette (it looks like a crumpled tent in gameplay).
+# Original model stays a single unique cottage, not duplicated across sites.
+const FISHERMAN_GLB := "res://assets/environment/houses/fisherman_meshy/fisherman_original_uv.glb"
 const ARCHITECTURE_SCRIPT := preload("res://scripts/terrain_v7_architecture.gd")
 const GROUND_LAYER := 1 << 7
 const BUILDING_LAYER := 1
@@ -107,9 +109,8 @@ func _material_variant(model: Node3D, index: int, kind: String) -> void:
                 painted.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
                 painted.metallic = 0.0
                 painted.roughness = 0.94
-                # Godot glTF material imports sometimes disable vertex colors
-                # for textureless PBR surfaces. The low-memory fisherman asset
-                # stores actual source pigment in vertex colors, not a big PNG.
+                # The corrected fisherman GLB uses original UV textures.
+                # Vertex colors are not a substitute for this painted atlas.
                 if painted is StandardMaterial3D and original.albedo_texture == null:
                     (painted as StandardMaterial3D).vertex_color_use_as_albedo = true
                 mesh.set_surface_override_material(s, painted)
@@ -282,10 +283,16 @@ func configure(world: Node3D) -> void:
             # 1 Godot unit = 1 metre. Fit the original generated proportions
             # into the ORIGINAL 8 x 6.5m plot, keeping yard and footpaths open.
             # Normalization is needed since Meshy models use arbitrary units.
-            var width := minf(5.20,footprint.x * 0.69)
-            var depth := minf(5.35,footprint.y * 0.82)
-            var height := 3.85
-            model.scale = Vector3(width / b.size.x,height / b.size.y,depth / b.size.z)
+            # Preserve the source roof pitch / window shape / fishing props:
+            # UNIFORM scale is essential. The former nonuniform X/Y/Z scale
+            # further distorted the already-overdecimated mesh.
+            var factor := minf(3.42 / b.size.y,
+                minf(footprint.x * 0.74 / b.size.x,
+                     footprint.y * 0.94 / b.size.z))
+            model.scale = Vector3.ONE * factor
+            var width := b.size.x * factor
+            var depth := b.size.z * factor
+            var height := b.size.y * factor
             model.position = Vector3(
                 -(b.position.x+b.size.x*0.5)*model.scale.x,
                 -b.position.y*model.scale.y+0.06,
@@ -298,10 +305,12 @@ func configure(world: Node3D) -> void:
             house.set_meta("building_depth_m",depth)
             house.set_meta("building_height_m",height)
             house.set_meta("fisherman_source","Meshy_AI_Lembah_Asri_Fisherman_1103160840_texture.glb")
-            house.set_meta("fisherman_optimized_triangles",1800)
-            geometry_signatures["meshy_fisherman_1103160840"] = label
+            house.set_meta("fisherman_optimized_triangles",95121)
+            house.set_meta("fisherman_texture_uv",true)
+            house.set_meta("fisherman_repaired_asset","original_Meshy_full_topology_2048_JPEG")
+            geometry_signatures["meshy_fisherman_1103160840_uv_repaired"] = label
             unique_house_count += 1
-            print("V7.8 FISHERMAN REPLACEMENT PASS: Meshy asset, %.2f x %.2f x %.2fm; user=1.68m" % [width,depth,height])
+            print("V7.8 FISHERMAN UV REPAIR PASS: 95121 original triangles, original UV, %.2f x %.2f x %.2fm, player 1.68m" % [width,depth,height])
         else:
             # Authored 3D mesh variants from the pre-existing village-art kit,
             # not another instance of the childhood-house GLB.

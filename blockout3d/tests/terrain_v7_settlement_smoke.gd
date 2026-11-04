@@ -102,6 +102,8 @@ func _run() -> void:
             return
         var valid_textures := 0
         var baked_vertex_colors := 0
+        var fisherman_uv_vertices := 0
+        var fisherman_face_count := 0
         var generated_geometry := 0
         for child in model.find_children("*","MeshInstance3D",true,false):
             var mesh := child as MeshInstance3D
@@ -112,9 +114,15 @@ func _run() -> void:
                 var material := mesh.get_active_material(surface) as BaseMaterial3D
                 if material != null and material.albedo_texture != null:
                     valid_textures += 1
-                if str(building.name)=="rumah_nelayan_01" and material is StandardMaterial3D:
+                if str(building.name)=="rumah_nelayan_01":
                     var vertex_data: Array = mesh.mesh.surface_get_arrays(surface)
-                    if (material as StandardMaterial3D).vertex_color_use_as_albedo and vertex_data[Mesh.ARRAY_COLOR] is PackedColorArray:
+                    var uv_data: Variant = vertex_data[Mesh.ARRAY_TEX_UV]
+                    var faces: Variant = vertex_data[Mesh.ARRAY_INDEX]
+                    if uv_data is PackedVector2Array:
+                        fisherman_uv_vertices += (uv_data as PackedVector2Array).size()
+                    if faces is PackedInt32Array:
+                        fisherman_face_count += int((faces as PackedInt32Array).size() / 3)
+                    if material is StandardMaterial3D and (material as StandardMaterial3D).vertex_color_use_as_albedo:
                         baked_vertex_colors += 1
         if (valid_textures == 0 and baked_vertex_colors == 0) or generated_geometry < 1:
             _fail("house lost its textured or baked-vertex-color 3D geometry: "+str(building.name))
@@ -138,19 +146,26 @@ func _run() -> void:
             var actual_width: float = b.size.x * model.scale.x
             var actual_height: float = b.size.y * model.scale.y
             var actual_depth: float = b.size.z * model.scale.z
-            if absf(actual_width-5.20)>0.05 or absf(actual_depth-5.33)>0.05 or absf(actual_height-3.85)>0.05:
-                _fail("V7.8: fisherman GLB dimensions do not fit 1.68m avatar and original plot")
+            if actual_width < 4.5 or actual_width > 5.8 or actual_depth < 5.5 or actual_depth > 6.2 or actual_height < 3.0 or actual_height > 3.6:
+                _fail("V7.8 UV REPAIR: original fisherman geometry no longer fits the 168cm avatar or existing plot")
                 return
             var expected_shape: BoxShape3D = shape.shape as BoxShape3D
             if expected_shape == null or absf(expected_shape.size.x-actual_width*0.87)>0.05 or absf(expected_shape.size.z-actual_depth*0.83)>0.05:
                 _fail("V7.8: Meshy house collision no longer matches its visible scale")
                 return
-            if baked_vertex_colors<1 or str(building.get_meta("fisherman_source",""))!="Meshy_AI_Lembah_Asri_Fisherman_1103160840_texture.glb":
-                _fail("V7.8: missing original Meshy material pigments or source identity")
+            if valid_textures < 1 or fisherman_uv_vertices < 100000 or fisherman_face_count < 90000:
+                _fail("V7.8 UV REPAIR FAIL: original painted UV or topology lost (crumpled tent regression)")
                 return
-            if int(building.get_meta("fisherman_optimized_triangles",0))!=1800:
-                _fail("V7.8: incorrect mobile-optimized fisherman geometry")
+            if str(building.get_meta("fisherman_source",""))!="Meshy_AI_Lembah_Asri_Fisherman_1103160840_texture.glb":
+                _fail("V7.8: replaced by the wrong fisherman source GLB")
                 return
+            if int(building.get_meta("fisherman_optimized_triangles",0))!=95121 or not bool(building.get_meta("fisherman_texture_uv",false)):
+                _fail("V7.8 UV REPAIR FAIL: the low-poly 1800-triangle mesh was loaded again")
+                return
+            if not is_equal_approx(model.scale.x,model.scale.y) or not is_equal_approx(model.scale.x,model.scale.z):
+                _fail("V7.8 UV REPAIR FAIL: nonuniform house scaling distorts the original Meshy silhouette")
+                return
+            print("V7.8 FISHERMAN UV TEST PASS: 95121 UV-mapped source triangles, correct proportion and original painting")
         else:
             var wall_visual := model.get_node_or_null("DindingBangunan") as MeshInstance3D
             var doorway := model.get_node_or_null("PintuUkir") as MeshInstance3D
