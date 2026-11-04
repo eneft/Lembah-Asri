@@ -91,12 +91,19 @@ func _run() -> void:
             _fail("V8.2 original building heading has changed: "+id)
             return
         if prescribed_wall_height.has(id):
-            var authored := h.get_node_or_null("V80Visuals/UniqueVillageMesh") as Node3D
-            if authored == null or absf(
-                float(authored.get_meta("wall_height_m",0.0))-
-                float(prescribed_wall_height[id]))>0.001:
-                _fail("V8.2 wall/eave not at target size for "+id)
-                return
+            if id == "balai_desa" and bool(h.get_meta("balai_2k_active",false)):
+                # Imported hall replaces only visuals; physical V8.2 wall size
+                # and the protected plot position/yaw stay unchanged.
+                if h.get_node_or_null("V80Visuals/MeshyBalaiDesa2K") == null:
+                    _fail("BALAI 2K: streaming omitted imported hall visual")
+                    return
+            else:
+                var authored := h.get_node_or_null("V80Visuals/UniqueVillageMesh") as Node3D
+                if authored == null or absf(
+                    float(authored.get_meta("wall_height_m",0.0))-
+                    float(prescribed_wall_height[id]))>0.001:
+                    _fail("V8.2 wall/eave not at target size for "+id)
+                    return
     if observed_ids.size()!=17:
         _fail("V8.2 cannot account for 17 protected building centers")
         return
@@ -109,6 +116,7 @@ func _run() -> void:
     var painted := 0
     var childhood_glb := 0
     var new_fisherman_glb := 0
+    var imported_balai_2k := 0
     for node in all_houses:
         var building := node as Node3D
         if building == null or unique.has(str(building.name)):
@@ -150,6 +158,8 @@ func _run() -> void:
                 return
             continue
         var model: Node3D
+        var balai_2k_active := str(building.name) == "balai_desa" and bool(
+            building.get_meta("balai_2k_active",false))
         if str(building.name) == "rumah_masa_kecil":
             model = building.get_node_or_null("V80Visuals/OriginalTexturedHouse") as Node3D
             childhood_glb += 1
@@ -158,6 +168,12 @@ func _run() -> void:
             new_fisherman_glb += 1
             if model == null or building.get_node_or_null("V80Visuals/UniqueVillageMesh") != null:
                 _fail("V7.8: uploaded Meshy fisherman house did not replace the old mesh")
+                return
+        elif balai_2k_active:
+            model = building.get_node_or_null("V80Visuals/MeshyBalaiDesa2K") as Node3D
+            imported_balai_2k += 1
+            if model == null or building.get_node_or_null("V80Visuals/UniqueVillageMesh") != null:
+                _fail("BALAI 2K: original procedural hall wasn't fully replaced")
                 return
         else:
             if building.get_node_or_null("V80Visuals/OriginalTexturedHouse") != null:
@@ -241,6 +257,19 @@ func _run() -> void:
                 _fail("V8.2 FISHERMAN FAIL: coastal horizontal footprint or Y height calibration drifted")
                 return
             print("V7.8 FISHERMAN UV TEST PASS: 95121 UV-mapped source triangles, correct proportion and original painting")
+        elif balai_2k_active:
+            # 4.85m overall height, constant X/Z scaling and room left on
+            # the existing 11x9m plot; do not touch the original collider.
+            var imported_bounds: AABB = settlement.call("_bounds",model)
+            var actual_height := imported_bounds.size.y*model.scale.y
+            var actual_width := imported_bounds.size.x*model.scale.x
+            var actual_depth := imported_bounds.size.z*model.scale.z
+            if absf(actual_height-4.85)>0.06 or actual_width>8.40 or actual_depth>6.41:
+                _fail("BALAI 2K: imported model no longer fits the 1.68m scale/plot")
+                return
+            if not is_equal_approx(model.scale.x,model.scale.z) or valid_textures < 1:
+                _fail("BALAI 2K: model distorted horizontally or lost UV textures")
+                return
         else:
             var wall_visual := model.get_node_or_null("DindingBangunan") as MeshInstance3D
             var doorway := model.get_node_or_null("PintuUkir") as MeshInstance3D
@@ -301,7 +330,7 @@ func _run() -> void:
                     if post!=null and str(post.name)=="TiangBalai" and absf(post.position.x)>physical_width*0.5:
                         _fail("V7.6: balai porch pillar has drifted outside resized roof")
                         return
-        if str(building.name)!="rumah_masa_kecil" and str(building.name)!="rumah_nelayan_01":
+        if str(building.name)!="rumah_masa_kecil" and str(building.name)!="rumah_nelayan_01" and not balai_2k_active:
             var painted_wall := model.get_node_or_null("DindingBangunan") as MeshInstance3D
             if painted_wall == null or painted_wall.mesh == null:
                 _fail("V7.7: building lost real painterly wall mesh: "+str(building.name))
@@ -329,8 +358,10 @@ func _run() -> void:
                     _fail("V7.7: hip roof lacks low-poly raised edges: "+str(building.name))
                     return
         painted += 1
-    if painted != 16 or childhood_glb != 1 or new_fisherman_glb != 1 or signatures.size() != 14:
-        _fail("17 buildings must contain 1 nostalgic GLB, 1 NEW fisherman Meshy GLB and 14 unique painted houses")
+    var expected_authored := 13 if imported_balai_2k == 1 else 14
+    if painted != 16 or childhood_glb != 1 or new_fisherman_glb != 1 or (
+        imported_balai_2k > 1 or signatures.size() != expected_authored):
+        _fail("17 buildings: 1 childhood GLB, 1 fisherman GLB, optional Balai 2K and remaining unique painted houses")
         return
     var player := world.get_node_or_null("Player3D") as CharacterBody3D
     var hall := area_streamer.get_node_or_null("Area_balai_desa/Houses/balai_desa") as Node3D
