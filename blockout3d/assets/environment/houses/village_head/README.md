@@ -1,24 +1,33 @@
-# Rumah Kepala Desa — aset Meshy dan hasil pembersihan atap
+# Rumah Kepala Desa — GLB asli dan revisi atap/dinding V2
 
-## Status: berhasil diunggah dan dibersihkan
+## Status
 
-| File | Status | Ukuran |
-|---|---|---:|
-| `Meshy_AI_Rumah_Merah_Putih_1104091308_texture.glb` | Sumber asli, dipertahankan | 18.709.472 byte |
-| `rumah_kepala_desa_clean.glb` | Tanaman menempel pada atap dihilangkan | 17.599.232 byte |
+| File | Ukuran | Keterangan |
+|---|---:|---|
+| `Meshy_AI_Rumah_Merah_Putih_1104091308_texture.glb` | 18.709.472 byte | Original Meshy dari pengguna, **dipertahankan utuh** |
+| `rumah_kepala_desa_clean.glb` | 17.493.384 byte | **V2, model yang telah direvisi**; menggantikan versi V1 yang merusak sebagian genteng |
 
-SHA-256 model bersih: `79fab3a253138e60154c2838633ba6531c9dbdfa871e9f5e0512febcd0c434ce`.
+SHA-256 V2: `acf2b796f658a2c53f131af692cfaa5ef825b070ba70d2f5f456c76158749ca2`.
 
-### Perubahan terverifikasi
+### Audit V2 (4 November 2026)
 
-- Dari model asli **100.095 segitiga / 124.673 vertex**, hilang **23.244 segitiga** vegetasi atap.
-- Hasil **76.851 segitiga / 98.692 vertex**.
-- Geometri genteng, dinding, teras, pintu, jendela, bendera merah-putih, pot, rumput halaman, dan dasar rumah dipertahankan.
-- Semua **3 PNG tekstur asli byte-identik**, termasuk normal map dan metallic-roughness; array UV dan normal vector untuk vertex tersisa dibawa utuh dari GLB asli.
-- Pewarnaan daun hijau pada bagian atas tinggal 130 vertex dari 22.019 vertex semula. Ini menghilangkan tanaman besar; beberapa bercak warna hijau yang sudah menyatu pada lukisan tekstur genteng masih mungkin tampak.
-- Generator yang dapat dijalankan ulang: `blockout3d/tools/clean_village_head_roof.py`.
-- GitHub Actions berhasil mengeksekusi generator, memverifikasi hasil, lalu meng-commit GLB ke branch ini: [log pembuatan](https://github.com/eneft/Lembah-Asri/actions/runs/41839889731).
+- Original: 124.673 vertex dan **100.095 segitiga**.
+- V2: **74.481 segitiga**, dengan **25.614 segitiga** tanaman yang mengganggu dihilangkan.
+- **28.797 permukaan segitiga genteng terakota asli terlindungi**, bukan dipotong bersama tumbuhan.
+- **37 muka** bekas tanaman berwarna hijau pada area atap **di-UV remap secara lokal** ke warna genteng dari tekstur asli; geometry-nya tidak dibuang sehingga tidak membuat lubang tambahan.
+- Tanaman merambat yang keluar dari tembok/jendela samping dibersihkan. Semak taman dan pot di halaman tetap ada.
+- Tiga PNG sumber tetap **byte-identik**; UV dan normal geometri asli yang dipertahankan tidak diubah, kecuali UV 37 muka yang memang sengaja diperbaiki.
+- Bendera merah-putih, pilar, pintu, jendela, teras, dinding, serta genteng secara umum dipertahankan.
+- Render pemeriksaan dari depan, kanan, belakang, atas sudah dilakukan; terdapat beberapa bintik hijau kecil dan sapuan hijau asli pada tile yang masih bisa tampak dari atas. Ini tidak diklaim sebagai model benar-benar tanpa warna hijau.
 
-### Keamanan baseline Lembah Asri
+### Reproduksi dan verifikasi
 
-Kedua aset berada di folder cadangan, **belum dijadikan node game**. Belum mengganti `balai_desa` atau bangunan lain; tidak mengubah center/yaw bangunan, collision, streaming, terrain, kamera, atau gameplay. Integrasi ke scene dilakukan terpisah dan harus menyamakan ukuran terhadap avatar 168 cm.
+Sumber pembersihan otomatis: `blockout3d/tools/clean_village_head_roof.py`. GitHub Actions membangun langsung dari GLB original dan commit hasilnya ke branch ini:
+
+[Clean Meshy Village Head Roof — log V2](https://github.com/eneft/Lembah-Asri/actions/runs/41848205545)
+
+Proses berhasil, log mencocokkan SHA-256 V2. Pastikan setiap revisi selanjutnya memakai sumber asli, bukan hasil clean yang telah kehilangan faces.
+
+### Proteksi game
+
+Aset ini **belum terpasang** ke scene sebagai bangunan kepala desa. Tidak mengubah model balai desa, lokasi 17 bangunan, player 168 cm, collision, kamera, jalan, terrain, vegetasi dunia maupun streaming. Integrasi ke game adalah pekerjaan terpisah yang memerlukan pengujian proporsi, posisi dan performa.
