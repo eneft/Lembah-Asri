@@ -51,6 +51,57 @@ func _run() -> void:
     if settlement.get_node_or_null("lapangan_berkumpul") != null:
         _fail("public gathering green was occupied by a building")
         return
+    # Compare ALL 17 original sites and authored physical eave heights.
+    # No build may move, rotate, clone or silently omit a village address.
+    var source = JSON.parse_string(FileAccess.get_file_as_string(
+        "res://assets/environment/village/settlement_v7.json"))
+    if not (source is Dictionary) or (source as Dictionary).get("buildings",[]).size()!=17:
+        _fail("V8.2 cannot load authoritative 17-lot placement blueprint")
+        return
+    var source_plots: Dictionary = {}
+    for item in (source as Dictionary)["buildings"]:
+        source_plots[str(item["id"])] = item
+    var prescribed_wall_height := {
+        "rumah_barat_01":2.98,"rumah_barat_02":3.01,"rumah_barat_03":3.10,
+        "gudang_kebun":2.79,
+        "rumah_desa_01":3.00,"rumah_desa_02":3.14,"rumah_desa_03":3.04,
+        "rumah_desa_04":2.98,"rumah_desa_05":3.05,"rumah_desa_06":3.13,
+        "rumah_desa_07":3.09,"balai_desa":3.64,
+        "rumah_nelayan_02":3.12,"warung_pesisir":3.07
+    }
+    if prescribed_wall_height.size()!=14:
+        _fail("V8.2 incomplete authored building height specification")
+        return
+    var observed_ids: Dictionary = {}
+    for n in all_houses:
+        var h := n as Node3D
+        var id := str(h.name)
+        if not source_plots.has(id) or observed_ids.has(id):
+            _fail("V8.2 building ID mismatch against original village layout: "+id)
+            return
+        observed_ids[id] = true
+        var plot: Dictionary = source_plots[id]
+        var expected_xz: Array = plot["center"]
+        if absf(h.global_position.x-float(expected_xz[0])) > 0.015 or (
+            absf(h.global_position.z-float(expected_xz[1])) > 0.015):
+            _fail("V8.2 original map center has moved: "+id)
+            return
+        var expected_yaw: float = deg_to_rad(float(plot["yaw"]))
+        if absf(angle_difference(h.global_rotation.y,expected_yaw)) > 0.001:
+            _fail("V8.2 original building heading has changed: "+id)
+            return
+        if prescribed_wall_height.has(id):
+            var authored := h.get_node_or_null("V80Visuals/UniqueVillageMesh") as Node3D
+            if authored == null or absf(
+                float(authored.get_meta("wall_height_m",0.0))-
+                float(prescribed_wall_height[id]))>0.001:
+                _fail("V8.2 wall/eave not at target size for "+id)
+                return
+    if observed_ids.size()!=17:
+        _fail("V8.2 cannot account for 17 protected building centers")
+        return
+    print("V8.2 ALL 17 PLOT SCALE PASS: 17 exact original centers/yaws,",
+        " 14 authored eaves, two original GLBs and one watch post")
     await physics_frame
     await physics_frame
     var unique := {}
