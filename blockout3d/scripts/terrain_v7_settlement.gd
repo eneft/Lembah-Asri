@@ -16,7 +16,7 @@ const BUILDING_LAYER := 1
 # Human-height architectural reference. This is a REAL world height, not an
 # arbitrary scale multiplier; 1 Godot unit is 1 meter throughout V7.5+.
 const ADULT_HEIGHT_M := 1.68
-const CHILDHOOD_HOUSE_HEIGHT_M := 4.05
+const CHILDHOOD_HOUSE_HEIGHT_M := 4.48
 const CHILDHOOD_HOUSE_WIDTH_M := 7.25
 const CHILDHOOD_HOUSE_DEPTH_M := 6.10
 var building_count := 0
@@ -137,9 +137,9 @@ func _accessories(house: Node3D, kind: String, foot: Vector2) -> void:
             Vector3(0.64,0.47,0.62),"wood_dark")
     elif kind == "public":
         for side in [-1.0,1.0]:
-            _box(house,"TiangBalai",Vector3(side*foot.x*0.46,1.42,foot.y*0.10),
-                Vector3(0.13,2.80,0.13),"wood")
-        _box(house,"PapanBalaiDesa",Vector3(0.0,2.65,foot.y*0.28),
+            _box(house,"TiangBalai",Vector3(side*foot.x*0.46,1.74,foot.y*0.10),
+                Vector3(0.13,3.44,0.13),"wood")
+        _box(house,"PapanBalaiDesa",Vector3(0.0,3.18,foot.y*0.28),
             Vector3(2.7,0.50,0.11),"ochre")
     elif kind == "fishing":
         for i in range(2):
@@ -161,17 +161,17 @@ func _build_watch_post(house: Node3D) -> void:
     _box(house,"PondasiPos",Vector3(0.0,0.08,0.0),
         Vector3(2.30,0.16,2.16),"plinth")
     _box(house,"DindingBelakang",Vector3(0,1.22,-0.94),
-        Vector3(2.19,2.12,0.15),"wood")
+        Vector3(2.19,2.28,0.15),"wood")
     for x in [-0.99,0.99]:
-        _box(house,"TiangPos",Vector3(x,1.32,0.89),
-            Vector3(0.17,2.55,0.17),"wood_dark")
-    _box(house,"AtapPosKiri",Vector3(-0.61,2.77,0),
+        _box(house,"TiangPos",Vector3(x,1.43,0.89),
+            Vector3(0.17,2.77,0.17),"wood_dark")
+    _box(house,"AtapPosKiri",Vector3(-0.61,2.95,0),
         Vector3(1.45,0.17,2.80),"roof")
-    _box(house,"AtapPosKanan",Vector3(0.61,2.77,0),
+    _box(house,"AtapPosKanan",Vector3(0.61,2.95,0),
         Vector3(1.45,0.17,2.80),"roof")
     _box(house,"BangkuPos",Vector3(0,0.53,0.32),
         Vector3(1.55,0.19,0.45),"wood")
-    _collision(house,Vector3(2.06,2.45,1.78))
+    _collision(house,Vector3(2.06,2.62,1.78))
 
 func configure(world: Node3D) -> void:
     if finished:
@@ -238,8 +238,8 @@ func configure(world: Node3D) -> void:
                 return
             # V7.6: the unique childhood GLB previously scaled ONLY to the
             # 10m plot and might tower over (or dwarf) a 1.68m adult. Fit the
-            # existing model without replacing its textured mesh, so the
-            # building itself measures ~7.25m x <=6.10m x 4.05m.
+            # existing model without replacing its textured mesh. V8.2 raises
+            # the overall height to 4.48m while preserving X/Z footprints.
             # The height normalization is separate because generated GLB
             # source units need not be metres; the ground footprint still
             # controls width/depth and preserves surrounding walkable yards.
@@ -259,10 +259,11 @@ func configure(world: Node3D) -> void:
             _box(house,"StoneFoundation",Vector3(0,0.0,0),
                 Vector3(actual_width*0.94,0.20,actual_depth*0.92),"plinth")
             _collision(house,Vector3(actual_width*0.83,
-                clampf(actual_height*0.72,2.65,3.05),actual_depth*0.79))
+                clampf(actual_height*0.72,2.75,3.25),actual_depth*0.79))
             house.set_meta("building_width_m",actual_width)
             house.set_meta("building_depth_m",actual_depth)
             house.set_meta("building_height_m",actual_height)
+            house.set_meta("proportion_revision","V8.2")
             print("V7.6 CHILDHOOD HOUSE: body %.2f x %.2f x %.2fm, avatar %.2fm" % [
                 actual_width,actual_depth,actual_height,ADULT_HEIGHT_M])
             source_house_count += 1
@@ -283,16 +284,21 @@ func configure(world: Node3D) -> void:
             # 1 Godot unit = 1 metre. Fit the original generated proportions
             # into the ORIGINAL 8 x 6.5m plot, keeping yard and footpaths open.
             # Normalization is needed since Meshy models use arbitrary units.
-            # Preserve the source roof pitch / window shape / fishing props:
-            # UNIFORM scale is essential. The former nonuniform X/Y/Z scale
-            # further distorted the already-overdecimated mesh.
-            var factor := minf(3.42 / b.size.y,
-                minf(footprint.x * 0.74 / b.size.x,
-                     footprint.y * 0.94 / b.size.z))
-            model.scale = Vector3.ONE * factor
+            # V8.2: screenshot shows the imported doorway and eaves too low
+            # against a REAL 1.68m avatar. The source GLB is a single baked,
+            # non-segmented 95k UV mesh, so door and wall cannot be changed
+            # independently without rebuilding that mesh. Raise local Y by
+            # 24% while protecting the ~6.5m deep existing coastal plot.
+            # Retain original vertices, UV, painted atlas and fishery props;
+            # X/Z stay UNIFORM so the footprint/shoreline does not stretch.
+            var factor := minf(3.60 / b.size.y,
+                minf(footprint.x * 0.76 / b.size.x,
+                     footprint.y * 0.955 / b.size.z))
+            var vertical_factor := 1.24
+            model.scale = Vector3(factor,factor*vertical_factor,factor)
             var width := b.size.x * factor
             var depth := b.size.z * factor
-            var height := b.size.y * factor
+            var height := b.size.y * model.scale.y
             model.position = Vector3(
                 -(b.position.x+b.size.x*0.5)*model.scale.x,
                 -b.position.y*model.scale.y+0.06,
@@ -300,10 +306,11 @@ func configure(world: Node3D) -> void:
             _material_variant(model,i,kind)
             # Retain a single cheap solid building collider, never the full
             # scanned triangle surface: critical on WebGL/iPhone.
-            _collision(house,Vector3(width*0.87,2.72,depth*0.83))
+            _collision(house,Vector3(width*0.87,3.20,depth*0.83))
             house.set_meta("building_width_m",width)
             house.set_meta("building_depth_m",depth)
             house.set_meta("building_height_m",height)
+            house.set_meta("proportion_revision","V8.2")
             house.set_meta("fisherman_source","Meshy_AI_Lembah_Asri_Fisherman_1103160840_texture.glb")
             house.set_meta("fisherman_optimized_triangles",95121)
             house.set_meta("fisherman_texture_uv",true)
@@ -332,7 +339,11 @@ func configure(world: Node3D) -> void:
             house.set_meta("building_width_m",real_footprint.x)
             house.set_meta("building_depth_m",real_footprint.y)
             house.set_meta("wall_height_m",body_dimensions.y)
+            house.set_meta("proportion_revision","V8.2")
             unique_house_count += 1
+        house.set_meta("proportion_reference_adult_m",ADULT_HEIGHT_M)
+        house.set_meta("plot_center_m",Vector2(x,z))
+        house.set_meta("proportion_revision","V8.2")
         building_count += 1
     set_meta("building_count",building_count)
     set_meta("house_glb_count",source_house_count)
