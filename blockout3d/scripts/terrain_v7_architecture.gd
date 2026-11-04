@@ -8,7 +8,7 @@ const ART_KIT := preload("res://scripts/village_art.gd")
 # protagonist 1.68m tall. Keep the 17 zoning plots unchanged: a plot
 # reserves walkable yard, it is NOT the physical footprint of a building.
 const ADULT_HEIGHT_M := 1.68
-const DOOR_CLEAR_HEIGHT_M := 2.08
+const DOOR_CLEAR_HEIGHT_M := 2.16
 const MIN_PORCH_HEADROOM_M := 2.14
 
 # Roof, width ratio, depth ratio, wall height, front porch, annex, stilts,
@@ -16,23 +16,24 @@ const MIN_PORCH_HEADROOM_M := 2.14
 const DESIGNS := {
     # label: [roof, plot-width factor, plot-depth factor, eave/wall height,
     #         porch style, wing, raised-floor height, window count]
-    # Village dwellings: ~5.8-6.7m x 4.7-5.4m with human-scale 2.55-2.80m
-    # eaves; balai desa intentionally wider at ~8.4m.
-    "rumah_barat_01": ["limasan", 0.69, 0.70, 2.58, "left", "grain", 0.0, 2],
-    "rumah_barat_02": ["pelana", 0.66, 0.71, 2.63, "right", "none", 0.0, 1],
-    "rumah_barat_03": ["joglo", 0.72, 0.67, 2.70, "full", "side", 0.0, 2],
-    "gudang_kebun": ["shed", 0.67, 0.70, 2.48, "none", "grain", 0.0, 0],
-    "rumah_desa_01": ["pelana", 0.70, 0.70, 2.63, "full", "side", 0.0, 2],
-    "rumah_desa_02": ["joglo", 0.69, 0.69, 2.78, "full", "none", 0.0, 3],
-    "rumah_desa_03": ["limasan", 0.68, 0.69, 2.66, "left", "side", 0.0, 1],
-    "rumah_desa_04": ["asymmetric", 0.67, 0.70, 2.56, "right", "none", 0.0, 2],
-    "rumah_desa_05": ["limasan", 0.70, 0.68, 2.68, "full", "grain", 0.0, 2],
-    "rumah_desa_06": ["joglo", 0.71, 0.68, 2.78, "left", "side", 0.0, 1],
-    "rumah_desa_07": ["pelana", 0.68, 0.69, 2.71, "right", "grain", 0.0, 3],
-    "balai_desa": ["joglo", 0.76, 0.71, 3.03, "public", "none", 0.0, 3],
-    "rumah_nelayan_01": ["tin_gable", 0.71, 0.75, 2.58, "jetty", "net", 0.57, 1],
-    "rumah_nelayan_02": ["tin_shed", 0.68, 0.74, 2.63, "jetty", "net", 0.79, 2],
-    "warung_pesisir": ["warung", 0.70, 0.72, 2.55, "counter", "net", 0.09, 0]
+    # V8.2 human scale: original footprints stay within their allotted plots.
+    # Raise EAVES/WALLS rather than widening houses into paths or moving plots.
+    # A 168 cm avatar should have ~0.48-0.62 m visible headroom at the door.
+    "rumah_barat_01": ["limasan", 0.69, 0.70, 2.98, "left", "grain", 0.0, 2],
+    "rumah_barat_02": ["pelana", 0.66, 0.71, 3.01, "right", "none", 0.0, 1],
+    "rumah_barat_03": ["joglo", 0.72, 0.67, 3.10, "full", "side", 0.0, 2],
+    "gudang_kebun": ["shed", 0.67, 0.70, 2.79, "none", "grain", 0.0, 0],
+    "rumah_desa_01": ["pelana", 0.70, 0.70, 3.00, "full", "side", 0.0, 2],
+    "rumah_desa_02": ["joglo", 0.69, 0.69, 3.14, "full", "none", 0.0, 3],
+    "rumah_desa_03": ["limasan", 0.68, 0.69, 3.04, "left", "side", 0.0, 1],
+    "rumah_desa_04": ["asymmetric", 0.67, 0.70, 2.98, "right", "none", 0.0, 2],
+    "rumah_desa_05": ["limasan", 0.70, 0.68, 3.05, "full", "grain", 0.0, 2],
+    "rumah_desa_06": ["joglo", 0.71, 0.68, 3.13, "left", "side", 0.0, 1],
+    "rumah_desa_07": ["pelana", 0.68, 0.69, 3.09, "right", "grain", 0.0, 3],
+    "balai_desa": ["joglo", 0.76, 0.71, 3.64, "public", "none", 0.0, 3],
+    "rumah_nelayan_01": ["tin_gable", 0.71, 0.75, 3.12, "jetty", "net", 0.57, 1],
+    "rumah_nelayan_02": ["tin_shed", 0.68, 0.74, 3.12, "jetty", "net", 0.79, 2],
+    "warung_pesisir": ["warung", 0.70, 0.72, 3.07, "counter", "net", 0.09, 0]
 }
 
 var _art: RefCounted
@@ -226,25 +227,29 @@ func _roof(parent: Node3D, style: String, w: float, d: float,
            top: float, kind: String) -> void:
     var roof_mat := "fishing_roof" if kind == "fishing" else "roof"
     if style == "pelana":
-        _gable(parent,w,d,top+0.08,1.05,roof_mat)
+        _gable(parent,w,d,top+0.08,1.22,roof_mat)
     elif style == "asymmetric":
-        _gable(parent,w,d,top+0.06,0.84,roof_mat,w*0.18)
+        _gable(parent,w,d,top+0.06,1.03,roof_mat,w*0.18)
     elif style == "limasan":
-        _hip(parent,w,d,top+0.13,1.15,roof_mat,0.23)
+        _hip(parent,w,d,top+0.13,1.27,roof_mat,0.23)
     elif style == "joglo":
-        _hip(parent,w,d,top-0.08,0.83,roof_mat,0.24)
-        # Distinctive small upper tier characteristic of Javanese joglo.
-        _hip(parent,w*0.56,d*0.58,top+0.58,0.86,roof_mat,0.19)
+        _hip(parent,w,d,top-0.08,0.95,roof_mat,0.24)
+        # The public hall gets a genuinely taller tier, not a giant scaling
+        # transform that would push porches and footprint into nearby lanes.
+        var upper_offset := 0.90 if kind=="public" else 0.64
+        var upper_rise := 1.26 if kind=="public" else 0.98
+        _hip(parent,w*0.56,d*0.58,top+upper_offset,upper_rise,roof_mat,0.19)
         for x in [-w*0.36,w*0.36]:
             for z in [-d*0.37,d*0.37]:
-                _box(parent,"SakaGuruJoglo",Vector3(x,top*0.54,z),
-                    Vector3(0.16,top*0.91,0.16),"wood")
+                var pillar_h := top*1.16 if kind=="public" else top*0.95
+                _box(parent,"SakaGuruJoglo",Vector3(x,0.05+pillar_h*0.5,z),
+                    Vector3(0.16,pillar_h,0.16),"wood")
     elif style == "shed":
         _shed(parent,w,d,top+0.17,"tin",true)
     elif style == "tin_shed":
         _shed(parent,w,d,top+0.17,"tin")
     elif style == "tin_gable":
-        _gable(parent,w,d,top+0.08,0.67,"tin")
+        _gable(parent,w,d,top+0.08,0.84,"tin")
     elif style == "warung":
         _shed(parent,w*1.13,d*1.15,top+0.37,"tin",true)
 
@@ -252,7 +257,7 @@ func _windows(parent: Node3D, width: float, depth: float,
               height: float, lift: float, count: int, index: int,
               door_x: float) -> void:
     var z := depth*0.5+0.044
-    # Human-scale window modules (0.72m x 0.95m), with ~1m sill height.
+    # V8.2 human-scale readable windows: ~0.85 x 1.13m, 1.04m sill.
     # Use four potential positions so no windows overlap the actual door
     # even on the smaller 5.5m village facades.
     var candidates := [-width*0.38,-width*0.23,width*0.23,width*0.38]
@@ -260,28 +265,28 @@ func _windows(parent: Node3D, width: float, depth: float,
     for x in candidates:
         if placed >= count:
             break
-        if absf(x-door_x) < 1.03:
+        if absf(x-door_x) < 1.07:
             continue
         _box(parent,"Jendela_"+str(placed),
-            Vector3(x,lift+1.50,z),
-            Vector3(0.72,0.95,0.08),"wood_dark")
+            Vector3(x,lift+1.61,z),
+            Vector3(0.85,1.13,0.08),"wood_dark")
         _box(parent,"KacaJendela_"+str(placed),
-            Vector3(x,lift+1.50,z+0.052),
-            Vector3(0.56,0.78,0.06),"glass")
+            Vector3(x,lift+1.61,z+0.052),
+            Vector3(0.67,0.94,0.06),"glass")
         _box(parent,"AmbangJendela_"+str(placed),
             Vector3(x,lift+1.00,z+0.10),
-            Vector3(0.88,0.085,0.18),"wood")
+            Vector3(1.01,0.085,0.18),"wood")
         if index%3==1:
             _box(parent,"KisiJendela_"+str(placed),
-                Vector3(x,lift+1.50,z+0.09),
-                Vector3(0.075,0.78,0.08),"wood")
+                Vector3(x,lift+1.61,z+0.09),
+                Vector3(0.075,0.94,0.08),"wood")
         placed += 1
     for side in [-1.0,1.0]:
         var side_z := depth*(0.07 if index%2==0 else -0.07)
         _box(parent,"JendelaSamping",Vector3(side*width*0.5+side*0.045,
-            lift+1.51,side_z),Vector3(0.075,0.91,0.77),"wood_dark")
+            lift+1.61,side_z),Vector3(0.075,1.12,0.86),"wood_dark")
         _box(parent,"KacaSamping",Vector3(side*width*0.5+side*0.09,
-            lift+1.51,side_z),Vector3(0.06,0.74,0.61),"glass")
+            lift+1.61,side_z),Vector3(0.06,0.90,0.68),"glass")
 
 func _porch(parent: Node3D, kind: String, porch: String,
             width: float, depth: float, wall: float, lift: float) -> void:
@@ -410,7 +415,11 @@ func build_unique(parent: Node3D, label: String, kind: String,
                 tinted.albedo_color *= roof_tints[index%roof_tints.size()]
                 roof_mesh.material_override = tinted
     var door_x := -width*0.12 if index%3==0 else (width*0.12 if index%3==1 else 0.0)
-    var door_height := minf(wall-0.24,maxf(DOOR_CLEAR_HEIGHT_M,wall*0.80))
+    # Preserve actual human height independently of the taller eaves:
+    # 2.16m dwelling, 2.18m fishing/warung, 2.30m balai public entrance,
+    # 2.10m storage. A taller wall must NOT accidentally become a 2.9m door.
+    var target_door_height := 2.30 if kind=="public" else (2.18 if kind=="fishing" else (2.10 if kind=="farm" else DOOR_CLEAR_HEIGHT_M))
+    var door_height := minf(wall-0.30,target_door_height)
     var door_width := 1.26 if kind=="public" else (1.03 if kind=="fishing" else 0.96)
     _box(mesh_root,"PintuUkir",Vector3(door_x,lift+0.04+door_height*0.5,
         depth*0.5+0.066),Vector3(door_width,door_height,0.13),"wood_dark")
@@ -428,6 +437,7 @@ func build_unique(parent: Node3D, label: String, kind: String,
     mesh_root.set_meta("texture_source","village_art handpainted plaster, wood and roof atlas+normal V7.7")
     mesh_root.set_meta("visual_polish_version","V7.7")
     mesh_root.set_meta("human_reference_height_m",ADULT_HEIGHT_M)
+    mesh_root.set_meta("proportion_revision","V8.2")
     mesh_root.set_meta("actual_width_m",width)
     mesh_root.set_meta("actual_depth_m",depth)
     mesh_root.set_meta("wall_height_m",wall)
