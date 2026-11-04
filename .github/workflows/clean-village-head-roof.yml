@@ -35,8 +35,9 @@ jobs:
           python blockout3d/tools/clean_village_head_roof.py \
             blockout3d/assets/environment/houses/village_head/Meshy_AI_Rumah_Merah_Putih_1104091308_texture.glb \
             blockout3d/assets/environment/houses/village_head/rumah_kepala_desa_clean.glb | tee roof-clean-report.log
-          grep -q 'CLEAN ROOF PASS:' roof-clean-report.log
-          grep -q 'ROOF UV/NORMAL/TEXTURE PASS:' roof-clean-report.log
+          grep -q 'ROOF WALL V12 PASS:' roof-clean-report.log
+          grep -q 'PRESERVE PASS:' roof-clean-report.log
+          grep -q 'REPAINT V12 PASS:' roof-clean-report.log
           test -s blockout3d/assets/environment/houses/village_head/rumah_kepala_desa_clean.glb
       - name: Commit new clean asset on branch only, preserve original file
         shell: bash
@@ -48,7 +49,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "Clean asset unchanged: already committed"
           else
-            git commit -m "assets: clean plants from kepala desa roof (preserve original GLB)"
+            git commit -m "fix(assets): remove kepala-desa roof plants and wall vines without roof holes"
             git push origin HEAD:"$GITHUB_REF_NAME"
           fi
       - name: Verify source and cleaned GLBs coexist
