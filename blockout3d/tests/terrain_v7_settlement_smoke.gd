@@ -72,6 +72,12 @@ func _run() -> void:
         if shape == null or not (shape.shape is BoxShape3D):
             _fail("missing cheap physical wall shape: "+str(building.name))
             return
+        if str(building.get_meta("proportion_revision","")) != "V8.2":
+            _fail("V8.2: building lacks new proportion audit: "+str(building.name))
+            return
+        if absf(float(building.get_meta("proportion_reference_adult_m",0.0))-1.68)>0.001:
+            _fail("V8.2: building lost authoritative 1.68m avatar reference")
+            return
         var center := building.global_position
         var ground_ray := PhysicsRayQueryParameters3D.create(
             center+Vector3.UP*20.0,center-Vector3.UP*20.0)
@@ -150,7 +156,7 @@ func _run() -> void:
             var real_width: float = source_bounds.size.x*model.scale.x
             var real_depth: float = source_bounds.size.z*model.scale.z
             var real_height: float = source_bounds.size.y*model.scale.y
-            if absf(real_height-4.05)>0.07 or real_width>7.34 or real_depth>6.20 or real_width<2.5 or real_depth<2.5:
+            if absf(real_height-4.48)>0.07 or real_width>7.34 or real_depth>6.20 or real_width<2.5 or real_depth<2.5:
                 _fail("V7.6: childhood GLB out of real human proportions: %s x %s x %s" % [
                     str(real_width),str(real_depth),str(real_height)])
                 return
@@ -162,7 +168,7 @@ func _run() -> void:
             var actual_width: float = b.size.x * model.scale.x
             var actual_height: float = b.size.y * model.scale.y
             var actual_depth: float = b.size.z * model.scale.z
-            if actual_width < 4.5 or actual_width > 5.8 or actual_depth < 5.5 or actual_depth > 6.2 or actual_height < 3.0 or actual_height > 3.6:
+            if actual_width < 4.5 or actual_width > 5.8 or actual_depth < 5.5 or actual_depth > 6.48 or actual_height < 4.05 or actual_height > 4.50:
                 _fail("V7.8 UV REPAIR: original fisherman geometry no longer fits the 168cm avatar or existing plot")
                 return
             var expected_shape: BoxShape3D = shape.shape as BoxShape3D
@@ -178,8 +184,10 @@ func _run() -> void:
             if int(building.get_meta("fisherman_optimized_triangles",0))!=95121 or not bool(building.get_meta("fisherman_texture_uv",false)):
                 _fail("V7.8 UV REPAIR FAIL: the low-poly 1800-triangle mesh was loaded again")
                 return
-            if not is_equal_approx(model.scale.x,model.scale.y) or not is_equal_approx(model.scale.x,model.scale.z):
-                _fail("V7.8 UV REPAIR FAIL: nonuniform house scaling distorts the original Meshy silhouette")
+            # V8.2: allow the deliberately calibrated Y height of the original
+            # non-segmented fisherman GLB, but NEVER distort X relative to Z.
+            if not is_equal_approx(model.scale.x,model.scale.z) or absf(model.scale.y/model.scale.x-1.24)>0.005:
+                _fail("V8.2 FISHERMAN FAIL: coastal horizontal footprint or Y height calibration drifted")
                 return
             print("V7.8 FISHERMAN UV TEST PASS: 95121 UV-mapped source triangles, correct proportion and original painting")
         else:
@@ -193,6 +201,12 @@ func _run() -> void:
             var physical_height := wall_visual.mesh.get_aabb().size.y
             var entry_height := doorway.mesh.get_aabb().size.y
             var entry_width := doorway.mesh.get_aabb().size.x
+            if entry_height < 1.68/0.81:
+                _fail("V8.2: 168cm avatar visually almost fills the front door: "+str(building.name))
+                return
+            if str(model.get_meta("proportion_revision","")) != "V8.2":
+                _fail("V8.2: architectural visual did not receive scale revision")
+                return
             var public_hall := str(building.name)=="balai_desa"
             if absf(physical_width-float(model.get_meta("actual_width_m",0.0)))>0.015 or absf(physical_depth-float(model.get_meta("actual_depth_m",0.0)))>0.015:
                 _fail("V7.6: actual house dimensions do not match painted wall mesh: "+str(building.name))
@@ -200,10 +214,10 @@ func _run() -> void:
             if physical_width < 5.0 or physical_width > (8.6 if public_hall else 7.15) or physical_depth < 4.5 or physical_depth > 6.50:
                 _fail("V7.6: building too wide/narrow for the 168cm avatar: "+str(building.name))
                 return
-            if physical_height < 2.45 or physical_height > (3.10 if public_hall else 2.85):
+            if physical_height < 2.75 or physical_height > (3.77 if public_hall else 3.22):
                 _fail("V7.6: house eave/wall not in a realistic adult scale: "+str(building.name))
                 return
-            if entry_height < 2.075 or entry_height > 2.5 or entry_width < 0.94 or entry_width > 1.35:
+            if entry_height < 2.095 or entry_height > 2.35 or entry_width < 0.94 or entry_width > 1.35:
                 _fail("V7.6: door clearance incompatible with 1.68m adult: "+str(building.name))
                 return
             var physical_block := shape.shape as BoxShape3D
@@ -292,9 +306,9 @@ func _run() -> void:
     if player.global_position.x > hall.global_position.x - 3.4:
         _fail("original player capsule passed through balai wall")
         return
-    print("V7.8 FISHERMAN INTEGRATION PASS: uploaded GLB replaces rumah_nelayan_01; 1800 triangles, 1.68m scale, original collision and 17 sites")
+    print("V8.2 FISHERMAN HUMAN SCALE PASS: 95,121 original painted UV triangles, Y-corrected doorway and 1.68m avatar")
     print("V7.7 VISUAL POLISH PASS: distinct hand-painted 3D facades/roof details, original childhood GLB colors retained")
-    print("V7.6 BUILDING SCALE PASS: 168cm player, 15 residential/public doors, 1 calibrated childhood GLB and appropriately sized balai/watch post")
+    print("V8.2 BUILDING SCALE PASS: 168cm avatar, all 17 building proportions and active V8 area scene assets")
     print("V7 SETTLEMENT PHYSICS PASS: original player capsule blocked by village hall")
     print("V7 SETTLEMENT SMOKE PASS: 17 grounded buildings, childhood GLB, NEW Meshy fisherman GLB, 14 unique hand-painted meshes, open square, solid player collision")
     quit(0)
