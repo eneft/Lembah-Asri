@@ -1,33 +1,23 @@
-# Rumah Kepala Desa — GLB asli dan revisi atap/dinding V2
+# Rumah kepala desa — original Meshy asset (protected)
 
-## Status
+## Status: original only, cleaning V1/V2 withdrawn (visual regression)
 
-| File | Ukuran | Keterangan |
-|---|---:|---|
-| `Meshy_AI_Rumah_Merah_Putih_1104091308_texture.glb` | 18.709.472 byte | Original Meshy dari pengguna, **dipertahankan utuh** |
-| `rumah_kepala_desa_clean.glb` | 17.493.384 byte | **V2, model yang telah direvisi**; menggantikan versi V1 yang merusak sebagian genteng |
+- **Valid source:** `Meshy_AI_Rumah_Merah_Putih_1104091308_texture.glb`
+- Original size: **18,709,472 bytes**; SHA-256: `858e5b0161c23a9481a28e6a41c9377ca037e7ff7283d585cc996fbfa6c77707`.
+- Contains the source roof tiles, walls, entrance, Indonesian red-white flag, UVs and all original PBR textures.
+- Do **not** use or regenerate `rumah_kepala_desa_clean.glb` from the former 2026-11-04 face-culling script. Both were withdrawn after user reported broken roof/walls. Historical failed versions are available in Git history, **not** as production-ready assets.
 
-SHA-256 V2: `acf2b796f658a2c53f131af692cfaa5ef825b070ba70d2f5f456c76158749ca2`.
+### What went wrong
 
-### Audit V2 (4 November 2026)
+The Meshy GLB is exported as **one combined mesh** with foliage merged near/into roof tiles and walls. Previous green-pixel/connected-component classifiers deleted **22k–25k triangles**, including parts of the roof tile surface, leaving holes and discolored faces. Retexturing fragments made it worse.
 
-- Original: 124.673 vertex dan **100.095 segitiga**.
-- V2: **74.481 segitiga**, dengan **25.614 segitiga** tanaman yang mengganggu dihilangkan.
-- **28.797 permukaan segitiga genteng terakota asli terlindungi**, bukan dipotong bersama tumbuhan.
-- **37 muka** bekas tanaman berwarna hijau pada area atap **di-UV remap secara lokal** ke warna genteng dari tekstur asli; geometry-nya tidak dibuang sehingga tidak membuat lubang tambahan.
-- Tanaman merambat yang keluar dari tembok/jendela samping dibersihkan. Semak taman dan pot di halaman tetap ada.
-- Tiga PNG sumber tetap **byte-identik**; UV dan normal geometri asli yang dipertahankan tidak diubah, kecuali UV 37 muka yang memang sengaja diperbaiki.
-- Bendera merah-putih, pilar, pintu, jendela, teras, dinding, serta genteng secara umum dipertahankan.
-- Render pemeriksaan dari depan, kanan, belakang, atas sudah dilakukan; terdapat beberapa bintik hijau kecil dan sapuan hijau asli pada tile yang masih bisa tampak dari atas. Ini tidak diklaim sebagai model benar-benar tanpa warna hijau.
+### Safe next procedure
 
-### Reproduksi dan verifikasi
+1. Import **only the original GLB** into Blender or a validated mesh-editing pipeline.
+2. Build a separate foliage mask using **connected face islands, mesh normals, geometric depth against actual roof tiles and manual visual checks**. Do not select by green pixel alone.
+3. Hide (non-destructively) candidate plant islands; visually inspect every side and top. Avoid hiding roof tiles, ridge tiles, eaves, flags, door, windows, wooden wall/pillars, and potted garden shrubs.
+4. Repair any genuinely missing roof tile regions **with modeled tile patches** matching the terracotta roof surface and same atlas; never cover holes with untextured slabs.
+5. Preserve original material/UV/normal data and provide front, left, right, back and top renders for user approval before calling the asset clean.
+6. Save a separate version with a **new unambiguous filename** (e.g. `rumah_kepala_desa_roof_repaired_v3.glb`), validate GLB and regression tests, and only then consider integrating into the game. Do not overwrite the original.
 
-Sumber pembersihan otomatis: `blockout3d/tools/clean_village_head_roof.py`. GitHub Actions membangun langsung dari GLB original dan commit hasilnya ke branch ini:
-
-[Clean Meshy Village Head Roof — log V2](https://github.com/eneft/Lembah-Asri/actions/runs/41848205545)
-
-Proses berhasil, log mencocokkan SHA-256 V2. Pastikan setiap revisi selanjutnya memakai sumber asli, bukan hasil clean yang telah kehilangan faces.
-
-### Proteksi game
-
-Aset ini **belum terpasang** ke scene sebagai bangunan kepala desa. Tidak mengubah model balai desa, lokasi 17 bangunan, player 168 cm, collision, kamera, jalan, terrain, vegetasi dunia maupun streaming. Integrasi ke game adalah pekerjaan terpisah yang memerlukan pengujian proporsi, posisi dan performa.
+**Production safety:** The source asset was never integrated into the terrain/gameplay scene and deleting the broken cleaned variant must not modify the active 17 building placements, camera, player or collision.
