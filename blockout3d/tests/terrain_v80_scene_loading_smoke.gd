@@ -122,26 +122,33 @@ func _run() -> void:
                 if not hall.has_node("V80Visuals/MeshyBalaiDesa2K") or hall.has_node("V80Visuals/UniqueVillageMesh"):
                     _fail("BALAI 2K: area scene did not stream the replacement GLB")
                     return
-        # The illustrated far panorama is Balai-only and 3D render-only.
-        # It must cover unloaded geometry without touching any collider.
-        var backdrop := world.get_node_or_null("BalaiDesaPanorama") as Node3D
+        # V8.4 uses actual lightweight 3D countryside geometry, NOT the
+        # stretched 512x170 panorama. No fake colliders or game-world mutation.
+        var backdrop := world.get_node_or_null("BalaiDesaBackdrop3D") as Node3D
         if area_id == "balai_desa":
             if backdrop == null or not backdrop.visible or (
-                not bool(backdrop.get_meta("balai_panorama_ready",false))):
-                _fail("BALAI PANORAMA: backdrop not active in isolated hall scene")
+                not bool(backdrop.get_meta("balai_backdrop_ready",false))):
+                _fail("BALAI V8.4: geometric background failed to activate")
                 return
-            var picture := backdrop.get_node_or_null("IllustratedVillageHorizon") as MeshInstance3D
-            if picture == null or picture.mesh == null or (
-                not (picture.material_override is StandardMaterial3D)):
-                _fail("BALAI PANORAMA: illustrated cylinder material missing")
+            var earth := backdrop.get_node_or_null("VisualGroundUnderlay") as MeshInstance3D
+            if earth == null or earth.mesh == null or earth.mesh.get_faces().size() < 100:
+                _fail("BALAI V8.4: continuous visual terrain underlay missing")
                 return
-            var picture_material := picture.material_override as StandardMaterial3D
-            if picture_material.albedo_texture == null or (
-                picture_material.albedo_texture.get_width() != 512):
-                _fail("BALAI PANORAMA: original illustration failed to load")
+            var ridge := backdrop.get_node_or_null("DistantHills") as Node3D
+            var trees := backdrop.get_node_or_null("DistantTreeLine") as Node3D
+            if ridge == null or trees == null or trees.get_child_count() < 20:
+                _fail("BALAI V8.4: low-poly hills/trees failed to instantiate")
                 return
             if not backdrop.find_children("*","CollisionObject3D",true,false).is_empty():
-                _fail("BALAI PANORAMA: image added unexpected physics collider")
+                _fail("BALAI V8.4: distant background added unintended physics")
+                return
+            if world.get_node_or_null("BalaiDesaPanorama") != null:
+                _fail("BALAI V8.4: legacy low-resolution panorama was loaded")
+                return
+            var atmosphere := world.get_node_or_null("Atmosphere") as WorldEnvironment
+            if atmosphere == null or atmosphere.environment == null or (
+                atmosphere.environment.background_mode != Environment.BG_SKY):
+                _fail("BALAI V8.4: natural procedural sky not enabled")
                 return
             # Screenshot regression: generic area-center spawn looked at the
             # coast instead of the hall. Player MUST arrive in the real
@@ -179,7 +186,7 @@ func _run() -> void:
             print("BALAI V8.3 FORECOURT PASS: entry %.1fm from hall, camera dot=%.2f, water and bridges hidden only visually" % [
                 hall_gap, forward.dot(look_at_hall)])
         elif backdrop != null and backdrop.visible:
-            _fail("BALAI PANORAMA: hall background leaked into "+area_id)
+            _fail("BALAI V8.4: hall background leaked into "+area_id)
             return
         if area_id != "balai_desa":
             if not (level.get("water_root") as Node3D).visible or (
@@ -196,15 +203,14 @@ func _run() -> void:
             return
         var terrain_shader := level.get("new_mesh") as MeshInstance3D
         var material := terrain_shader.material_override as ShaderMaterial
-        if not bool(material.get_shader_parameter("debug_clip_enabled")):
-            _fail("SCENE menu did not isolate the visual ground: "+area_id)
-            return
+        var is_clipped := bool(material.get_shader_parameter("debug_clip_enabled"))
         if area_id == "balai_desa":
-            var crop := material.get_shader_parameter("debug_clip_rect") as Vector4
-            if absf(crop.x-42.0)>0.01 or absf(crop.y-26.0)>0.01 or (
-                absf(crop.z-70.0)>0.01 or absf(crop.w-56.0)>0.01):
-                _fail("BALAI V8.3: debug lawn is too wide, showing unrelated terrain")
+            if is_clipped:
+                _fail("BALAI V8.4: legacy ground discard crop remains enabled")
                 return
+        elif not is_clipped:
+            _fail("SCENE menu changed the existing crop for "+area_id)
+            return
         var beach := level.get("beach_button") as Button
         var village := level.get("village_button") as Button
         if not beach.disabled or not village.disabled:
@@ -228,15 +234,15 @@ func _run() -> void:
     if str(loader.get("debug_area")) != "":
         _fail("Open World option did not exit isolated mode")
         return
-    var restored_backdrop := world.get_node_or_null("BalaiDesaPanorama") as Node3D
+    var restored_backdrop := world.get_node_or_null("BalaiDesaBackdrop3D") as Node3D
     if restored_backdrop != null and restored_backdrop.visible:
-        _fail("BALAI PANORAMA: Open World retained isolated hall background")
+        _fail("BALAI V8.4: Open World retained isolated hall background")
         return
     if not (level.get("water_root") as Node3D).visible or (
         not (level.get("infrastructure_root") as Node3D).visible):
         _fail("BALAI V8.3: Open World failed to restore ocean and bridge visuals")
         return
-    print("BALAI PANORAMA SCENE PASS: original illustrated image on 360-degree mesh, invisible in other areas and Open World")
+    print("BALAI V8.4 GEOMETRIC BACKDROP PASS: continuous ground, natural sky, shaded hills and trees; isolated from Open World")
     if player.global_position.distance_to(saved_position) > 0.0001:
         _fail("Open World failed to restore saved player position")
         return

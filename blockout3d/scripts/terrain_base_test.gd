@@ -8,7 +8,7 @@ const INFRASTRUCTURE_SCRIPT := preload("res://scripts/terrain_v3_infrastructure.
 const SETTLEMENT_SCRIPT := preload("res://scripts/terrain_v7_settlement.gd")
 const VEGETATION_SCRIPT := preload("res://scripts/terrain_v7_vegetation.gd")
 const AREA_STREAMER_SCRIPT := preload("res://scripts/terrain_v80_area_loader.gd")
-const BALAI_PANORAMA_SCRIPT := preload("res://scripts/balai_desa_panorama.gd")
+const BALAI_BACKDROP_SCRIPT := preload("res://scripts/balai_desa_backdrop_3d.gd")
 const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
 const PAINTED_COLORMAP := "res://assets/environment/island/terrain_v3_painted_colormap.png"
 const TERRAIN_RAY_LAYER := 1 << 7
@@ -40,6 +40,7 @@ var debug_village_disabled_before := false
 var _balai_layers_overridden := false
 var _water_was_visible := true
 var _infrastructure_was_visible := true
+var _balai_original_environment: Environment
 const DEBUG_AREA_IDS := ["desa_inti","pekarangan_barat","balai_desa","tepi_sungai","akses_pesisir"]
 const DEBUG_AREA_NAMES := ["Desa Inti","Pekarangan Barat","Balai Desa","Tepi Sungai","Kawasan Pesisir"]
 var world: Node3D
@@ -149,20 +150,16 @@ func _apply_scene_visual_isolation(area_id: String) -> void:
     var shader := new_mesh.material_override as ShaderMaterial
     if shader == null:
         return
-    var enabled := not area_id.is_empty()
+    # V8.4: Balai uses the full, unchanged island terrain. The old shader
+    # rectangle used discard() and created an obvious straight broken edge.
+    # Only the four OTHER inspection zones retain their original crop.
+    var enabled := not area_id.is_empty() and area_id != "balai_desa"
     shader.set_shader_parameter("debug_clip_enabled",enabled)
     if enabled:
-        if area_id == "balai_desa":
-            # V8.3: focus the rendered lawn on the public hall + Pos Ronda,
-            # not the entire 35x40m zone and the neighbouring coastline.
-            # Physics remains authoritative, including outside this mask.
-            shader.set_shader_parameter("debug_clip_rect",
-                Vector4(42.0,26.0,70.0,56.0))
-        else:
-            var rect: Rect2 = area_streamer.call("get_area_rect",area_id)
-            shader.set_shader_parameter("debug_clip_rect",Vector4(
-                rect.position.x-9.0,rect.position.y-9.0,
-                rect.end.x+9.0,rect.end.y+9.0))
+        var rect: Rect2 = area_streamer.call("get_area_rect",area_id)
+        shader.set_shader_parameter("debug_clip_rect",Vector4(
+            rect.position.x-9.0,rect.position.y-9.0,
+            rect.end.x+9.0,rect.end.y+9.0))
 
 func _find_debug_spawn(area_id: String) -> Dictionary:
     var rect: Rect2 = area_streamer.call("get_area_rect",area_id)
@@ -181,9 +178,9 @@ func _find_debug_spawn(area_id: String) -> Dictionary:
             return {}
         center = Vector2(hall.global_position.x,hall.global_position.z)
         positions = [
-            Vector2(0.0,9.5),Vector2(1.8,9.5),Vector2(-1.8,9.5),
-            Vector2(0.0,11.0),Vector2(3.0,11.0),Vector2(-3.0,11.0),
-            Vector2(0.0,8.0),Vector2(2.4,8.0),Vector2(-2.4,8.0)]
+            Vector2(0.0,8.1),Vector2(-1.3,8.2),Vector2(1.3,8.2),
+            Vector2(0.0,9.2),Vector2(-2.0,9.0),Vector2(2.0,9.0),
+            Vector2(0.0,7.3),Vector2(-2.6,8.2),Vector2(2.6,8.2)]
     # All placements are ray-tested against the exact island (not a fake
     # floor) and against the always-resident building/tree collision proxies.
     for d in positions:
@@ -203,10 +200,9 @@ func _find_debug_spawn(area_id: String) -> Dictionary:
         return hit
     return {}
 
-func _set_balai_panorama_enabled(enabled: bool) -> void:
-    # Hide ONLY the ocean/river and bridge visual roots in the isolated
-    # Balai Desa view. Root visibility does NOT disable any StaticBody3D
-    # collision under the infrastructure; restore exact original visibility.
+func _set_balai_backdrop_enabled(enabled: bool) -> void:
+    # Hide sea/river/bridges in Balai ONLY. Their physics and the open world
+    # are untouched, including both permanent bridge collider instances.
     if enabled and not _balai_layers_overridden:
         _water_was_visible = water_root.visible
         _infrastructure_was_visible = infrastructure_root.visible
@@ -218,16 +214,41 @@ func _set_balai_panorama_enabled(enabled: bool) -> void:
         water_root.visible = _water_was_visible
         infrastructure_root.visible = _infrastructure_was_visible
         _balai_layers_overridden = false
-    # The distant illustrated wall hides clipped/unloaded landscape only in
-    # the Balai Desa SCENE inspector. Never changes normal Open World rendering.
-    var backdrop := world.get_node_or_null("BalaiDesaPanorama") as Node3D
+
+    # The 512x170 stretched image is retired. This new node has only actual
+    # lightweight geometry; all nodes are visual-only, never walkable physics.
+    var backdrop := world.get_node_or_null("BalaiDesaBackdrop3D") as Node3D
     if enabled and backdrop == null:
         backdrop = Node3D.new()
-        backdrop.name = "BalaiDesaPanorama"
-        backdrop.set_script(BALAI_PANORAMA_SCRIPT)
+        backdrop.name = "BalaiDesaBackdrop3D"
+        backdrop.set_script(BALAI_BACKDROP_SCRIPT)
         world.add_child(backdrop)
     if backdrop != null:
         backdrop.visible = enabled
+
+    # Scene-scoped natural sky, restoring the original environment resource
+    # upon returning to any other area. No persistent global lighting change.
+    var atmosphere := world.get_node_or_null("Atmosphere") as WorldEnvironment
+    if atmosphere == null:
+        return
+    if enabled:
+        if _balai_original_environment == null:
+            _balai_original_environment = atmosphere.environment
+        if _balai_original_environment != null:
+            var scene_env := _balai_original_environment.duplicate() as Environment
+            var sky := Sky.new()
+            var sky_paint := ProceduralSkyMaterial.new()
+            sky_paint.sky_top_color = Color("77b4d5")
+            sky_paint.sky_horizon_color = Color("c7e0dd")
+            sky_paint.ground_bottom_color = Color("8ba28a")
+            sky_paint.ground_horizon_color = Color("c7e0dd")
+            sky.sky_material = sky_paint
+            scene_env.background_mode = Environment.BG_SKY
+            scene_env.sky = sky
+            atmosphere.environment = scene_env
+    elif _balai_original_environment != null:
+        atmosphere.environment = _balai_original_environment
+        _balai_original_environment = null
 
 func _on_scene_selected(index: int) -> void:
     if not is_ready or not is_instance_valid(area_streamer):
@@ -243,7 +264,7 @@ func _on_scene_selected(index: int) -> void:
             _move_to_ground(debug_return_position,debug_return_yaw)
         area_streamer.call("set_debug_area","")
         _apply_scene_visual_isolation("")
-        _set_balai_panorama_enabled(false)
+        _set_balai_backdrop_enabled(false)
         debug_return_saved = false
         beach_button.disabled = debug_beach_disabled_before
         village_button.disabled = debug_village_disabled_before
@@ -272,9 +293,9 @@ func _on_scene_selected(index: int) -> void:
     village_button.disabled = true
     area_streamer.call("set_debug_area",chosen)
     _apply_scene_visual_isolation(chosen)
-    _set_balai_panorama_enabled(chosen == "balai_desa")
+    _set_balai_backdrop_enabled(chosen == "balai_desa")
     _move_to_ground(found.position+Vector3.UP*0.13,
-        0.0 if chosen == "balai_desa" else debug_return_yaw)
+        -0.33 if chosen == "balai_desa" else debug_return_yaw)
     if status != null:
         status.text = "AREA TERPISAH: "+DEBUG_AREA_NAMES[index-1]+" | Pilih Open World untuk kembali"
     _refresh_scene_indicator()
