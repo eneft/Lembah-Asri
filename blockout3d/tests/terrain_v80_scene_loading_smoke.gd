@@ -146,6 +146,11 @@ func _run() -> void:
             # Screenshot regression: generic area-center spawn looked at the
             # coast instead of the hall. Player MUST arrive in the real
             # forecourt, with a genuine Godot Camera3D facing the office.
+            var hall := loader.get_node_or_null(
+                "Area_balai_desa/Houses/balai_desa") as Node3D
+            if hall == null:
+                _fail("BALAI V8.3: hall missing from the dedicated scene")
+                return
             var hall_gap := Vector2(player.global_position.x,player.global_position.z).distance_to(
                 Vector2(hall.global_position.x,hall.global_position.z))
             if hall_gap<5.0 or hall_gap>14.0:
