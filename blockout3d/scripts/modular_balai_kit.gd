@@ -83,7 +83,7 @@ func _prepare_materials() -> void:
         "earth":"earth_path.png"
     }
     for key in tiles.keys():
-        var path := "res://assets/environment/village/balai_modular/"+tiles[key]
+        var path: String = "res://assets/environment/village/balai_modular/"+str(tiles[key])
         var tex := load(path) as Texture2D
         if tex == null:
             push_error("BALAI V0.2 FAIL: painted texture asset missing: "+path)
@@ -96,6 +96,13 @@ func _prepare_materials() -> void:
         mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
         mat.texture_repeat = true
         mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+        if key == "roof" or key == "stone":
+            var normal_path := "res://assets/environment/village/balai_modular/"+str(key)+"_normal.png"
+            var normal_tex := load(normal_path) as Texture2D
+            if normal_tex != null:
+                mat.normal_enabled = true
+                mat.normal_texture = normal_tex
+                mat.normal_scale = 0.52 if key == "roof" else 0.35
         if key == "black":
             mat.albedo_color = Color("373330")
         _materials[key] = mat
@@ -372,7 +379,7 @@ func _roof_cap(parent: Node3D,name: String,a: Vector3,b: Vector3,radius: float) 
 func _entry_posts() -> void:
     var porch := _group("TiangTeras")
     for index in range(4):
-        var x := [-4.18,-1.80,1.80,4.18][index]
+        var x: float = float([-4.18,-1.80,1.80,4.18][index])
         var wall_front := DEPTH*0.5+0.16
         _box(porch,"PilarPlester_%d" % index,Vector3(x,PLINTH_H+1.47,wall_front),
             Vector3(0.30,2.94,0.34),"plaster",0.95,"plastered_column")
