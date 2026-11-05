@@ -11,9 +11,12 @@ const PART3 = preload("res://scripts/balai_panorama_data_3.gd")
 const PART4 = preload("res://scripts/balai_panorama_data_4.gd")
 const PART5 = preload("res://scripts/balai_panorama_data_5.gd")
 const PART6 = preload("res://scripts/balai_panorama_data_6.gd")
-const PANORAMA_CENTER := Vector3(55.71429, 6.0, 39.0)
+# Smaller vertical angle prevents the 512px artwork's corner foliage
+# from looming above the 1.68m character as a giant blurry tree.
+# Its bottom still reaches below the visible terrain and it fully wraps 360°.
+const PANORAMA_CENTER := Vector3(55.71429, 5.5, 39.0)
 const PANORAMA_RADIUS_M := 92.0
-const PANORAMA_HEIGHT_M := 84.0
+const PANORAMA_HEIGHT_M := 32.0
 
 func _ready() -> void:
     var encoded := PART0.DATA + PART1.DATA + PART2.DATA + PART3.DATA + PART4.DATA + PART5.DATA + PART6.DATA
