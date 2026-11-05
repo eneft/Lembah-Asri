@@ -86,7 +86,7 @@ func _prepare_materials() -> void:
         mat.roughness = 0.92 if str(key) != "glass" else 0.42
         mat.metallic = 0.0
         mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-        mat.texture_repeat = BaseMaterial3D.TEXTURE_REPEAT_ENABLED
+        mat.texture_repeat = true
         mat.cull_mode = BaseMaterial3D.CULL_DISABLED
         _materials[key] = mat
 
