@@ -16,7 +16,7 @@ func _run() -> void:
     root.add_child(level)
     await process_frame
     var kit := level.get_node_or_null("BalaiDesaModular") as Node3D
-    if kit == null or str(kit.get_meta("kit_version","")) != "balai_modular_v0_2":
+    if kit == null or str(kit.get_meta("kit_version","")) != "balai_modular_v0_3":
         _fail("modular builder did not initialize")
         return
     if kit.get_meta("footprint_m",Vector2.ZERO) != Vector2(9.2,7.5):
@@ -89,7 +89,7 @@ func _run() -> void:
         return
     var material_map: Dictionary = kit.get("_materials")
     var widths := {"plaster":512,"stone":512,"wood":512,"roof":512,
-        "glass":256,"white":256,"black":256,"earth":256}
+        "glass":256,"white":512,"black":512,"earth":256}
     for key in widths.keys():
         var material := material_map.get(key) as StandardMaterial3D
         if material==null or material.albedo_texture==null:
@@ -103,6 +103,37 @@ func _run() -> void:
         if mat == null or not mat.normal_enabled or mat.normal_texture == null:
             _fail("low-cost roof/stone normal map missing: "+name)
             return
+    # The artist authored roof/plaster/wood/stone/sign artwork MUST replace
+    # the original procedural-looking PNG textures; don't silently fall back.
+    for key in ["roof","plaster","stone","wood","white"]:
+        var mat := material_map.get(key) as StandardMaterial3D
+        if mat == null or mat.albedo_texture == null:
+            _fail("painted asset missing: "+key)
+            return
+        var resource_path := mat.albedo_texture.resource_path
+        if not resource_path.ends_with("_painted.svg"):
+            _fail("material did not bind to the hand-painted SVG artwork: "+key+" / "+resource_path)
+            return
+    # Verify the modular geometry uses shared UV origin in both adjacent
+    # plaster panels; no UV seams when a window divides a real wall.
+    var walls := front.get_children()
+    var found_offset_uv := false
+    for slab in walls:
+        var panel := slab as MeshInstance3D
+        if panel == null:
+            continue
+        if not bool(panel.get_meta("shared_uv",false)):
+            _fail("wall panel uses disconnected auto UV unwrap: "+str(panel.name))
+            return
+        var uv: PackedVector2Array = panel.mesh.surface_get_arrays(0)[Mesh.ARRAY_TEX_UV]
+        if uv.size()<4:
+            _fail("missing first UV channel on modular wall")
+            return
+        if absf(uv[0].x)>0.01 or absf(uv[0].y)>0.01:
+            found_offset_uv = true
+    if not found_offset_uv:
+        _fail("wall UV islands are incorrectly reset to zero on each panel")
+        return
     # The open doorway is really empty: no front wall section overlaps it.
     for slab in front.get_children():
         var panel := slab as MeshInstance3D
@@ -125,7 +156,7 @@ func _run() -> void:
     if camera == null or not camera.current:
         _fail("standalone rotating preview is missing its live camera")
         return
-    print("BALAI MODULAR V0.1 PASS: V0.2 reference styling: 9.20x7.50m, ridge 5.28m, "+
+    print("BALAI MODULAR V0.1 PASS: V0.3 original hand-painted texture artwork + continuous UV; 9.20x7.50m, ridge 5.28m, "+
         str(wall_count)+" real wall segments, six windows, one door, "+
         str(roof_faces)+" roof triangles, 4-slope limasan, eight painted texture slots, normal maps, stairs, flag and sign; zero physics changes")
     quit(0)
