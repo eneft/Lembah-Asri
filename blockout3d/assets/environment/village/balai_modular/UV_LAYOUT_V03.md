@@ -7,7 +7,7 @@
 | Module | Godot texture | Source artwork | UV |
 | --- | --- | --- | --- |
 | Clay limasan / four slopes | `roof_painted.svg` | Weathered handmade terracotta tiles, chalk chips, patchy moss | 4 UV plane islands, repeated at approx. 2.8–2.9 m |
-| Plaster wall & columns | `plaster_painted.svg` | Warm ivory plaster, peeling ochre undercoat, hairline cracks and subtle base moss | World-projected X/Y (front/back), Z/Y (sides); 2.4 m per UV tile; shared across cutout panels |
+| Plaster wall & columns | `plaster_painted.svg` | Warm ivory plaster, peeling ochre undercoat, hairline cracks and subtle base moss | World-projected X/Y (front/back), Z/Y (sides); 3.15 m per UV tile, V flipped to keep moss near the ground; shared across cutout panels |
 | Masonry foundation, veranda & stairs | `stone_painted.svg` | Irregular grey-brown stones, rough joint lines and small moss clusters | Metre-scaled box UVs |
 | Door, windows, roof fascia, wood stool | `wood_painted.svg` | Narrow aged oak planks, directional grain, worn edges and knots | Separate module islands with matching scale |
 | Roadside office sign | `white_painted.svg` | Chipped white painted boards with cream undercoat | Box UVs; live `Label3D` black lettering |
