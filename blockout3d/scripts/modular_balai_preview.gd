@@ -25,7 +25,7 @@ func _ready() -> void:
     add_child(camera)
     _aim_camera()
     _instructions()
-    print("BALAI MODULAR PREVIEW READY V0.2 — painted limasan and stone plinth; original 2K GLB untouched")
+    print("BALAI MODULAR PREVIEW READY V0.3 — painted limasan and stone plinth; original 2K GLB untouched")
 
 func _lighting() -> void:
     var sun := DirectionalLight3D.new()
@@ -102,7 +102,7 @@ func _instructions() -> void:
     layer.add_child(panel)
     var text := Label.new()
     text.name = "Title"
-    text.text = "LEMBAH ASRI | BALAI MODULAR V0.2\nAcuan asli | UV texture + normal map | Drag: orbit | Scroll: zoom\nPrototipe terpisah, Balai Desa di game tidak berubah"
+    text.text = "LEMBAH ASRI | BALAI MODULAR V0.3\nHAND-PAINTED TEXTURE + UV UNWRAP | Drag: orbit | Scroll: zoom\nAcuan Kantor Desa | Template terpisah dari model game utama"
     text.add_theme_font_size_override("font_size",15)
     panel.add_child(text)
 
