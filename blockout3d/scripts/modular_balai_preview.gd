@@ -3,10 +3,10 @@ extends Node3D
 const KIT := preload("res://scripts/modular_balai_kit.gd")
 var kit: Node3D
 var camera: Camera3D
-var orbit := 0.44
-var elevation := 0.35
-var distance_m := 18.0
-var target := Vector3(0.0,2.1,0.0)
+var orbit := 0.18
+var elevation := 0.34
+var distance_m := 20.0
+var target := Vector3(0.75,2.5,1.15)
 
 func _ready() -> void:
     kit = Node3D.new()
@@ -25,7 +25,7 @@ func _ready() -> void:
     add_child(camera)
     _aim_camera()
     _instructions()
-    print("BALAI MODULAR PREVIEW READY — rotate drag/mouse, zoom wheel; original 2K GLB untouched")
+    print("BALAI MODULAR PREVIEW READY V0.2 — painted limasan and stone plinth; original 2K GLB untouched")
 
 func _lighting() -> void:
     var sun := DirectionalLight3D.new()
@@ -39,7 +39,7 @@ func _lighting() -> void:
     env.name = "StudioOutdoor"
     var environment := Environment.new()
     environment.background_mode = Environment.BG_COLOR
-    environment.background_color = Color("b9d5d9")
+    environment.background_color = Color("d9e6e1")
     environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     environment.ambient_light_color = Color("dce6dc")
     environment.ambient_light_energy = 0.8
@@ -53,7 +53,11 @@ func _preview_ground() -> void:
     plane.size = Vector2(30.0,30.0)
     ground.mesh = plane
     var ground_mat := StandardMaterial3D.new()
-    ground_mat.albedo_color = Color("8fa77c")
+    ground_mat.albedo_color = Color("ffffff")
+    ground_mat.albedo_texture = load("res://assets/environment/village/balai_modular/earth_path.png") as Texture2D
+    ground_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+    ground_mat.texture_repeat = true
+    ground_mat.uv1_scale = Vector3(12.0,12.0,1.0)
     ground_mat.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
     ground_mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
     ground_mat.roughness = 1.0
@@ -98,6 +102,29 @@ func _instructions() -> void:
     layer.add_child(panel)
     var text := Label.new()
     text.name = "Title"
-    text.text = "LEMBAH ASRI | BALAI MODULAR V0.1\nPlane + texture | Drag: putar kamera | Scroll: zoom\nPrototipe terpisah, belum mengganti Balai Desa asli"
+    text.text = "LEMBAH ASRI | BALAI MODULAR V0.2\nAcuan asli | UV texture + normal map | Drag: orbit | Scroll: zoom\nPrototipe terpisah, Balai Desa di game tidak berubah"
     text.add_theme_font_size_override("font_size",15)
     panel.add_child(text)
+
+    var quick := HBoxContainer.new()
+    quick.name = "FourViewControls"
+    quick.position = Vector2(18.0,120.0)
+    quick.add_theme_constant_override("separation",6)
+    layer.add_child(quick)
+    var directions := [
+        {"text":"Depan","angle":0.0},
+        {"text":"Kanan","angle":PI*0.5},
+        {"text":"Belakang","angle":PI},
+        {"text":"Kiri","angle":-PI*0.5}
+    ]
+    for view in directions:
+        var control := Button.new()
+        control.text = str(view["text"])
+        control.custom_minimum_size = Vector2(78.0,39.0)
+        var angle: float = float(view["angle"])
+        control.pressed.connect(func() -> void:
+            orbit = angle
+            elevation = 0.34
+            _aim_camera()
+        )
+        quick.add_child(control)
