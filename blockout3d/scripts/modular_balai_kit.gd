@@ -60,7 +60,7 @@ func build_balai() -> void:
     set_meta("footprint_m",Vector2(WIDTH,DEPTH))
     set_meta("height_m",RIDGE_Y)
     set_meta("authoritative_collision",false)
-    print("BALAI MODULAR KIT V0.1: generated foundation, 4 modular walls, 5 real window openings, front door, pitched roof and ground sign")
+    print("BALAI MODULAR KIT V0.1: generated foundation, 4 modular walls, 6 real window openings, front door, pitched roof and ground sign")
 
 func _group(name: String) -> Node3D:
     var group := Node3D.new()
