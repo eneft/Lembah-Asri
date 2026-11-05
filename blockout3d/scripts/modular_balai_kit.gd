@@ -59,11 +59,11 @@ func build_balai() -> void:
     _ground_sign()
     _flag()
     _small_details()
-    set_meta("kit_version","balai_modular_v0_2")
+    set_meta("kit_version","balai_modular_v0_3")
     set_meta("footprint_m",Vector2(WIDTH,DEPTH))
     set_meta("height_m",RIDGE_Y)
     set_meta("authoritative_collision",false)
-    print("BALAI MODULAR KIT V0.2: reference-faithful tiled limasan, 4 modular walls, 6 true windows, double glazed doors, stairs, white sign and Indonesian flag")
+    print("BALAI MODULAR KIT V0.3: hand-painted 512px SVG materials, shared UV wall unwrap, limasan, six windows and stairs; source model preserved")
 
 func _group(name: String) -> Node3D:
     var group := Node3D.new()
@@ -73,13 +73,16 @@ func _group(name: String) -> Node3D:
 
 func _prepare_materials() -> void:
     var tiles := {
-        "plaster":"plaster_aged.png",
-        "stone":"stone_masonry.png",
-        "wood":"wood_oak.png",
-        "roof":"roof_terracotta.png",
+        # Editable HAND-PAINTED SVG albedo, rasterized at 512px on Godot import.
+        # Detailed cracks, moss, carved wood grain and roof clay are actual
+        # artwork instead of algorithmically varying material colors.
+        "plaster":"plaster_painted.svg",
+        "stone":"stone_painted.svg",
+        "wood":"wood_painted.svg",
+        "roof":"roof_painted.svg",
         "glass":"glass_teal.png",
-        "white":"white_wood.png",
-        "black":"white_wood.png",
+        "white":"white_painted.svg",
+        "black":"white_painted.svg",
         "earth":"earth_path.png"
     }
     for key in tiles.keys():
@@ -136,47 +139,70 @@ func _put(st: SurfaceTool, where: Vector3, normal: Vector3, uv: Vector2) -> void
     st.add_vertex(where)
 
 func _quad(st: SurfaceTool, a: Vector3,b: Vector3,c: Vector3,d: Vector3,
-        normal: Vector3, u: float, v: float) -> void:
-    # Two triangles, fully normalized surface normal. Vectors are in local m.
-    _put(st,a,normal,Vector2(0.0,0.0))
-    _put(st,b,normal,Vector2(u,0.0))
-    _put(st,c,normal,Vector2(u,v))
-    _put(st,a,normal,Vector2(0.0,0.0))
-    _put(st,c,normal,Vector2(u,v))
-    _put(st,d,normal,Vector2(0.0,v))
+        normal: Vector3, u: float, v: float,
+        uv_origin: Vector2 = Vector2.ZERO) -> void:
+    # Authored UV origin is available for globally aligned modular wall panels.
+    # A cutout does not reset painting at the border of another panel.
+    _put(st,a,normal,uv_origin)
+    _put(st,b,normal,uv_origin+Vector2(u,0.0))
+    _put(st,c,normal,uv_origin+Vector2(u,v))
+    _put(st,a,normal,uv_origin)
+    _put(st,c,normal,uv_origin+Vector2(u,v))
+    _put(st,d,normal,uv_origin+Vector2(0.0,v))
 
-func _textured_box_mesh(dims: Vector3, texture_metres: float) -> ArrayMesh:
+func _textured_box_mesh(dims: Vector3, texture_metres: float,
+        origin: Vector3 = Vector3.ZERO, world_aligned_uv: bool = false) -> ArrayMesh:
     var x := dims.x*0.5
     var y := dims.y*0.5
     var z := dims.z*0.5
     var st := SurfaceTool.new()
     st.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var o := origin if world_aligned_uv else Vector3.ZERO
+    # Painted plaster artwork has moss/stone erosion at its BOTTOM (V=1),
+    # and cleaner cream near the top (V=0): flip only the modular wall UV V.
+    # 3.15 metres covers the entire 3.05-metre wall without repeating moss
+    # at eye height. The anchors stay shared between adjacent cutout panels.
+    var uv_y := 1.0 - (o.y-y-PLINTH_H)/texture_metres if world_aligned_uv else -y/texture_metres
+    var uv_height := -dims.y/texture_metres if world_aligned_uv else dims.y/texture_metres
+    # Side walls project (Z,Y), front/back project (X,Y). UV origins are
+    # calculated from the building coordinate, not from each isolated brick.
     _quad(st,Vector3(-x,-y,-z),Vector3(-x,-y,z),
         Vector3(-x,y,z),Vector3(-x,y,-z),Vector3.LEFT,
-        dims.z/texture_metres,dims.y/texture_metres)
+        dims.z/texture_metres,uv_height,
+        Vector2((o.z-z)/texture_metres,uv_y))
     _quad(st,Vector3(x,-y,z),Vector3(x,-y,-z),
         Vector3(x,y,-z),Vector3(x,y,z),Vector3.RIGHT,
-        dims.z/texture_metres,dims.y/texture_metres)
+        dims.z/texture_metres,uv_height,
+        Vector2((-o.z-z)/texture_metres,uv_y))
     _quad(st,Vector3(-x,y,z),Vector3(x,y,z),
         Vector3(x,y,-z),Vector3(-x,y,-z),Vector3.UP,
-        dims.x/texture_metres,dims.z/texture_metres)
+        dims.x/texture_metres,dims.z/texture_metres,
+        Vector2((o.x-x)/texture_metres,(-o.z-z)/texture_metres))
     _quad(st,Vector3(-x,-y,-z),Vector3(x,-y,-z),
         Vector3(x,-y,z),Vector3(-x,-y,z),Vector3.DOWN,
-        dims.x/texture_metres,dims.z/texture_metres)
+        dims.x/texture_metres,dims.z/texture_metres,
+        Vector2((o.x-x)/texture_metres,(o.z-z)/texture_metres))
     _quad(st,Vector3(x,-y,z),Vector3(-x,-y,z),
         Vector3(-x,y,z),Vector3(x,y,z),Vector3.BACK,
-        dims.x/texture_metres,dims.y/texture_metres)
+        dims.x/texture_metres,uv_height,
+        Vector2((-o.x-x)/texture_metres,uv_y))
     _quad(st,Vector3(-x,-y,-z),Vector3(x,-y,-z),
         Vector3(x,y,-z),Vector3(-x,y,-z),Vector3.FORWARD,
-        dims.x/texture_metres,dims.y/texture_metres)
+        dims.x/texture_metres,uv_height,
+        Vector2((o.x-x)/texture_metres,uv_y))
     return st.commit()
-
 func _box(root: Node3D,name: String,position_m: Vector3,dims: Vector3,
         mat_id: String,tile: float,module_type: String) -> MeshInstance3D:
     var panel := MeshInstance3D.new()
     panel.name = name
-    panel.mesh = _textured_box_mesh(dims,tile)
+    # Walls share the same UV origin regardless of how openings partition the
+    # mesh. Roof tiles and trim remain independent authored UV islands.
+    var shared_wall_uv := module_type == "wall"
+    var real_tile: float = 3.15 if shared_wall_uv else tile
+    panel.mesh = _textured_box_mesh(dims,real_tile,position_m,shared_wall_uv)
     panel.material_override = _materials[mat_id] as Material
+    panel.set_meta("shared_uv",shared_wall_uv)
+    panel.set_meta("uv_tile_metres",real_tile)
     panel.position = position_m
     panel.set_meta("module_type",module_type)
     panel.set_meta("dimensions_m",dims)
