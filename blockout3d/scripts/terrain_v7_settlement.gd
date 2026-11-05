@@ -212,12 +212,12 @@ func _install_balai_desa_2k(house: Node3D, footprint: Vector2) -> bool:
         model.free()
         push_error("BALAI 2K: no imported albedo texture; retaining existing Balai Desa")
         return false
-    # 1 Godot unit = 1 metre. Constrain roof/porch to the existing plot and
-    # bring the full building to a plausible 4.85m height for a 1.68m avatar.
-    # X/Z are scaled uniformly so the original model isn't warped.
-    var horizontal_scale := minf(footprint.x * 0.95 / bounds.size.x,
-        footprint.y * 0.92 / bounds.size.z)
-    var vertical_scale := 4.85 / bounds.size.y
+    # V8.3: the Balai Desa is a civic building, not a tiny dwelling. Use
+    # most of its AUTHORIZED 11x9m plot, while keeping 1.2m+ separation
+    # from the existing Pos Ronda seven metres to the west. Never move it.
+    # Horizontal scaling remains UNIFORM to preserve the supplied mesh UVs.
+    var horizontal_scale := minf(9.20 / bounds.size.x, 7.50 / bounds.size.z)
+    var vertical_scale := 5.35 / bounds.size.y
     if horizontal_scale <= 0.0 or vertical_scale <= 0.0:
         model.free()
         return false
@@ -235,7 +235,9 @@ func _install_balai_desa_2k(house: Node3D, footprint: Vector2) -> bool:
     old_visual.free()
     house.set_meta("balai_2k_active", true)
     house.set_meta("balai_2k_source", "LembahAsri_Game_2K.glb")
-    house.set_meta("balai_2k_full_height_m", 4.85)
+    house.set_meta("balai_2k_full_height_m", 5.35)
+    house.set_meta("balai_2k_visual_width_m", bounds.size.x*horizontal_scale)
+    house.set_meta("balai_2k_visual_depth_m", bounds.size.z*horizontal_scale)
     house.set_meta("balai_2k_textured_surfaces", textured_surfaces)
     print("BALAI 2K ACTIVE: Work-optimized GLB, collision and V8 area unchanged")
     return true
@@ -405,14 +407,26 @@ func configure(world: Node3D) -> void:
             var balai_2k_active := false
             if label == "balai_desa":
                 balai_2k_active = _install_balai_desa_2k(house,real_footprint)
-            _collision(house,body_dimensions)
+            # The imported village hall is now wider than the old authored
+            # silhouette. Only this building gets a footprint-matched box;
+            # other 16 existing physics bodies remain bit-for-bit unchanged.
+            var physical_dimensions := body_dimensions
+            if balai_2k_active:
+                var hall_visual_width: float = float(house.get_meta("balai_2k_visual_width_m"))
+                var hall_visual_depth: float = float(house.get_meta("balai_2k_visual_depth_m"))
+                physical_dimensions = Vector3(
+                    hall_visual_width*0.87, 4.25, hall_visual_depth*0.83)
+                house.set_meta("balai_2k_collider_dimensions_m",physical_dimensions)
+            _collision(house,physical_dimensions)
             # Avoid duplicating the old procedural sign/pillars over the new
             # imported Balai Desa. Other 16 building visuals are unchanged.
             if not balai_2k_active:
                 _accessories(house,kind,real_footprint)
-            house.set_meta("building_width_m",real_footprint.x)
-            house.set_meta("building_depth_m",real_footprint.y)
-            house.set_meta("wall_height_m",body_dimensions.y)
+            house.set_meta("building_width_m",float(house.get_meta(
+                "balai_2k_visual_width_m",real_footprint.x)) if balai_2k_active else real_footprint.x)
+            house.set_meta("building_depth_m",float(house.get_meta(
+                "balai_2k_visual_depth_m",real_footprint.y)) if balai_2k_active else real_footprint.y)
+            house.set_meta("wall_height_m",physical_dimensions.y)
             house.set_meta("proportion_revision","V8.2")
             unique_house_count += 1
         house.set_meta("proportion_reference_adult_m",ADULT_HEIGHT_M)

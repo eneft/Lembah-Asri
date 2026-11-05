@@ -37,6 +37,9 @@ var debug_return_yaw := 0.0
 var debug_return_saved := false
 var debug_beach_disabled_before := false
 var debug_village_disabled_before := false
+var _balai_layers_overridden := false
+var _water_was_visible := true
+var _infrastructure_was_visible := true
 const DEBUG_AREA_IDS := ["desa_inti","pekarangan_barat","balai_desa","tepi_sungai","akses_pesisir"]
 const DEBUG_AREA_NAMES := ["Desa Inti","Pekarangan Barat","Balai Desa","Tepi Sungai","Kawasan Pesisir"]
 var world: Node3D
@@ -149,19 +152,41 @@ func _apply_scene_visual_isolation(area_id: String) -> void:
     var enabled := not area_id.is_empty()
     shader.set_shader_parameter("debug_clip_enabled",enabled)
     if enabled:
-        var rect: Rect2 = area_streamer.call("get_area_rect",area_id)
-        shader.set_shader_parameter("debug_clip_rect",Vector4(
-            rect.position.x-9.0,rect.position.y-9.0,
-            rect.end.x+9.0,rect.end.y+9.0))
+        if area_id == "balai_desa":
+            # V8.3: focus the rendered lawn on the public hall + Pos Ronda,
+            # not the entire 35x40m zone and the neighbouring coastline.
+            # Physics remains authoritative, including outside this mask.
+            shader.set_shader_parameter("debug_clip_rect",
+                Vector4(42.0,26.0,70.0,56.0))
+        else:
+            var rect: Rect2 = area_streamer.call("get_area_rect",area_id)
+            shader.set_shader_parameter("debug_clip_rect",Vector4(
+                rect.position.x-9.0,rect.position.y-9.0,
+                rect.end.x+9.0,rect.end.y+9.0))
 
 func _find_debug_spawn(area_id: String) -> Dictionary:
     var rect: Rect2 = area_streamer.call("get_area_rect",area_id)
     var center := rect.get_center()
+    # The original generic first-hit at the 35x40m area's center often
+    # landed beside the sea / behind the office. Put the character safely
+    # on the V8.3 hall FORECOURT (front faces +Z) instead.
+    var positions: Array = [
+        Vector2.ZERO,Vector2(9,0),Vector2(-9,0),
+        Vector2(0,9),Vector2(0,-9),Vector2(16,9),Vector2(-16,-9),
+        Vector2(15,-15),Vector2(-15,15)]
+    if area_id == "balai_desa":
+        var hall := area_streamer.get_node_or_null(
+            "Area_balai_desa/Houses/balai_desa") as Node3D
+        if hall == null:
+            return {}
+        center = Vector2(hall.global_position.x,hall.global_position.z)
+        positions = [
+            Vector2(0.0,9.5),Vector2(1.8,9.5),Vector2(-1.8,9.5),
+            Vector2(0.0,11.0),Vector2(3.0,11.0),Vector2(-3.0,11.0),
+            Vector2(0.0,8.0),Vector2(2.4,8.0),Vector2(-2.4,8.0)]
     # All placements are ray-tested against the exact island (not a fake
     # floor) and against the always-resident building/tree collision proxies.
-    for d in [Vector2.ZERO,Vector2(9,0),Vector2(-9,0),
-        Vector2(0,9),Vector2(0,-9),Vector2(16,9),Vector2(-16,-9),
-        Vector2(15,-15),Vector2(-15,15)]:
+    for d in positions:
         var p: Vector2 = center + (d as Vector2)
         var q := PhysicsRayQueryParameters3D.create(
             Vector3(p.x,120.0,p.y),Vector3(p.x,-40.0,p.y))
@@ -179,6 +204,20 @@ func _find_debug_spawn(area_id: String) -> Dictionary:
     return {}
 
 func _set_balai_panorama_enabled(enabled: bool) -> void:
+    # Hide ONLY the ocean/river and bridge visual roots in the isolated
+    # Balai Desa view. Root visibility does NOT disable any StaticBody3D
+    # collision under the infrastructure; restore exact original visibility.
+    if enabled and not _balai_layers_overridden:
+        _water_was_visible = water_root.visible
+        _infrastructure_was_visible = infrastructure_root.visible
+        _balai_layers_overridden = true
+    if enabled:
+        water_root.visible = false
+        infrastructure_root.visible = false
+    elif _balai_layers_overridden:
+        water_root.visible = _water_was_visible
+        infrastructure_root.visible = _infrastructure_was_visible
+        _balai_layers_overridden = false
     # The distant illustrated wall hides clipped/unloaded landscape only in
     # the Balai Desa SCENE inspector. Never changes normal Open World rendering.
     var backdrop := world.get_node_or_null("BalaiDesaPanorama") as Node3D
@@ -234,7 +273,8 @@ func _on_scene_selected(index: int) -> void:
     area_streamer.call("set_debug_area",chosen)
     _apply_scene_visual_isolation(chosen)
     _set_balai_panorama_enabled(chosen == "balai_desa")
-    _move_to_ground(found.position+Vector3.UP*0.13,debug_return_yaw)
+    _move_to_ground(found.position+Vector3.UP*0.13,
+        0.0 if chosen == "balai_desa" else debug_return_yaw)
     if status != null:
         status.text = "AREA TERPISAH: "+DEBUG_AREA_NAMES[index-1]+" | Pilih Open World untuk kembali"
     _refresh_scene_indicator()
