@@ -408,6 +408,41 @@ jobs:
           echo 'V7.8 WEB PACK SMOKE PASS: actual packed terrain-test boots and paints world'
           echo 'TERRAIN BASE WEB TEST READY: /terrain-test/'
 
+      - name: Validate modular Balai Desa geometry + UV material kit
+        run: |
+          set -o pipefail
+          timeout 90s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/modular_balai_smoke.gd 2>&1 | tee modular-balai-deploy.log
+          if grep -E 'SCRIPT ERROR|ERROR:|BALAI MODULAR V0.1 FAIL' modular-balai-deploy.log; then exit 1; fi
+          grep -q 'BALAI MODULAR V0.1 PASS:' modular-balai-deploy.log
+
+      - name: Export separate Balai Desa modular 3D preview at /balai-modular/
+        run: |
+          set -euo pipefail
+          cp blockout3d/project.godot /tmp/lembah-modular-preview-project-original.godot
+          trap 'cp /tmp/lembah-modular-preview-project-original.godot blockout3d/project.godot' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("blockout3d/project.godot")
+          old='run/main_scene="res://scenes/world_nelayan_pesisir.tscn"'
+          new='run/main_scene="res://scenes/modular_balai_preview.tscn"'
+          content=p.read_text(encoding="utf-8")
+          assert old in content, "Modular export must not change the root game"
+          p.write_text(content.replace(old,new),encoding="utf-8")
+          PY
+          godot --headless --path blockout3d --editor --quit
+          mkdir -p build/web/balai-modular
+          godot --headless --path blockout3d --export-release "Web" "$GITHUB_WORKSPACE/build/web/balai-modular/index.html"
+          test -s build/web/balai-modular/index.html
+          test -s build/web/balai-modular/index.wasm
+          test -s build/web/balai-modular/index.pck
+          mkdir -p /tmp/balai-modular-packed
+          (
+            cd /tmp/balai-modular-packed
+            timeout 60s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/balai-modular/index.pck" --quit-after 100 2>&1 | tee "$GITHUB_WORKSPACE/modular-balai-packed.log"
+          )
+          if grep -E 'SCRIPT ERROR|ERROR:' modular-balai-packed.log; then exit 1; fi
+          grep -q 'BALAI MODULAR PREVIEW READY' modular-balai-packed.log
+          echo 'BALAI MODULAR V0.1 WEB PACK PASS: /balai-modular/ ready'
       - name: Verify actual WebGL render in Chromium browser
         timeout-minutes: 6
         run: |

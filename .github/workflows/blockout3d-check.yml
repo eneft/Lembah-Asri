@@ -42,6 +42,12 @@ jobs:
           mv "blockout3d/assets/environment/island/terrain base.glb" /tmp/lembah-terrain-source-original.glb
       - name: Import the independent 3D project (NOT root 2D)
         run: godot --headless --path blockout3d --editor --quit
+      - name: Validate standalone Balai Desa modular prototype, texture UV and openings
+        run: |
+          set -o pipefail
+          timeout 90s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/modular_balai_smoke.gd 2>&1 | tee modular-balai.log
+          if grep -E 'SCRIPT ERROR|ERROR:|BALAI MODULAR V0.1 FAIL' modular-balai.log; then exit 1; fi
+          grep -q 'BALAI MODULAR V0.1 PASS:' modular-balai.log
       - name: Run the actual 3D scene smoke using Compatibility renderer
         run: |
           set -o pipefail
