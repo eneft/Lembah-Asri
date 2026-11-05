@@ -158,16 +158,21 @@ func _textured_box_mesh(dims: Vector3, texture_metres: float,
     var st := SurfaceTool.new()
     st.begin(Mesh.PRIMITIVE_TRIANGLES)
     var o := origin if world_aligned_uv else Vector3.ZERO
-    var uv_y := (o.y-y)/texture_metres
+    # Painted plaster artwork has moss/stone erosion at its BOTTOM (V=1),
+    # and cleaner cream near the top (V=0): flip only the modular wall UV V.
+    # 3.15 metres covers the entire 3.05-metre wall without repeating moss
+    # at eye height. The anchors stay shared between adjacent cutout panels.
+    var uv_y := 1.0 - (o.y-y-PLINTH_H)/texture_metres if world_aligned_uv else -y/texture_metres
+    var uv_height := -dims.y/texture_metres if world_aligned_uv else dims.y/texture_metres
     # Side walls project (Z,Y), front/back project (X,Y). UV origins are
     # calculated from the building coordinate, not from each isolated brick.
     _quad(st,Vector3(-x,-y,-z),Vector3(-x,-y,z),
         Vector3(-x,y,z),Vector3(-x,y,-z),Vector3.LEFT,
-        dims.z/texture_metres,dims.y/texture_metres,
+        dims.z/texture_metres,uv_height,
         Vector2((o.z-z)/texture_metres,uv_y))
     _quad(st,Vector3(x,-y,z),Vector3(x,-y,-z),
         Vector3(x,y,-z),Vector3(x,y,z),Vector3.RIGHT,
-        dims.z/texture_metres,dims.y/texture_metres,
+        dims.z/texture_metres,uv_height,
         Vector2((-o.z-z)/texture_metres,uv_y))
     _quad(st,Vector3(-x,y,z),Vector3(x,y,z),
         Vector3(x,y,-z),Vector3(-x,y,-z),Vector3.UP,
@@ -179,11 +184,11 @@ func _textured_box_mesh(dims: Vector3, texture_metres: float,
         Vector2((o.x-x)/texture_metres,(o.z-z)/texture_metres))
     _quad(st,Vector3(x,-y,z),Vector3(-x,-y,z),
         Vector3(-x,y,z),Vector3(x,y,z),Vector3.BACK,
-        dims.x/texture_metres,dims.y/texture_metres,
+        dims.x/texture_metres,uv_height,
         Vector2((-o.x-x)/texture_metres,uv_y))
     _quad(st,Vector3(-x,-y,-z),Vector3(x,-y,-z),
         Vector3(x,y,-z),Vector3(-x,y,-z),Vector3.FORWARD,
-        dims.x/texture_metres,dims.y/texture_metres,
+        dims.x/texture_metres,uv_height,
         Vector2((o.x-x)/texture_metres,uv_y))
     return st.commit()
 func _box(root: Node3D,name: String,position_m: Vector3,dims: Vector3,
@@ -193,7 +198,7 @@ func _box(root: Node3D,name: String,position_m: Vector3,dims: Vector3,
     # Walls share the same UV origin regardless of how openings partition the
     # mesh. Roof tiles and trim remain independent authored UV islands.
     var shared_wall_uv := module_type == "wall"
-    var real_tile: float = 2.4 if shared_wall_uv else tile
+    var real_tile: float = 3.15 if shared_wall_uv else tile
     panel.mesh = _textured_box_mesh(dims,real_tile,position_m,shared_wall_uv)
     panel.material_override = _materials[mat_id] as Material
     panel.set_meta("shared_uv",shared_wall_uv)
