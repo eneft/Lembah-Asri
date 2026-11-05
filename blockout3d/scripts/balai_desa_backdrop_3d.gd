@@ -57,16 +57,22 @@ func _build_ground_underlay() -> void:
     st.begin(Mesh.PRIMITIVE_TRIANGLES)
     var divisions := int(ceil(EXTENT*2.0/CELL))
     var step_m := EXTENT*2.0/float(divisions)
+    # One authoritative terrain ray per shared grid vertex, not four rays
+    # per quad; avoid an unnecessary multi-frame hitch on iPhone Safari.
+    var vertices: Array[Vector3] = []
+    for zi in range(divisions+1):
+        for xi in range(divisions+1):
+            var x := -EXTENT+float(xi)*step_m
+            var z := -EXTENT+float(zi)*step_m
+            vertices.append(Vector3(x,_ground_height(HALL.x+x,HALL.y+z,centre_y),z))
+    var stride := divisions+1
     for zi in range(divisions):
         for xi in range(divisions):
-            var x0 := -EXTENT+float(xi)*step_m
-            var z0 := -EXTENT+float(zi)*step_m
-            var x1 := x0+step_m
-            var z1 := z0+step_m
-            var a := Vector3(x0,_ground_height(HALL.x+x0,HALL.y+z0,centre_y),z0)
-            var b := Vector3(x1,_ground_height(HALL.x+x1,HALL.y+z0,centre_y),z0)
-            var c := Vector3(x0,_ground_height(HALL.x+x0,HALL.y+z1,centre_y),z1)
-            var d := Vector3(x1,_ground_height(HALL.x+x1,HALL.y+z1,centre_y),z1)
+            var index := zi*stride+xi
+            var a := vertices[index]
+            var b := vertices[index+1]
+            var c := vertices[index+stride]
+            var d := vertices[index+stride+1]
             # Restrained painterly tonal variation, rather than a stretched image.
             var variation := 0.5 + 0.5*sin(float(xi)*0.73+float(zi)*1.19)
             var tint := Color("7f9d65").lerp(Color("a9b987"),variation*0.43)
@@ -84,7 +90,7 @@ func _build_ground_underlay() -> void:
     visual.position = Vector3(HALL.x,0.0,HALL.y)
     add_child(visual)
 
-func _build_hill(id: int, around: float, radial: float, radius: float, high: float) -> void:
+func _build_hill(parent: Node3D, id: int, around: float, radial: float, radius: float, high: float) -> void:
     var cx := HALL.x+cos(around)*radial
     var cz := HALL.y+sin(around)*radial
     var st := SurfaceTool.new()
@@ -117,7 +123,7 @@ func _build_hill(id: int, around: float, radial: float, radius: float, high: flo
     hill.name = "Hill_%02d" % id
     hill.mesh = st.commit()
     hill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-    add_child(hill)
+    parent.add_child(hill)
 
 func _build_hills() -> void:
     var ring := Node3D.new()
@@ -126,7 +132,7 @@ func _build_hills() -> void:
     # Scene-only distant silhouettes, always outside the actual hall forecourt.
     for i in range(9):
         var angle := TAU*(float(i)+0.25)/9.0
-        _build_hill(i,angle,112.0+float(i%3)*7.0,41.0+float(i%3)*5.0,15.0+float(i%4)*5.0)
+        _build_hill(ring,i,angle,112.0+float(i%3)*7.0,41.0+float(i%3)*5.0,15.0+float(i%4)*5.0)
 
 func _build_tree_line() -> void:
     var forest := Node3D.new()
