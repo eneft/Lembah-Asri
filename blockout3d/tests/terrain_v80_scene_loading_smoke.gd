@@ -143,9 +143,44 @@ func _run() -> void:
             if not backdrop.find_children("*","CollisionObject3D",true,false).is_empty():
                 _fail("BALAI PANORAMA: image added unexpected physics collider")
                 return
+            # Screenshot regression: generic area-center spawn looked at the
+            # coast instead of the hall. Player MUST arrive in the real
+            # forecourt, with a genuine Godot Camera3D facing the office.
+            var hall_gap := Vector2(player.global_position.x,player.global_position.z).distance_to(
+                Vector2(hall.global_position.x,hall.global_position.z))
+            if hall_gap<5.0 or hall_gap>14.0:
+                _fail("BALAI V8.3: scene spawn is not in the hall forecourt")
+                return
+            var game_camera := world.get_node_or_null("IsometricCamera") as Camera3D
+            if game_camera == null:
+                _fail("BALAI V8.3: active 3/4 follow camera missing")
+                return
+            var look_at_hall := (hall.global_position+Vector3.UP*2.4-
+                game_camera.global_position).normalized()
+            var forward := -game_camera.global_transform.basis.z.normalized()
+            if forward.dot(look_at_hall)<0.78:
+                _fail("BALAI V8.3: entry camera looks towards coast, not village hall")
+                return
+            var water_layer := level.get("water_root") as Node3D
+            var infrastructure_layer := level.get("infrastructure_root") as Node3D
+            if water_layer == null or infrastructure_layer == null or (
+                water_layer.visible or infrastructure_layer.visible):
+                _fail("BALAI V8.3: unrelated sea/river/bridges still visible")
+                return
+            var bridge_physics := infrastructure_layer.get("bridge_collider") as StaticBody3D
+            if bridge_physics == null or bridge_physics.collision_layer != 1:
+                _fail("BALAI V8.3: hiding bridge visual disabled permanent physics")
+                return
+            print("BALAI V8.3 FORECOURT PASS: entry %.1fm from hall, camera dot=%.2f, water and bridges hidden only visually" % [
+                hall_gap, forward.dot(look_at_hall)])
         elif backdrop != null and backdrop.visible:
             _fail("BALAI PANORAMA: hall background leaked into "+area_id)
             return
+        if area_id != "balai_desa":
+            if not (level.get("water_root") as Node3D).visible or (
+                not (level.get("infrastructure_root") as Node3D).visible):
+                _fail("BALAI V8.3: hidden bridges/water leaked into another scene")
+                return
         if not bool(level.get("debug_return_saved")):
             _fail("SCENE menu did not save the return position")
             return
@@ -159,6 +194,12 @@ func _run() -> void:
         if not bool(material.get_shader_parameter("debug_clip_enabled")):
             _fail("SCENE menu did not isolate the visual ground: "+area_id)
             return
+        if area_id == "balai_desa":
+            var crop := material.get_shader_parameter("debug_clip_rect") as Vector4
+            if absf(crop.x-42.0)>0.01 or absf(crop.y-26.0)>0.01 or (
+                absf(crop.z-70.0)>0.01 or absf(crop.w-56.0)>0.01):
+                _fail("BALAI V8.3: debug lawn is too wide, showing unrelated terrain")
+                return
         var beach := level.get("beach_button") as Button
         var village := level.get("village_button") as Button
         if not beach.disabled or not village.disabled:
@@ -185,6 +226,10 @@ func _run() -> void:
     var restored_backdrop := world.get_node_or_null("BalaiDesaPanorama") as Node3D
     if restored_backdrop != null and restored_backdrop.visible:
         _fail("BALAI PANORAMA: Open World retained isolated hall background")
+        return
+    if not (level.get("water_root") as Node3D).visible or (
+        not (level.get("infrastructure_root") as Node3D).visible):
+        _fail("BALAI V8.3: Open World failed to restore ocean and bridge visuals")
         return
     print("BALAI PANORAMA SCENE PASS: original illustrated image on 360-degree mesh, invisible in other areas and Open World")
     if player.global_position.distance_to(saved_position) > 0.0001:
