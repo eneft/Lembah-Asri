@@ -258,18 +258,34 @@ func _run() -> void:
                 return
             print("V7.8 FISHERMAN UV TEST PASS: 95121 UV-mapped source triangles, correct proportion and original painting")
         elif balai_2k_active:
-            # 4.85m overall height, constant X/Z scaling and room left on
-            # the existing 11x9m plot; do not touch the original collider.
+            # V8.3: civic hall is larger than a dwelling, while its 11x9m
+            # plot and the Pos Ronda's safe clearance are still protected.
             var imported_bounds: AABB = settlement.call("_bounds",model)
             var actual_height := imported_bounds.size.y*model.scale.y
             var actual_width := imported_bounds.size.x*model.scale.x
             var actual_depth := imported_bounds.size.z*model.scale.z
-            if absf(actual_height-4.85)>0.06 or actual_width>8.40 or actual_depth>6.41:
-                _fail("BALAI 2K: imported model no longer fits the 1.68m scale/plot")
+            if absf(actual_height-5.35)>0.06 or actual_width>9.23 or actual_depth>7.53 or actual_width<7.0:
+                _fail("BALAI V8.3: imported hall outside civic scale or protected plot")
                 return
             if not is_equal_approx(model.scale.x,model.scale.z) or valid_textures < 1:
                 _fail("BALAI 2K: model distorted horizontally or lost UV textures")
                 return
+            var hall_shape := shape.shape as BoxShape3D
+            if hall_shape == null or absf(hall_shape.size.x-actual_width*0.87)>0.05 or (
+                absf(hall_shape.size.z-actual_depth*0.83)>0.05) or absf(hall_shape.size.y-4.25)>0.05:
+                _fail("BALAI V8.3: enlarged visual and collision no longer match")
+                return
+            if absf(float(building.get_meta("building_width_m",0.0))-actual_width)>0.05 or (
+                absf(float(building.get_meta("building_depth_m",0.0))-actual_depth)>0.05):
+                _fail("BALAI V8.3: physical model metadata no longer reflects scaled hall")
+                return
+            var watchpost_center := Vector2(48.71429,39.0)
+            if actual_width*0.5+1.2>Vector2(
+                building.global_position.x,building.global_position.z).distance_to(watchpost_center)-1.15:
+                _fail("BALAI V8.3: enlarged office infringes the neighbouring Pos Ronda")
+                return
+            print("BALAI V8.3 PROPORTION PASS: %.2fm wide x %.2fm deep x %.2fm high, hero 1.68m, watch post clear" % [
+                actual_width,actual_depth,actual_height])
         else:
             var wall_visual := model.get_node_or_null("DindingBangunan") as MeshInstance3D
             var doorway := model.get_node_or_null("PintuUkir") as MeshInstance3D
