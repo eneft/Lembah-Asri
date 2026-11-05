@@ -113,6 +113,15 @@ func _run() -> void:
         if int(loader.get("loaded_area_count")) != 1:
             _fail("SCENE menu did not isolate EXACTLY one area: "+area_id)
             return
+        if area_id == "balai_desa":
+            var hall := loader.get_node_or_null("Area_balai_desa/Houses/balai_desa") as Node3D
+            if hall == null or hall.get_node_or_null("BuildingCollision") == null:
+                _fail("BALAI 2K: existing hall collider disappeared")
+                return
+            if ResourceLoader.exists("res://assets/environment/houses/village_head/LembahAsri_Game_2K.glb"):
+                if not hall.has_node("V80Visuals/MeshyBalaiDesa2K") or hall.has_node("V80Visuals/UniqueVillageMesh"):
+                    _fail("BALAI 2K: area scene did not stream the replacement GLB")
+                    return
         if not bool(level.get("debug_return_saved")):
             _fail("SCENE menu did not save the return position")
             return

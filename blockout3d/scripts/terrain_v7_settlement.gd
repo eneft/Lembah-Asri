@@ -10,6 +10,8 @@ const HOUSE_GLB := "res://assets/environment/houses/main_house/rumah_utama.glb"
 # vertex-color silhouette (it looks like a crumpled tent in gameplay).
 # Original model stays a single unique cottage, not duplicated across sites.
 const FISHERMAN_GLB := "res://assets/environment/houses/fisherman_meshy/fisherman_original_uv.glb"
+# Optional Work-optimized source. Missing files leave the proven V8.2 Balai Desa untouched.
+const BALAI_2K_GLB := "res://assets/environment/houses/village_head/LembahAsri_Game_2K.glb"
 const ARCHITECTURE_SCRIPT := preload("res://scripts/terrain_v7_architecture.gd")
 const GROUND_LAYER := 1 << 7
 const BUILDING_LAYER := 1
@@ -173,6 +175,71 @@ func _build_watch_post(house: Node3D) -> void:
         Vector3(1.55,0.19,0.45),"wood")
     _collision(house,Vector3(2.06,2.62,1.78))
 
+
+# Swap only the Balai Desa visual. Preserve the already-authored footprint,
+# the exact plot/yaw, the existing cheap BuildingCollision and area streaming.
+# The source is OPTIONAL until its verified 14.4MB binary is uploaded.
+func _install_balai_desa_2k(house: Node3D, footprint: Vector2) -> bool:
+    if not ResourceLoader.exists(BALAI_2K_GLB):
+        return false
+    var packed := load(BALAI_2K_GLB) as PackedScene
+    if packed == null:
+        push_error("BALAI 2K: file exists but is not an importable GLB scene")
+        return false
+    var model := packed.instantiate() as Node3D
+    if model == null:
+        push_error("BALAI 2K: imported GLB has no Node3D root")
+        return false
+    model.name = "MeshyBalaiDesa2K"
+    house.add_child(model)
+    var bounds := _bounds(model)
+    if bounds.size.x <= 0.01 or bounds.size.y <= 0.01 or bounds.size.z <= 0.01:
+        model.free()
+        push_error("BALAI 2K: invalid mesh bounds; retaining existing Balai Desa")
+        return false
+    # Require a genuine UV-textured source; a plain-color fallback may hide
+    # broken texture imports and must not silently replace the painted hall.
+    var textured_surfaces := 0
+    for item in model.find_children("*", "MeshInstance3D", true, false):
+        var mesh := item as MeshInstance3D
+        if mesh.mesh == null:
+            continue
+        for surface in range(mesh.mesh.get_surface_count()):
+            var material := mesh.get_active_material(surface) as BaseMaterial3D
+            if material != null and material.albedo_texture != null:
+                textured_surfaces += 1
+    if textured_surfaces == 0:
+        model.free()
+        push_error("BALAI 2K: no imported albedo texture; retaining existing Balai Desa")
+        return false
+    # 1 Godot unit = 1 metre. Constrain roof/porch to the existing plot and
+    # bring the full building to a plausible 4.85m height for a 1.68m avatar.
+    # X/Z are scaled uniformly so the original model isn't warped.
+    var horizontal_scale := minf(footprint.x * 0.95 / bounds.size.x,
+        footprint.y * 0.92 / bounds.size.z)
+    var vertical_scale := 4.85 / bounds.size.y
+    if horizontal_scale <= 0.0 or vertical_scale <= 0.0:
+        model.free()
+        return false
+    model.scale = Vector3(horizontal_scale, vertical_scale, horizontal_scale)
+    model.position = Vector3(
+        -(bounds.position.x + bounds.size.x * 0.5) * horizontal_scale,
+        -bounds.position.y * vertical_scale + 0.06,
+        -(bounds.position.z + bounds.size.z * 0.5) * horizontal_scale)
+    var old_visual := house.get_node_or_null("UniqueVillageMesh")
+    if old_visual == null:
+        model.free()
+        push_error("BALAI 2K: original authored visual missing; refusing unsafe swap")
+        return false
+    house.remove_child(old_visual)
+    old_visual.free()
+    house.set_meta("balai_2k_active", true)
+    house.set_meta("balai_2k_source", "LembahAsri_Game_2K.glb")
+    house.set_meta("balai_2k_full_height_m", 4.85)
+    house.set_meta("balai_2k_textured_surfaces", textured_surfaces)
+    print("BALAI 2K ACTIVE: Work-optimized GLB, collision and V8 area unchanged")
+    return true
+
 func configure(world: Node3D) -> void:
     if finished:
         return
@@ -332,10 +399,17 @@ func configure(world: Node3D) -> void:
             geometry_signatures[signature] = label
             var real_footprint: Vector2 = built["actual_footprint"]
             var body_dimensions: Vector3 = built["body_dimensions"]
+            # Build/collision dimensions remain from the original V8.2 hall.
+            # Only the Balai Desa visual may be replaced, and only when the
+            # Work-optimized 2K GLB actually imports with valid textures.
+            var balai_2k_active := false
+            if label == "balai_desa":
+                balai_2k_active = _install_balai_desa_2k(house,real_footprint)
             _collision(house,body_dimensions)
-            # Yard reserves walking space; accessories MUST reference the
-            # smaller 1.68m-relative house facade, not the larger empty plot.
-            _accessories(house,kind,real_footprint)
+            # Avoid duplicating the old procedural sign/pillars over the new
+            # imported Balai Desa. Other 16 building visuals are unchanged.
+            if not balai_2k_active:
+                _accessories(house,kind,real_footprint)
             house.set_meta("building_width_m",real_footprint.x)
             house.set_meta("building_depth_m",real_footprint.y)
             house.set_meta("wall_height_m",body_dimensions.y)

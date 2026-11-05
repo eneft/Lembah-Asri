@@ -406,11 +406,28 @@ func _run() -> void:
             quit(1)
             return
         measured_house_count += 1
-    if measured_house_count != 14:
-        push_error("V7.5 REAL SCALE FAIL: did not measure the 14 original hand-built village houses (fisherman is a separately scaled GLB)")
+    # With the optional new Balai Desa GLB, one hand-built house visual is
+    # deliberately replaced; count that imported 2K visual separately, but
+    # keep the 1.68m player and every other house scale validation in place.
+    var hall := streamer.get_node_or_null("Area_balai_desa/Houses/balai_desa") as Node3D
+    var imported_balai := hall != null and bool(hall.get_meta("balai_2k_active", false))
+    var expected_painted_count := 13 if imported_balai else 14
+    if measured_house_count != expected_painted_count:
+        push_error("V7.5 REAL SCALE FAIL: hand-built house count mismatch, expected %d measured %d" % [expected_painted_count, measured_house_count])
         quit(1)
         return
-    print("V7.5 REAL SCALE PASS: actual rendered hero %.3fm (168cm); 14 painted-house entries and separately scaled fisherman GLB fit adult human" % measured_height)
+    if imported_balai:
+        var hall_visual := hall.get_node_or_null("V80Visuals/MeshyBalaiDesa2K") as Node3D
+        if hall_visual == null:
+            push_error("V7.5 REAL SCALE FAIL: Balai Desa 2K visual missing despite import flag")
+            quit(1)
+            return
+        var hall_bounds: AABB = village.call("_bounds", hall_visual)
+        if absf(hall_bounds.size.y * hall_visual.scale.y - 4.85) > 0.06:
+            push_error("V7.5 REAL SCALE FAIL: imported Balai Desa is not 4.85m high")
+            quit(1)
+            return
+    print("V7.5 REAL SCALE PASS: rendered hero %.3fm (168cm); %d painted-house entries, optional Balai 2K, independent fisherman GLB" % [measured_height, measured_house_count])
     # Keep feet on the SAME physical terrain after enlarging the model; the
     # capsule is not allowed to float above ground or sink into the mesh.
     if absf(capsule_node.position.y - capsule.height * 0.5) > 0.025:
