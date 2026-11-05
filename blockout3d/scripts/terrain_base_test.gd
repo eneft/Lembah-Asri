@@ -8,6 +8,7 @@ const INFRASTRUCTURE_SCRIPT := preload("res://scripts/terrain_v3_infrastructure.
 const SETTLEMENT_SCRIPT := preload("res://scripts/terrain_v7_settlement.gd")
 const VEGETATION_SCRIPT := preload("res://scripts/terrain_v7_vegetation.gd")
 const AREA_STREAMER_SCRIPT := preload("res://scripts/terrain_v80_area_loader.gd")
+const BALAI_PANORAMA_SCRIPT := preload("res://scripts/balai_desa_panorama.gd")
 const GROUND_SHADER := preload("res://shaders/terrain_v2_ground.gdshader")
 const PAINTED_COLORMAP := "res://assets/environment/island/terrain_v3_painted_colormap.png"
 const TERRAIN_RAY_LAYER := 1 << 7
@@ -177,6 +178,18 @@ func _find_debug_spawn(area_id: String) -> Dictionary:
         return hit
     return {}
 
+func _set_balai_panorama_enabled(enabled: bool) -> void:
+    # The distant illustrated wall hides clipped/unloaded landscape only in
+    # the Balai Desa SCENE inspector. Never changes normal Open World rendering.
+    var backdrop := world.get_node_or_null("BalaiDesaPanorama") as Node3D
+    if enabled and backdrop == null:
+        backdrop = Node3D.new()
+        backdrop.name = "BalaiDesaPanorama"
+        backdrop.set_script(BALAI_PANORAMA_SCRIPT)
+        world.add_child(backdrop)
+    if backdrop != null:
+        backdrop.visible = enabled
+
 func _on_scene_selected(index: int) -> void:
     if not is_ready or not is_instance_valid(area_streamer):
         return
@@ -191,6 +204,7 @@ func _on_scene_selected(index: int) -> void:
             _move_to_ground(debug_return_position,debug_return_yaw)
         area_streamer.call("set_debug_area","")
         _apply_scene_visual_isolation("")
+        _set_balai_panorama_enabled(false)
         debug_return_saved = false
         beach_button.disabled = debug_beach_disabled_before
         village_button.disabled = debug_village_disabled_before
@@ -219,6 +233,7 @@ func _on_scene_selected(index: int) -> void:
     village_button.disabled = true
     area_streamer.call("set_debug_area",chosen)
     _apply_scene_visual_isolation(chosen)
+    _set_balai_panorama_enabled(chosen == "balai_desa")
     _move_to_ground(found.position+Vector3.UP*0.13,debug_return_yaw)
     if status != null:
         status.text = "AREA TERPISAH: "+DEBUG_AREA_NAMES[index-1]+" | Pilih Open World untuk kembali"

@@ -122,6 +122,30 @@ func _run() -> void:
                 if not hall.has_node("V80Visuals/MeshyBalaiDesa2K") or hall.has_node("V80Visuals/UniqueVillageMesh"):
                     _fail("BALAI 2K: area scene did not stream the replacement GLB")
                     return
+        # The illustrated far panorama is Balai-only and 3D render-only.
+        # It must cover unloaded geometry without touching any collider.
+        var backdrop := world.get_node_or_null("BalaiDesaPanorama") as Node3D
+        if area_id == "balai_desa":
+            if backdrop == null or not backdrop.visible or (
+                not bool(backdrop.get_meta("balai_panorama_ready",false))):
+                _fail("BALAI PANORAMA: backdrop not active in isolated hall scene")
+                return
+            var picture := backdrop.get_node_or_null("IllustratedVillageHorizon") as MeshInstance3D
+            if picture == null or picture.mesh == null or (
+                not (picture.material_override is StandardMaterial3D)):
+                _fail("BALAI PANORAMA: illustrated cylinder material missing")
+                return
+            var picture_material := picture.material_override as StandardMaterial3D
+            if picture_material.albedo_texture == null or (
+                picture_material.albedo_texture.get_width() != 512):
+                _fail("BALAI PANORAMA: original illustration failed to load")
+                return
+            if not backdrop.find_children("*","CollisionObject3D",true,false).is_empty():
+                _fail("BALAI PANORAMA: image added unexpected physics collider")
+                return
+        elif backdrop != null and backdrop.visible:
+            _fail("BALAI PANORAMA: hall background leaked into "+area_id)
+            return
         if not bool(level.get("debug_return_saved")):
             _fail("SCENE menu did not save the return position")
             return
@@ -158,6 +182,11 @@ func _run() -> void:
     if str(loader.get("debug_area")) != "":
         _fail("Open World option did not exit isolated mode")
         return
+    var restored_backdrop := world.get_node_or_null("BalaiDesaPanorama") as Node3D
+    if restored_backdrop != null and restored_backdrop.visible:
+        _fail("BALAI PANORAMA: Open World retained isolated hall background")
+        return
+    print("BALAI PANORAMA SCENE PASS: original illustrated image on 360-degree mesh, invisible in other areas and Open World")
     if player.global_position.distance_to(saved_position) > 0.0001:
         _fail("Open World failed to restore saved player position")
         return
