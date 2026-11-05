@@ -129,6 +129,12 @@ func _run() -> void:
         if uv.size()<4:
             _fail("missing first UV channel on modular wall")
             return
+        if uv[2].y >= uv[0].y:
+            _fail("wall UV V must map painted moss toward the ground, not the eaves")
+            return
+        if absf(float(panel.get_meta("uv_tile_metres",0.0))-3.15)>0.001:
+            _fail("wall texture scale must not repeat the moss at eye height")
+            return
         if absf(uv[0].x)>0.01 or absf(uv[0].y)>0.01:
             found_offset_uv = true
     if not found_offset_uv:
