@@ -16,7 +16,7 @@ func _run() -> void:
     root.add_child(level)
     await process_frame
     var kit := level.get_node_or_null("BalaiDesaModular") as Node3D
-    if kit == null or str(kit.get_meta("kit_version","")) != "balai_modular_v0_1":
+    if kit == null or str(kit.get_meta("kit_version","")) != "balai_modular_v0_2":
         _fail("modular builder did not initialize")
         return
     if kit.get_meta("footprint_m",Vector2.ZERO) != Vector2(9.2,7.5):
@@ -53,10 +53,18 @@ func _run() -> void:
         _fail("front door is not a separate reusable module")
         return
     var roof := kit.get_node_or_null("AtapGenteng") as Node3D
-    if roof==null or roof.get_node_or_null("GentengKiri")==null or (
-        roof.get_node_or_null("GentengKanan")==null):
-        _fail("two actual 3D UV-textured plane roof slopes missing")
+    if roof==null:
+        _fail("limasan roof node missing")
         return
+    for slope in ["GentengDepan","GentengBelakang","GentengKiri","GentengKanan"]:
+        var face := roof.get_node_or_null(slope) as MeshInstance3D
+        if face == null or face.mesh == null or str(face.get_meta("module_type","")) != "roof_plane":
+            _fail("roof missing UV textured hip slope: "+slope)
+            return
+    for crest in ["NokAtas","NokKananDepan","NokKananBelakang","NokKiriDepan","NokKiriBelakang"]:
+        if roof.get_node_or_null(crest) == null:
+            _fail("terracotta roof ridge cap missing: "+crest)
+            return
     var roof_faces := 0
     for piece in roof.get_children():
         if piece is MeshInstance3D:
@@ -64,20 +72,36 @@ func _run() -> void:
             if mesh != null:
                 for n in range(mesh.get_surface_count()):
                     roof_faces += mesh.surface_get_arrays(n)[Mesh.ARRAY_VERTEX].size()/3
-    if roof_faces > 100:
+    if roof_faces > 420:
         _fail("the texture-based roof uses too many triangles")
         return
-    if kit.get_node_or_null("PapanNamaTanah/Tulisan") == null:
+    if kit.get_node_or_null("TanggaBatu/AnakTangga_2") == null or (
+        kit.get_node_or_null("TanggaBatu/TerasBatu")==null):
+        _fail("raised 3-step stone staircase missing")
+        return
+    if kit.get_node_or_null("BenderaMerahPutih/KainMerah")==null or (
+        kit.get_node_or_null("BenderaMerahPutih/KainPutih")==null):
+        _fail("Indonesian red-white flag cloth missing")
+        return
+    if kit.get_node_or_null("PapanNamaTanah/Tulisan") == null or (
+        kit.get_node_or_null("AtapPapanNama")==null):
         _fail("ground-mounted village-office sign missing")
         return
     var material_map: Dictionary = kit.get("_materials")
-    for key in ["plaster","stone","wood","roof","glass","white","black"]:
+    var widths := {"plaster":512,"stone":512,"wood":512,"roof":512,
+        "glass":256,"white":256,"black":256,"earth":256}
+    for key in widths.keys():
         var material := material_map.get(key) as StandardMaterial3D
         if material==null or material.albedo_texture==null:
             _fail("painted texture slot missing: "+key)
             return
-        if material.albedo_texture.get_width()!=256:
-            _fail("modular material tile is not 256 px: "+key)
+        if material.albedo_texture.get_width()!=int(widths[key]):
+            _fail("modular painted texture not at expected resolution: "+key)
+            return
+    for name in ["roof","stone"]:
+        var mat := material_map.get(name) as StandardMaterial3D
+        if mat == null or not mat.normal_enabled or mat.normal_texture == null:
+            _fail("low-cost roof/stone normal map missing: "+name)
             return
     # The open doorway is really empty: no front wall section overlaps it.
     for slab in front.get_children():
@@ -89,8 +113,8 @@ func _run() -> void:
         var right_x := panel.position.x+dimensions.x*0.5
         var bottom_y := panel.position.y-dimensions.y*0.5
         var top_y := panel.position.y+dimensions.y*0.5
-        var overlaps_door := right_x > -0.70 and left_x < 0.70 and (
-            top_y > 0.27 and bottom_y < 2.53)
+        var overlaps_door := right_x > -0.92 and left_x < 0.92 and (
+            top_y > 0.64 and bottom_y < 3.00)
         if overlaps_door:
             _fail("front wall blocks the door's real opening")
             return
@@ -101,7 +125,7 @@ func _run() -> void:
     if camera == null or not camera.current:
         _fail("standalone rotating preview is missing its live camera")
         return
-    print("BALAI MODULAR V0.1 PASS: 9.20x7.50m, ridge 5.28m, "+
+    print("BALAI MODULAR V0.1 PASS: V0.2 reference styling: 9.20x7.50m, ridge 5.28m, "+
         str(wall_count)+" real wall segments, six windows, one door, "+
-        str(roof_faces)+" roof triangles, seven 256px painterly material tiles, zero physics changes")
+        str(roof_faces)+" roof triangles, 4-slope limasan, eight painted texture slots, normal maps, stairs, flag and sign; zero physics changes")
     quit(0)
