@@ -416,10 +416,24 @@ func _ground_sign() -> void:
     # Independent miniature tiled hip canopy; not on the main building roof.
     var canopy := _group("AtapPapanNama")
     canopy.position = sign.position + Vector3(0.0,2.28,0.0)
-    _box(canopy,"PenutupGenteng",Vector3(0.0,0.17,0.0),
-        Vector3(2.83,0.11,0.75),"roof",0.47,"sign_roof")
-    _box(canopy,"NokMini",Vector3(0.0,0.27,0.0),
-        Vector3(2.65,0.11,0.16),"roof",0.47,"ridge_cap")
+    var ax := 1.46
+    var az := 0.54
+    var eave := 0.12
+    var ridge_y := 0.49
+    var ridge_x := 0.78
+    var ca := Vector3(-ax,eave,az)
+    var cb := Vector3(ax,eave,az)
+    var cc := Vector3(ax,eave,-az)
+    var cd := Vector3(-ax,eave,-az)
+    var cr0 := Vector3(-ridge_x,ridge_y,0.0)
+    var cr1 := Vector3(ridge_x,ridge_y,0.0)
+    _roof_quad(canopy,"GentengPapanDepan",ca,cb,cr1,cr0)
+    _roof_quad(canopy,"GentengPapanBelakang",cc,cd,cr0,cr1)
+    _roof_tri(canopy,"GentengPapanKanan",cb,cc,cr1)
+    _roof_tri(canopy,"GentengPapanKiri",cd,ca,cr0)
+    _roof_cap(canopy,"NokMini",cr0,cr1,0.06)
+    _box(canopy,"LisplangMini",Vector3(0.0,eave-0.06,az),
+        Vector3(2.95,0.095,0.075),"wood",0.9,"sign_roof_trim")
 
 func _stairs_and_foundation() -> void:
     var base := _group("TanggaBatu")
