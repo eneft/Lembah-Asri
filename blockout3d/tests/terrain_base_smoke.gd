@@ -423,8 +423,8 @@ func _run() -> void:
             quit(1)
             return
         var hall_bounds: AABB = village.call("_bounds", hall_visual)
-        if absf(hall_bounds.size.y * hall_visual.scale.y - 4.85) > 0.06:
-            push_error("V7.5 REAL SCALE FAIL: imported Balai Desa is not 4.85m high")
+        if absf(hall_bounds.size.y * hall_visual.scale.y - 5.35) > 0.06:
+            push_error("V8.3 REAL SCALE FAIL: imported Balai Desa is not 5.35m high")
             quit(1)
             return
     print("V7.5 REAL SCALE PASS: rendered hero %.3fm (168cm); %d painted-house entries, optional Balai 2K, independent fisherman GLB" % [measured_height, measured_house_count])
