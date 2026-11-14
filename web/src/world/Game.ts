@@ -9,6 +9,12 @@ export class Game {
   private player!: RAPIER.RigidBody;
   private playerMesh!: THREE.Group;
   private keys = new Set<string>();
+  private touchMove = { x: 0, y: 0 };
+
+  setTouchMove(x: number, y: number) {
+    this.touchMove.x = THREE.MathUtils.clamp(x, -1, 1);
+    this.touchMove.y = THREE.MathUtils.clamp(y, -1, 1);
+  }
   private frame = 0;
   private running = true;
   private yaw = Math.PI;
@@ -136,7 +142,7 @@ export class Game {
   private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
-    if(this.world&&this.player){this.accumulator+=dt;const forward=(this.keys.has('w')?1:0)-(this.keys.has('s')?1:0);const side=(this.keys.has('d')?1:0)-(this.keys.has('a')?1:0);const speed=this.keys.has('shift')?6:3.5;const dir=new THREE.Vector3(side,0,-forward);dir.applyAxisAngle(new THREE.Vector3(0,1,0),this.yaw).normalize();const vel=this.player.linvel();this.player.setLinvel({x:dir.x*speed,y:vel.y,z:dir.z*speed},true);while(this.accumulator>=1/60){this.world.timestep=1/60;this.world.step();this.accumulator-=1/60;}const p=this.player.translation();this.playerMesh.position.set(p.x,p.y-.84,p.z);if(dir.lengthSq()>.01)this.playerMesh.rotation.y=Math.atan2(dir.x,dir.z);}
+    if(this.world&&this.player){this.accumulator+=dt;const keyboardForward=(this.keys.has('w')?1:0)-(this.keys.has('s')?1:0);const keyboardSide=(this.keys.has('d')?1:0)-(this.keys.has('a')?1:0);const forward=Math.abs(this.touchMove.y)>.04?-this.touchMove.y:keyboardForward;const side=Math.abs(this.touchMove.x)>.04?this.touchMove.x:keyboardSide;const speed=this.keys.has('shift')?6:3.5;const dir=new THREE.Vector3(side,0,forward);dir.applyAxisAngle(new THREE.Vector3(0,1,0),this.yaw).normalize();const vel=this.player.linvel();this.player.setLinvel({x:dir.x*speed,y:vel.y,z:dir.z*speed},true);while(this.accumulator>=1/60){this.world.timestep=1/60;this.world.step();this.accumulator-=1/60;}const p=this.player.translation();this.playerMesh.position.set(p.x,p.y-.84,p.z);if(dir.lengthSq()>.01)this.playerMesh.rotation.y=Math.atan2(dir.x,dir.z);}
     const target=this.playerMesh?.position??new THREE.Vector3();const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*.58,Math.cos(this.yaw)*this.cameraDistance);this.camera.position.lerp(target.clone().add(offset),.09);this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.renderer.render(this.scene,this.camera);
   };
   dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.renderer.dispose();this.host.removeChild(this.renderer.domElement);this.world?.free();}
