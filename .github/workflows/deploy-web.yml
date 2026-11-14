@@ -1,8 +1,11 @@
-name: Build and Deploy Lembah Asri Web
+name: Build and Deploy Lembah Asri (Three.js)
 
 on:
   push:
-    branches: [main, migration/threejs-foundation]
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/deploy-web.yml"
   workflow_dispatch:
 
 permissions:
@@ -14,558 +17,44 @@ concurrency:
 
 jobs:
   build:
-    name: Build Godot Web
+    name: Build Three.js Web
     runs-on: ubuntu-latest
-    timeout-minutes: 22
+    timeout-minutes: 15
     steps:
-      - name: Checkout legacy Godot source (always from main)
+      - name: Checkout Three.js game
         uses: actions/checkout@v4
-        with:
-          ref: main
 
-      - name: Checkout Three.js preview source
-        uses: actions/checkout@v4
-        with:
-          ref: migration/threejs-foundation
-          path: migration-source
-
-      - name: Build Three.js browser preview
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: web/package.json
 
-      - name: Install and build Three.js
-        working-directory: migration-source/web
+      - name: Install dependencies and build
+        working-directory: web
         run: |
           npm install
           npm run build
           test -s dist/index.html
 
-      - name: Restore original textured fisherman house (95k triangles, UV)
-        run: python3 blockout3d/tools/restore_fisherman_uv_glb.py
-
-      - name: Install Godot 4.3 with Web export templates
-        uses: chickensoft-games/setup-godot@v2
-        with:
-          version: 4.3.0
-          use-dotnet: false
-          include-templates: true
-
-      - name: Verify latest Photoshop source matches PNGs, order and collision
-        run: python tools/verify_psd_layer_sync.py
-      - name: Import project
-        run: godot --headless --path . --editor --quit
-      - name: Regression check preserved legacy Stage 1 RUN8+IDLE
+      - name: Prepare GitHub Pages package
         run: |
-          set -o pipefail
-          timeout 45s godot --headless --audio-driver Dummy --path . --script res://tests/main_run8_integration_smoke.gd 2>&1 | tee main-run8-integration.log
-          if grep -E 'SCRIPT ERROR|ERROR:|MAIN RUN8 FAIL' main-run8-integration.log; then
-            echo "Illustrated main scene avatar integration failed"; exit 1
-          fi
-          grep -q 'MAIN RUN8 INTEGRATION PASS' main-run8-integration.log
-
-      - name: Check preserved legacy Camera3D scene and physics
-        run: |
-          set -o pipefail
-          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_camera3d_smoke.gd 2>&1 | tee psd-camera3d-deploy.log
-          if grep -E 'SCRIPT ERROR|ERROR:|PSD CAMERA3D FAIL' psd-camera3d-deploy.log; then
-            echo "Legacy Camera3D scene regression failed"; exit 1
-          fi
-          grep -q 'PSD CAMERA3D PASS:' psd-camera3d-deploy.log
-
-      - name: Check exact polygon collision against house, fence, bridge and water
-        run: |
-          set -o pipefail
-          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_walkable_collision_smoke.gd 2>&1 | tee psd-walkable-web.log
-          if grep -E 'SCRIPT ERROR|ERROR:|PSD WALK COLLISION FAIL' psd-walkable-web.log; then
-            echo "Playable map collision audit failed"; exit 1
-          fi
-          grep -q 'PSD WALK COLLISION PASS:' psd-walkable-web.log
-
-      - name: Verify PSD character Y-depth and bridge scale before Web export
-        run: |
-          set -o pipefail
-          timeout 70s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_depth_scaling_smoke.gd 2>&1 | tee psd-depth-web.log
-          if grep -E 'SCRIPT ERROR|ERROR:|PSD DEPTH FAIL' psd-depth-web.log; then
-            echo "PSD character bridge perspective scale failed"; exit 1
-          fi
-          grep -q 'PSD DEPTH PASS:' psd-depth-web.log
-
-      - name: Check 2.5D lighting presets and real GPU frame differences
-        run: |
-          set -o pipefail
-          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_lighting_render_smoke.gd 2>&1 | tee psd-lighting-web.log
-          if grep -E 'SCRIPT ERROR|ERROR:|PSD LIGHTING FAIL' psd-lighting-web.log; then
-            echo "Lighting breakage in web-export candidate"; exit 1
-          fi
-          grep -q 'PSD LIGHTING PASS:' psd-lighting-web.log
-
-      - name: Verify weather effects before Web export
-        run: |
-          set -o pipefail
-          timeout 60s godot --headless --audio-driver Dummy --path . --script res://tests/rain_weather_smoke.gd 2>&1 | tee rain-weather-web-smoke.log
-          if grep -E 'SCRIPT ERROR|ERROR:|RAIN WEATHER FAIL' rain-weather-web-smoke.log; then
-            echo "Rain/weather integration failed"; exit 1
-          fi
-          grep -q 'RAIN WEATHER PASS:' rain-weather-web-smoke.log
-
-      - name: Export single-threaded Web build
-        run: |
-          mkdir -p build/web
-          echo "Godot templates available:"
-          find "$HOME/.local/share/godot/export_templates" -maxdepth 2 -type f \( -iname '*web*' -o -name version.txt \) | head -35 || true
-          godot --headless --verbose --path . --export-release "Web" build/web/index.html
-          test -s build/web/index.html
-          test -s build/web/index.wasm
-          test -s build/web/index.pck
-          # Run the EXPORTED DEFAULT Camera2D pack with a real graphical Compatibility renderer.
-          mkdir -p /tmp/lembah-export-check
-          cd /tmp/lembah-export-check
-          xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/web-export-check.log"
-          if grep -E 'SCRIPT ERROR|ERROR:|LEMBAH ASRI: approved concept texture is missing' "$GITHUB_WORKSPACE/build/web-export-check.log"; then
-            echo "Exported pack reported a runtime problem"
-            exit 1
-          fi
-          # Inspect the ROOT pack itself. An isolated /camera2d/ export does
-          # not count as correct unless opening / starts the approved camera.
-          grep -q 'LEMBAH ASRI PSD CAMERA2D PREVIEW READY:' "$GITHUB_WORKSPACE/build/web-export-check.log"
-          grep -q 'PSD NATIVE2D PLAYER READY: RUN8+IDLE8' "$GITHUB_WORKSPACE/build/web-export-check.log"
-          grep -q 'PSD CAMERA2D COLLISION READY:' "$GITHUB_WORKSPACE/build/web-export-check.log"
-          if grep -q 'LEMBAH ASRI MAIN PSD READY: four original layers, orthographic Camera3D' "$GITHUB_WORKSPACE/build/web-export-check.log"; then
-            echo "Wrong main scene: legacy Camera3D exported at site root"
-            exit 1
-          fi
-          cd "$GITHUB_WORKSPACE"
-          touch build/web/.nojekyll
-          echo "Web export files:"
-          ls -lh build/web/
-
-      - name: Smoke test approved proportional eight-direction preview
-        run: |
-          set -o pipefail
-          godot --headless --audio-driver Dummy --path . --script res://tests/run8_proportional_browser_smoke.gd 2>&1 | tee run8-proportional-browser-smoke.log
-          if grep -E 'SCRIPT ERROR|ERROR:|PROPORTIONAL RUN8 FAIL' run8-proportional-browser-smoke.log; then
-            echo "Approved 74-pose RUN8 preview is broken"; exit 1
-          fi
-          grep -q 'PROPORTIONAL RUN8 PASS:' run8-proportional-browser-smoke.log
-
-      - name: Regression test legacy 16-pose walk preview (not the published RUN8 test)
-        run: |
-          set -o pipefail
-          godot --headless --audio-driver Dummy --path . --script res://tests/run8_directions_smoke.gd 2>&1 | tee legacy-run8-smoke.log
-          if grep -E 'SCRIPT ERROR|ERROR:|RUN8 FAIL' legacy-run8-smoke.log; then
-            echo "Legacy walking test failed"; exit 1
-          fi
-          grep -q 'RUN8 PASS:' legacy-run8-smoke.log
-
-      - name: Verify uploaded run animation actually loads
-        run: |
-          set -o pipefail
-          godot --headless --audio-driver Dummy --path . --script res://tests/run8_uploaded_smoke.gd 2>&1 | tee uploaded-run8-smoke.log
-          if grep -E 'SCRIPT ERROR|ERROR:|UPLOADED RUN8 FAIL' uploaded-run8-smoke.log; then
-            echo "Uploaded run8 scene has runtime errors"
-            exit 1
-          fi
-          grep -q 'UPLOADED RUN8 PASS' uploaded-run8-smoke.log
-
-      - name: Export approved RUN8 proportional preview (game main remains unchanged)
-        run: |
-          set -euo pipefail
-          cp project.godot /tmp/lembah-main-project.godot
-          trap 'cp /tmp/lembah-main-project.godot project.godot' EXIT
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path("project.godot")
-          text = path.read_text(encoding="utf-8")
-          src = 'run/main_scene="res://scenes/rumah_ladang_psd_camera2d.tscn"'
-          dst = 'run/main_scene="res://scenes/run8_proportional_test.tscn"'
-          assert src in text, "Main scene has changed; do not replace it silently"
-          path.write_text(text.replace(src, dst), encoding="utf-8")
-          PY
-          mkdir -p build/web/run8
-          godot --headless --path . --editor --quit
-          godot --headless --path . --export-release "Web" build/web/run8/index.html
-          test -s build/web/run8/index.html
-          test -s build/web/run8/index.wasm
-          test -s build/web/run8/index.pck
-          # Verify the actual deployed /run8/ .pck starts the proportional
-          # scene. Previously /run8/ served a 16-frame WALK test despite PASS.
-          mkdir -p /tmp/lembah-proportional-preview-check
-          (
-            cd /tmp/lembah-proportional-preview-check
-            godot --headless --audio-driver Dummy --main-pack "$GITHUB_WORKSPACE/build/web/run8/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/proportional-run8-export-check.log"
-          )
-          if grep -E 'SCRIPT ERROR|ERROR:|PROPORTIONAL RUN8 FAIL' build/proportional-run8-export-check.log; then
-            echo "Exported proportional RUN8 pack has runtime errors"; exit 1
-          fi
-          grep -q 'PROPORTIONAL RUN8 PREVIEW ACTIVE: 74 poses' build/proportional-run8-export-check.log
-          echo "PROPORTIONAL RUN8 EXPORT PASS: 74 frames; no legacy WALK source"
-          # Also export the actual uploaded run sprites without replacing the legacy comparison.
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("project.godot")
-          s = p.read_text(encoding="utf-8")
-          old = 'run/main_scene="res://scenes/run8_proportional_test.tscn"'
-          new = 'run/main_scene="res://scenes/run8_uploaded.tscn"'
-          assert old in s
-          p.write_text(s.replace(old, new), encoding="utf-8")
-          PY
-          mkdir -p build/web/run8-uploaded
-          godot --headless --path . --editor --quit
-          godot --headless --path . --export-release "Web" build/web/run8-uploaded/index.html
-          test -s build/web/run8-uploaded/index.html
-          test -s build/web/run8-uploaded/index.wasm
-          test -s build/web/run8-uploaded/index.pck
-          echo "RUN8 UPLOADED EXPORT PASS"
-
-      - name: Export separate Rumah-Ladang RUN8 test without replacing old scenes
-        run: |
-          set -euo pipefail
-          cp project.godot /tmp/lembah-rumah-ladang-original-project.godot
-          trap 'cp /tmp/lembah-rumah-ladang-original-project.godot project.godot' EXIT
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("project.godot")
-          s = p.read_text(encoding="utf-8")
-          old = 'run/main_scene="res://scenes/rumah_ladang_psd_camera2d.tscn"'
-          new = 'run/main_scene="res://scenes/rumah_ladang_run8_test.tscn"'
-          assert old in s, "Old main scene must remain unchanged"
-          p.write_text(s.replace(old, new), encoding="utf-8")
-          PY
-          mkdir -p build/web/rumah-ladang-test
-          godot --headless --path . --editor --quit
-          godot --headless --path . --export-release "Web" build/web/rumah-ladang-test/index.html
-          test -s build/web/rumah-ladang-test/index.html
-          test -s build/web/rumah-ladang-test/index.wasm
-          test -s build/web/rumah-ladang-test/index.pck
-          mkdir -p /tmp/lembah-rumah-ladang-export-check
-          (
-            cd /tmp/lembah-rumah-ladang-export-check
-            godot --headless --audio-driver Dummy --main-pack "$GITHUB_WORKSPACE/build/web/rumah-ladang-test/index.pck" --quit-after 4 2>&1 | tee "$GITHUB_WORKSPACE/build/rumah-ladang-export-check.log"
-          )
-          if grep -E 'SCRIPT ERROR|ERROR:|RUMAH LADANG RUN8 FAIL' build/rumah-ladang-export-check.log; then
-            echo "New Rumah-Ladang test web pack has a runtime problem"; exit 1
-          fi
-          grep -q 'RUMAH LADANG RUN8 TEST ACTIVE: 74 normalized poses' build/rumah-ladang-export-check.log
-          grep -q 'RUMAH LADANG IDLE8 NEW READY: eight individually generated normalized standing poses' build/rumah-ladang-export-check.log
-          grep -q 'RUMAH LADANG IDLE8 NEW SCENE READY: all eight NEW poses normalized to RUN8' build/rumah-ladang-export-check.log
-          test -s assets/characters/idle8_new/Idle8_Normalized.png
-          echo '5fa6c2ca4f4f23c8f13e2a611626fc35a212cb4c7d52d745bdcf2eff798b0445  assets/characters/idle8_new/Idle8_Normalized.png' | sha256sum --check -
-          grep -q 'RUMAH LADANG CAMERA SYNC PASS: runner and Camera2D render-idle updates' build/rumah-ladang-export-check.log
-          test -s assets/art/scenes/rumah_ladang_empty.png
-          echo '7cfb92976182aa9c257954787fb7ab3f7c9cbf6298f8252944f5dc549e87d4c5  assets/art/scenes/rumah_ladang_empty.png' | sha256sum --check -
-          grep -q 'background=original' build/rumah-ladang-export-check.log
-          echo "RUMAH LADANG WEB EXPORT PASS: original lossless 1672x941 PNG and 74-frame RUN8 fully active"
-      - name: Validate native weather soil/river/storm before Web export
-        run: |
-          set -o pipefail
-          timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_weather_smoke.gd 2>&1 | tee native-weather-export.log
-          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATIVE WEATHER FAIL' native-weather-export.log; then exit 1; fi
-          grep -q 'PSD NATIVE WEATHER PASS:' native-weather-export.log
-          # Weather effect uses randomized rain/river GPU frames. The existing
-          # threshold sometimes fails one random sample (8 vs 16 contrast).
-          # Retry the same strict test 3 times; DO NOT change its criteria or
-          # ship a game if all three runs fail.
-          weather_gpu_pass=0
-          for attempt in 1 2 3; do
-            echo "Native weather GPU visual check attempt $attempt/3"
-            timeout 80s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_weather_render.gd 2>&1 | tee native-weather-gpu-export.log
-            if grep -Eq 'SCRIPT ERROR|ERROR:|PSD NATIVE WEATHER RENDER FAIL' native-weather-gpu-export.log; then
-              echo "Native weather GPU attempt $attempt reported an error"
-              continue
-            fi
-            if grep -q 'PSD NATIVE WEATHER RENDER PASS:' native-weather-gpu-export.log; then
-              weather_gpu_pass=1
-              break
-            fi
-          done
-          if [ "$weather_gpu_pass" -ne 1 ]; then
-            echo "Native weather GPU check failed all 3 attempts"
-            exit 1
-          fi
-
-      - name: Verify natural earth puddles are visible before Web export
-        run: |
-          set -o pipefail
-          timeout 75s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --path . --rendering-method gl_compatibility --script res://tests/psd_native_puddle_render.gd 2>&1 | tee natural-puddles-export.log
-          if grep -E 'SCRIPT ERROR|ERROR:|PSD NATURAL PUDDLES RENDER FAIL' natural-puddles-export.log; then exit 1; fi
-          grep -q 'PSD NATURAL PUDDLES RENDER PASS:' natural-puddles-export.log
-
-      - name: Publish /camera2d/ compatibility route matching the playable root
-        run: |
-          set -euo pipefail
-          # Main export is ALREADY Camera2D. Do not rewrite project settings,
-          # reimport sprites or swap the correct production entrypoint.
-          mkdir -p build/web/camera2d
-          cp build/web/index.* build/web/camera2d/
-          test -s build/web/camera2d/index.html
-          test -s build/web/camera2d/index.wasm
-          test -s build/web/camera2d/index.pck
-          cmp build/web/index.pck build/web/camera2d/index.pck
-          echo "CAMERA2D ROOT AND COMPATIBILITY PATH MATCH: same validated pack"
-
-      - name: Copy independent FBX browser tester (no main game changes)
-        run: |
-          mkdir -p build/web/run-tester
-          cp tools/run-3d-browser/index.html tools/run-3d-browser/app.js tools/run-3d-browser/README.md build/web/run-tester/
-          unzip -q tools/run-3d-browser/assets.zip -d build/web/run-tester/
-          test -s build/web/run-tester/index.html
-          test -s build/web/run-tester/app.js
-          test -s build/web/run-tester/assets/Running_Web_UV.fbx
-          test -s build/web/run-tester/assets/Run_Web_UV.fbx
-          test -s build/web/run-tester/assets/basecolor.webp
-          echo "Optional standalone 3D FBX tester published under /run-tester/"
-
-      - name: Copy independent Movement Tester with local FBX animation slots
-        run: |
-          mkdir -p build/web/movement-tester
-          cp tools/movement-tester/index.html tools/movement-tester/app.js tools/movement-tester/README.md build/web/movement-tester/
-          test -s build/web/movement-tester/index.html
-          test -s build/web/movement-tester/app.js
-          echo "Movement tester published under /movement-tester/"
-
-      - name: Validate V5 village road clearance and river source
-        run: python3 blockout3d/tests/terrain_v5_layout_audit.py
-      - name: Validate V7 settlement alignment with house pads and roads
-        run: python3 blockout3d/tests/terrain_v7_layout_audit.py
-      - name: Validate V7.3 vegetation protects plots, paths, bridges and village plaza
-        run: python3 blockout3d/tests/terrain_v73_vegetation_layout.py
-      - name: Optimize uploaded terrain for Web before 3D import
-        run: |
-          set -euo pipefail
-          python3 -m pip install --user Pillow
-          python3 blockout3d/tools/optimize_terrain_base.py
-          test -s blockout3d/assets/environment/island/terrain_base_web.glb
-          # The original high-resolution GLB stays in GitHub; it is excluded
-          # only from the temporary CI export workspace for Web performance.
-          mv "blockout3d/assets/environment/island/terrain base.glb" /tmp/lembah-terrain-source-original.glb
-
-      - name: Export independent new 3D blockout at /blockout3d/
-        run: |
-          # Keep the root 2D game exactly as it is. Publish 3D only in its own route.
-          godot --headless --path blockout3d --editor --quit
-          mkdir -p build/web/blockout3d
-          godot --headless --path blockout3d --export-release "Web" "$GITHUB_WORKSPACE/build/web/blockout3d/index.html"
-          test -s build/web/blockout3d/index.html
-          test -s build/web/blockout3d/index.wasm
-          test -s build/web/blockout3d/index.pck
-
-      - name: Validate uploaded terrain scene and collision in Godot
-        run: |
-          set -o pipefail
-          timeout 120s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_base_smoke.gd 2>&1 | tee terrain-base-deploy.log
-          if grep -E 'SCRIPT ERROR|ERROR:|TERRAIN BASE FAIL' terrain-base-deploy.log; then exit 1; fi
-          grep -q 'TERRAIN BASE SMOKE PASS:' terrain-base-deploy.log
-
-      - name: Check V7 real buildings and player-wall collision
-        run: |
-          set -o pipefail
-          timeout 125s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v7_settlement_smoke.gd 2>&1 | tee terrain-v7.log
-          if grep -E 'SCRIPT ERROR|ERROR:|V7 SETTLEMENT FAIL' terrain-v7.log; then exit 1; fi
-          grep -q 'V7 SETTLEMENT SMOKE PASS:' terrain-v7.log
-      - name: Verify V7.3 terrain-grounded vegetation, collision and instanced grass
-        run: |
-          set -o pipefail
-          timeout 145s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v73_vegetation_smoke.gd 2>&1 | tee terrain-v73-vegetation.log
-          if grep -E 'SCRIPT ERROR|ERROR:|V7.3 VEGETATION FAIL' terrain-v73-vegetation.log; then exit 1; fi
-          grep -q 'V7.3 VEGETATION SMOKE PASS:' terrain-v73-vegetation.log
-      - name: Verify V7.9 five separate area scenes and distance-culling physics
-        run: |
-          timeout 135s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v79_streaming_smoke.gd 2>&1 | tee terrain-v79-area-streaming.log
-          if grep -E 'SCRIPT ERROR|ERROR:|AREA V7.9 FAIL' terrain-v79-area-streaming.log; then exit 1; fi
-          grep -q 'AREA V7.9 SCENE STREAM PASS:' terrain-v79-area-streaming.log
-      - name: Verify V8.0 actual area scene instantiation/unloading and debug menu
-        run: |
-          timeout 155s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v80_scene_loading_smoke.gd 2>&1 | tee terrain-v80-stream.log
-          if grep -E 'SCRIPT ERROR|ERROR:|AREA V8 FAIL' terrain-v80-stream.log; then exit 1; fi
-          grep -q 'AREA V8 REAL STREAM PASS:' terrain-v80-stream.log
-          grep -q 'AREA V8.1 SCENE PICKER AUDIT PASS:' terrain-v80-stream.log
-      - name: Walk real player capsule across both bridges
-        run: |
-          set -o pipefail
-          timeout 120s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/terrain_v6_traversal_smoke.gd 2>&1 | tee terrain-v6-traversal.log
-          if grep -E 'SCRIPT ERROR|ERROR:|TERRAIN V6 TRAVERSAL FAIL' terrain-v6-traversal.log; then exit 1; fi
-          grep -q 'TERRAIN V6 TRAVERSAL PASS:' terrain-v6-traversal.log
-
-      - name: Export independent new terrain comparison at /terrain-test/
-        run: |
-          set -euo pipefail
-          cp blockout3d/project.godot /tmp/lembah-terrain-test-project-original.godot
-          trap 'cp /tmp/lembah-terrain-test-project-original.godot blockout3d/project.godot' EXIT
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path("blockout3d/project.godot")
-          s=p.read_text(encoding="utf-8")
-          old='run/main_scene="res://scenes/world_nelayan_pesisir.tscn"'
-          new='run/main_scene="res://scenes/terrain_base_test.tscn"'
-          assert old in s, "Expected original 3D scene, refusing to modify wrong project"
-          p.write_text(s.replace(old,new),encoding="utf-8")
-          PY
-          godot --headless --path blockout3d --editor --quit
-          mkdir -p build/web/terrain-test
-          godot --headless --path blockout3d --export-release "Web" "$GITHUB_WORKSPACE/build/web/terrain-test/index.html"
-          test -s build/web/terrain-test/index.html
-          test -s build/web/terrain-test/index.wasm
-          test -s build/web/terrain-test/index.pck
-          # V7.8 audit: verify the REAL exported Web pack, not only the
-          # editor-side .tscn. This catches missing resources / wrong entrypoint
-          # which the previous pre-export smoke tests could not detect.
-          python3 blockout3d/tools/terrain_web_boot_audit.py --selftest
-          python3 blockout3d/tools/terrain_web_boot_audit.py --patch build/web/terrain-test/index.html --revision "${GITHUB_SHA:0:8}"
-          python3 blockout3d/tools/terrain_web_boot_audit.py --verify build/web/terrain-test/index.html --revision "${GITHUB_SHA:0:8}"
-          echo "TERRAIN WEB PACK BYTES: $(stat -c %s build/web/terrain-test/index.pck)"
-          set -o pipefail
-          mkdir -p /tmp/lembah-packed-terrain-audit
-          (
-            cd /tmp/lembah-packed-terrain-audit
-            timeout 120s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/terrain-test/index.pck" --quit-after 220 2>&1 | tee "$GITHUB_WORKSPACE/terrain-web-packed-smoke.log"
-          )
-          if grep -E 'SCRIPT ERROR|ERROR:|TERRAIN BASE FAIL|V7 SETTLEMENT FAIL|V7.3 VEGETATION FAIL' terrain-web-packed-smoke.log; then
-            echo "V7.8 WEB PACK FAIL: exported game has runtime errors"
-            exit 1
-          fi
-          grep -q 'TERRAIN BASE TEST PASS:' terrain-web-packed-smoke.log
-          echo 'V7.8 WEB PACK SMOKE PASS: actual packed terrain-test boots and paints world'
-          echo 'TERRAIN BASE WEB TEST READY: /terrain-test/'
-
-      - name: Validate modular Balai Desa geometry + UV material kit
-        run: |
-          set -o pipefail
-          timeout 90s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --path blockout3d --script res://tests/modular_balai_smoke.gd 2>&1 | tee modular-balai-deploy.log
-          if grep -E 'SCRIPT ERROR|ERROR:|BALAI MODULAR V0.1 FAIL' modular-balai-deploy.log; then exit 1; fi
-          grep -q 'BALAI MODULAR V0.1 PASS:' modular-balai-deploy.log
-
-      - name: Export separate Balai Desa modular 3D preview at /balai-modular/
-        run: |
-          set -euo pipefail
-          cp blockout3d/project.godot /tmp/lembah-modular-preview-project-original.godot
-          trap 'cp /tmp/lembah-modular-preview-project-original.godot blockout3d/project.godot' EXIT
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path("blockout3d/project.godot")
-          old='run/main_scene="res://scenes/world_nelayan_pesisir.tscn"'
-          new='run/main_scene="res://scenes/modular_balai_preview.tscn"'
-          content=p.read_text(encoding="utf-8")
-          assert old in content, "Modular export must not change the root game"
-          p.write_text(content.replace(old,new),encoding="utf-8")
-          PY
-          godot --headless --path blockout3d --editor --quit
-          mkdir -p build/web/balai-modular
-          godot --headless --path blockout3d --export-release "Web" "$GITHUB_WORKSPACE/build/web/balai-modular/index.html"
-          test -s build/web/balai-modular/index.html
-          test -s build/web/balai-modular/index.wasm
-          test -s build/web/balai-modular/index.pck
-          mkdir -p /tmp/balai-modular-packed
-          (
-            cd /tmp/balai-modular-packed
-            timeout 60s xvfb-run -a -s "-screen 0 1280x720x24" godot --audio-driver Dummy --rendering-method gl_compatibility --main-pack "$GITHUB_WORKSPACE/build/web/balai-modular/index.pck" --quit-after 100 2>&1 | tee "$GITHUB_WORKSPACE/modular-balai-packed.log"
-          )
-          if grep -E 'SCRIPT ERROR|ERROR:' modular-balai-packed.log; then exit 1; fi
-          grep -q 'BALAI MODULAR PREVIEW READY' modular-balai-packed.log
-          echo 'BALAI MODULAR V0.1 WEB PACK PASS: /balai-modular/ ready'
-      - name: Verify actual WebGL render in Chromium browser
-        timeout-minutes: 6
-        run: |
-          set -euo pipefail
-          cd blockout3d/tools
-          npm install --no-save --silent playwright@1.56.1 pngjs@7.0.0
-          if command -v google-chrome >/dev/null 2>&1; then
-            export CHROME_PATH="$(command -v google-chrome)"
-          elif command -v chromium >/dev/null 2>&1; then
-            export CHROME_PATH="$(command -v chromium)"
-          else
-            npx playwright install chromium
-          fi
-          cd "$GITHUB_WORKSPACE"
-          mkdir -p build/browser-audit
-          python3 -m http.server 8767 --bind 127.0.0.1 --directory build/web >build/browser-audit/http.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          export AUDIT_DIR="$GITHUB_WORKSPACE/build/browser-audit"
-          export AUDIT_URL="http://127.0.0.1:8767/terrain-test/"
-          timeout 170s node blockout3d/tools/terrain_browser_smoke.cjs 2>&1 | tee build/browser-audit/console.log
-          grep -q '"ok":true' build/browser-audit/console.log
-
-      - name: Emit compact Chromium canvas proof for visual audit
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          from PIL import Image
-          import io, base64
-          path=Path("build/browser-audit/terrain-canvas.png")
-          assert path.is_file(), "No screenshot from real game canvas"
-          img=Image.open(path).convert("RGB").resize((320,180))
-          stream=io.BytesIO()
-          img.save(stream,format="JPEG",quality=63,optimize=True)
-          print("LEMBAH_WEBGL_CANVAS_JPEG_B64:",base64.b64encode(stream.getvalue()).decode())
-          PY
-
-      - name: Upload browser render diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lembah-asri-browser-audit
-          path: build/browser-audit
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Include expanded 260m island mesh with painted map
-        run: |
-          set -euo pipefail
-          cp blockout3d/assets/environment/island/terrain_v3_painted_colormap.png build/island-mesh/terrain_v3_painted_colormap.png
-          test -s build/island-mesh/Lembah_Asri_Island_260m.glb
-          test -s build/island-mesh/terrain_v3_painted_colormap.png
-          echo "TERRAIN V4 DOWNLOAD READY: Blender GLB 1 unit = 1 metre + 1536px painted terrain colormap"
-
-      - name: Upload standalone expanded island mesh (Blender/Godot)
-        uses: actions/upload-artifact@v4
-        with:
-          name: lembah-asri-island-mesh-260m
-          path: build/island-mesh
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Add Three.js preview under /threejs/ without replacing Godot root
-        run: |
-          set -euo pipefail
-          mkdir -p build/web/threejs
-          cp -R migration-source/web/dist/. build/web/threejs/
-          test -s build/web/threejs/index.html
-          echo "THREE.JS PREVIEW READY: /threejs/"
-
-      - name: Build and publish Three.js mobile/browser runtime
-        run: |
-          set -euo pipefail
-          cd web
-          npm install
-          npm run build
-          mkdir -p "$GITHUB_WORKSPACE/build/web/threejs"
-          cp -R dist/. "$GITHUB_WORKSPACE/build/web/threejs/"
-          test -s "$GITHUB_WORKSPACE/build/web/threejs/index.html"
-          echo "THREE.JS WEB BUILD READY: /threejs/"
-
-      - name: Upload browser build
-        uses: actions/upload-artifact@v4
-        with:
-          name: lembah-asri-web
-          path: build/web
-          if-no-files-found: error
-          retention-days: 7
+          mkdir -p build/pages
+          cp -R web/dist/. build/pages/
+          touch build/pages/.nojekyll
+          test -s build/pages/index.html
 
       - name: Upload GitHub Pages package
         uses: actions/upload-pages-artifact@v4
         with:
-          path: build/web
+          path: build/pages
 
   deploy:
-    name: Deploy GitHub Pages
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/migration/threejs-foundation'
+    name: Deploy Three.js to GitHub Pages
     needs: build
     runs-on: ubuntu-latest
-    # Pages can sit in updating_pages for more than ten minutes when
-    # processing this multi-route Godot archive; the old 10m job limit
-    # cancelled a valid uploaded artifact without any Godot errors.
-    timeout-minutes: 35
+    timeout-minutes: 15
     permissions:
       pages: write
       id-token: write
@@ -573,9 +62,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy Godot game
+      - name: Publish Three.js game
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          # Override the action's OWN 600000ms timeout as well.
-          timeout: 1800000
