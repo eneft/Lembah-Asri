@@ -45,9 +45,9 @@ export default function App() {
     <div className="game-canvas" ref={host} />
     <header className="brand"><span className="brand-mark">LA</span><div><strong>Lembah Asri</strong><small>THREE.JS FOUNDATION · LEVEL 01</small></div></header>
     <section className="objective"><b>Tujuan Hari Ini</b><span>Jelajahi halaman desa</span><span>Temui warga sekitar</span></section>
-    <aside className="status"><span>☀ Musim Kemarau</span><strong>08:20</strong><small>{ready ? '3D WORLD READY' : error ? 'ENGINE ERROR' : 'INITIALIZING 3D WORLD'}</small></aside>
+    <aside className="status"><span>☀ Musim Kemarau</span><strong>08:20</strong><small>{ready ? '3D WORLD READY' : error ? 'ENGINE ERROR' : 'LOADING 3D CHARACTER'}</small></aside>
     {error && <div className="error">{error}</div>}
-    <footer className="controls"><b>WASD</b> Bergerak <b>Mouse</b> Putar kamera <b>Shift</b> Lari</footer>
+    <footer className="controls"><b>WASD</b> Bergerak <b>Mouse</b> Putar kamera <b>Shift</b> Lari <b>Space</b> Lompat</footer>
     <div className="mobile-joystick" ref={joystickRef}
       onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); moveStick(event); }}
       onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) moveStick(event); }}
@@ -57,6 +57,7 @@ export default function App() {
         <div className="joystick-thumb" style={{ transform: `translate(calc(-50% + ${stick.x}px), calc(-50% + ${stick.y}px))` }} />
       </div>
     </div>
+    <button className="mobile-jump" onPointerDown={event => event.preventDefault()} onClick={() => gameRef.current?.triggerJump()} aria-label="Lompat">JUMP</button>
     <div className="crosshair">＋</div>
   </main>;
 }
