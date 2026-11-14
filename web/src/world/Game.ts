@@ -18,6 +18,8 @@ export class Game {
   private resizeObserver: ResizeObserver;
   private onKeyDown = (e: KeyboardEvent) => { this.keys.add(e.key.toLowerCase()); };
   private onKeyUp = (e: KeyboardEvent) => { this.keys.delete(e.key.toLowerCase()); };
+  private onPointerUp = () => { this.dragging = false; };
+  private cameraDistance = 10;
 
   private constructor(host: HTMLElement) {
     this.host = host;
@@ -45,6 +47,8 @@ export class Game {
     this.resizeObserver.observe(host);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('pointerup', this.onPointerUp);
+    window.addEventListener('pointercancel', this.onPointerUp);
     this.renderer.domElement.addEventListener('pointerdown', this.onPointerDown);
     this.renderer.domElement.addEventListener('pointermove', this.onPointerMove);
     this.renderer.domElement.addEventListener('wheel', this.onWheel, { passive: true });
@@ -59,7 +63,7 @@ export class Game {
     const floor = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     game.world.createCollider(RAPIER.ColliderDesc.cuboid(80, 0.25, 80).setTranslation(0, -0.25, 0), floor);
     const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 1.2, 7).lockRotations());
-    game.world.createCollider(RAPIER.ColliderDesc.capsule(0.62, 0.34).setFriction(0.8), body);
+    game.world.createCollider(RAPIER.ColliderDesc.capsule(0.56, 0.28).setFriction(0.8), body);
     game.player = body;
     game.playerMesh = game.makePlayer();
     game.scene.add(game.playerMesh);
@@ -117,10 +121,10 @@ export class Game {
   }
   private makePlayer() {
     const g=new THREE.Group();
-    const body=new THREE.Mesh(new THREE.CapsuleGeometry(.34,.7,4,8),this.mat('#e8d4b3')); body.position.y=.92; body.castShadow=true; g.add(body);
-    const head=new THREE.Mesh(new THREE.SphereGeometry(.34,12,10),this.mat('#c98e68')); head.position.y=1.65; head.castShadow=true; g.add(head);
-    const cap=new THREE.Mesh(new THREE.SphereGeometry(.37,12,6,0,Math.PI*2,0,Math.PI/2),this.mat('#526d45')); cap.position.y=1.88; cap.castShadow=true; g.add(cap);
-    const pack=this.box(g,'Backpack',[.58,.62,.28],[0,1.0,-.38],'#65784a');
+    const body=new THREE.Mesh(new THREE.CapsuleGeometry(.25,.55,4,8),this.mat('#e8d4b3')); body.position.y=.78; body.castShadow=true; g.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(.23,12,10),this.mat('#c98e68')); head.position.y=1.35; head.castShadow=true; g.add(head);
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(.27,12,6,0,Math.PI*2,0,Math.PI/2),this.mat('#526d45')); cap.position.y=1.55; cap.castShadow=true; g.add(cap);
+    const pack=this.box(g,'Backpack',[.42,.48,.22],[0,.85,-.30],'#65784a');
     pack.rotation.x=-.12;
     return g;
   }
@@ -128,11 +132,11 @@ export class Game {
   private dragging=false;
   private onPointerDown=(e:PointerEvent)=>{this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
   private onPointerMove=(e:PointerEvent)=>{if(!this.dragging)return;this.yaw-=(e.clientX-this.pointerX)*.006;this.pointerX=e.clientX;};
-  private onWheel=(e:WheelEvent)=>{this.camera.position.multiplyScalar(e.deltaY>0?1.06:.94);};
+  private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
-    if(this.world&&this.player){const forward=(this.keys.has('w')?1:0)-(this.keys.has('s')?1:0);const side=(this.keys.has('d')?1:0)-(this.keys.has('a')?1:0);const speed=this.keys.has('shift')?6:3.5;const dir=new THREE.Vector3(side,0,-forward);dir.applyAxisAngle(new THREE.Vector3(0,1,0),this.yaw).normalize();const vel=this.player.linvel();this.player.setLinvel({x:dir.x*speed,y:vel.y,z:dir.z*speed},true);this.world.timestep=1/60;this.world.step();const p=this.player.translation();this.playerMesh.position.set(p.x,p.y-.95,p.z);if(dir.lengthSq()>.01)this.playerMesh.rotation.y=Math.atan2(dir.x,dir.z);}
-    const target=this.playerMesh?.position??new THREE.Vector3();const offset=new THREE.Vector3(Math.sin(this.yaw)*10,5.8,Math.cos(this.yaw)*10);this.camera.position.lerp(target.clone().add(offset),.09);this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.renderer.render(this.scene,this.camera);
+    if(this.world&&this.player){const forward=(this.keys.has('w')?1:0)-(this.keys.has('s')?1:0);const side=(this.keys.has('d')?1:0)-(this.keys.has('a')?1:0);const speed=this.keys.has('shift')?6:3.5;const dir=new THREE.Vector3(side,0,-forward);dir.applyAxisAngle(new THREE.Vector3(0,1,0),this.yaw).normalize();const vel=this.player.linvel();this.player.setLinvel({x:dir.x*speed,y:vel.y,z:dir.z*speed},true);this.world.timestep=1/60;this.world.step();const p=this.player.translation();this.playerMesh.position.set(p.x,p.y-.84,p.z);if(dir.lengthSq()>.01)this.playerMesh.rotation.y=Math.atan2(dir.x,dir.z);}
+    const target=this.playerMesh?.position??new THREE.Vector3();const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*.58,Math.cos(this.yaw)*this.cameraDistance);this.camera.position.lerp(target.clone().add(offset),.09);this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.renderer.render(this.scene,this.camera);
   };
-  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);this.renderer.dispose();this.host.removeChild(this.renderer.domElement);this.world?.free();}
+  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.renderer.dispose();this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }
