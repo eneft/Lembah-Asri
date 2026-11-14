@@ -533,6 +533,17 @@ jobs:
           test -s build/web/threejs/index.html
           echo "THREE.JS PREVIEW READY: /threejs/"
 
+      - name: Build and publish Three.js mobile/browser runtime
+        run: |
+          set -euo pipefail
+          cd web
+          npm install
+          npm run build
+          mkdir -p "$GITHUB_WORKSPACE/build/web/threejs"
+          cp -R dist/. "$GITHUB_WORKSPACE/build/web/threejs/"
+          test -s "$GITHUB_WORKSPACE/build/web/threejs/index.html"
+          echo "THREE.JS WEB BUILD READY: /threejs/"
+
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:
