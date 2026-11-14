@@ -1,0 +1,28 @@
+name: Three.js Character Build Check
+
+on:
+  push:
+    branches: [feature/threejs-3d-character]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies and type-check/build
+        working-directory: web
+        run: |
+          npm install
+          npm run build
+          test -s dist/index.html
+          test -s dist/models/character/Orc-Idle.fbx
+          test -s dist/models/character/Walking.fbx
+          test -s dist/models/character/Running.fbx
+          test -s dist/models/character/Jump-Over.fbx
