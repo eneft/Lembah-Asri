@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Game } from '../world/Game';
 
 export default function App() {
@@ -22,7 +22,7 @@ export default function App() {
     return () => { active = false; gameRef.current = undefined; game?.dispose(); };
   }, []);
 
-  const moveStick = (event: React.PointerEvent<HTMLDivElement>) => {
+  const moveStick = (event: PointerEvent<HTMLDivElement>) => {
     const bounds = joystickRef.current?.getBoundingClientRect();
     if (!bounds) return;
     const radius = bounds.width * 0.34;
