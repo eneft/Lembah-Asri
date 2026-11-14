@@ -88,6 +88,9 @@ export class Game {
     try {
       game.playerMesh = await game.loadPlayer();
       game.scene.add(game.playerMesh);
+      // Show the character as soon as the idle model is ready. The other
+      // animation FBXs are large; load them after the player is already visible.
+      void game.loadMotionClips();
     } catch (error) {
       game.dispose();
       throw new Error(`Gagal memuat karakter 3D dan animasinya: ${String(error)}`);
@@ -98,16 +101,9 @@ export class Game {
   private async loadPlayer(): Promise<THREE.Group> {
     const loader = new FBXLoader();
     const base = './models/character/';
-    const files: Record<Motion, string> = {
-      idle: 'Orc-Idle.fbx',
-      walk: 'Walking.fbx',
-      run: 'Running.fbx',
-      jump: 'Jump-Over.fbx'
-    };
-
-    // All four FBX files share the exact same mesh and skeleton. Keep only
-    // the idle file's model; import the remaining files as animation clips.
-    const idleAsset = await loader.loadAsync(base + files.idle);
+    // Load only the base character first so the player can appear immediately.
+    // The walk/run/jump FBXs are fetched separately in the background.
+    const idleAsset = await loader.loadAsync(base + 'Orc-Idle.fbx');
     const model = idleAsset as THREE.Group;
     model.name = 'LembahAsri_Player';
     const bounds = new THREE.Box3().setFromObject(model);
@@ -132,24 +128,42 @@ export class Game {
     const idleClip = idleAsset.animations[0];
     if (!idleClip) throw new Error('Clip idle tidak ditemukan pada Orc Idle.fbx');
     idleClip.name = 'idle';
-    this.actions.idle = this.mixer.clipAction(idleClip);
-
-    for (const motion of ['walk', 'run', 'jump'] as const) {
-      const asset = await loader.loadAsync(base + files[motion]);
-      const clip = asset.animations[0];
-      if (!clip) throw new Error(`Clip ${motion} tidak ditemukan pada ${files[motion]}`);
-      clip.name = motion;
-      const action = this.mixer.clipAction(clip);
-      if (motion === 'jump') {
-        action.setLoop(THREE.LoopOnce, 1);
-        action.clampWhenFinished = true;
-      } else {
-        action.setLoop(THREE.LoopRepeat, Infinity);
-      }
-      this.actions[motion] = action;
-    }
+    const idleAction = this.mixer.clipAction(idleClip);
+    idleAction.setLoop(THREE.LoopRepeat, Infinity);
+    this.actions.idle = idleAction;
     this.playMotion('idle', 0);
     return model;
+  }
+
+  private async loadMotionClips() {
+    const loader = new FBXLoader();
+    const clips: Array<[Exclude<Motion, 'idle'>, string]> = [
+      ['walk', 'Walking.fbx'],
+      ['run', 'Running.fbx'],
+      ['jump', 'Jump-Over.fbx']
+    ];
+    // Parallel background loading avoids serially blocking the first render.
+    const results = await Promise.allSettled(
+      clips.map(async ([motion, file]) => {
+        const asset = await loader.loadAsync('./models/character/' + file);
+        const clip = asset.animations[0];
+        if (!clip) throw new Error(`Clip ${motion} tidak ditemukan pada ${file}`);
+        clip.name = motion;
+        const action = this.mixer!.clipAction(clip);
+        if (motion === 'jump') {
+          action.setLoop(THREE.LoopOnce, 1);
+          action.clampWhenFinished = true;
+        } else {
+          action.setLoop(THREE.LoopRepeat, Infinity);
+        }
+        this.actions[motion] = action;
+      })
+    );
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error(`Gagal memuat animasi ${clips[index][0]}:`, result.reason);
+      }
+    });
   }
 
   private playMotion(motion: Motion, fade = 0.18) {
