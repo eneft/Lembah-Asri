@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 
@@ -51,15 +52,27 @@ export class Game {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 1.0;
+    // Generate a soft image-based environment so imported PBR assets receive
+    // broad ambient reflections like they do in the source 3D viewer.
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const roomEnvironment = new RoomEnvironment();
+    const environmentTarget = pmrem.fromScene(roomEnvironment, 0.04);
+    this.scene.environment = environmentTarget.texture;
+    this.scene.environmentIntensity = 0.55;
+    roomEnvironment.dispose();
+    pmrem.dispose();
     host.appendChild(this.renderer.domElement);
     this.scene.background = new THREE.Color('#a9d4e9');
     this.scene.fog = new THREE.Fog('#c8dfcf', 38, 115);
     this.camera.position.set(0, 6, -9);
-    this.scene.add(new THREE.HemisphereLight('#e9f5ff', '#8f876d', 2.2));
-    const sun = new THREE.DirectionalLight('#fff3dc', 2.0);
+    this.scene.add(new THREE.HemisphereLight('#e9f5ff', '#9b9277', 1.85));
+    const sun = new THREE.DirectionalLight('#fff3dc', 1.65);
     sun.position.set(-18, 30, -12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.00015;
+    sun.shadow.normalBias = 0.035;
+    sun.shadow.radius = 4;
     sun.shadow.camera.left = -35; sun.shadow.camera.right = 35;
     sun.shadow.camera.top = 35; sun.shadow.camera.bottom = -35;
     this.scene.add(sun);
@@ -270,8 +283,12 @@ export class Game {
         if (!(object instanceof THREE.Mesh)) return;
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         for (const material of materials) {
-          const mapped = material as THREE.Material & { normalScale?: THREE.Vector2 };
-          if (mapped.normalScale) mapped.normalScale.set(0.62, 0.62);
+          const mapped = material as THREE.Material & {
+            normalScale?: THREE.Vector2;
+            aoMapIntensity?: number;
+          };
+          if (mapped.normalScale) mapped.normalScale.set(0.5, 0.5);
+          if (mapped.aoMap) mapped.aoMapIntensity = 0.72;
         }
       });
 
