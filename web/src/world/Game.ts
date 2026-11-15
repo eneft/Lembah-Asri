@@ -49,14 +49,14 @@ export class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     host.appendChild(this.renderer.domElement);
     this.scene.background = new THREE.Color('#a9d4e9');
     this.scene.fog = new THREE.Fog('#c8dfcf', 38, 115);
     this.camera.position.set(0, 6, -9);
-    this.scene.add(new THREE.HemisphereLight('#e9f5ff', '#7d795d', 2.0));
-    const sun = new THREE.DirectionalLight('#fff0d2', 3.0);
+    this.scene.add(new THREE.HemisphereLight('#e9f5ff', '#8f876d', 2.2));
+    const sun = new THREE.DirectionalLight('#fff3dc', 2.0);
     sun.position.set(-18, 30, -12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -264,6 +264,16 @@ export class Game {
       const bounds = new THREE.Box3().setFromObject(source);
       const sourceHeight = Math.max(bounds.max.y - bounds.min.y, 0.001);
       this.prepareImportedMaterials(source);
+      // Keep the authored hand-painted color dominant; soften only the
+      // imported normal response so the bark and leaf brushwork stays legible.
+      source.traverse(object => {
+        if (!(object instanceof THREE.Mesh)) return;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) {
+          const mapped = material as THREE.Material & { normalScale?: THREE.Vector2 };
+          if (mapped.normalScale) mapped.normalScale.set(0.62, 0.62);
+        }
+      });
 
       for (const placement of placements) {
         const tree = source.clone(true);
