@@ -2,14 +2,11 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { OutlineEffect } from 'three/examples/jsm/effects/OutlineEffect.js';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
-  private outlineEffect: OutlineEffect;
-  private toonGradient: THREE.DataTexture;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(48, 1, 0.1, 500);
   private world!: RAPIER.World;
@@ -49,13 +46,6 @@ export class Game {
     this.host = host;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    this.toonGradient = this.createToonGradient();
-    this.outlineEffect = new OutlineEffect(this.renderer, {
-      defaultThickness: 0.0022,
-      defaultColor: [0.16, 0.12, 0.09],
-      defaultAlpha: 0.72,
-      defaultKeepAlive: true
-    });
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -110,25 +100,9 @@ export class Game {
     return game;
   }
 
-  private createToonGradient() {
-    // Four discrete light bands: shadow, mid-shadow, light and highlight.
-    const data = new Uint8Array([
-      62, 62, 62, 255,
-      122, 122, 122, 255,
-      188, 188, 188, 255,
-      255, 255, 255, 255
-    ]);
-    const texture = new THREE.DataTexture(data, 4, 1, THREE.RGBAFormat);
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    texture.generateMipmaps = false;
-    texture.needsUpdate = true;
-    return texture;
-  }
-
-  private makeToonMaterial(source: THREE.Material | string) {
+  private makeAlbedoMaterial(source: THREE.Material | string) {
     const original = typeof source === 'string' ? undefined : source as THREE.MeshStandardMaterial;
-    const toon = new THREE.MeshToonMaterial({
+    const material = new THREE.MeshStandardMaterial({
       color: original?.color?.clone() ?? new THREE.Color(typeof source === 'string' ? source : 0xffffff),
       map: original?.map ?? null,
       alphaMap: original?.alphaMap ?? null,
@@ -145,24 +119,21 @@ export class Game {
       vertexColors: original?.vertexColors ?? false,
       alphaTest: original?.alphaTest ?? 0,
       depthWrite: original?.depthWrite ?? true,
-      gradientMap: this.toonGradient
+      roughness: original?.roughness ?? 0.88,
+      metalness: original?.metalness ?? 0
     });
-    toon.name = typeof source === 'string' ? 'LembahAsri_Toon' : source.name;
-    toon.userData.outlineParameters = {
-      thickness: 0.0022,
-      color: [0.16, 0.12, 0.09],
-      alpha: 0.72
-    };
-    return toon;
+    if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
+    material.name = typeof source === 'string' ? 'LembahAsri_Albedo' : source.name;
+    return material;
   }
 
-  private toonizeObject(root: THREE.Object3D) {
+  private applyAlbedoMaterials(root: THREE.Object3D) {
     root.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
       const current = object.material;
       object.material = Array.isArray(current)
-        ? current.map(material => this.makeToonMaterial(material))
-        : this.makeToonMaterial(current);
+        ? current.map(material => this.makeAlbedoMaterial(material))
+        : this.makeAlbedoMaterial(current);
       object.castShadow = true;
       object.receiveShadow = true;
     });
@@ -181,7 +152,7 @@ export class Game {
     const scale = 1.68 / height;
     model.scale.setScalar(scale);
     model.position.y = -bounds.min.y * scale;
-    this.toonizeObject(model);
+    this.applyAlbedoMaterials(model);
 
     this.mixer = new THREE.AnimationMixer(model);
     const idleClip = idleAsset.animations[0];
@@ -239,7 +210,7 @@ export class Game {
   }
 
   private mat(color: string) {
-    return this.makeToonMaterial(color);
+    return this.makeAlbedoMaterial(color);
   }
   private box(parent: THREE.Object3D, name: string, size: [number,number,number], pos: [number,number,number], color: string) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), this.mat(color));
@@ -318,7 +289,7 @@ export class Game {
   private onPointerDown=(e:PointerEvent)=>{this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
   private onPointerMove=(e:PointerEvent)=>{if(!this.dragging)return;this.yaw-=(e.clientX-this.pointerX)*.006;this.pointerX=e.clientX;};
   private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
-  private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.outlineEffect.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
+  private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
     if(this.world&&this.player){
       this.accumulator+=dt;
@@ -352,7 +323,7 @@ export class Game {
     }
     const target=this.playerMesh?.position??new THREE.Vector3();
     const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*.58,Math.cos(this.yaw)*this.cameraDistance);
-    this.camera.position.lerp(target.clone().add(offset),.09);this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.outlineEffect.render(this.scene,this.camera);
+    this.camera.position.lerp(target.clone().add(offset),.09);this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.renderer.render(this.scene,this.camera);
   };
-  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.renderer.dispose();this.toonGradient.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
+  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }
