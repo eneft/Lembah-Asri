@@ -159,6 +159,44 @@ export class Game {
     });
   }
 
+  /**
+   * The authored tree GLB is a hand-painted color asset, not a metallic prop.
+   * Its packed ORM texture contains a non-zero blue metallic channel, which
+   * makes the leaves/bark respond too much like a reflective PBR surface.
+   * Keep the original albedo and normal maps, but use a fully matte response.
+   */
+  private prepareHandPaintedTreeMaterials(root: THREE.Object3D) {
+    const maxAnisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    root.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const convert = (source: THREE.Material): THREE.Material => {
+        if (!(source instanceof THREE.MeshStandardMaterial)) return source;
+        const painted = source.clone();
+        painted.color.set('#ffffff');
+        painted.metalness = 0;
+        painted.metalnessMap = null;
+        painted.roughness = 1;
+        painted.roughnessMap = null;
+        painted.envMapIntensity = 0.025;
+        if (painted.map) {
+          painted.map.colorSpace = THREE.SRGBColorSpace;
+          painted.map.anisotropy = maxAnisotropy;
+          painted.map.needsUpdate = true;
+        }
+        if (painted.normalMap) {
+          painted.normalScale.set(0.28, 0.28);
+        }
+        painted.needsUpdate = true;
+        return painted;
+      };
+      object.material = Array.isArray(object.material)
+        ? object.material.map(convert)
+        : convert(object.material);
+      object.castShadow = true;
+      object.receiveShadow = true;
+    });
+  }
+
   private makeAlbedoMaterial(color: string) {
     return new THREE.MeshStandardMaterial({
       color: new THREE.Color(color),
@@ -293,7 +331,7 @@ export class Game {
       const bounds = new THREE.Box3().setFromObject(source);
       const sourceHeight = Math.max(bounds.max.y - bounds.min.y, 0.001);
       this.prepareImportedMaterials(source);
-      // Keep the GLB's authored normal/roughness response unchanged.
+      this.prepareHandPaintedTreeMaterials(source);
 
       for (const placement of placements) {
         const tree = source.clone(true);
