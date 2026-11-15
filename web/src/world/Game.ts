@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
+  private environmentTarget?: THREE.WebGLRenderTarget;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(48, 1, 0.1, 500);
   private world!: RAPIER.World;
@@ -52,21 +53,31 @@ export class Game {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 1.0;
-    // Generate a soft image-based environment so imported PBR assets receive
-    // broad ambient reflections like they do in the source 3D viewer.
+    // Outdoor sky environment: use a daylight sky instead of the previous
+    // indoor RoomEnvironment so PBR albedo receives natural open-air lighting.
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    const roomEnvironment = new RoomEnvironment();
-    const environmentTarget = pmrem.fromScene(roomEnvironment, 0.04);
-    this.scene.environment = environmentTarget.texture;
-    this.scene.environmentIntensity = 0.55;
-    roomEnvironment.dispose();
+    const sky = new Sky();
+    sky.scale.setScalar(450000);
+    sky.material.uniforms['turbidity'].value = 7;
+    sky.material.uniforms['rayleigh'].value = 2;
+    sky.material.uniforms['mieCoefficient'].value = 0.004;
+    sky.material.uniforms['mieDirectionalG'].value = 0.82;
+    const sunDirection = new THREE.Vector3().setFromSphericalCoords(
+      1, THREE.MathUtils.degToRad(78), THREE.MathUtils.degToRad(215)
+    );
+    sky.material.uniforms['sunPosition'].value.copy(sunDirection);
+    this.environmentTarget = pmrem.fromScene(sky);
+    this.scene.environment = this.environmentTarget.texture;
+    this.scene.environmentIntensity = 0.28;
+    sky.geometry.dispose();
+    sky.material.dispose();
     pmrem.dispose();
     host.appendChild(this.renderer.domElement);
     this.scene.background = new THREE.Color('#a9d4e9');
     this.scene.fog = new THREE.Fog('#c8dfcf', 38, 115);
     this.camera.position.set(0, 6, -9);
-    this.scene.add(new THREE.HemisphereLight('#e9f5ff', '#9b9277', 1.85));
-    const sun = new THREE.DirectionalLight('#fff3dc', 1.65);
+    this.scene.add(new THREE.HemisphereLight('#e9f5ff', '#82775f', 1.15));
+    const sun = new THREE.DirectionalLight('#fff0d8', 2.1);
     sun.position.set(-18, 30, -12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -76,6 +87,10 @@ export class Game {
     sun.shadow.camera.left = -35; sun.shadow.camera.right = 35;
     sun.shadow.camera.top = 35; sun.shadow.camera.bottom = -35;
     this.scene.add(sun);
+    // Camera-side sky fill lifts dark leaf undersides without flattening the sun direction.
+    const skyFill = new THREE.DirectionalLight('#c7e5f4', 0.42);
+    skyFill.position.set(12, 9, 18);
+    this.scene.add(skyFill);
     this.addEnvironment();
     void this.loadEnvironmentTrees();
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -277,21 +292,7 @@ export class Game {
       const bounds = new THREE.Box3().setFromObject(source);
       const sourceHeight = Math.max(bounds.max.y - bounds.min.y, 0.001);
       this.prepareImportedMaterials(source);
-      // Keep the authored hand-painted color dominant; soften only the
-      // imported normal response so the bark and leaf brushwork stays legible.
-      source.traverse(object => {
-        if (!(object instanceof THREE.Mesh)) return;
-        const materials = Array.isArray(object.material) ? object.material : [object.material];
-        for (const material of materials) {
-          const mapped = material as THREE.Material & {
-            normalScale?: THREE.Vector2;
-            aoMap?: THREE.Texture | null;
-            aoMapIntensity?: number;
-          };
-          if (mapped.normalScale) mapped.normalScale.set(0.5, 0.5);
-          if (mapped.aoMap) mapped.aoMapIntensity = 0.72;
-        }
-      });
+      // Keep the GLB's authored normal/roughness response unchanged.
 
       for (const placement of placements) {
         const tree = source.clone(true);
@@ -352,5 +353,5 @@ export class Game {
     const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*.58,Math.cos(this.yaw)*this.cameraDistance);
     this.camera.position.lerp(target.clone().add(offset),.09);this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.renderer.render(this.scene,this.camera);
   };
-  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
+  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }
