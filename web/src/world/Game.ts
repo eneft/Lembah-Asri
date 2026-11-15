@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OutlineEffect } from 'three/examples/jsm/effects/OutlineEffect.js';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
@@ -73,6 +74,7 @@ export class Game {
     sun.shadow.camera.top = 35; sun.shadow.camera.bottom = -35;
     this.scene.add(sun);
     this.addEnvironment();
+    void this.loadEnvironmentTrees();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(host);
     window.addEventListener('keydown', this.onKeyDown);
@@ -262,7 +264,7 @@ export class Game {
     this.addBuilding(17,-18,'Puskesmas','#e9e4d3','#a95036');
     const path = new THREE.Mesh(new THREE.PlaneGeometry(5,35),this.mat('#b99b70'));
     path.rotation.x=-Math.PI/2; path.position.set(0,.08,7); this.scene.add(path);
-    for (const [x,z,s] of [[-22,-4,1.5],[-20,12,1.2],[22,2,1.7],[19,-27,1.2],[-5,-25,1.1],[13,13,1.1]] as number[][]) this.addTree(x,z,s);
+    // Tree placement is handled by the imported hand-painted GLB asset.
     const water = new THREE.Mesh(new THREE.BoxGeometry(48,.12,2.6),this.mat('#5bafc2'));
     water.position.set(0,-.02,17); this.scene.add(water);
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(5,.35,4),this.mat('#8b6242')); bridge.position.set(0,.35,17); bridge.castShadow=true; this.scene.add(bridge);
@@ -273,10 +275,43 @@ export class Game {
     this.box(g,name+' walls',[7,3.5,6],[0,1.75,0],walls);
     const roof=new THREE.Mesh(new THREE.ConeGeometry(5.2,2.1,4),this.mat(roofColor)); roof.position.y=4.45; roof.rotation.y=Math.PI/4; roof.castShadow=true; g.add(roof);
   }
-  private addTree(x:number,z:number,s:number) {
-    const g=new THREE.Group(); g.position.set(x,0,z); g.scale.setScalar(s); this.scene.add(g);
-    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.22,.38,3,7),this.mat('#79543a')); trunk.position.y=1.5; trunk.castShadow=true; g.add(trunk);
-    for(let i=0;i<7;i++){const leaf=new THREE.Mesh(new THREE.IcosahedronGeometry(1.25,1),this.mat(i%2?'#648b4c':'#7c9c52')); leaf.position.set(Math.sin(i*2.4)*1.1,3.1+Math.cos(i*1.8)*.7,Math.cos(i*2.4)*1.1); leaf.scale.set(1.15,.9,1); leaf.castShadow=true; g.add(leaf);}
+  private async loadEnvironmentTrees() {
+    const treeUrl = 'https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/406c5088-133a-4af3-8e72-cc8c4d69228e.glb';
+    const placements: Array<{ x: number; z: number; height: number; yaw: number }> = [
+      { x: -24, z: -4, height: 4.1, yaw: 0.2 },
+      { x: -24, z: 13, height: 3.5, yaw: 1.1 },
+      { x: 25, z: 4, height: 4.3, yaw: 2.2 },
+      { x: 24, z: -28, height: 4.0, yaw: 0.7 },
+      { x: -7, z: -30, height: 3.4, yaw: 2.8 },
+      { x: 29, z: 14, height: 3.8, yaw: 1.7 },
+      { x: -31, z: -22, height: 4.5, yaw: 0.9 }
+    ];
+
+    try {
+      const loader = new GLTFLoader();
+      const gltf = await loader.loadAsync(treeUrl);
+      const source = gltf.scene;
+      const bounds = new THREE.Box3().setFromObject(source);
+      const sourceHeight = Math.max(bounds.max.y - bounds.min.y, 0.001);
+      this.toonizeObject(source);
+
+      for (const placement of placements) {
+        const tree = source.clone(true);
+        const scale = placement.height / sourceHeight;
+        tree.scale.setScalar(scale);
+        tree.position.set(placement.x, -bounds.min.y * scale, placement.z);
+        tree.rotation.y = placement.yaw;
+        tree.traverse(object => {
+          if (object instanceof THREE.Mesh) {
+            object.castShadow = true;
+            object.receiveShadow = true;
+          }
+        });
+        this.scene.add(tree);
+      }
+    } catch (error) {
+      console.error('Gagal memuat aset pohon Lembah Asri:', error);
+    }
   }
   private pointerX=0;
   private dragging=false;
