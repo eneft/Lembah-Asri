@@ -276,13 +276,52 @@ export class Game {
     });
   }
 
+  /**
+   * The original Orc-Idle FBX has a valid UV attribute but its UV layout does
+   * not match the hand-painted atlas. Use the UV-restored mesh from the
+   * character look-development package; its skeleton names are compatible
+   * with the original idle/walk/run/jump clips.
+   */
+  private async loadUvRestoredPlayer(loader: FBXLoader): Promise<THREE.Group> {
+    const response = await fetch(
+      'https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/168601a3-9fe8-4889-8941-1072b8bcecf5.zip'
+    );
+    if (!response.ok) throw new Error(`Gagal mengunduh mesh UV karakter: HTTP ${response.status}`);
+    const archive = await response.arrayBuffer();
+    const view = new DataView(archive);
+    const bytes = new Uint8Array(archive);
+    const decoder = new TextDecoder();
+
+    // The archive is intentionally stored (ZIP method 0), so extraction is
+    // deterministic and does not require a runtime ZIP/decompression library.
+    let offset = 0;
+    while (offset + 30 <= view.byteLength && view.getUint32(offset, true) === 0x04034b50) {
+      const method = view.getUint16(offset + 8, true);
+      const compressedSize = view.getUint32(offset + 18, true);
+      const nameLength = view.getUint16(offset + 26, true);
+      const extraLength = view.getUint16(offset + 28, true);
+      const nameStart = offset + 30;
+      const name = decoder.decode(bytes.subarray(nameStart, nameStart + nameLength));
+      const dataStart = nameStart + nameLength + extraLength;
+      const dataEnd = dataStart + compressedSize;
+      if (name === 'Running_Web_UV.fbx') {
+        if (method !== 0) throw new Error('Arsip mesh karakter harus menggunakan ZIP stored');
+        return loader.parse(archive.slice(dataStart, dataEnd), '') as THREE.Group;
+      }
+      offset = dataEnd;
+    }
+    throw new Error('Running_Web_UV.fbx tidak ditemukan dalam arsip karakter');
+  }
+
   private async loadPlayer(): Promise<THREE.Group> {
     const loader = new FBXLoader();
     const base = './models/character/';
     // Load only the base character first so the player can appear immediately.
     // The walk/run/jump FBXs are fetched separately in the background.
+    // Keep the original idle FBX as the animation source, but use the
+    // UV-restored mesh so the 1024px hand-painted atlas maps to the right parts.
     const idleAsset = await loader.loadAsync(base + 'Orc-Idle.fbx');
-    const model = idleAsset as THREE.Group;
+    const model = await this.loadUvRestoredPlayer(loader);
     model.name = 'LembahAsri_Player';
     const bounds = new THREE.Box3().setFromObject(model);
     const height = Math.max(bounds.max.y - bounds.min.y, 0.001);
