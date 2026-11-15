@@ -65,7 +65,9 @@ export class Game {
     // Match the environment sun direction to the scene's directional key light.
     const sunDirection = new THREE.Vector3(-18, 30, -12).normalize();
     sky.material.uniforms['sunPosition'].value.copy(sunDirection);
-    this.environmentTarget = pmrem.fromScene(sky);
+    const skyScene = new THREE.Scene();
+    skyScene.add(sky);
+    this.environmentTarget = pmrem.fromScene(skyScene);
     this.scene.environment = this.environmentTarget.texture;
     this.scene.environmentIntensity = 0.28;
     sky.geometry.dispose();
