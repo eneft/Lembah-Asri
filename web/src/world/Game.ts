@@ -445,7 +445,9 @@ export class Game {
   private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
-    if(this.world&&this.player){
+    // The render loop starts during construction, before async FBX + texture loading finishes.
+    // Do not read playerMesh.position or update physics-driven visuals until the model exists.
+    if(this.world&&this.player&&this.playerMesh){
       this.accumulator+=dt;
       const keyboardForward=(this.keys.has('w')?1:0)-(this.keys.has('s')?1:0);
       const keyboardSide=(this.keys.has('d')?1:0)-(this.keys.has('a')?1:0);
