@@ -165,35 +165,45 @@ export class Game {
    * makes the leaves/bark respond too much like a reflective PBR surface.
    * Keep the original albedo and normal maps, but use a fully matte response.
    */
+  /**
+   * The tree's color texture already contains hand-painted light, shadow and
+   * color variation. PBR lighting shades that painted information a second
+   * time, making the asset look like a glossy 3D render. Render the authored
+   * base-color texture unlit, as a painted illustration, while retaining the
+   * original mesh silhouette and its cast shadow.
+   */
   private prepareHandPaintedTreeMaterials(root: THREE.Object3D) {
     const maxAnisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     root.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
       const convert = (source: THREE.Material): THREE.Material => {
         if (!(source instanceof THREE.MeshStandardMaterial)) return source;
-        const painted = source.clone();
-        painted.color.set('#ffffff');
-        painted.metalness = 0;
-        painted.metalnessMap = null;
-        painted.roughness = 1;
-        painted.roughnessMap = null;
-        painted.envMapIntensity = 0.025;
-        if (painted.map) {
-          painted.map.colorSpace = THREE.SRGBColorSpace;
-          painted.map.anisotropy = maxAnisotropy;
-          painted.map.needsUpdate = true;
+        if (source.map) {
+          source.map.colorSpace = THREE.SRGBColorSpace;
+          source.map.anisotropy = maxAnisotropy;
+          source.map.needsUpdate = true;
         }
-        if (painted.normalMap) {
-          painted.normalScale.set(0.28, 0.28);
-        }
-        painted.needsUpdate = true;
-        return painted;
+        // MeshBasicMaterial deliberately ignores scene lights, normal maps,
+        // metallic/roughness maps and environment reflections.
+        return new THREE.MeshBasicMaterial({
+          map: source.map ?? null,
+          color: '#ffffff',
+          transparent: source.transparent,
+          opacity: source.opacity,
+          alphaMap: source.alphaMap ?? null,
+          alphaTest: source.alphaTest,
+          side: source.side,
+          vertexColors: source.vertexColors,
+          depthWrite: source.depthWrite,
+          depthTest: source.depthTest,
+          toneMapped: false
+        });
       };
       object.material = Array.isArray(object.material)
         ? object.material.map(convert)
         : convert(object.material);
       object.castShadow = true;
-      object.receiveShadow = true;
+      object.receiveShadow = false;
     });
   }
 
