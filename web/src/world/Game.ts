@@ -9,6 +9,8 @@ type Motion = 'idle' | 'walk' | 'run' | 'jump';
 export class Game {
   private renderer: THREE.WebGLRenderer;
   private environmentTarget?: THREE.WebGLRenderTarget;
+  private characterBaseColor?: THREE.Texture;
+  private characterNormalMap?: THREE.Texture;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(48, 1, 0.1, 500);
   private world!: RAPIER.World;
@@ -207,6 +209,65 @@ export class Game {
     });
   }
 
+  /**
+   * Painterly character material: use the original character atlas for both
+   * diffuse and a restrained emissive contribution so painted light/shadow
+   * remains legible, while soft Lambert lighting keeps the model dimensional.
+   * The normal map is deliberately very weak to avoid a plastic/PBR finish.
+   */
+  private prepareHandPaintedCharacterMaterials(
+    root: THREE.Object3D,
+    baseColor: THREE.Texture,
+    normalMap: THREE.Texture
+  ) {
+    const maxAnisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    baseColor.colorSpace = THREE.SRGBColorSpace;
+    baseColor.anisotropy = maxAnisotropy;
+    baseColor.needsUpdate = true;
+    normalMap.colorSpace = THREE.NoColorSpace;
+    normalMap.anisotropy = maxAnisotropy;
+    normalMap.needsUpdate = true;
+
+    root.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const convert = (source: THREE.Material): THREE.Material => {
+        const original = source as THREE.Material & {
+          transparent?: boolean;
+          opacity?: number;
+          alphaMap?: THREE.Texture | null;
+          alphaTest?: number;
+          side?: THREE.Side;
+          depthWrite?: boolean;
+          depthTest?: boolean;
+          vertexColors?: boolean;
+        };
+        return new THREE.MeshLambertMaterial({
+          color: 0xffffff,
+          map: baseColor,
+          emissive: 0xffffff,
+          emissiveMap: baseColor,
+          emissiveIntensity: 0.38,
+          normalMap,
+          normalScale: new THREE.Vector2(0.07, 0.07),
+          side: original.side ?? THREE.FrontSide,
+          transparent: original.transparent ?? false,
+          opacity: original.opacity ?? 1,
+          alphaMap: original.alphaMap ?? null,
+          alphaTest: original.alphaTest ?? 0,
+          depthWrite: original.depthWrite ?? true,
+          depthTest: original.depthTest ?? true,
+          vertexColors: original.vertexColors ?? false,
+          toneMapped: false
+        });
+      };
+      object.material = Array.isArray(object.material)
+        ? object.material.map(convert)
+        : convert(object.material);
+      object.castShadow = true;
+      object.receiveShadow = true;
+    });
+  }
+
   private makeAlbedoMaterial(color: string) {
     return new THREE.MeshStandardMaterial({
       color: new THREE.Color(color),
@@ -229,6 +290,22 @@ export class Game {
     model.scale.setScalar(scale);
     model.position.y = -bounds.min.y * scale;
     this.prepareImportedMaterials(model);
+
+    // The FBX references a Tripo texture in an external .fbm folder that is
+    // not included in the web model directory. Use the matching, UV-validated
+    // character atlas from the browser look-development package instead.
+    const textureLoader = new THREE.TextureLoader();
+    try {
+      const [baseColor, normalMap] = await Promise.all([
+        textureLoader.loadAsync('https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/6d059a14-1292-423f-a247-8a594b8e0ab6.webp'),
+        textureLoader.loadAsync('https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/44da1a97-795c-410e-96ca-d4771ae23df5.webp')
+      ]);
+      this.characterBaseColor = baseColor;
+      this.characterNormalMap = normalMap;
+      this.prepareHandPaintedCharacterMaterials(model, baseColor, normalMap);
+    } catch (error) {
+      console.error('Gagal memuat tekstur hand-painted karakter; memakai material FBX:', error);
+    }
 
     this.mixer = new THREE.AnimationMixer(model);
     const idleClip = idleAsset.animations[0];
@@ -402,5 +479,5 @@ export class Game {
     const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*.58,Math.cos(this.yaw)*this.cameraDistance);
     this.camera.position.lerp(target.clone().add(offset),.09);this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.renderer.render(this.scene,this.camera);
   };
-  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
+  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.characterNormalMap?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }
