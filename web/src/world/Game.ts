@@ -285,6 +285,7 @@ export class Game {
         for (const material of materials) {
           const mapped = material as THREE.Material & {
             normalScale?: THREE.Vector2;
+            aoMap?: THREE.Texture | null;
             aoMapIntensity?: number;
           };
           if (mapped.normalScale) mapped.normalScale.set(0.5, 0.5);
