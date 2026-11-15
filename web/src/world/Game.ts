@@ -62,9 +62,8 @@ export class Game {
     sky.material.uniforms['rayleigh'].value = 2;
     sky.material.uniforms['mieCoefficient'].value = 0.004;
     sky.material.uniforms['mieDirectionalG'].value = 0.82;
-    const sunDirection = new THREE.Vector3().setFromSphericalCoords(
-      1, THREE.MathUtils.degToRad(78), THREE.MathUtils.degToRad(215)
-    );
+    // Match the environment sun direction to the scene's directional key light.
+    const sunDirection = new THREE.Vector3(-18, 30, -12).normalize();
     sky.material.uniforms['sunPosition'].value.copy(sunDirection);
     this.environmentTarget = pmrem.fromScene(sky);
     this.scene.environment = this.environmentTarget.texture;
