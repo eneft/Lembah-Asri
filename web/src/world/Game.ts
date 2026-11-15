@@ -264,7 +264,7 @@ export class Game {
       const source = gltf.scene;
       const bounds = new THREE.Box3().setFromObject(source);
       const sourceHeight = Math.max(bounds.max.y - bounds.min.y, 0.001);
-      this.toonizeObject(source);
+      this.applyAlbedoMaterials(source);
 
       for (const placement of placements) {
         const tree = source.clone(true);
