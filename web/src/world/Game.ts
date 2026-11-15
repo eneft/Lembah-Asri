@@ -100,42 +100,41 @@ export class Game {
     return game;
   }
 
-  private makeAlbedoMaterial(source: THREE.Material | string) {
-    const original = typeof source === 'string' ? undefined : source as THREE.MeshStandardMaterial;
-    const material = new THREE.MeshStandardMaterial({
-      color: original?.color?.clone() ?? new THREE.Color(typeof source === 'string' ? source : 0xffffff),
-      map: original?.map ?? null,
-      alphaMap: original?.alphaMap ?? null,
-      normalMap: original?.normalMap ?? null,
-      bumpMap: original?.bumpMap ?? null,
-      displacementMap: original?.displacementMap ?? null,
-      aoMap: original?.aoMap ?? null,
-      emissive: original?.emissive?.clone() ?? new THREE.Color(0x000000),
-      emissiveMap: original?.emissiveMap ?? null,
-      emissiveIntensity: original?.emissiveIntensity ?? 1,
-      opacity: original?.opacity ?? 1,
-      transparent: original?.transparent ?? false,
-      side: original?.side ?? THREE.FrontSide,
-      vertexColors: original?.vertexColors ?? false,
-      alphaTest: original?.alphaTest ?? 0,
-      depthWrite: original?.depthWrite ?? true,
-      roughness: original?.roughness ?? 0.88,
-      metalness: original?.metalness ?? 0
-    });
-    if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
-    material.name = typeof source === 'string' ? 'LembahAsri_Albedo' : source.name;
-    return material;
-  }
-
-  private applyAlbedoMaterials(root: THREE.Object3D) {
+  /**
+   * Keep imported FBX/GLB materials intact. Rebuilding them as
+   * MeshStandardMaterial can silently discard shader/material settings and
+   * make a hand-painted asset look flat or incorrectly shaded.
+   * Only color textures are tagged as sRGB; data maps remain linear.
+   */
+  private prepareImportedMaterials(root: THREE.Object3D) {
     root.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
-      const current = object.material;
-      object.material = Array.isArray(current)
-        ? current.map(material => this.makeAlbedoMaterial(material))
-        : this.makeAlbedoMaterial(current);
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        const textured = material as THREE.Material & {
+          map?: THREE.Texture | null;
+          emissiveMap?: THREE.Texture | null;
+        };
+        if (textured.map) {
+          textured.map.colorSpace = THREE.SRGBColorSpace;
+          textured.map.needsUpdate = true;
+        }
+        if (textured.emissiveMap) {
+          textured.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+          textured.emissiveMap.needsUpdate = true;
+        }
+        material.needsUpdate = true;
+      }
       object.castShadow = true;
       object.receiveShadow = true;
+    });
+  }
+
+  private makeAlbedoMaterial(color: string) {
+    return new THREE.MeshStandardMaterial({
+      color: new THREE.Color(color),
+      roughness: 0.88,
+      metalness: 0
     });
   }
 
@@ -152,7 +151,7 @@ export class Game {
     const scale = 1.68 / height;
     model.scale.setScalar(scale);
     model.position.y = -bounds.min.y * scale;
-    this.applyAlbedoMaterials(model);
+    this.prepareImportedMaterials(model);
 
     this.mixer = new THREE.AnimationMixer(model);
     const idleClip = idleAsset.animations[0];
@@ -264,7 +263,7 @@ export class Game {
       const source = gltf.scene;
       const bounds = new THREE.Box3().setFromObject(source);
       const sourceHeight = Math.max(bounds.max.y - bounds.min.y, 0.001);
-      this.applyAlbedoMaterials(source);
+      this.prepareImportedMaterials(source);
 
       for (const placement of placements) {
         const tree = source.clone(true);
