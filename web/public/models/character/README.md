@@ -1,1 +1,0 @@
-# Lembah Asri 3D player character\n\nThese four FBX files share the same geometry and 66-node skeleton. The idle file supplies the single rendered mesh; the other three files supply walk, run and jump animation clips. Runtime loads one model and retargets the shared-rig clips through Three.js AnimationMixer.\n
