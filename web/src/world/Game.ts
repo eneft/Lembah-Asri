@@ -10,7 +10,6 @@ export class Game {
   private renderer: THREE.WebGLRenderer;
   private environmentTarget?: THREE.WebGLRenderTarget;
   private characterBaseColor?: THREE.Texture;
-  private characterNormalMap?: THREE.Texture;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(48, 1, 0.1, 500);
   private world!: RAPIER.World;
@@ -247,18 +246,19 @@ export class Game {
    * remains legible, while soft Lambert lighting keeps the model dimensional.
    * The normal map is deliberately very weak to avoid a plastic/PBR finish.
    */
+  /**
+   * The character atlas already contains hand-painted light and shadow.
+   * Use an unlit material so real-time PBR/Lambert shading does not darken or
+   * double-shade the painted pixels. This matches the original 2D-painted
+   * presentation while retaining the 3D mesh, rig and cast shadow.
+   */
   private prepareHandPaintedCharacterMaterials(
     root: THREE.Object3D,
-    baseColor: THREE.Texture,
-    normalMap: THREE.Texture
+    baseColor: THREE.Texture
   ) {
-    const maxAnisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     baseColor.colorSpace = THREE.SRGBColorSpace;
-    baseColor.anisotropy = maxAnisotropy;
+    baseColor.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     baseColor.needsUpdate = true;
-    normalMap.colorSpace = THREE.NoColorSpace;
-    normalMap.anisotropy = maxAnisotropy;
-    normalMap.needsUpdate = true;
 
     root.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -273,14 +273,9 @@ export class Game {
           depthTest?: boolean;
           vertexColors?: boolean;
         };
-        return new THREE.MeshLambertMaterial({
+        return new THREE.MeshBasicMaterial({
           color: 0xffffff,
           map: baseColor,
-          emissive: 0xffffff,
-          emissiveMap: baseColor,
-          emissiveIntensity: 0.38,
-          normalMap,
-          normalScale: new THREE.Vector2(0.07, 0.07),
           side: original.side ?? THREE.FrontSide,
           transparent: original.transparent ?? false,
           opacity: original.opacity ?? 1,
@@ -296,7 +291,7 @@ export class Game {
         ? object.material.map(convert)
         : convert(object.material);
       object.castShadow = true;
-      object.receiveShadow = true;
+      object.receiveShadow = false;
     });
   }
 
@@ -393,13 +388,11 @@ export class Game {
     // character atlas from the browser look-development package instead.
     const textureLoader = new THREE.TextureLoader();
     try {
-      const [baseColor, normalMap] = await Promise.all([
-        textureLoader.loadAsync('https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/6d059a14-1292-423f-a247-8a594b8e0ab6.webp'),
-        textureLoader.loadAsync('https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/44da1a97-795c-410e-96ca-d4771ae23df5.webp')
-      ]);
+      const baseColor = await textureLoader.loadAsync(
+        'https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/6d059a14-1292-423f-a247-8a594b8e0ab6.webp'
+      );
       this.characterBaseColor = baseColor;
-      this.characterNormalMap = normalMap;
-      this.prepareHandPaintedCharacterMaterials(model, baseColor, normalMap);
+      this.prepareHandPaintedCharacterMaterials(model, baseColor);
     } catch (error) {
       console.error('Gagal memuat tekstur hand-painted karakter; memakai material FBX:', error);
     }
@@ -606,5 +599,5 @@ export class Game {
     const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*.58,Math.cos(this.yaw)*this.cameraDistance);
     this.camera.position.lerp(target.clone().add(offset),.09);this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.renderer.render(this.scene,this.camera);
   };
-  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.characterNormalMap?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
+  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }
