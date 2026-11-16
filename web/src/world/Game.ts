@@ -343,9 +343,14 @@ export class Game {
   private async loadPlayer(): Promise<THREE.Group> {
     const loader = new FBXLoader();
     const base = './models/character/';
-    // New character package: use its own idle FBX as both visual mesh and
-    // source rig. The four FBXs share the same 34-bone skeleton and UV layout.
-    const model = await loader.loadAsync(base + 'Idle.fbx');
+    // Keep the Idle FBX as the animation source, but render the UV-restored
+    // character mesh. The original FBX UVs do not align with the authored
+    // shaded atlas; using that mesh with shaded.png produces the visible
+    // orange/black texture breakup seen in-game. The restored mesh keeps the
+    // compatible skeleton names so the original idle/walk/run/jump clips bind.
+    const idleSource = await loader.loadAsync(base + 'Idle.fbx');
+    const model = await this.loadUvRestoredPlayer(loader);
+    model.animations = idleSource.animations;
     model.name = 'LembahAsri_Player';
     const bounds = new THREE.Box3().setFromObject(model);
     const height = Math.max(bounds.max.y - bounds.min.y, 0.001);
