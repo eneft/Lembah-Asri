@@ -343,27 +343,15 @@ export class Game {
   private async loadPlayer(): Promise<THREE.Group> {
     const loader = new FBXLoader();
     const base = './models/character/';
-    // Load only the base character first so the player can appear immediately.
-    // The walk/run/jump FBXs are fetched separately in the background.
-    // Keep the original idle FBX as the animation source, but use the
-    // UV-restored mesh so the 1024px hand-painted atlas maps to the right parts.
-    const idleAsset = await loader.loadAsync(base + 'Orc-Idle.fbx');
-    const model = await this.loadUvRestoredPlayer(loader);
+    // New character package: use its own idle FBX as both visual mesh and
+    // source rig. The four FBXs share the same 34-bone skeleton and UV layout.
+    const model = await loader.loadAsync(base + 'Idle.fbx');
     model.name = 'LembahAsri_Player';
     const bounds = new THREE.Box3().setFromObject(model);
     const height = Math.max(bounds.max.y - bounds.min.y, 0.001);
-    const sourceBounds = new THREE.Box3().setFromObject(idleAsset);
-    const sourceHeight = Math.max(sourceBounds.max.y - sourceBounds.min.y, 0.001);
-    // Original animation FBXs use ~100-unit coordinates while the
-    // UV-restored mesh uses ~1-unit coordinates. Retarget translations by
-    // the measured source/target height ratio so the skeleton stays in scale.
-    this.animationTranslationScale = height / sourceHeight;
     const scale = 1.68 / height;
     model.scale.setScalar(scale);
-    // Keep the physics transform outside the animated FBX hierarchy.
-    // FBX idle clips can contain root position tracks; applying them directly
-    // to the physics-driven model root makes the character drift away from
-    // the Rapier body and camera target.
+
     const actorRoot = new THREE.Group();
     actorRoot.name = 'LembahAsri_PlayerRoot';
     const visualOffset = new THREE.Group();
@@ -371,37 +359,42 @@ export class Game {
     visualOffset.position.y = -bounds.min.y * scale;
     visualOffset.add(model);
     actorRoot.add(visualOffset);
-    // Animated FBX/SkinnedMesh bounds can remain stale after atlas-mesh
-    // replacement and root scaling. Disable per-mesh frustum culling so the
-    // player cannot disappear on narrow mobile camera frusta.
+
+    // The FBX references shaded.png, which has not been uploaded yet.
+    // Use a neutral unlit fallback so the new character remains visible;
+    // replace this with the authored albedo as soon as it is available.
     model.traverse(object => {
-      if (object instanceof THREE.Mesh) {
-        object.visible = true;
-        object.frustumCulled = false;
-      }
+      if (!(object instanceof THREE.Mesh)) return;
+      const makeFallback = (source: THREE.Material) => {
+        const original = source as THREE.Material & {
+          side?: THREE.Side; transparent?: boolean; opacity?: number;
+          alphaMap?: THREE.Texture | null; alphaTest?: number;
+          depthWrite?: boolean; depthTest?: boolean;
+        };
+        return new THREE.MeshBasicMaterial({
+          color: 0xe8dfcf,
+          side: original.side ?? THREE.FrontSide,
+          transparent: original.transparent ?? false,
+          opacity: original.opacity ?? 1,
+          alphaMap: original.alphaMap ?? null,
+          alphaTest: original.alphaTest ?? 0,
+          depthWrite: original.depthWrite ?? true,
+          depthTest: original.depthTest ?? true
+        });
+      };
+      object.material = Array.isArray(object.material)
+        ? object.material.map(makeFallback)
+        : makeFallback(object.material);
+      object.castShadow = true;
+      object.receiveShadow = false;
+      object.frustumCulled = false;
     });
+
     actorRoot.updateMatrixWorld(true);
-    this.prepareImportedMaterials(model);
-
-    // The FBX references a Tripo texture in an external .fbm folder that is
-    // not included in the web model directory. Use the matching, UV-validated
-    // character atlas from the browser look-development package instead.
-    const textureLoader = new THREE.TextureLoader();
-    try {
-      const baseColor = await textureLoader.loadAsync(
-        'https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/6d059a14-1292-423f-a247-8a594b8e0ab6.webp'
-      );
-      this.characterBaseColor = baseColor;
-      this.prepareHandPaintedCharacterMaterials(model, baseColor);
-    } catch (error) {
-      console.error('Gagal memuat tekstur hand-painted karakter; memakai material FBX:', error);
-    }
-
     this.mixer = new THREE.AnimationMixer(model);
-    const idleClip = idleAsset.animations[0];
-    if (!idleClip) throw new Error('Clip idle tidak ditemukan pada Orc Idle.fbx');
-    this.normalizeAnimationTranslations(idleClip);
-    console.info('[LembahAsri] Animation translation scale', this.animationTranslationScale);
+    const idleClip = model.animations[0];
+    if (!idleClip) throw new Error('Clip idle tidak ditemukan pada Idle.fbx');
+    this.animationTranslationScale = 1;
     idleClip.name = 'idle';
     const idleAction = this.mixer.clipAction(idleClip);
     idleAction.setLoop(THREE.LoopRepeat, Infinity);
@@ -415,7 +408,7 @@ export class Game {
     const clips: Array<[Exclude<Motion, 'idle'>, string]> = [
       ['walk', 'Walking.fbx'],
       ['run', 'Running.fbx'],
-      ['jump', 'Jump-Over.fbx']
+      ['jump', 'Jump.fbx']
     ];
     // Parallel background loading avoids serially blocking the first render.
     const results = await Promise.allSettled(
