@@ -329,7 +329,9 @@ export class Game {
     const textureLoader = new THREE.TextureLoader();
     const shaded = await textureLoader.loadAsync(base + 'shaded.png');
     shaded.colorSpace = THREE.SRGBColorSpace;
-    shaded.flipY = false;
+    // FBX UV coordinates need the PNG atlas vertically flipped on upload.
+    // flipY=false projected the painted eyes/clothing onto the wrong polygons.
+    shaded.flipY = true;
     shaded.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     shaded.needsUpdate = true;
     this.characterBaseColor = shaded;
