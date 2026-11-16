@@ -35,6 +35,8 @@ jobs:
           cache-dependency-path: web/package.json
       - name: Install dependencies
         run: npm install
+      - name: Verify character root-motion and jump landing regressions
+        run: npm run test:animation
       - name: Type-check and build
         run: npm run build
       - name: Verify production entry point
