@@ -3,6 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTravel } from './characterAnimation';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 
@@ -17,7 +18,8 @@ export class Game {
   private playerMesh!: THREE.Group;
   private mixer?: THREE.AnimationMixer;
   private actions: Partial<Record<Motion, THREE.AnimationAction>> = {};
-  private animationTranslationScale = 1;
+  private jumpInProgress = false;
+  private jumpLeftGround = false;
   private activeMotion?: Motion;
   private keys = new Set<string>();
   private touchMove = { x: 0, y: 0 };
@@ -133,7 +135,7 @@ export class Game {
       // as the initial camera target frames an empty point instead of the
       // Rapier spawn location on mobile.
       const spawn = game.player.translation();
-      game.playerMesh.position.set(spawn.x, spawn.y - 0.84, spawn.z);
+      game.playerMesh.position.set(spawn.x, spawn.y - PLAYER_BODY_GROUND_Y, spawn.z);
       game.scene.add(game.playerMesh);
       game.playerMesh.updateMatrixWorld(true);
       // Snap the camera to the actual spawn position on first load.
@@ -369,7 +371,7 @@ export class Game {
     this.mixer = new THREE.AnimationMixer(model);
     const idleClip = model.animations[0];
     if (!idleClip) throw new Error('Clip idle tidak ditemukan pada Idle.fbx');
-    this.animationTranslationScale = 1;
+    removeBakedHipTravel(idleClip, 'idle');
     idleClip.name = 'idle';
     const idleAction = this.mixer.clipAction(idleClip);
     idleAction.setLoop(THREE.LoopRepeat, Infinity);
@@ -391,7 +393,7 @@ export class Game {
         const asset = await loader.loadAsync('./models/character/' + file);
         const clip = asset.animations[0];
         if (!clip) throw new Error(`Clip ${motion} tidak ditemukan pada ${file}`);
-        this.normalizeAnimationTranslations(clip);
+        removeBakedHipTravel(clip, motion);
         clip.name = motion;
         const action = this.mixer!.clipAction(clip);
         if (motion === 'jump') {
@@ -408,20 +410,6 @@ export class Game {
         console.error(`Gagal memuat animasi ${clips[index][0]}:`, result.reason);
       }
     });
-  }
-
-  /**
-   * FBX translation tracks are expressed in the source mesh's coordinate
-   * scale. The UV-restored player mesh is normalized to a 1-unit height,
-   * so scale every animated position key by the measured source/target ratio.
-   */
-  private normalizeAnimationTranslations(clip: THREE.AnimationClip) {
-    for (const track of clip.tracks) {
-      if (!track.name.endsWith('.position')) continue;
-      for (let i = 0; i < track.values.length; i++) {
-        track.values[i] *= this.animationTranslationScale;
-      }
-    }
   }
 
   private playMotion(motion: Motion, fade = 0.18) {
@@ -535,14 +523,17 @@ export class Game {
       if(moving) dir.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),this.yaw);
       const vel=this.player.linvel();
       this.player.setLinvel({x:dir.x*speed,y:vel.y,z:dir.z*speed},true);
-      if(this.jumpRequested && this.player.translation().y < 1.35){
-        this.player.setLinvel({x:vel.x,y:5.2,z:vel.z},true);
+      // Jump only from a resting capsule; never restart or cut it midair.
+      if(this.jumpRequested && !this.jumpInProgress && isPlayerGrounded(this.player.translation().y, vel.y)){
+        this.player.setLinvel({x:dir.x*speed,y:5.2,z:dir.z*speed},true);
+        this.jumpInProgress=true;
+        this.jumpLeftGround=false;
         this.playMotion('jump',0.08);
       }
       this.jumpRequested=false;
       while(this.accumulator>=1/60){this.world.timestep=1/60;this.world.step();this.accumulator-=1/60;}
       const p=this.player.translation();
-      this.playerMesh.position.set(p.x,p.y-.84,p.z);
+      this.playerMesh.position.set(p.x,p.y-PLAYER_BODY_GROUND_Y,p.z);
       if (!this.playerRuntimeLogged) {
         this.playerRuntimeLogged = true;
         const bounds = new THREE.Box3().setFromObject(this.playerMesh);
@@ -555,10 +546,19 @@ export class Game {
         });
       }
       if(moving)this.playerMesh.rotation.y=Math.atan2(dir.x,dir.z);
-      const airborne=p.y>1.42;
-      if(airborne && this.activeMotion!=='jump') this.playMotion('jump',0.08);
-      else if(!airborne){
-        const desired:Motion=moving?(sprint?'run':'walk'):'idle';
+      const desired:Motion=moving?(sprint?'run':'walk'):'idle';
+      if(this.jumpInProgress){
+        const onGround=isPlayerGrounded(p.y,this.player.linvel().y);
+        if(!onGround) this.jumpLeftGround=true;
+        // Leave Jump active throughout takeoff, flight and the landing pose.
+        this.playMotion('jump',0.08);
+        const jumpAction=this.actions.jump;
+        if(jumpMayFinish(this.jumpLeftGround,onGround,jumpAction?.time,jumpAction?.getClip().duration)){
+          this.jumpInProgress=false;
+          this.jumpLeftGround=false;
+          this.playMotion(desired,0.16);
+        }
+      } else {
         this.playMotion(desired,0.16);
       }
       this.mixer?.update(dt);
