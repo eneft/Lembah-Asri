@@ -18,6 +18,7 @@ export class Game {
   private playerMesh!: THREE.Group;
   private mixer?: THREE.AnimationMixer;
   private actions: Partial<Record<Motion, THREE.AnimationAction>> = {};
+  private animationTranslationScale = 1;
   private activeMotion?: Motion;
   private keys = new Set<string>();
   private touchMove = { x: 0, y: 0 };
@@ -356,6 +357,12 @@ export class Game {
     model.name = 'LembahAsri_Player';
     const bounds = new THREE.Box3().setFromObject(model);
     const height = Math.max(bounds.max.y - bounds.min.y, 0.001);
+    const sourceBounds = new THREE.Box3().setFromObject(idleAsset);
+    const sourceHeight = Math.max(sourceBounds.max.y - sourceBounds.min.y, 0.001);
+    // Original animation FBXs use ~100-unit coordinates while the
+    // UV-restored mesh uses ~1-unit coordinates. Retarget translations by
+    // the measured source/target height ratio so the skeleton stays in scale.
+    this.animationTranslationScale = height / sourceHeight;
     const scale = 1.68 / height;
     model.scale.setScalar(scale);
     // Keep the physics transform outside the animated FBX hierarchy.
@@ -400,6 +407,8 @@ export class Game {
     this.mixer = new THREE.AnimationMixer(model);
     const idleClip = idleAsset.animations[0];
     if (!idleClip) throw new Error('Clip idle tidak ditemukan pada Orc Idle.fbx');
+    this.normalizeAnimationTranslations(idleClip);
+    console.info('[LembahAsri] Animation translation scale', this.animationTranslationScale);
     idleClip.name = 'idle';
     const idleAction = this.mixer.clipAction(idleClip);
     idleAction.setLoop(THREE.LoopRepeat, Infinity);
@@ -421,6 +430,7 @@ export class Game {
         const asset = await loader.loadAsync('./models/character/' + file);
         const clip = asset.animations[0];
         if (!clip) throw new Error(`Clip ${motion} tidak ditemukan pada ${file}`);
+        this.normalizeAnimationTranslations(clip);
         clip.name = motion;
         const action = this.mixer!.clipAction(clip);
         if (motion === 'jump') {
@@ -437,6 +447,20 @@ export class Game {
         console.error(`Gagal memuat animasi ${clips[index][0]}:`, result.reason);
       }
     });
+  }
+
+  /**
+   * FBX translation tracks are expressed in the source mesh's coordinate
+   * scale. The UV-restored player mesh is normalized to a 1-unit height,
+   * so scale every animated position key by the measured source/target ratio.
+   */
+  private normalizeAnimationTranslations(clip: THREE.AnimationClip) {
+    for (const track of clip.tracks) {
+      if (!track.name.endsWith('.position')) continue;
+      for (let i = 0; i < track.values.length; i++) {
+        track.values[i] *= this.animationTranslationScale;
+      }
+    }
   }
 
   private playMotion(motion: Motion, fade = 0.18) {
