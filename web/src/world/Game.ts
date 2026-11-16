@@ -35,6 +35,7 @@ export class Game {
   private pitch = 0.28;
   private last = performance.now();
   private accumulator = 0;
+  private playerRuntimeLogged = false;
   private host: HTMLElement;
   private resizeObserver: ResizeObserver;
   private onKeyDown = (e: KeyboardEvent) => {
@@ -542,6 +543,17 @@ export class Game {
       while(this.accumulator>=1/60){this.world.timestep=1/60;this.world.step();this.accumulator-=1/60;}
       const p=this.player.translation();
       this.playerMesh.position.set(p.x,p.y-.84,p.z);
+      if (!this.playerRuntimeLogged) {
+        this.playerRuntimeLogged = true;
+        const bounds = new THREE.Box3().setFromObject(this.playerMesh);
+        console.info('[LembahAsri] Player runtime transform', {
+          physics: [p.x, p.y, p.z],
+          mesh: this.playerMesh.position.toArray(),
+          worldBounds: { min: bounds.min.toArray(), max: bounds.max.toArray() },
+          visible: this.playerMesh.visible,
+          camera: this.camera.position.toArray()
+        });
+      }
       if(moving)this.playerMesh.rotation.y=Math.atan2(dir.x,dir.z);
       const airborne=p.y>1.42;
       if(airborne && this.activeMotion!=='jump') this.playMotion('jump',0.08);
