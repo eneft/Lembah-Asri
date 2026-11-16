@@ -306,14 +306,10 @@ export class Game {
   private async loadPlayer(): Promise<THREE.Group> {
     const loader = new FBXLoader();
     const base = './models/character/';
-    // Keep the Idle FBX as the animation source, but render the UV-restored
-    // character mesh. The original FBX UVs do not align with the authored
-    // shaded atlas; using that mesh with shaded.png produces the visible
-    // orange/black texture breakup seen in-game. The restored mesh keeps the
-    // compatible skeleton names so the original idle/walk/run/jump clips bind.
-    const idleSource = await loader.loadAsync(base + 'Idle.fbx');
-    const model = await this.loadUvRestoredPlayer(loader);
-    model.animations = idleSource.animations;
+    // Use the existing Idle FBX as both the visible character mesh and rig.
+    // Keep its original UV layout and use the matching diffuse texture shipped
+    // with this character package. No remote or replacement mesh is required.
+    const model = await loader.loadAsync(base + 'Idle.fbx');
     model.name = 'LembahAsri_Player';
     const bounds = new THREE.Box3().setFromObject(model);
     const height = Math.max(bounds.max.y - bounds.min.y, 0.001);
