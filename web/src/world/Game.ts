@@ -324,15 +324,15 @@ export class Game {
     visualOffset.add(model);
     actorRoot.add(visualOffset);
 
-    // Use the original diffuse map packaged with this character. The shaded
-    // atlas is a separate look-dev bake and does not match the Idle FBX UVs.
+    // Use the authored shaded atlas: it is the approved character texture
+    // for this mesh and already contains the intended painted lighting.
     const textureLoader = new THREE.TextureLoader();
-    const diffuse = await textureLoader.loadAsync(base + 'texture_diffuse.png');
-    diffuse.colorSpace = THREE.SRGBColorSpace;
-    diffuse.flipY = false;
-    diffuse.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-    diffuse.needsUpdate = true;
-    this.characterBaseColor = diffuse;
+    const shaded = await textureLoader.loadAsync(base + 'shaded.png');
+    shaded.colorSpace = THREE.SRGBColorSpace;
+    shaded.flipY = false;
+    shaded.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    shaded.needsUpdate = true;
+    this.characterBaseColor = shaded;
 
     model.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -344,7 +344,7 @@ export class Game {
         };
         return new THREE.MeshBasicMaterial({
           color: 0xffffff,
-          map: diffuse,
+          map: shaded,
           side: original.side ?? THREE.FrontSide,
           transparent: original.transparent ?? false,
           opacity: original.opacity ?? 1,
