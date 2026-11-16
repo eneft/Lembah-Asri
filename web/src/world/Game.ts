@@ -360,31 +360,41 @@ export class Game {
     visualOffset.add(model);
     actorRoot.add(visualOffset);
 
-    // The FBX references shaded.png, which has not been uploaded yet.
-    // Use a neutral unlit fallback so the new character remains visible;
-    // replace this with the authored albedo as soon as it is available.
+    // The authored character package includes a baked, hand-painted shaded
+    // atlas plus PBR maps. Use shaded.png as an unlit albedo atlas: it already
+    // contains the intended painted light/shadow and should not be re-lit.
+    const textureLoader = new THREE.TextureLoader();
+    const shaded = await textureLoader.loadAsync(base + 'shaded.png');
+    shaded.colorSpace = THREE.SRGBColorSpace;
+    shaded.flipY = false;
+    shaded.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    shaded.needsUpdate = true;
+    this.characterBaseColor = shaded;
+
     model.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
-      const makeFallback = (source: THREE.Material) => {
+      const makePainted = (source: THREE.Material) => {
         const original = source as THREE.Material & {
           side?: THREE.Side; transparent?: boolean; opacity?: number;
           alphaMap?: THREE.Texture | null; alphaTest?: number;
           depthWrite?: boolean; depthTest?: boolean;
         };
         return new THREE.MeshBasicMaterial({
-          color: 0xe8dfcf,
+          color: 0xffffff,
+          map: shaded,
           side: original.side ?? THREE.FrontSide,
           transparent: original.transparent ?? false,
           opacity: original.opacity ?? 1,
           alphaMap: original.alphaMap ?? null,
           alphaTest: original.alphaTest ?? 0,
           depthWrite: original.depthWrite ?? true,
-          depthTest: original.depthTest ?? true
+          depthTest: original.depthTest ?? true,
+          toneMapped: false
         });
       };
       object.material = Array.isArray(object.material)
-        ? object.material.map(makeFallback)
-        : makeFallback(object.material);
+        ? object.material.map(makePainted)
+        : makePainted(object.material);
       object.castShadow = true;
       object.receiveShadow = false;
       object.frustumCulled = false;
