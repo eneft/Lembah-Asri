@@ -353,7 +353,17 @@ export class Game {
     const height = Math.max(bounds.max.y - bounds.min.y, 0.001);
     const scale = 1.68 / height;
     model.scale.setScalar(scale);
-    model.position.y = -bounds.min.y * scale;
+    // Keep the physics transform outside the animated FBX hierarchy.
+    // FBX idle clips can contain root position tracks; applying them directly
+    // to the physics-driven model root makes the character drift away from
+    // the Rapier body and camera target.
+    const actorRoot = new THREE.Group();
+    actorRoot.name = 'LembahAsri_PlayerRoot';
+    const visualOffset = new THREE.Group();
+    visualOffset.name = 'LembahAsri_PlayerVisualOffset';
+    visualOffset.position.y = -bounds.min.y * scale;
+    visualOffset.add(model);
+    actorRoot.add(visualOffset);
     // Animated FBX/SkinnedMesh bounds can remain stale after atlas-mesh
     // replacement and root scaling. Disable per-mesh frustum culling so the
     // player cannot disappear on narrow mobile camera frusta.
@@ -363,7 +373,7 @@ export class Game {
         object.frustumCulled = false;
       }
     });
-    model.updateMatrixWorld(true);
+    actorRoot.updateMatrixWorld(true);
     this.prepareImportedMaterials(model);
 
     // The FBX references a Tripo texture in an external .fbm folder that is
@@ -390,7 +400,7 @@ export class Game {
     idleAction.setLoop(THREE.LoopRepeat, Infinity);
     this.actions.idle = idleAction;
     this.playMotion('idle', 0);
-    return model;
+    return actorRoot;
   }
 
   private async loadMotionClips() {
