@@ -2,22 +2,40 @@ name: Three.js foundation CI
 
 on:
   push:
-    branches: [migration/threejs-foundation]
-    paths: ['web/**', '.github/workflows/threejs-foundation.yml']
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/threejs-foundation.yml'
   pull_request:
     branches: [main]
-    paths: ['web/**', '.github/workflows/threejs-foundation.yml']
+    paths:
+      - 'web/**'
+      - '.github/workflows/threejs-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
+    name: Type-check and build Three.js app
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - run: npm install
-      - run: npm run build
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package.json
+      - name: Install dependencies
+        run: npm install
+      - name: Type-check and build
+        run: npm run build
+      - name: Verify production entry point
+        run: test -s dist/index.html
