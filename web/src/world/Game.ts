@@ -128,10 +128,15 @@ export class Game {
           object.frustumCulled = false;
         }
       });
+      // Place the physics root at the body's real spawn transform before
+      // the first render. The FBX visual starts at local origin; using that
+      // as the initial camera target frames an empty point instead of the
+      // Rapier spawn location on mobile.
+      const spawn = game.player.translation();
+      game.playerMesh.position.set(spawn.x, spawn.y - 0.84, spawn.z);
       game.scene.add(game.playerMesh);
       game.playerMesh.updateMatrixWorld(true);
-      // Snap the camera to the actual spawn position on first load. A slow
-      // lerp from the origin can leave the player outside the mobile viewport.
+      // Snap the camera to the actual spawn position on first load.
       const spawnTarget = game.playerMesh.position.clone();
       const spawnOffset = new THREE.Vector3(
         Math.sin(game.yaw) * game.cameraDistance,
