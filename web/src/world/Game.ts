@@ -120,7 +120,32 @@ export class Game {
     game.player = body;
     try {
       game.playerMesh = await game.loadPlayer();
+      game.playerMesh.visible = true;
+      game.playerMesh.traverse(object => {
+        if (object instanceof THREE.Mesh) {
+          object.visible = true;
+          object.frustumCulled = false;
+        }
+      });
       game.scene.add(game.playerMesh);
+      game.playerMesh.updateMatrixWorld(true);
+      // Snap the camera to the actual spawn position on first load. A slow
+      // lerp from the origin can leave the player outside the mobile viewport.
+      const spawnTarget = game.playerMesh.position.clone();
+      const spawnOffset = new THREE.Vector3(
+        Math.sin(game.yaw) * game.cameraDistance,
+        game.cameraDistance * 0.58,
+        Math.cos(game.yaw) * game.cameraDistance
+      );
+      game.camera.position.copy(spawnTarget.clone().add(spawnOffset));
+      game.camera.lookAt(spawnTarget.clone().add(new THREE.Vector3(0, 1.3, 0)));
+      const playerBounds = new THREE.Box3().setFromObject(game.playerMesh);
+      console.info('[LembahAsri] Player visible', {
+        meshes: (() => { let count = 0; game.playerMesh!.traverse(o => { if (o instanceof THREE.Mesh) count++; }); return count; })(),
+        bounds: playerBounds.getSize(new THREE.Vector3()).toArray(),
+        position: game.playerMesh.position.toArray(),
+        camera: game.camera.position.toArray()
+      });
       // Show the character as soon as the idle model is ready. The other
       // animation FBXs are large; load them after the player is already visible.
       void game.loadMotionClips();
@@ -328,6 +353,16 @@ export class Game {
     const scale = 1.68 / height;
     model.scale.setScalar(scale);
     model.position.y = -bounds.min.y * scale;
+    // Animated FBX/SkinnedMesh bounds can remain stale after atlas-mesh
+    // replacement and root scaling. Disable per-mesh frustum culling so the
+    // player cannot disappear on narrow mobile camera frusta.
+    model.traverse(object => {
+      if (object instanceof THREE.Mesh) {
+        object.visible = true;
+        object.frustumCulled = false;
+      }
+    });
+    model.updateMatrixWorld(true);
     this.prepareImportedMaterials(model);
 
     // The FBX references a Tripo texture in an external .fbm folder that is
