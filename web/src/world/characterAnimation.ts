@@ -73,3 +73,15 @@ export function jumpMayFinish(
   if (playbackTime === undefined || clipDuration === undefined) return true;
   return playbackTime >= clipDuration - 0.02;
 }
+
+/** Horizontal locomotion is independent of airborne/jump animation state. */
+export function resolveLocomotion(forward: number, side: number, sprint: boolean): {
+  moving: boolean; speed: number; motion: 'idle' | 'walk' | 'run';
+} {
+  const moving = Math.hypot(forward, side) > 0.08;
+  return {
+    moving,
+    speed: sprint ? 6 : 3.5,
+    motion: moving ? (sprint ? 'run' : 'walk') : 'idle'
+  };
+}
