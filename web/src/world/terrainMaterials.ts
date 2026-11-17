@@ -142,7 +142,7 @@ export function createPaintedTerrainPlane(
   width: number, depth: number,
   worldX: number, worldZ: number, elevation: number,
   feathered = false
-): THREE.Mesh {
+): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
   const subdivisionsX = Math.max(2, Math.min(72, Math.ceil(width / 1.9)));
   const subdivisionsZ = Math.max(2, Math.min(72, Math.ceil(depth / 1.9)));
   const geometry = new THREE.PlaneGeometry(width, depth, subdivisionsX, subdivisionsZ);
