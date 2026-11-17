@@ -8,9 +8,10 @@ import { createNaturalEarthAlbedo } from './naturalEarth.ts';
  * over the entire map.
  *
  * Meadow grass continues to use grass_painterly_tile.webp.
- * Earth uses a generated, low-contrast pigment image: the old earth_path.png
- * asset has obvious decorative contour motifs when repeated on large yards.
- * The authored earth_path.png asset stays available but is not used as dirt.
+ * Earth uses the exported hand-painted soil image inspired by the approved
+ * childhood-home terrain concept. This is a separate albedo map on a flat
+ * world-UV plane, NOT the full environment illustration projected on terrain.
+ * The old earth_path.png remains in repo but is not used as ground.
  */
 export type TerrainSurface = 'grass' | 'earth' | 'path' | 'soil' | 'plaza';
 
@@ -22,12 +23,13 @@ type SurfaceStyle = {
 };
 const STYLES: Record<TerrainSurface, SurfaceStyle> = {
   grass: { source: 'grass', tileMetres: 3.5, fallback: '#91a96e', tint: '#ffffff' },
-  // A continuous 42 m dirt albedo instead of a 2–3 m patterned tile.
-  // All earth types use identical world UV scale; tint denotes compaction.
-  earth: { source: 'earth', tileMetres: 42, fallback: '#b19872', tint: '#ffffff' },
-  path: { source: 'earth', tileMetres: 42, fallback: '#b49a74', tint: '#f1ebdc' },
-  soil: { source: 'earth', tileMetres: 42, fallback: '#86674b', tint: '#a58b73' },
-  plaza: { source: 'earth', tileMetres: 42, fallback: '#c8b991', tint: '#eee2c4' }
+  // At 20 metres per tile the painted marks stay legible on mobile without
+  // obvious 2-metre paving repeats or sharp pixelation close to the camera.
+  // All earth surfaces share one world UV scale so roads and yards line up.
+  earth: { source: 'earth', tileMetres: 20, fallback: '#b19872', tint: '#ffffff' },
+  path: { source: 'earth', tileMetres: 20, fallback: '#b49a74', tint: '#f1ebdc' },
+  soil: { source: 'earth', tileMetres: 20, fallback: '#86674b', tint: '#a58b73' },
+  plaza: { source: 'earth', tileMetres: 20, fallback: '#c8b991', tint: '#eee2c4' }
 };
 
 type Binding = {
@@ -112,7 +114,9 @@ export function createTerrainMaterial(
   const style = STYLES[surface];
   const material = new THREE.MeshBasicMaterial({
     color: style.fallback,
-    vertexColors: worldUV,
+    // The baked texture already contains painted shadows, highlights and
+    // pigment detail. Do not bake procedural vertex tints on top of the art.
+    vertexColors: false,
     toneMapped: false,
     // The patch itself sits above ground, never writes depth when feathered.
     transparent: feathered,
@@ -134,12 +138,13 @@ export function createTerrainMaterial(
 }
 
 /**
- * UV0 stays in 0..1 for the feathered patch mask. UV1 is a continuous,
- * world-aligned painted albedo unwrap, gently warped by smooth multi-scale
- * noise to prevent straight repeating tile seams.
+ * True PLAIN ground mesh: one quad, no displaced vertices, no procedural
+ * world noise. UV0 stays [0..1] for the blended perimeter/alpha mask; UV1
+ * encodes the world X/Z in metres for the hand-painted albedo.
  *
- * Macro color values are baked into vertex colors, breaking large-scale
- * repetition without an extra texture fetch or a per-frame shader uniform.
+ * All adjacent ground planes share exactly the same world UV coordinates.
+ * The soil picture is a genuine texture on this mesh, not a scene decal or
+ * a full 2D painting used in place of playable 3D geometry.
  */
 export function createPaintedTerrainPlane(
   surface: TerrainSurface,
@@ -147,74 +152,69 @@ export function createPaintedTerrainPlane(
   worldX: number, worldZ: number, elevation: number,
   feathered = false
 ): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
-  const subdivisionsX = Math.max(2, Math.min(72, Math.ceil(width / 1.9)));
-  const subdivisionsZ = Math.max(2, Math.min(72, Math.ceil(depth / 1.9)));
-  const geometry = new THREE.PlaneGeometry(width, depth, subdivisionsX, subdivisionsZ);
+  const geometry = new THREE.PlaneGeometry(width, depth);
   const pos = geometry.getAttribute('position');
   const uv1 = new Float32Array(pos.count * 2);
-  const colors = new Float32Array(pos.count * 3);
   const tile = STYLES[surface].tileMetres;
   for (let i = 0; i < pos.count; i++) {
     const x = worldX + pos.getX(i);
-    // Plane is rotated -90 deg around X, so local +Y becomes world -Z.
+    // Plane rotates -90 degrees around X, so local +Y is world -Z.
     const z = worldZ - pos.getY(i);
-    const warpU = 0.10 * Math.sin(x * 0.19 + z * 0.13) +
-      0.045 * Math.sin(z * 0.41 - x * 0.22);
-    const warpV = 0.09 * Math.sin(z * 0.21 - x * 0.16) +
-      0.035 * Math.sin(x * 0.45 + z * 0.18);
-    uv1[i * 2] = x / tile + warpU;
-    uv1[i * 2 + 1] = z / tile + warpV;
-    const macro = 0.945 +
-      0.038 * Math.sin(x * 0.105 + z * 0.07) * Math.cos(z * 0.12 - x * 0.035) +
-      0.018 * Math.sin(x * 0.29 - z * 0.21);
-    colors[i * 3] = macro;
-    colors[i * 3 + 1] = macro * 0.997;
-    colors[i * 3 + 2] = macro * 0.977;
+    uv1[i * 2] = x / tile;
+    uv1[i * 2 + 1] = z / tile;
   }
   geometry.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   const material = createTerrainMaterial(surface, width, depth, feathered, true);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.set(worldX, elevation, worldZ);
   mesh.receiveShadow = true;
-  mesh.userData.terrainUV = 'world-warped-uv1';
+  mesh.userData.terrainUV = 'plain-world-uv1';
   return mesh;
 }
 
 /**
- * Called exactly once from the Three.js Game constructor, after scene meshes
- * are created. Failure preserves visible fallback colors and never blocks play.
+ * Called once from the Game constructor. The painted albedo is an actual
+ * authored WebP texture in public/textures/terrain. If it fails to load,
+ * the previous lightweight procedural DataTexture is the safety fallback.
  */
 export function loadPaintedTerrainTextures(maxAnisotropy = 8): Promise<void> {
   if (loading) return loading;
-  // Stop loading earth_path.png as ground color; it looked like repeated
-  // paving swirls in the user's actual iPhone screenshot.
-  try {
-    const earth = createNaturalEarthAlbedo();
-    earth.anisotropy = maxAnisotropy;
-    loaded.set('earth', earth);
-    for (const binding of bindings) {
-      if (STYLES[binding.surface].source === 'earth') applyLoadedTexture(binding, earth);
-    }
-  } catch (error) {
-    console.warn('[LembahAsri] Earth pigment fallback:', error);
-  }
-
-  // The original hand-painted grass texture remains unchanged.
   const loader = new THREE.TextureLoader();
-  loading = loader.loadAsync('./models/environment/grass_painterly_tile.webp')
-    .then(texture => {
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = maxAnisotropy;
-      texture.needsUpdate = true;
-      loaded.set('grass', texture);
-      for (const binding of bindings) {
-        if (STYLES[binding.surface].source === 'grass') applyLoadedTexture(binding, texture);
-      }
-    })
-    .catch(error => {
-      console.warn('[LembahAsri] Grass texture fallback:', error);
-    });
+  loading = Promise.all([
+    loader.loadAsync('./textures/terrain/soil_handpainted.webp')
+      .then(texture => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = maxAnisotropy;
+        texture.generateMipmaps = true;
+        texture.needsUpdate = true;
+        loaded.set('earth', texture);
+        for (const binding of bindings) {
+          if (STYLES[binding.surface].source === 'earth') applyLoadedTexture(binding, texture);
+        }
+      })
+      .catch(error => {
+        console.warn('[LembahAsri] Painted earth texture unavailable; procedural fallback', error);
+        const earth = createNaturalEarthAlbedo();
+        earth.anisotropy = maxAnisotropy;
+        loaded.set('earth', earth);
+        for (const binding of bindings) {
+          if (STYLES[binding.surface].source === 'earth') applyLoadedTexture(binding, earth);
+        }
+      }),
+    loader.loadAsync('./models/environment/grass_painterly_tile.webp')
+      .then(texture => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = maxAnisotropy;
+        texture.needsUpdate = true;
+        loaded.set('grass', texture);
+        for (const binding of bindings) {
+          if (STYLES[binding.surface].source === 'grass') applyLoadedTexture(binding, texture);
+        }
+      })
+      .catch(error => {
+        console.warn('[LembahAsri] Grass texture fallback:', error);
+      })
+  ]).then(() => {});
   return loading;
 }

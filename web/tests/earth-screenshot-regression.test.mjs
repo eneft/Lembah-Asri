@@ -8,10 +8,16 @@ import { terrainTileRepeat } from '../src/world/terrainMaterials.ts';
 
 test('natural pigment ground has no short-period ornamental source texture', () => {
   const code = readFileSync(new URL('../src/world/terrainMaterials.ts', import.meta.url), 'utf8');
-  assert.match(code, /createNaturalEarthAlbedo\(\)/);
+  assert.match(code, /loadAsync\('\.\/textures\/terrain\/soil_handpainted\.webp'\)/, 'primary map is actual painted image');
+  assert.match(code, /createNaturalEarthAlbedo\(\)/, 'procedural albedo remains as fallback');
+  const painted = readFileSync(new URL('../public/textures/terrain/soil_handpainted.webp', import.meta.url));
+  assert.equal(painted.subarray(0, 4).toString('ascii'), 'RIFF');
+  assert.equal(painted.subarray(8, 12).toString('ascii'), 'WEBP');
+  assert.ok(painted.length >= 1500, 'genuine baked albedo file');
+
   assert.doesNotMatch(code, /loadAsync\(['"]\.\/models\/environment\/earth_path\.png/);
   for (const type of ['earth', 'path', 'soil', 'plaza']) {
-    const uv = terrainTileRepeat(type, 42, 42);
+    const uv = terrainTileRepeat(type, 20, 20);
     assert.deepEqual(uv, { x: 1, y: 1 });
   }
 });

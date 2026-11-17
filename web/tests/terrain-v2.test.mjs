@@ -5,39 +5,39 @@ import { createPaintedTerrainPlane, createTerrainMaterial } from '../src/world/t
 import { createHomeStage } from '../src/world/homeStage.ts';
 import { createInstancedGrass, isGrassAllowed, makeLowPolyGrassGeometry, scatterLowPolyGrass } from '../src/world/lowPolyGrass.ts';
 
-test('terrain UV1 is world aligned and not a straight 0..1 tiled square', () => {
+test('terrain UV1 is world aligned on an intentionally plain four-vertex quad', () => {
   const left = createPaintedTerrainPlane('grass', 10, 10, 0, 0, 0);
   const right = createPaintedTerrainPlane('grass', 10, 10, 10, 0, 0);
   const uv = left.geometry.getAttribute('uv');
   const uv1 = left.geometry.getAttribute('uv1');
-  const color = left.geometry.getAttribute('color');
   const pos = left.geometry.getAttribute('position');
-  assert.ok(uv && uv1 && color && pos);
+  assert.ok(uv && uv1 && pos);
+  assert.equal(pos.count, 4, 'plain single-quad terrain instead of subdivided procedural ground');
   assert.equal(uv.count, uv1.count);
   assert.equal(left.material.userData.worldUV, true);
-  assert.equal(left.userData.terrainUV, 'world-warped-uv1');
-  assert.equal(left.material.vertexColors, true);
+  assert.equal(left.userData.terrainUV, 'plain-world-uv1');
+  assert.equal(left.material.vertexColors, false, 'painted color comes from albedo, not vertex tints');
   assert.ok(left.geometry.parameters.width === 10);
   assert.ok(uv1.getX(0) < 0, 'world-aligned UV can be negative');
 
   const first = Array.from({length: uv1.count}, (_, i) => i).find(i =>
     Math.abs(left.position.x + pos.getX(i) - 5) < 0.0001 &&
-    Math.abs(left.position.z - pos.getY(i)) < 0.0001
+    Math.abs(left.position.z - pos.getY(i) - 5) < 0.0001
   );
   const posR = right.geometry.getAttribute('position');
   const uvR = right.geometry.getAttribute('uv1');
   const second = Array.from({length: uvR.count}, (_, i) => i).find(i =>
     Math.abs(right.position.x + posR.getX(i) - 5) < 0.0001 &&
-    Math.abs(right.position.z - posR.getY(i)) < 0.0001
+    Math.abs(right.position.z - posR.getY(i) - 5) < 0.0001
   );
   assert.notEqual(first, undefined);
   assert.notEqual(second, undefined);
   assert.ok(Math.abs(uv1.getX(first) - uvR.getX(second)) < 1e-5, 'UVs align at adjacent edge');
   assert.ok(Math.abs(uv1.getY(first) - uvR.getY(second)) < 1e-5);
-  assert.ok(Math.abs(uv1.getY(0) - uv1.getY(1)) < 0.3, 'UVs change smoothly');
+  assert.ok(Math.abs(uv1.getY(0) - uv1.getY(1)) < 1e-6, 'unwarped world UV on a plain surface');
 });
 
-test('UV0 remains local for feathered alpha mask while UV1 warps color', () => {
+test('UV0 remains local for feathered alpha mask while UV1 maps painted soil', () => {
   const mesh = createPaintedTerrainPlane('earth', 32, 29, -29, 0.4, 0.028, true);
   const uv0 = mesh.geometry.getAttribute('uv');
   const uv1 = mesh.geometry.getAttribute('uv1');
@@ -45,18 +45,17 @@ test('UV0 remains local for feathered alpha mask while UV1 warps color', () => {
   assert.equal(uv0.getX(0), 0);
   assert.equal(uv0.getY(0), 1);
   assert.ok(Math.abs(uv1.getX(0)) > 1.0);
-  assert.ok(Math.abs(uv1.getY(0)) < 1.0, 'natural earth albedo spans the full yard instead of repeated tiny tiles');
+  assert.ok(Math.abs(uv1.getY(0)) < 1.0, 'soil period is larger than one village path width');
   assert.equal(mesh.material.alphaMap.channel, 0);
   assert.equal(mesh.material.transparent, true);
   assert.equal(mesh.material.depthWrite, false);
-  assert.ok(mesh.geometry.getAttribute('color'));
-  assert.ok(position.count > 16, 'subdivided UV grid avoids long stretched quads');
-  assert.ok(position.count < 6000, 'large terrain stays within a light geometry budget');
+  assert.equal(mesh.geometry.getAttribute('color'), undefined);
+  assert.equal(position.count, 4, 'true plain terrain with one quad and four UV points');
   const legacy = createTerrainMaterial('soil', 2.35, 1.55);
   assert.equal(legacy.userData.worldUV, false, 'boxed garden bed uses the original UV tiling');
 });
 
-test('home clearing and village connection now have coherent UV1 with protected masks', () => {
+test('home clearing and village connection share plain world UV1 with protected masks', () => {
   const stage = createHomeStage(false);
   for (const name of [
     'Childhood courtyard - earth clearing',
@@ -67,7 +66,7 @@ test('home clearing and village connection now have coherent UV1 with protected 
     const mesh = stage.root.getObjectByName(name);
     assert.ok(mesh instanceof THREE.Mesh);
     assert.ok(mesh.geometry.getAttribute('uv1'), name);
-    assert.ok(mesh.geometry.getAttribute('color'), name);
+    assert.equal(mesh.geometry.getAttribute('position').count, 4, name + ' stays a flat quad');
     assert.ok(mesh.material.alphaMap, name);
     assert.equal(mesh.material.userData.worldUV, true);
   }
