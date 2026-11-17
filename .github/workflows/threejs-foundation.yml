@@ -41,6 +41,8 @@ jobs:
         run: npm run test:materials
       - name: Verify camera occlusion and Idle playback
         run: npm run test:camera-idle
+      - name: Verify childhood home GLB and walkable site
+        run: npm run test:home
       - name: Type-check and build
         run: npm run build
       - name: Verify production entry point
