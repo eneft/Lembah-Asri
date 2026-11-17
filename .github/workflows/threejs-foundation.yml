@@ -37,6 +37,8 @@ jobs:
         run: npm install
       - name: Verify character root-motion and jump landing regressions
         run: npm run test:animation
+      - name: Verify shared hand-painted materials
+        run: npm run test:materials
       - name: Type-check and build
         run: npm run build
       - name: Verify production entry point
