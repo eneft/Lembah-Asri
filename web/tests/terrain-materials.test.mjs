@@ -8,7 +8,7 @@ import {
 } from '../src/world/terrainMaterials.ts';
 import { createHomeStage } from '../src/world/homeStage.ts';
 
-test('uses real repository-authored PNG and WebP terrain textures', () => {
+test('preserves original repository terrain assets for grass and optional future paths', () => {
   const grass = readFileSync(fileURLToPath(
     new URL('../public/models/environment/grass_painterly_tile.webp', import.meta.url)
   ));
@@ -25,11 +25,13 @@ test('tile repeats scale with world metres so large areas are not stretched', ()
   const grass = terrainTileRepeat('grass', 160, 160);
   assert.ok(grass.x > 40 && grass.y > 40);
   const largeEarth = terrainTileRepeat('earth', 32, 29);
-  assert.ok(largeEarth.x > 10 && largeEarth.y > 10);
+  assert.ok(largeEarth.x > 0.5 && largeEarth.x < 1);
+  assert.ok(largeEarth.y > 0.5 && largeEarth.y < 1);
   const path = terrainTileRepeat('path', 22, 3.3);
-  assert.ok(path.x >= 9 && path.y > 1);
+  assert.ok(path.x < 1 && path.y < 0.1);
   const garden = terrainTileRepeat('soil', 2.35, 1.55);
-  assert.ok(garden.x > 1 && garden.y > 0.5);
+  assert.ok(garden.x < 0.1 && garden.y < 0.1);
+  assert.deepEqual(terrainTileRepeat('earth', 42, 42), terrainTileRepeat('path', 42, 42));
   assert.throws(() => terrainTileRepeat('earth', 0, 3));
   assert.throws(() => terrainTileRepeat('grass', 4, Number.NaN));
 });

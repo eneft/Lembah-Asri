@@ -45,7 +45,7 @@ test('UV0 remains local for feathered alpha mask while UV1 warps color', () => {
   assert.equal(uv0.getX(0), 0);
   assert.equal(uv0.getY(0), 1);
   assert.ok(Math.abs(uv1.getX(0)) > 1.0);
-  assert.ok(Math.abs(uv1.getY(0)) > 1.0);
+  assert.ok(Math.abs(uv1.getY(0)) < 1.0, 'natural earth albedo spans the full yard instead of repeated tiny tiles');
   assert.equal(mesh.material.alphaMap.channel, 0);
   assert.equal(mesh.material.transparent, true);
   assert.equal(mesh.material.depthWrite, false);
@@ -77,6 +77,7 @@ test('low-poly grass uses blade geometry, vertex gradients and two efficient Ins
   const blade = makeLowPolyGrassGeometry();
   const triangleCount = blade.getAttribute('position').count / 3;
   assert.ok(triangleCount >= 8 && triangleCount <= 16, 'small low-poly tufts');
+  assert.ok(blade.boundingSphere.radius < 0.4, 'short low-poly grass no longer resembles tall paper shards');
   assert.ok(blade.getAttribute('color'));
   const group = createInstancedGrass();
   assert.equal(group.name, 'Low poly instanced meadow grass');
@@ -103,6 +104,7 @@ test('grass is deterministic, varied, and excludes walkable paths/house/garden/w
   assert.equal(isGrassAllowed(-45.5, 8.3), false, 'stream remains clear');
   assert.equal(isGrassAllowed(0, 17), false, 'village river remains clear');
   assert.equal(isGrassAllowed(-29.5, 7.4), false, 'player spawn remains clear');
-  assert.ok(a.some(point => Math.abs(point.x + 38) < 5 && Math.abs(point.z - 4) < 6), 'yard edges gain grass');
+  assert.ok(a.some(point => point.x < -22 && point.x > -44 && (point.z > 12 || point.z < -10)), 'grass grows on the yard perimeter');
+  assert.ok(a.every(point => !(point.x > -42.2 && point.x < -16 && point.z > -10 && point.z < 13)), 'central dirt courtyard stays bare');
   assert.notDeepEqual(scatterLowPolyGrass(17).slice(0, 2), a.slice(0, 2));
 });

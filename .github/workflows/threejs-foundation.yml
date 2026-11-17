@@ -47,6 +47,8 @@ jobs:
         run: npm run test:terrain
       - name: Verify terrain UV1 warping and low-poly instanced grass
         run: npm run test:terrain-v2
+      - name: Verify screenshot-based dirt albedo and natural grass correction
+        run: npm run test:earth-review
       - name: Type-check and build
         run: npm run build
       - name: Verify production entry point
