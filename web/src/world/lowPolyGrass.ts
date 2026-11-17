@@ -76,9 +76,10 @@ export function isGrassAllowed(x: number, z: number): boolean {
   // Western stream and the village river
   if (Math.abs(x + 45.5) < 1.8 && z > -5 && z < 27) return false;
   if (Math.abs(z - 17) < 2.2 && x > -24 && x < 25) return false;
-  // Distinct village buildings.
+  // Distinct village buildings, including the new modular warung.
   for (const [cx, cz, hx, hz] of [
     [-13, -12, 6, 4], [-1, -20, 4.5, 4], [17, -18, 4.5, 4],
+    [-9.5, -22.5, 3.1, 3.55],
     [7, -7, 4.5, 4]
   ]) {
     if (Math.abs(x - cx) < hx && Math.abs(z - cz) < hz) return false;
