@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as THREE from 'three';
-import { createHomeStage, HOME } from '../src/world/homeStage.ts';
+import { createHomeStage, computeHouseScale, HOME } from '../src/world/homeStage.ts';
 import { keepCameraOutsideGeometry } from '../src/world/cameraOcclusion.ts';
 
 function insideSolid(x, z, solid, radius = 0.30) {
@@ -98,4 +98,64 @@ test('scene is genuine 3D meshes and respects cleared-earth yard layout', () => 
     0.022
   );
   assert.ok(stage.solids.every(solid => solid.half.every(v => v > 0)));
+});
+
+test('Option B enlarges the original approved GLB significantly without stretching it', () => {
+  const filename = fileURLToPath(
+    new URL('../public/models/environment/rumah_utama.glb', import.meta.url)
+  );
+  const bytes = readFileSync(filename);
+  const jsonLen = bytes.readUInt32LE(12);
+  const gltf = JSON.parse(bytes.subarray(20, 20 + jsonLen).toString('utf8'));
+  const primitive = gltf.meshes[0].primitives[0];
+  const position = gltf.accessors[primitive.attributes.POSITION];
+  const source = {
+    x: position.max[0] - position.min[0],
+    y: position.max[1] - position.min[1],
+    z: position.max[2] - position.min[2]
+  };
+  const previousScale = Math.min(7.5 / source.x, 5.5 / source.z, 5.2 / source.y);
+  const actualScale = computeHouseScale(source);
+  const ratio = actualScale / previousScale;
+  const finalSize = {
+    width: actualScale * source.x,
+    height: actualScale * source.y,
+    depth: actualScale * source.z
+  };
+  assert.ok(ratio >= 1.65, 'Option B must be unmistakably larger than the original');
+  assert.ok(finalSize.width >= 9.0 && finalSize.width <= HOME.house.width + 0.001);
+  assert.ok(finalSize.depth >= 9.0 && finalSize.depth <= HOME.house.depth + 0.001);
+  assert.ok(finalSize.height >= 5.5 && finalSize.height <= HOME.house.height + 0.001);
+  assert.throws(() => computeHouseScale({x: 0, y: 1, z: 1}));
+  console.log('Large house footprint', JSON.stringify({finalSize,ratio:Number(ratio.toFixed(3))}));
+});
+
+test('enlarged house, porch, roof, colliders and fences maintain clearance', () => {
+  const stage = createHomeStage(false);
+  const houseCollider = stage.solids.find(c => c.label === 'Childhood home walls');
+  const shedCollider = stage.solids.find(c => c.label === 'Storage shed walls');
+  const northFence = stage.solids.find(c => c.label === 'North rear fence');
+  const cameraProxy = stage.root.getObjectByName('House camera collision proxy');
+  const fallback = stage.root.getObjectByName('Rumah Masa Kecil - fallback geometry');
+
+  assert.ok(houseCollider && shedCollider && northFence && cameraProxy && fallback);
+  assert.ok(houseCollider.half[0] > 4.8 && houseCollider.half[2] > 4.8);
+  assert.ok(houseCollider.half[1] > 2.9);
+  const eastWall = houseCollider.center[0] + houseCollider.half[0];
+  const westShed = shedCollider.center[0] - shedCollider.half[0];
+  assert.ok(westShed - eastWall >= 2, 'preserve a walkable gap by the shed');
+  const northWall = houseCollider.center[2] - houseCollider.half[2];
+  assert.ok(northWall - northFence.center[2] >= 1.8, 'no collision with rear fence');
+  const frontWall = houseCollider.center[2] + houseCollider.half[2];
+  assert.ok(HOME.spawn.z - frontWall >= 8, 'keep an open approach to the entrance');
+
+  const proxySize = new THREE.Box3().setFromObject(cameraProxy).getSize(new THREE.Vector3());
+  assert.ok(proxySize.x > HOME.house.width && proxySize.z > HOME.house.depth);
+  assert.ok(proxySize.y > HOME.house.height);
+
+  const fallbackSize = new THREE.Box3().setFromObject(fallback).getSize(new THREE.Vector3());
+  assert.ok(fallbackSize.x > 9.4 && fallbackSize.y > 5.5, 'fallback must also be visibly enlarged');
+  const approach = stage.root.getObjectByName('House entrance footpath');
+  assert.equal(approach.position.x, HOME.house.x);
+  assert.ok(approach.geometry.parameters.width >= 3.8, 'large house needs broad approach');
 });

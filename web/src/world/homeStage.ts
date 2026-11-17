@@ -7,7 +7,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  * No animals or cultivated crops: this place has been abandoned for years.
  */
 export const HOME = {
-  house: { x: -31, z: -9, width: 7.5, depth: 5.5 },
+  // Option B: ~74% larger linear footprint than the previously rendered
+  // 5.5 m imported GLB. Keep X/Z scale uniform to preserve the approved art.
+  house: { x: -32.5, z: -9.4, width: 9.6, depth: 9.6, height: 5.85 },
   spawn: { x: -29.5, y: 1.2, z: 7.4 },
   gate: { x: -16.5, z: 9 },
   villageRoad: { x: 0, z: 9 },
@@ -15,6 +17,23 @@ export const HOME = {
   well: { x: -39, z: 4 },
   stream: { x: -45.5, z: 9 }
 } as const;
+
+/**
+ * Fit the approved house to the larger Option-B footprint *uniformly*.
+ * This is intentionally not a non-uniform X/Z stretch: doors, roof tiles,
+ * UVs, hand-painted atlas and architectural proportions stay intact.
+ */
+export function computeHouseScale(size: Pick<THREE.Vector3, 'x' | 'y' | 'z'>): number {
+  if (size.x <= 0 || size.y <= 0 || size.z <= 0
+    || !Number.isFinite(size.x) || !Number.isFinite(size.y) || !Number.isFinite(size.z)) {
+    throw new Error('Invalid source house dimensions');
+  }
+  return Math.min(
+    HOME.house.width / size.x,
+    HOME.house.depth / size.z,
+    HOME.house.height / size.y
+  );
+}
 
 export type SolidCollider = {
   center: [number, number, number];
@@ -74,6 +93,10 @@ function buildLocalHouseFallback(root: THREE.Object3D): THREE.Group {
   const group = new THREE.Group();
   group.name = 'Rumah Masa Kecil - fallback geometry';
   group.position.set(HOME.house.x, 0, HOME.house.z);
+  // The original FBX-independent fallback was smaller than the approved GLB.
+  // Increase its footprint, veranda and roof as one coherent backup building.
+  // Leave the approved imported GLB unchanged.
+  group.scale.set(1.28, 1.38, 1.15);
   root.add(group);
 
   const plaster = mat('#e7ddbc');
@@ -254,7 +277,10 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   floorPatch(root, 'Childhood courtyard - earth clearing', 32, 29, -29, 0.4, '#ac9575', 0.022);
   floorPatch(root, 'Worn central courtyard', 15, 12, -29, 5.2, '#b7a07c', 0.028);
   floorPatch(root, 'Path from the house gate to the village', 22, 3.3, -8.5, HOME.gate.z, '#b9a27d', 0.034);
-  floorPatch(root, 'House entrance footpath', 3.0, 10.8, -30.3, 3.2, '#baa17a', 0.038);
+  // A wider approach helps the enlarged house read as the protagonist's home.
+  // Ends at the actual front wall rather than diving under the house.
+  floorPatch(root, 'House entrance footpath', 3.8, 12.8,
+    HOME.house.x, 2.4, '#baa17a', 0.038);
 
   const fallback = buildLocalHouseFallback(root);
   addAbandonedPlots(root);
@@ -273,8 +299,8 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   // Player cannot walk through house walls or the storage structure.
   solids.push({
     label: 'Childhood home walls',
-    center: [HOME.house.x, 1.55, HOME.house.z],
-    half: [HOME.house.width / 2, 1.55, HOME.house.depth / 2]
+    center: [HOME.house.x, HOME.house.height / 2, HOME.house.z],
+    half: [HOME.house.width / 2 + 0.15, HOME.house.height / 2, HOME.house.depth / 2 + 0.15]
   }, {
     label: 'Storage shed walls',
     center: [-22, 1.2, -10.4],
@@ -286,8 +312,9 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   });
 
   const cameraProxy = box(
-    root, 'House camera collision proxy', [8.7, 4.6, 6.7],
-    [HOME.house.x, 2.3, HOME.house.z], mat('#ffffff'), false
+    root, 'House camera collision proxy',
+    [HOME.house.width + 0.9, HOME.house.height + 0.6, HOME.house.depth + 0.9],
+    [HOME.house.x, (HOME.house.height + 0.6) / 2, HOME.house.z], mat('#ffffff'), false
   );
   cameraProxy.visible = false;
   cameraBlockers.push(cameraProxy);
@@ -302,7 +329,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     }
     // Preserve the original model's geometry and UVs; normalize its authored
     // dimensions into the house plot without destructive nonuniform scaling.
-    const scale = Math.min(7.5 / dimensions.x, 5.5 / dimensions.z, 5.2 / Math.max(dimensions.y, 0.1));
+    const scale = computeHouseScale(dimensions);
     scene.scale.setScalar(scale);
     const center = bounds.getCenter(new THREE.Vector3());
     scene.position.set(HOME.house.x - center.x * scale, -bounds.min.y * scale,
