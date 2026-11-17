@@ -33,3 +33,9 @@
   .mobile-jump{display:grid;place-items:center;position:absolute;right:max(26px,env(safe-area-inset-right));bottom:max(52px,env(safe-area-inset-bottom));width:76px;height:76px;border-radius:50%;border:2px solid #fff0cf;background:linear-gradient(145deg,#d7a65e,#91613d);color:#fff8e7;font:900 13px Nunito,sans-serif;letter-spacing:1px;box-shadow:0 5px 16px #18271988;z-index:6;touch-action:none;user-select:none;-webkit-user-select:none}
 }
 @media(max-width:380px){.mobile-joystick{width:136px;height:136px;left:12px;bottom:14px}.joystick-thumb{width:50px;height:50px}.mobile-jump{width:66px;height:66px;right:16px;bottom:34px}.mobile-run{width:59px;height:59px;right:20px;bottom:116px}}
+
+/* Optional diagnostics: refreshes once per second instead of per animation frame. */
+.perf-toggle{justify-self:end;padding:3px 9px;border:1px solid #ad966f;border-radius:7px;background:#7d8f69;color:#fff8e6;font:800 10px Nunito,system-ui,sans-serif;letter-spacing:.6px;cursor:pointer;touch-action:manipulation}
+.perf-toggle[aria-pressed="true"]{background:#d8b46d;color:#43371f}
+.perf-reading{font-variant-numeric:tabular-nums;font-size:10px!important;color:#465e48!important;white-space:nowrap}
+@media(max-width:700px){.perf-reading{font-size:9px!important}.status{min-width:114px}}
