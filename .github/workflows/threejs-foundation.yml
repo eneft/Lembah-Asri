@@ -39,6 +39,8 @@ jobs:
         run: npm run test:animation
       - name: Verify shared hand-painted materials
         run: npm run test:materials
+      - name: Verify camera occlusion and Idle playback
+        run: npm run test:camera-idle
       - name: Type-check and build
         run: npm run build
       - name: Verify production entry point
