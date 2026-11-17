@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /**
- * Very small hand-shaped tuft geometry (4 bent broad blades, 8 triangles).
+ * Very small hand-shaped tuft geometry (4 bent broad blades, 12 triangles).
  * Kept as real low-poly geometry, not photo billboards, sprites or particles.
  * One InstancedMesh per grass tint makes the 3D meadow cheap to render.
  */
