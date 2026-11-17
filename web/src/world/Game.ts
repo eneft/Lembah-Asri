@@ -7,6 +7,7 @@ import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTr
 import { applyHandPaintedMaterials } from './handPaintedMaterials';
 import { keepCameraOutsideGeometry } from './cameraOcclusion';
 import { activateCharacterMotion } from './animationState';
+import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 
@@ -31,6 +32,7 @@ export class Game {
   private currentPhysicsPosition = new THREE.Vector3();
   private cameraFocus = new THREE.Vector3();
   private cameraObstacles: THREE.Object3D[] = [];
+  private homeSolids: SolidCollider[] = [];
   private idleSpine?: THREE.Bone;
   private idleSpineOffset = 0;
   private idleBlend = 0;
@@ -47,7 +49,8 @@ export class Game {
 
   private frame = 0;
   private running = true;
-  private yaw = Math.PI;
+  // Face the childhood home on the opening scene, camera behind the player.
+  private yaw = 0;
   private pitch = 0.28;
   private last = performance.now();
   private accumulator = 0;
@@ -141,7 +144,18 @@ export class Game {
     game.world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     const floor = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     game.world.createCollider(RAPIER.ColliderDesc.cuboid(80, 0.25, 80).setTranslation(0, -0.25, 0), floor);
-    const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 1.2, 7).lockRotations());
+    // Distinct static colliders for the house, empty storage shed and fences.
+    // Paths and the open gate remain physically traversable.
+    const fixedScenery = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    for (const solid of game.homeSolids) {
+      const [hx,hy,hz] = solid.half;
+      const [x,y,z] = solid.center;
+      game.world.createCollider(
+        RAPIER.ColliderDesc.cuboid(hx,hy,hz).setTranslation(x,y,z),
+        fixedScenery
+      );
+    }
+    const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(HOME.spawn.x, HOME.spawn.y, HOME.spawn.z).lockRotations());
     game.world.createCollider(RAPIER.ColliderDesc.capsule(0.56, 0.28).setFriction(0.8), body);
     game.player = body;
     try {
@@ -329,6 +343,12 @@ export class Game {
     mesh.name = name; mesh.position.set(...pos); mesh.castShadow = true; mesh.receiveShadow = true; parent.add(mesh); return mesh;
   }
   private addEnvironment() {
+    // Stage 0.2: extend the existing village with the childhood home. The
+    // scene stays one continuous world and does not introduce loading screens.
+    const home = createHomeStage();
+    this.scene.add(home.root);
+    this.cameraObstacles.push(...home.cameraBlockers);
+    this.homeSolids = home.solids;
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(160,160), this.mat('#91a96e'));
     ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; this.scene.add(ground);
     const plaza = new THREE.Mesh(new THREE.BoxGeometry(24,0.18,18), this.mat('#c8b991'));
@@ -368,8 +388,8 @@ export class Game {
   private async loadEnvironmentTrees() {
     const treeUrl = 'https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/406c5088-133a-4af3-8e72-cc8c4d69228e.glb';
     const placements: Array<{ x: number; z: number; height: number; yaw: number }> = [
-      { x: -24, z: -4, height: 4.1, yaw: 0.2 },
-      { x: -24, z: 13, height: 3.5, yaw: 1.1 },
+      { x: -48, z: -8, height: 4.1, yaw: 0.2 },  // outside the house garden
+      { x: -50, z: 19, height: 3.5, yaw: 1.1 },  // preserve the home gate and path
       { x: 25, z: 4, height: 4.3, yaw: 2.2 },
       { x: 24, z: -28, height: 4.0, yaw: 0.7 },
       { x: -7, z: -30, height: 3.4, yaw: 2.8 },
