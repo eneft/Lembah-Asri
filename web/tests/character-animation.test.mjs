@@ -100,14 +100,14 @@ test('joystick motion uses walk by default and RUN toggle increases the same mov
   assert.equal(resolveLocomotion(0.7, 0.7, true).motion, 'run');
 });
 
-test('sprint movement selection does not depend on jump playback or grounding', () => {
-  // The locomotion intent can continue during takeoff, airborne motion and
-  // landing; only the visual animation switches to the Jump pose.
-  for (const airborne of [false, true]) {
-    const locomotion = resolveLocomotion(1, 0.5, true);
-    const activeJump = airborne;
-    assert.equal(locomotion.motion, 'run');
-    assert.equal(locomotion.speed, 6);
-    assert.equal(typeof activeJump, 'boolean');
-  }
+test('switching to jump does not change selected horizontal speed or next landing gait', () => {
+  const running = resolveLocomotion(1, 0.5, true);
+  assert.equal(running.motion, 'run');
+  assert.equal(running.speed, 6);
+  // While Jump is playing, physics continues using the same locomotion input.
+  assert.equal(jumpMayFinish(true, false, 0.7, 1), false);
+  assert.equal(resolveLocomotion(1, 0.5, true).speed, running.speed);
+  // At touchdown, the next locomotion animation is still Running.
+  assert.equal(jumpMayFinish(true, true, 1, 1), true);
+  assert.equal(resolveLocomotion(1, 0.5, true).motion, 'run');
 });
