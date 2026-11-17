@@ -43,6 +43,8 @@ jobs:
         run: npm run test:camera-idle
       - name: Verify childhood home GLB and walkable site
         run: npm run test:home
+      - name: Verify hand-painted terrain, UV tiling and blending
+        run: npm run test:terrain
       - name: Type-check and build
         run: npm run build
       - name: Verify production entry point
