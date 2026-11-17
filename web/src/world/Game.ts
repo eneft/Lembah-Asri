@@ -8,7 +8,7 @@ import { applyHandPaintedMaterials } from './handPaintedMaterials';
 import { keepCameraOutsideGeometry } from './cameraOcclusion';
 import { activateCharacterMotion } from './animationState';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
-import { createTerrainMaterial, createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
+import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
