@@ -244,7 +244,7 @@ function addStreamAndBridge(root: THREE.Object3D) {
  * asynchronously, keeping a fallback house if the model is unavailable.
  * On the existing continuous 160 m world ground, all props are 3D geometry.
  */
-export function createHomeStage(): HomeStage {
+export function createHomeStage(loadApprovedModel = true): HomeStage {
   const root = new THREE.Group();
   root.name = 'Rumah Masa Kecil / Playable House Garden';
   const solids: SolidCollider[] = [];
@@ -293,7 +293,7 @@ export function createHomeStage(): HomeStage {
   cameraProxy.visible = false;
   cameraBlockers.push(cameraProxy);
 
-  const loaded = new GLTFLoader().loadAsync('./models/environment/rumah_utama.glb').then(gltf => {
+  const loaded = !loadApprovedModel ? Promise.resolve(false) : new GLTFLoader().loadAsync('./models/environment/rumah_utama.glb').then(gltf => {
     const scene = gltf.scene;
     scene.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(scene);
