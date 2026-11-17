@@ -10,6 +10,7 @@ import { activateCharacterMotion } from './animationState';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
+import { createWarungStage } from './warungStage';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 export type PerformanceStats = { fps: number; drawCalls: number; triangles: number };
@@ -389,6 +390,17 @@ export class Game {
     const cap = new THREE.Mesh(new THREE.ConeGeometry(5.2,2,4),this.mat('#a95036')); cap.position.y=4.2; cap.rotation.y=Math.PI/4; cap.castShadow=true; gazebo.add(cap);
     this.cameraObstacles.push(cap);
     this.addBuilding(-1,-20,'Pasar Desa','#d8bd91','#8f4934');
+    // Keep the market and add the separately editable warung alongside it.
+    // Include stage colliders BEFORE Rapier static bodies are constructed.
+    const warung = createWarungStage();
+    this.scene.add(warung.root);
+    this.cameraObstacles.push(...warung.cameraBlockers);
+    this.homeSolids.push(...warung.solids);
+    // A real path joins its front step to the existing village plaza.
+    const warungPath = createPaintedTerrainPlane('path', 2.0, 6.8, -9.5, -17.15, 0.021, true);
+    warungPath.name = 'Warung approach - walkable UV path';
+    warungPath.renderOrder = 3;
+    this.scene.add(warungPath);
     this.addBuilding(17,-18,'Puskesmas','#e9e4d3','#a95036');
     // Separate the raised plaza path from the ground path. Previously the
     // 35 m plane sat 3 cm *inside* the plaza, causing occlusion popping.
