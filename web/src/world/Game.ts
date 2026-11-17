@@ -4,6 +4,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTravel } from './characterAnimation';
+import { applyHandPaintedMaterials } from './handPaintedMaterials';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 
@@ -194,109 +195,6 @@ export class Game {
     });
   }
 
-  /**
-   * The authored tree GLB is a hand-painted color asset, not a metallic prop.
-   * Its packed ORM texture contains a non-zero blue metallic channel, which
-   * makes the leaves/bark respond too much like a reflective PBR surface.
-   * Keep the original albedo and normal maps, but use a fully matte response.
-   */
-  /**
-   * The tree's color texture already contains hand-painted light, shadow and
-   * color variation. PBR lighting shades that painted information a second
-   * time, making the asset look like a glossy 3D render. Render the authored
-   * base-color texture unlit, as a painted illustration, while retaining the
-   * original mesh silhouette and its cast shadow.
-   */
-  private prepareHandPaintedTreeMaterials(root: THREE.Object3D) {
-    const maxAnisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-    root.traverse(object => {
-      if (!(object instanceof THREE.Mesh)) return;
-      const convert = (source: THREE.Material): THREE.Material => {
-        if (!(source instanceof THREE.MeshStandardMaterial)) return source;
-        if (source.map) {
-          source.map.colorSpace = THREE.SRGBColorSpace;
-          source.map.anisotropy = maxAnisotropy;
-          source.map.needsUpdate = true;
-        }
-        // MeshBasicMaterial deliberately ignores scene lights, normal maps,
-        // metallic/roughness maps and environment reflections.
-        return new THREE.MeshBasicMaterial({
-          map: source.map ?? null,
-          color: '#ffffff',
-          transparent: source.transparent,
-          opacity: source.opacity,
-          alphaMap: source.alphaMap ?? null,
-          alphaTest: source.alphaTest,
-          side: source.side,
-          vertexColors: source.vertexColors,
-          depthWrite: source.depthWrite,
-          depthTest: source.depthTest,
-          toneMapped: false
-        });
-      };
-      object.material = Array.isArray(object.material)
-        ? object.material.map(convert)
-        : convert(object.material);
-      object.castShadow = true;
-      object.receiveShadow = false;
-    });
-  }
-
-  /**
-   * Painterly character material: use the original character atlas for both
-   * diffuse and a restrained emissive contribution so painted light/shadow
-   * remains legible, while soft Lambert lighting keeps the model dimensional.
-   * The normal map is deliberately very weak to avoid a plastic/PBR finish.
-   */
-  /**
-   * The character atlas already contains hand-painted light and shadow.
-   * Use an unlit material so real-time PBR/Lambert shading does not darken or
-   * double-shade the painted pixels. This matches the original 2D-painted
-   * presentation while retaining the 3D mesh, rig and cast shadow.
-   */
-  private prepareHandPaintedCharacterMaterials(
-    root: THREE.Object3D,
-    baseColor: THREE.Texture
-  ) {
-    baseColor.colorSpace = THREE.SRGBColorSpace;
-    baseColor.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-    baseColor.needsUpdate = true;
-
-    root.traverse(object => {
-      if (!(object instanceof THREE.Mesh)) return;
-      const convert = (source: THREE.Material): THREE.Material => {
-        const original = source as THREE.Material & {
-          transparent?: boolean;
-          opacity?: number;
-          alphaMap?: THREE.Texture | null;
-          alphaTest?: number;
-          side?: THREE.Side;
-          depthWrite?: boolean;
-          depthTest?: boolean;
-          vertexColors?: boolean;
-        };
-        return new THREE.MeshBasicMaterial({
-          color: 0xffffff,
-          map: baseColor,
-          side: original.side ?? THREE.FrontSide,
-          transparent: original.transparent ?? false,
-          opacity: original.opacity ?? 1,
-          alphaMap: original.alphaMap ?? null,
-          alphaTest: original.alphaTest ?? 0,
-          depthWrite: original.depthWrite ?? true,
-          depthTest: original.depthTest ?? true,
-          vertexColors: original.vertexColors ?? false,
-          toneMapped: false
-        });
-      };
-      object.material = Array.isArray(object.material)
-        ? object.material.map(convert)
-        : convert(object.material);
-      object.castShadow = true;
-      object.receiveShadow = false;
-    });
-  }
-
   private makeAlbedoMaterial(color: string) {
     return new THREE.MeshStandardMaterial({
       color: new THREE.Color(color),
@@ -330,41 +228,17 @@ export class Game {
     // for this mesh and already contains the intended painted lighting.
     const textureLoader = new THREE.TextureLoader();
     const shaded = await textureLoader.loadAsync(base + 'shaded.png');
-    shaded.colorSpace = THREE.SRGBColorSpace;
-    // FBX UV coordinates need the PNG atlas vertically flipped on upload.
-    // flipY=false projected the painted eyes/clothing onto the wrong polygons.
+    // FBX UVs require this PNG orientation; do not change the approved atlas.
     shaded.flipY = true;
-    shaded.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-    shaded.needsUpdate = true;
     this.characterBaseColor = shaded;
-
+    // Same unlit hand-painted preset as the GLB trees: no double-shading/PBR.
+    applyHandPaintedMaterials(
+      model,
+      Math.min(8, this.renderer.capabilities.getMaxAnisotropy()),
+      shaded
+    );
     model.traverse(object => {
-      if (!(object instanceof THREE.Mesh)) return;
-      const makePainted = (source: THREE.Material) => {
-        const original = source as THREE.Material & {
-          side?: THREE.Side; transparent?: boolean; opacity?: number;
-          alphaMap?: THREE.Texture | null; alphaTest?: number;
-          depthWrite?: boolean; depthTest?: boolean;
-        };
-        return new THREE.MeshBasicMaterial({
-          color: 0xffffff,
-          map: shaded,
-          side: original.side ?? THREE.FrontSide,
-          transparent: original.transparent ?? false,
-          opacity: original.opacity ?? 1,
-          alphaMap: original.alphaMap ?? null,
-          alphaTest: original.alphaTest ?? 0,
-          depthWrite: original.depthWrite ?? true,
-          depthTest: original.depthTest ?? true,
-          toneMapped: false
-        });
-      };
-      object.material = Array.isArray(object.material)
-        ? object.material.map(makePainted)
-        : makePainted(object.material);
-      object.castShadow = true;
-      object.receiveShadow = false;
-      object.frustumCulled = false;
+      if (object instanceof THREE.Mesh) object.frustumCulled = false;
     });
 
     actorRoot.updateMatrixWorld(true);
@@ -481,7 +355,10 @@ export class Game {
       const bounds = new THREE.Box3().setFromObject(source);
       const sourceHeight = Math.max(bounds.max.y - bounds.min.y, 0.001);
       this.prepareImportedMaterials(source);
-      this.prepareHandPaintedTreeMaterials(source);
+      applyHandPaintedMaterials(
+        source,
+        Math.min(8, this.renderer.capabilities.getMaxAnisotropy())
+      );
 
       for (const placement of placements) {
         const tree = source.clone(true);
