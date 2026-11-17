@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTravel, resolveLocomotion } from './characterAnimation';
 import { applyHandPaintedMaterials } from './handPaintedMaterials';
+import { keepCameraOutsideGeometry } from './cameraOcclusion';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 
@@ -27,6 +28,13 @@ export class Game {
   private touchRun = false;
   private previousPhysicsPosition = new THREE.Vector3();
   private currentPhysicsPosition = new THREE.Vector3();
+  private cameraFocus = new THREE.Vector3();
+  private cameraObstacles: THREE.Object3D[] = [];
+  private idleSpine?: THREE.Bone;
+  private idleSpineOffset = 0;
+  private idleBlend = 0;
+  private idleSeconds = 0;
+  private jumpElapsed = 0;
   private jumpRequested = false;
 
   setTouchMove(x: number, y: number) {
@@ -60,7 +68,10 @@ export class Game {
   private constructor(host: HTMLElement) {
     this.host = host;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    // Limit render-target memory and GPU bandwidth on touch/mobile devices.
+    // FBX character atlases are 4K and several animation files are large.
+    const mobile = window.matchMedia('(pointer: coarse)').matches;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1.25 : 1.5));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -94,9 +105,10 @@ export class Game {
     const sun = new THREE.DirectionalLight('#fff0d8', 2.1);
     sun.position.set(-18, 30, -12);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.bias = -0.00015;
-    sun.shadow.normalBias = 0.035;
+    sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
+    // Reduce ground shadow acne as the camera moves through the village.
+    sun.shadow.bias = -0.00035;
+    sun.shadow.normalBias = 0.025;
     sun.shadow.radius = 4;
     sun.shadow.camera.left = -35; sun.shadow.camera.right = 35;
     sun.shadow.camera.top = 35; sun.shadow.camera.bottom = -35;
@@ -106,6 +118,8 @@ export class Game {
     skyFill.position.set(12, 9, 18);
     this.scene.add(skyFill);
     this.addEnvironment();
+    // Static occluder meshes need valid world matrices for camera raycasts.
+    this.scene.updateMatrixWorld(true);
     void this.loadEnvironmentTrees();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(host);
@@ -156,7 +170,8 @@ export class Game {
         Math.cos(game.yaw) * game.cameraDistance
       );
       game.camera.position.copy(spawnTarget.clone().add(spawnOffset));
-      game.camera.lookAt(spawnTarget.clone().add(new THREE.Vector3(0, 1.3, 0)));
+      game.cameraFocus.copy(spawnTarget).add(new THREE.Vector3(0, 1.3, 0));
+      game.camera.lookAt(game.cameraFocus);
       const playerBounds = new THREE.Box3().setFromObject(game.playerMesh);
       console.info('[LembahAsri] Player visible', {
         meshes: (() => { let count = 0; game.playerMesh!.traverse(o => { if (o instanceof THREE.Mesh) count++; }); return count; })(),
@@ -248,6 +263,11 @@ export class Game {
     );
     model.traverse(object => {
       if (object instanceof THREE.Mesh) object.frustumCulled = false;
+      // The authored idle cycle lasts 8.33 s and has minimal movement.
+      // Add a gentle spine breathing layer only when the player is idle.
+      if (object instanceof THREE.Bone && /spine$/i.test(object.name) && !this.idleSpine) {
+        this.idleSpine = object;
+      }
     });
 
     actorRoot.updateMatrixWorld(true);
@@ -259,7 +279,9 @@ export class Game {
     const idleAction = this.mixer.clipAction(idleClip);
     idleAction.setLoop(THREE.LoopRepeat, Infinity);
     this.actions.idle = idleAction;
-    this.playMotion('idle', 0);
+    // Start the actual FBX Idle immediately at full weight (no zero-length fade).
+    idleAction.reset().setEffectiveWeight(1).setEffectiveTimeScale(1.25).play();
+    this.activeMotion = 'idle';
     return actorRoot;
   }
 
@@ -300,7 +322,7 @@ export class Game {
     if (!next || this.activeMotion === motion) return;
     const previous = this.activeMotion ? this.actions[this.activeMotion] : undefined;
     next.reset().enabled = true;
-    next.setEffectiveTimeScale(1);
+    next.setEffectiveTimeScale(motion === 'idle' ? 1.25 : 1);
     next.setEffectiveWeight(1);
     next.play();
     if (previous && previous !== next) previous.crossFadeTo(next, fade, false);
@@ -321,19 +343,25 @@ export class Game {
     const plaza = new THREE.Mesh(new THREE.BoxGeometry(24,0.18,18), this.mat('#c8b991'));
     plaza.position.set(0,0.02,-5); plaza.receiveShadow = true; this.scene.add(plaza);
     const hall = new THREE.Group(); hall.position.set(-13,0,-12); this.scene.add(hall);
-    this.box(hall,'Balai Desa walls',[10,4.2,7],[0,2.1,0],'#e8d5ae');
+    this.cameraObstacles.push(this.box(hall,'Balai Desa walls',[10,4.2,7],[0,2.1,0],'#e8d5ae'));
     this.box(hall,'Balai Desa timber trim',[10.2,.25,7.2],[0,3.6,0],'#76543a');
     const roof = new THREE.Mesh(new THREE.ConeGeometry(6.4,2.8,4),this.mat('#a94f35'));
     roof.position.set(0,5.2,0); roof.rotation.y=Math.PI/4; roof.castShadow=true; hall.add(roof);
+    this.cameraObstacles.push(roof);
     this.box(hall,'Balai Desa veranda',[11,.3,2],[0,.3,4.2],'#9b7852');
     const gazebo = new THREE.Group(); gazebo.position.set(7,0,-7); this.scene.add(gazebo);
     this.box(gazebo,'Pendopo floor',[7,.35,6],[0,.35,0],'#9a7956');
     for (const x of [-2.8,2.8]) for (const z of [-2.3,2.3]) this.box(gazebo,'Pendopo post',[.22,3.1,.22],[x,1.9,z],'#79563a');
     const cap = new THREE.Mesh(new THREE.ConeGeometry(5.2,2,4),this.mat('#a95036')); cap.position.y=4.2; cap.rotation.y=Math.PI/4; cap.castShadow=true; gazebo.add(cap);
+    this.cameraObstacles.push(cap);
     this.addBuilding(-1,-20,'Pasar Desa','#d8bd91','#8f4934');
     this.addBuilding(17,-18,'Puskesmas','#e9e4d3','#a95036');
-    const path = new THREE.Mesh(new THREE.PlaneGeometry(5,35),this.mat('#b99b70'));
-    path.rotation.x=-Math.PI/2; path.position.set(0,.08,7); this.scene.add(path);
+    // Separate the raised plaza path from the ground path. Previously the
+    // 35 m plane sat 3 cm *inside* the plaza, causing occlusion popping.
+    const path = new THREE.Mesh(new THREE.PlaneGeometry(5,20.5),this.mat('#b99b70'));
+    path.rotation.x=-Math.PI/2; path.position.set(0,.012,14.25); this.scene.add(path);
+    const plazaPath = new THREE.Mesh(new THREE.PlaneGeometry(5,14.5),this.mat('#b99b70'));
+    plazaPath.rotation.x=-Math.PI/2; plazaPath.position.set(0,.124,-3.25); this.scene.add(plazaPath);
     // Tree placement is handled by the imported hand-painted GLB asset.
     const water = new THREE.Mesh(new THREE.BoxGeometry(48,.12,2.6),this.mat('#5bafc2'));
     water.position.set(0,-.02,17); this.scene.add(water);
@@ -342,8 +370,9 @@ export class Game {
   }
   private addBuilding(x:number,z:number,name:string,walls:string,roofColor:string) {
     const g=new THREE.Group(); g.position.set(x,0,z); this.scene.add(g);
-    this.box(g,name+' walls',[7,3.5,6],[0,1.75,0],walls);
+    this.cameraObstacles.push(this.box(g,name+' walls',[7,3.5,6],[0,1.75,0],walls));
     const roof=new THREE.Mesh(new THREE.ConeGeometry(5.2,2.1,4),this.mat(roofColor)); roof.position.y=4.45; roof.rotation.y=Math.PI/4; roof.castShadow=true; g.add(roof);
+    this.cameraObstacles.push(roof);
   }
   private async loadEnvironmentTrees() {
     const treeUrl = 'https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/406c5088-133a-4af3-8e72-cc8c4d69228e.glb';
@@ -414,6 +443,7 @@ export class Game {
         this.player.setLinvel({x:dir.x*speed,y:5.2,z:dir.z*speed},true);
         this.jumpInProgress=true;
         this.jumpLeftGround=false;
+        this.jumpElapsed=0;
         this.playMotion('jump',0.08);
       }
       this.jumpRequested=false;
@@ -452,24 +482,49 @@ export class Game {
         this.playerMesh.rotation.y+=angularDelta*(1-Math.exp(-16*dt));
       }
       if(this.jumpInProgress){
+        this.jumpElapsed+=dt;
         const onGround=isPlayerGrounded(p.y,this.player.linvel().y);
         if(!onGround) this.jumpLeftGround=true;
         // Leave Jump active throughout takeoff, flight and the landing pose.
         this.playMotion('jump',0.08);
         const jumpAction=this.actions.jump;
-        if(jumpMayFinish(this.jumpLeftGround,onGround,jumpAction?.time,jumpAction?.getClip().duration)){
+        if(jumpMayFinish(this.jumpLeftGround,onGround,jumpAction?.time,jumpAction?.getClip().duration)
+          || (this.jumpLeftGround && onGround && this.jumpElapsed > 2.1)){
           this.jumpInProgress=false;
           this.jumpLeftGround=false;
+          this.jumpElapsed=0;
           this.playMotion(desired,0.16);
         }
       } else {
         this.playMotion(desired,0.16);
       }
+      // Idle is an authored 8.33 s clip with subtle keyframes. Preserve
+      // that clip and add a low-amplitude procedural breathing layer so that
+      // the idle state is visible without changing the asset or skeleton.
+      if (this.idleSpine) this.idleSpine.rotation.x -= this.idleSpineOffset;
       this.mixer?.update(dt);
+      this.idleSeconds += dt;
+      this.idleBlend = THREE.MathUtils.damp(
+        this.idleBlend,
+        this.activeMotion === 'idle' && !moving && !this.jumpInProgress ? 1 : 0,
+        5,
+        dt
+      );
+      this.idleSpineOffset = this.idleBlend * Math.sin(this.idleSeconds * 1.9) * 0.025;
+      if (this.idleSpine) this.idleSpine.rotation.x += this.idleSpineOffset;
     }
     const target=this.playerMesh?.position??new THREE.Vector3();
+    const desiredFocus=target.clone().add(new THREE.Vector3(0,1.3,0));
+    this.cameraFocus.lerp(desiredFocus,1-Math.exp(-12*dt));
     const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*.58,Math.cos(this.yaw)*this.cameraDistance);
-    this.camera.position.lerp(target.clone().add(offset),1-Math.exp(-8*dt));this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.renderer.render(this.scene,this.camera);
+    const requested=target.clone().add(offset);
+    const safeRequested=keepCameraOutsideGeometry(this.cameraFocus,requested,this.cameraObstacles);
+    // Snap towards the near-side wall when obstructed, ease back out when clear.
+    const easing=safeRequested.distanceTo(requested)>0.01 ? 1 : 1-Math.exp(-8*dt);
+    const smoothed=this.camera.position.clone().lerp(safeRequested,easing);
+    this.camera.position.copy(keepCameraOutsideGeometry(this.cameraFocus,smoothed,this.cameraObstacles));
+    this.camera.lookAt(this.cameraFocus);
+    this.renderer.render(this.scene,this.camera);
   };
   dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }
