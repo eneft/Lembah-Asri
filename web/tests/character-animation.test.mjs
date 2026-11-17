@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   removeBakedHipTravel,
   isPlayerGrounded,
-  jumpMayFinish
+  jumpMayFinish,
+  resolveLocomotion
 } from '../src/world/characterAnimation.ts';
 
 function sampleClip(values, name = 'mixamorigHips.position') {
@@ -84,4 +85,29 @@ test('jump cannot transition to walk/idle midair or before landing animation end
   assert.equal(jumpMayFinish(true, true, 0.65, 1), false);
   assert.equal(jumpMayFinish(true, true, 0.995, 1), true);
   assert.equal(jumpMayFinish(true, true), true);
+});
+
+test('joystick motion uses walk by default and RUN toggle increases the same movement', () => {
+  assert.deepEqual(resolveLocomotion(1, 0, false), {
+    moving: true, speed: 3.5, motion: 'walk'
+  });
+  assert.deepEqual(resolveLocomotion(1, 0, true), {
+    moving: true, speed: 6, motion: 'run'
+  });
+  assert.deepEqual(resolveLocomotion(0, 0, true), {
+    moving: false, speed: 6, motion: 'idle'
+  });
+  assert.equal(resolveLocomotion(0.7, 0.7, true).motion, 'run');
+});
+
+test('sprint movement selection does not depend on jump playback or grounding', () => {
+  // The locomotion intent can continue during takeoff, airborne motion and
+  // landing; only the visual animation switches to the Jump pose.
+  for (const airborne of [false, true]) {
+    const locomotion = resolveLocomotion(1, 0.5, true);
+    const activeJump = airborne;
+    assert.equal(locomotion.motion, 'run');
+    assert.equal(locomotion.speed, 6);
+    assert.equal(typeof activeJump, 'boolean');
+  }
 });
