@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { createTerrainMaterial, type TerrainSurface } from './terrainMaterials';
+import { createTerrainMaterial, type TerrainSurface } from './terrainMaterials.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
