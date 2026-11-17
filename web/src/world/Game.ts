@@ -6,6 +6,7 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTravel, resolveLocomotion } from './characterAnimation';
 import { applyHandPaintedMaterials } from './handPaintedMaterials';
 import { keepCameraOutsideGeometry } from './cameraOcclusion';
+import { activateCharacterMotion } from './animationState';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 
@@ -280,8 +281,7 @@ export class Game {
     idleAction.setLoop(THREE.LoopRepeat, Infinity);
     this.actions.idle = idleAction;
     // Start the actual FBX Idle immediately at full weight (no zero-length fade).
-    idleAction.reset().setEffectiveWeight(1).setEffectiveTimeScale(1.25).play();
-    this.activeMotion = 'idle';
+    this.activeMotion = activateCharacterMotion(this.actions, undefined, 'idle', 0);
     return actorRoot;
   }
 
@@ -318,16 +318,7 @@ export class Game {
   }
 
   private playMotion(motion: Motion, fade = 0.18) {
-    const next = this.actions[motion];
-    if (!next || this.activeMotion === motion) return;
-    const previous = this.activeMotion ? this.actions[this.activeMotion] : undefined;
-    next.reset().enabled = true;
-    next.setEffectiveTimeScale(motion === 'idle' ? 1.25 : 1);
-    next.setEffectiveWeight(1);
-    next.play();
-    if (previous && previous !== next) previous.crossFadeTo(next, fade, false);
-    else next.fadeIn(fade);
-    this.activeMotion = motion;
+    this.activeMotion = activateCharacterMotion(this.actions, this.activeMotion, motion, fade);
   }
 
   private mat(color: string) {
