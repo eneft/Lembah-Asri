@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createNaturalEarthAlbedo } from './naturalEarth.ts';
 
 /**
  * Terrain albedo is painted into the source images; the game must not add a
@@ -6,9 +7,10 @@ import * as THREE from 'three';
  * material, with UV repeat measured in metres instead of stretching one tile
  * over the entire map.
  *
- * Both sources already exist in the Lembah Asri repository:
- * - grass_painterly_tile.webp (hand-painted grass)
- * - earth_path.png (balai village earth-path palette)
+ * Meadow grass continues to use grass_painterly_tile.webp.
+ * Earth uses a generated, low-contrast pigment image: the old earth_path.png
+ * asset has obvious decorative contour motifs when repeated on large yards.
+ * The authored earth_path.png asset stays available but is not used as dirt.
  */
 export type TerrainSurface = 'grass' | 'earth' | 'path' | 'soil' | 'plaza';
 
@@ -20,10 +22,12 @@ type SurfaceStyle = {
 };
 const STYLES: Record<TerrainSurface, SurfaceStyle> = {
   grass: { source: 'grass', tileMetres: 3.5, fallback: '#91a96e', tint: '#ffffff' },
-  earth: { source: 'earth', tileMetres: 2.8, fallback: '#ac9575', tint: '#ffffff' },
-  path: { source: 'earth', tileMetres: 2.4, fallback: '#b99b70', tint: '#e8d6ba' },
-  soil: { source: 'earth', tileMetres: 1.8, fallback: '#86674b', tint: '#b99879' },
-  plaza: { source: 'earth', tileMetres: 3.0, fallback: '#c8b991', tint: '#ebdcba' }
+  // A continuous 42 m dirt albedo instead of a 2–3 m patterned tile.
+  // All earth types use identical world UV scale; tint denotes compaction.
+  earth: { source: 'earth', tileMetres: 42, fallback: '#b19872', tint: '#ffffff' },
+  path: { source: 'earth', tileMetres: 42, fallback: '#b49a74', tint: '#f1ebdc' },
+  soil: { source: 'earth', tileMetres: 42, fallback: '#86674b', tint: '#a58b73' },
+  plaza: { source: 'earth', tileMetres: 42, fallback: '#c8b991', tint: '#eee2c4' }
 };
 
 type Binding = {
@@ -184,24 +188,33 @@ export function createPaintedTerrainPlane(
  */
 export function loadPaintedTerrainTextures(maxAnisotropy = 8): Promise<void> {
   if (loading) return loading;
+  // Stop loading earth_path.png as ground color; it looked like repeated
+  // paving swirls in the user's actual iPhone screenshot.
+  try {
+    const earth = createNaturalEarthAlbedo();
+    earth.anisotropy = maxAnisotropy;
+    loaded.set('earth', earth);
+    for (const binding of bindings) {
+      if (STYLES[binding.surface].source === 'earth') applyLoadedTexture(binding, earth);
+    }
+  } catch (error) {
+    console.warn('[LembahAsri] Earth pigment fallback:', error);
+  }
+
+  // The original hand-painted grass texture remains unchanged.
   const loader = new THREE.TextureLoader();
-  const sources = [
-    ['grass', './models/environment/grass_painterly_tile.webp'],
-    ['earth', './models/environment/earth_path.png']
-  ] as const;
-  loading = Promise.all(sources.map(async ([key, url]) => {
-    try {
-      const texture = await loader.loadAsync(url);
+  loading = loader.loadAsync('./models/environment/grass_painterly_tile.webp')
+    .then(texture => {
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = maxAnisotropy;
       texture.needsUpdate = true;
-      loaded.set(key, texture);
+      loaded.set('grass', texture);
       for (const binding of bindings) {
-        if (STYLES[binding.surface].source === key) applyLoadedTexture(binding, texture);
+        if (STYLES[binding.surface].source === 'grass') applyLoadedTexture(binding, texture);
       }
-    } catch (error) {
-      console.warn('[LembahAsri] Terrain texture fallback:', key, error);
-    }
-  })).then(() => {});
+    })
+    .catch(error => {
+      console.warn('[LembahAsri] Grass texture fallback:', error);
+    });
   return loading;
 }
