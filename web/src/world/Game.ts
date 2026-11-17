@@ -8,7 +8,8 @@ import { applyHandPaintedMaterials } from './handPaintedMaterials';
 import { keepCameraOutsideGeometry } from './cameraOcclusion';
 import { activateCharacterMotion } from './animationState';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
-import { createTerrainMaterial, loadPaintedTerrainTextures } from './terrainMaterials';
+import { createTerrainMaterial, createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
+import { createInstancedGrass } from './lowPolyGrass';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 export type PerformanceStats = { fps: number; drawCalls: number; triangles: number };
@@ -365,10 +366,16 @@ export class Game {
     this.scene.add(home.root);
     this.cameraObstacles.push(...home.cameraBlockers);
     this.homeSolids = home.solids;
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(160,160), createTerrainMaterial('grass',160,160));
-    ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; this.scene.add(ground);
-    const plaza = new THREE.Mesh(new THREE.BoxGeometry(24,0.18,18), createTerrainMaterial('plaza',24,18));
+    const ground = createPaintedTerrainPlane('grass', 160, 160, 0, 0, 0);
+    ground.name = 'World painted grass UV terrain';
+    this.scene.add(ground);
+    // One or two InstancedMesh draws for all small 3D grass tufts.
+    this.scene.add(createInstancedGrass());
+    const plaza = new THREE.Mesh(new THREE.BoxGeometry(24,0.18,18), this.mat('#c8b991'));
     plaza.position.set(0,0.02,-5); plaza.receiveShadow = true; this.scene.add(plaza);
+    const plazaTop = createPaintedTerrainPlane('plaza', 24, 18, 0, -5, 0.113);
+    plazaTop.name = 'Village plaza handpainted UV surface';
+    this.scene.add(plazaTop);
     const hall = new THREE.Group(); hall.position.set(-13,0,-12); this.scene.add(hall);
     this.cameraObstacles.push(this.box(hall,'Balai Desa walls',[10,4.2,7],[0,2.1,0],'#e8d5ae'));
     this.box(hall,'Balai Desa timber trim',[10.2,.25,7.2],[0,3.6,0],'#76543a');
@@ -385,10 +392,10 @@ export class Game {
     this.addBuilding(17,-18,'Puskesmas','#e9e4d3','#a95036');
     // Separate the raised plaza path from the ground path. Previously the
     // 35 m plane sat 3 cm *inside* the plaza, causing occlusion popping.
-    const path = new THREE.Mesh(new THREE.PlaneGeometry(5,20.5),createTerrainMaterial('path',5,20.5,true));
-    path.rotation.x=-Math.PI/2; path.position.set(0,.018,14.25); path.renderOrder=3; this.scene.add(path);
-    const plazaPath = new THREE.Mesh(new THREE.PlaneGeometry(5,14.5),createTerrainMaterial('path',5,14.5,true));
-    plazaPath.rotation.x=-Math.PI/2; plazaPath.position.set(0,.138,-3.25); plazaPath.renderOrder=3; this.scene.add(plazaPath);
+    const path = createPaintedTerrainPlane('path',5,20.5,0,14.25,.018,true);
+    path.renderOrder=3; this.scene.add(path);
+    const plazaPath = createPaintedTerrainPlane('path',5,14.5,0,-3.25,.138,true);
+    plazaPath.renderOrder=3; this.scene.add(plazaPath);
     // Tree placement is handled by the imported hand-painted GLB asset.
     const water = new THREE.Mesh(new THREE.BoxGeometry(48,.12,2.6),this.mat('#5bafc2'));
     water.position.set(0,-.02,17); this.scene.add(water);
