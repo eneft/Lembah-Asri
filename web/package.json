@@ -11,6 +11,7 @@
     "test:camera-idle": "node --experimental-strip-types --test tests/camera-idle.test.mjs",
     "test:home": "node --experimental-strip-types --test tests/home-stage.test.mjs",
     "test:terrain": "node --experimental-strip-types --test tests/terrain-materials.test.mjs",
+    "test:terrain-v2": "node --experimental-strip-types --test tests/terrain-v2.test.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "desktop": "electron .",
     "desktop:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",

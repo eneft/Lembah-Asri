@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { createTerrainMaterial, type TerrainSurface } from './terrainMaterials.ts';
+import { createTerrainMaterial, createPaintedTerrainPlane, type TerrainSurface } from './terrainMaterials.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -78,12 +78,12 @@ function floorPatch(
   x: number, z: number, color: string, elevation = 0.025,
   surface?: TerrainSurface, feathered = false
 ) {
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, depth),
-    surface
-      ? createTerrainMaterial(surface, width, depth, feathered)
-      : new THREE.MeshBasicMaterial({ color, toneMapped: false })
-  );
+  const mesh = surface
+    ? createPaintedTerrainPlane(surface, width, depth, x, z, elevation, feathered)
+    : new THREE.Mesh(
+        new THREE.PlaneGeometry(width, depth),
+        new THREE.MeshBasicMaterial({ color, toneMapped: false })
+      );
   mesh.name = label;
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.set(x, elevation, z);
