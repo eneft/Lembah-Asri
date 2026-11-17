@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { applyHandPaintedMaterials } from './handPaintedMaterials';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -293,7 +292,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   cameraProxy.visible = false;
   cameraBlockers.push(cameraProxy);
 
-  const loaded = !loadApprovedModel ? Promise.resolve(false) : new GLTFLoader().loadAsync('./models/environment/rumah_utama.glb').then(gltf => {
+  const loaded = !loadApprovedModel ? Promise.resolve(false) : new GLTFLoader().loadAsync('./models/environment/rumah_utama.glb').then(async gltf => {
     const scene = gltf.scene;
     scene.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(scene);
@@ -309,6 +308,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     scene.position.set(HOME.house.x - center.x * scale, -bounds.min.y * scale,
       HOME.house.z - center.z * scale);
     scene.name = 'Approved original rumah_utama.glb';
+    const { applyHandPaintedMaterials } = await import('./handPaintedMaterials');
     applyHandPaintedMaterials(scene, 8);
     fallback.visible = false;
     root.add(scene);
