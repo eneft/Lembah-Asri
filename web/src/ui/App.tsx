@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { Game } from '../world/Game';
+import { Game, type PerformanceStats } from '../world/Game';
 
 export default function App() {
   const host = useRef<HTMLDivElement>(null);
@@ -9,6 +9,8 @@ export default function App() {
   const runActiveRef = useRef(false);
   const [runActive, setRunActive] = useState(false);
   const [ready, setReady] = useState(false);
+  const [showPerformance, setShowPerformance] = useState(false);
+  const [performanceSample, setPerformanceSample] = useState<PerformanceStats>();
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -48,6 +50,13 @@ export default function App() {
     gameRef.current?.setTouchMove(0, 0);
   };
 
+  const togglePerformance = () => {
+    const next = !showPerformance;
+    setShowPerformance(next);
+    gameRef.current?.setPerformanceMonitor(next ? setPerformanceSample : undefined);
+    if (!next) setPerformanceSample(undefined);
+  };
+
   // RUN is toggleable on touch, leaving a finger free to jump while steering.
   const toggleRun = () => {
     const next = !runActiveRef.current;
@@ -58,9 +67,18 @@ export default function App() {
 
   return <main className="game-shell">
     <div className="game-canvas" ref={host} />
-    <header className="brand"><span className="brand-mark">LA</span><div><strong>Lembah Asri</strong><small>THREE.JS FOUNDATION · LEVEL 01</small></div></header>
-    <section className="objective"><b>Tujuan Hari Ini</b><span>Jelajahi halaman desa</span><span>Temui warga sekitar</span></section>
-    <aside className="status"><span>☀ Musim Kemarau</span><strong>08:20</strong><small>{ready ? '3D WORLD READY' : error ? 'ENGINE ERROR' : 'LOADING 3D CHARACTER'}</small></aside>
+    <header className="brand"><span className="brand-mark">LA</span><div><strong>Lembah Asri</strong><small>RUMAH MASA KECIL · PLAYABLE 0.2</small></div></header>
+    <section className="objective"><b>Kembali ke Lembah Asri</b><span>Jelajahi rumah masa kecil</span><span>Lihat kebun yang terbengkalai</span><span>Ikuti jalan menuju desa</span></section>
+    <aside className="status">
+      <span>☀ Musim Kemarau</span><strong>08:20</strong>
+      <small>{ready ? '3D WORLD READY' : error ? 'ENGINE ERROR' : 'LOADING 3D CHARACTER'}</small>
+      <button
+        type="button" className="perf-toggle" aria-pressed={showPerformance}
+        onClick={togglePerformance} title="Tampilkan FPS untuk pemeriksaan performa"
+      >{showPerformance ? 'FPS ON' : 'FPS'}</button>
+      {showPerformance && performanceSample &&
+        <small className="perf-reading">{performanceSample.fps} FPS · {performanceSample.drawCalls} draw · {performanceSample.triangles.toLocaleString('id-ID')} tris</small>}
+    </aside>
     {error && <div className="error">{error}</div>}
     <footer className="controls"><b>WASD</b> Bergerak <b>Mouse</b> Putar kamera <b>Shift</b> Lari <b>Space</b> Lompat</footer>
     <div className="mobile-joystick" ref={joystickRef}
