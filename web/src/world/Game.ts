@@ -3,7 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
-import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTravel } from './characterAnimation';
+import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTravel, resolveLocomotion } from './characterAnimation';
 import { applyHandPaintedMaterials } from './handPaintedMaterials';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
@@ -24,12 +24,16 @@ export class Game {
   private activeMotion?: Motion;
   private keys = new Set<string>();
   private touchMove = { x: 0, y: 0 };
+  private touchRun = false;
+  private previousPhysicsPosition = new THREE.Vector3();
+  private currentPhysicsPosition = new THREE.Vector3();
   private jumpRequested = false;
 
   setTouchMove(x: number, y: number) {
     this.touchMove.x = THREE.MathUtils.clamp(x, -1, 1);
     this.touchMove.y = THREE.MathUtils.clamp(y, -1, 1);
   }
+  setTouchRun(enabled: boolean) { this.touchRun = enabled; }
   triggerJump() { this.jumpRequested = true; }
 
   private frame = 0;
@@ -44,7 +48,10 @@ export class Game {
   private onKeyDown = (e: KeyboardEvent) => {
     const key = e.key.toLowerCase();
     this.keys.add(key);
-    if (key === ' ' && !e.repeat) this.jumpRequested = true;
+    if (key === ' ') {
+      e.preventDefault();
+      if (!e.repeat) this.jumpRequested = true;
+    }
   };
   private onKeyUp = (e: KeyboardEvent) => { this.keys.delete(e.key.toLowerCase()); };
   private onPointerUp = () => { this.dragging = false; };
@@ -136,6 +143,8 @@ export class Game {
       // as the initial camera target frames an empty point instead of the
       // Rapier spawn location on mobile.
       const spawn = game.player.translation();
+      game.previousPhysicsPosition.set(spawn.x, spawn.y, spawn.z);
+      game.currentPhysicsPosition.copy(game.previousPhysicsPosition);
       game.playerMesh.position.set(spawn.x, spawn.y - PLAYER_BODY_GROUND_Y, spawn.z);
       game.scene.add(game.playerMesh);
       game.playerMesh.updateMatrixWorld(true);
@@ -393,9 +402,9 @@ export class Game {
       const keyboardSide=(this.keys.has('d')?1:0)-(this.keys.has('a')?1:0);
       const forward=Math.abs(this.touchMove.y)>.04?-this.touchMove.y:keyboardForward;
       const side=Math.abs(this.touchMove.x)>.04?this.touchMove.x:keyboardSide;
-      const moving=Math.hypot(forward,side)>.08;
-      const sprint=this.keys.has('shift');
-      const speed=sprint?6:3.5;
+      // Touch RUN is a toggle so movement + sprint + jump needs only two fingers.
+      const sprint=this.keys.has('shift') || this.touchRun;
+      const { moving, speed, motion: desired } = resolveLocomotion(forward,side,sprint);
       const dir=new THREE.Vector3(side,0,-forward);
       if(moving) dir.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),this.yaw);
       const vel=this.player.linvel();
@@ -408,9 +417,21 @@ export class Game {
         this.playMotion('jump',0.08);
       }
       this.jumpRequested=false;
-      while(this.accumulator>=1/60){this.world.timestep=1/60;this.world.step();this.accumulator-=1/60;}
+      // Interpolate the fixed 60 Hz physics transforms for stable rendering on
+      // 90/120 Hz displays and variable-frame-rate mobile browsers.
+      const fixedStep=1/60;
+      while(this.accumulator>=fixedStep){
+        this.previousPhysicsPosition.copy(this.currentPhysicsPosition);
+        this.world.timestep=fixedStep;
+        this.world.step();
+        const stepped=this.player.translation();
+        this.currentPhysicsPosition.set(stepped.x,stepped.y,stepped.z);
+        this.accumulator-=fixedStep;
+      }
       const p=this.player.translation();
-      this.playerMesh.position.set(p.x,p.y-PLAYER_BODY_GROUND_Y,p.z);
+      const renderAlpha=THREE.MathUtils.clamp(this.accumulator/fixedStep,0,1);
+      const rendered=this.previousPhysicsPosition.clone().lerp(this.currentPhysicsPosition,renderAlpha);
+      this.playerMesh.position.set(rendered.x,rendered.y-PLAYER_BODY_GROUND_Y,rendered.z);
       if (!this.playerRuntimeLogged) {
         this.playerRuntimeLogged = true;
         const bounds = new THREE.Box3().setFromObject(this.playerMesh);
@@ -422,8 +443,14 @@ export class Game {
           camera: this.camera.position.toArray()
         });
       }
-      if(moving)this.playerMesh.rotation.y=Math.atan2(dir.x,dir.z);
-      const desired:Motion=moving?(sprint?'run':'walk'):'idle';
+      if(moving){
+        const facing=Math.atan2(dir.x,dir.z);
+        const angularDelta=Math.atan2(
+          Math.sin(facing-this.playerMesh.rotation.y),
+          Math.cos(facing-this.playerMesh.rotation.y)
+        );
+        this.playerMesh.rotation.y+=angularDelta*(1-Math.exp(-16*dt));
+      }
       if(this.jumpInProgress){
         const onGround=isPlayerGrounded(p.y,this.player.linvel().y);
         if(!onGround) this.jumpLeftGround=true;
@@ -442,7 +469,7 @@ export class Game {
     }
     const target=this.playerMesh?.position??new THREE.Vector3();
     const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*.58,Math.cos(this.yaw)*this.cameraDistance);
-    this.camera.position.lerp(target.clone().add(offset),.09);this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.renderer.render(this.scene,this.camera);
+    this.camera.position.lerp(target.clone().add(offset),1-Math.exp(-8*dt));this.camera.lookAt(target.clone().add(new THREE.Vector3(0,1.3,0)));this.renderer.render(this.scene,this.camera);
   };
   dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }

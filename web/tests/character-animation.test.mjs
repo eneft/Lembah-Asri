@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   removeBakedHipTravel,
   isPlayerGrounded,
-  jumpMayFinish
+  jumpMayFinish,
+  resolveLocomotion
 } from '../src/world/characterAnimation.ts';
 
 function sampleClip(values, name = 'mixamorigHips.position') {
@@ -84,4 +85,29 @@ test('jump cannot transition to walk/idle midair or before landing animation end
   assert.equal(jumpMayFinish(true, true, 0.65, 1), false);
   assert.equal(jumpMayFinish(true, true, 0.995, 1), true);
   assert.equal(jumpMayFinish(true, true), true);
+});
+
+test('joystick motion uses walk by default and RUN toggle increases the same movement', () => {
+  assert.deepEqual(resolveLocomotion(1, 0, false), {
+    moving: true, speed: 3.5, motion: 'walk'
+  });
+  assert.deepEqual(resolveLocomotion(1, 0, true), {
+    moving: true, speed: 6, motion: 'run'
+  });
+  assert.deepEqual(resolveLocomotion(0, 0, true), {
+    moving: false, speed: 6, motion: 'idle'
+  });
+  assert.equal(resolveLocomotion(0.7, 0.7, true).motion, 'run');
+});
+
+test('switching to jump does not change selected horizontal speed or next landing gait', () => {
+  const running = resolveLocomotion(1, 0.5, true);
+  assert.equal(running.motion, 'run');
+  assert.equal(running.speed, 6);
+  // While Jump is playing, physics continues using the same locomotion input.
+  assert.equal(jumpMayFinish(true, false, 0.7, 1), false);
+  assert.equal(resolveLocomotion(1, 0.5, true).speed, running.speed);
+  // At touchdown, the next locomotion animation is still Running.
+  assert.equal(jumpMayFinish(true, true, 1, 1), true);
+  assert.equal(resolveLocomotion(1, 0.5, true).motion, 'run');
 });
