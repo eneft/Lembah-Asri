@@ -22,13 +22,13 @@ test('terrain UV1 is world aligned on an intentionally plain four-vertex quad', 
 
   const first = Array.from({length: uv1.count}, (_, i) => i).find(i =>
     Math.abs(left.position.x + pos.getX(i) - 5) < 0.0001 &&
-    Math.abs(left.position.z - pos.getY(i)) < 0.0001
+    Math.abs(left.position.z - pos.getY(i) - 5) < 0.0001
   );
   const posR = right.geometry.getAttribute('position');
   const uvR = right.geometry.getAttribute('uv1');
   const second = Array.from({length: uvR.count}, (_, i) => i).find(i =>
     Math.abs(right.position.x + posR.getX(i) - 5) < 0.0001 &&
-    Math.abs(right.position.z - posR.getY(i)) < 0.0001
+    Math.abs(right.position.z - posR.getY(i) - 5) < 0.0001
   );
   assert.notEqual(first, undefined);
   assert.notEqual(second, undefined);
