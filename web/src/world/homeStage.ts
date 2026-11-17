@@ -16,6 +16,7 @@ export const HOME = {
   villageRoad: { x: 0, z: 9 },
   garden: { x: -22, z: 0.5 },
   well: { x: -39, z: 4 },
+  fruitTree: { x: -40.5, z: 11.8 },
   stream: { x: -45.5, z: 9 }
 } as const;
 
@@ -203,7 +204,7 @@ function addWellAndFruitTree(root: THREE.Object3D) {
   // A simple local fruit tree is a separate real-geometry prop (not an image billboard).
   const tree = new THREE.Group();
   tree.name = 'Old fruit tree';
-  tree.position.set(-40, 0, 8.3);
+  tree.position.set(HOME.fruitTree.x, 0, HOME.fruitTree.z);
   root.add(tree);
   cylinder(tree, 'Fruit tree trunk', 0.22, 0.32, 2.55, [0, 1.27, 0], wood, 7);
   for (const [x, y, z, radius] of [
@@ -256,8 +257,12 @@ function addStreamAndBridge(root: THREE.Object3D) {
         new THREE.DodecahedronGeometry(0.23 + (i % 3) * 0.07, 0), stones
       );
       rock.name = 'Stream bank stone';
-      rock.scale.set(1.3, 0.45, 0.75);
-      rock.position.set(-45.5 + side * 1.48, 0.11, z);
+      // Keep both bridge landings open and break up the ruler-straight banks.
+      if (Math.abs(z - 8.6) < 1.8) continue;
+      rock.scale.set(1.1 + (i % 4) * 0.13, 0.4 + (i % 3) * 0.06, 0.75);
+      rock.rotation.y = i * 1.37 + side;
+      rock.position.set(-45.5 + side * (1.48 + Math.sin(i * 2.4) * 0.13),
+        0.11, z + Math.sin(i * 1.8 + side) * 0.18);
       root.add(rock);
     }
   }
@@ -284,12 +289,16 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   // Earth clearing with no cultivated flowers or crops; connects directly
   // to the existing village, without a floating island/cliff edge.
   floorPatch(root, 'Childhood courtyard - earth clearing', 32, 29, -29, 0.4, '#ac9575', 0.028, 'earth', true);
-  floorPatch(root, 'Worn central courtyard', 15, 12, -29, 5.2, '#b7a07c', 0.052, 'soil', true);
+  const worn = floorPatch(root, 'Worn central courtyard', 15, 12, -29, 5.2, '#b7a07c', 0.052, 'soil', true);
+  // A restrained worn stain, not a dark rectangular cultivated field.
+  worn.material.opacity = 0.32;
   floorPatch(root, 'Path from the house gate to the village', 22, 3.3, -8.5, HOME.gate.z, '#b9a27d', 0.066, 'path', true);
+  floorPatch(root, 'Courtyard cross path to western bridge', 32, 3.4,
+    -33, 8.6, '#b9a27d', 0.070, 'path', true);
   // A wider approach helps the enlarged house read as the protagonist's home.
   // Ends at the actual front wall rather than diving under the house.
-  floorPatch(root, 'House entrance footpath', 3.8, 12.8,
-    HOME.house.x, 2.4, '#baa17a', 0.078, 'path', true);
+  floorPatch(root, 'House entrance footpath', 3.8, 14.8,
+    HOME.house.x, 2.3, '#baa17a', 0.078, 'path', true);
 
   const fallback = buildLocalHouseFallback(root);
   addAbandonedPlots(root);
@@ -314,6 +323,10 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     label: 'Storage shed walls',
     center: [-22, 1.2, -10.4],
     half: [1.75, 1.2, 1.5]
+  }, {
+    label: 'Old fruit tree trunk',
+    center: [HOME.fruitTree.x, 1.2, HOME.fruitTree.z],
+    half: [0.32, 1.2, 0.32]
   }, {
     label: 'Old village well',
     center: [HOME.well.x, 0.55, HOME.well.z],
