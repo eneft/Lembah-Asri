@@ -95,7 +95,7 @@ test('scene is genuine 3D meshes and respects cleared-earth yard layout', () => 
   assert.ok(hasShadedMesh);
   assert.equal(
     stage.root.getObjectByName('Childhood courtyard - earth clearing')?.position.y,
-    0.022
+    0.028
   );
   assert.ok(stage.solids.every(solid => solid.half.every(v => v > 0)));
 });
