@@ -10,6 +10,7 @@ import { activateCharacterMotion } from './animationState';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
+export type PerformanceStats = { fps: number; drawCalls: number; triangles: number };
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
@@ -33,6 +34,10 @@ export class Game {
   private cameraFocus = new THREE.Vector3();
   private cameraObstacles: THREE.Object3D[] = [];
   private homeSolids: SolidCollider[] = [];
+  private performanceListener?: (stats: PerformanceStats) => void;
+  private performanceFrames = 0;
+  private performanceElapsed = 0;
+  private lastPerfTick = performance.now();
   private idleSpine?: THREE.Bone;
   private idleSpineOffset = 0;
   private idleBlend = 0;
@@ -45,6 +50,11 @@ export class Game {
     this.touchMove.y = THREE.MathUtils.clamp(y, -1, 1);
   }
   setTouchRun(enabled: boolean) { this.touchRun = enabled; }
+  setPerformanceMonitor(listener?: (stats: PerformanceStats) => void) {
+    this.performanceListener = listener;
+    this.performanceFrames = 0;
+    this.performanceElapsed = 0;
+  }
   triggerJump() { this.jumpRequested = true; }
 
   private frame = 0;
@@ -536,6 +546,24 @@ export class Game {
     this.camera.position.copy(keepCameraOutsideGeometry(this.cameraFocus,smoothed,this.cameraObstacles));
     this.camera.lookAt(this.cameraFocus);
     this.renderer.render(this.scene,this.camera);
+    // Diagnostic HUD is opt-in and samples at most once per second to avoid
+    // the per-frame React rerenders that previously made mobile input janky.
+    if (this.performanceListener) {
+      this.performanceElapsed += Math.max(0, (now - this.lastPerfTick) / 1000);
+      this.lastPerfTick = now;
+      this.performanceFrames++;
+      if (this.performanceElapsed >= 1) {
+        this.performanceListener({
+          fps: Math.round(this.performanceFrames / this.performanceElapsed),
+          drawCalls: this.renderer.info.render.calls,
+          triangles: this.renderer.info.render.triangles
+        });
+        this.performanceFrames = 0;
+        this.performanceElapsed = 0;
+      }
+    } else {
+      this.lastPerfTick = now;
+    }
   };
   dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }
