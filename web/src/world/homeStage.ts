@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTerrainMaterial, type TerrainSurface } from './terrainMaterials';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -74,15 +75,23 @@ function cylinder(
 }
 function floorPatch(
   parent: THREE.Object3D, label: string, width: number, depth: number,
-  x: number, z: number, color: string, elevation = 0.025
+  x: number, z: number, color: string, elevation = 0.025,
+  surface?: TerrainSurface, feathered = false
 ) {
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(width, depth),
-    new THREE.MeshBasicMaterial({ color, toneMapped: false })
+    surface
+      ? createTerrainMaterial(surface, width, depth, feathered)
+      : new THREE.MeshBasicMaterial({ color, toneMapped: false })
   );
   mesh.name = label;
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.set(x, elevation, z);
+  // Fixed overlay order prevents dirt/path layers from popping during camera
+  // motion while feathered alpha masks handle the meadow-to-earth transition.
+  if (feathered) {
+    mesh.renderOrder = surface === 'path' ? 3 : surface === 'soil' ? 2 : 1;
+  }
   parent.add(mesh);
   return mesh;
 }
@@ -132,7 +141,7 @@ function buildLocalHouseFallback(root: THREE.Object3D): THREE.Group {
 }
 
 function addAbandonedPlots(root: THREE.Object3D) {
-  const earth = mat('#86674b');
+  const earth = createTerrainMaterial('soil', 2.35, 1.55);
   const edges = mat('#a2875c');
   const dryWeeds = [mat('#7b8553'), mat('#8f9365')];
   const patches = [
@@ -274,13 +283,13 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
 
   // Earth clearing with no cultivated flowers or crops; connects directly
   // to the existing village, without a floating island/cliff edge.
-  floorPatch(root, 'Childhood courtyard - earth clearing', 32, 29, -29, 0.4, '#ac9575', 0.022);
-  floorPatch(root, 'Worn central courtyard', 15, 12, -29, 5.2, '#b7a07c', 0.028);
-  floorPatch(root, 'Path from the house gate to the village', 22, 3.3, -8.5, HOME.gate.z, '#b9a27d', 0.034);
+  floorPatch(root, 'Childhood courtyard - earth clearing', 32, 29, -29, 0.4, '#ac9575', 0.028, 'earth', true);
+  floorPatch(root, 'Worn central courtyard', 15, 12, -29, 5.2, '#b7a07c', 0.052, 'soil', true);
+  floorPatch(root, 'Path from the house gate to the village', 22, 3.3, -8.5, HOME.gate.z, '#b9a27d', 0.066, 'path', true);
   // A wider approach helps the enlarged house read as the protagonist's home.
   // Ends at the actual front wall rather than diving under the house.
   floorPatch(root, 'House entrance footpath', 3.8, 12.8,
-    HOME.house.x, 2.4, '#baa17a', 0.038);
+    HOME.house.x, 2.4, '#baa17a', 0.078, 'path', true);
 
   const fallback = buildLocalHouseFallback(root);
   addAbandonedPlots(root);
