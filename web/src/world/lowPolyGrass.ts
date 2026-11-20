@@ -61,6 +61,8 @@ export function isGrassAllowed(x: number, z: number): boolean {
   if (Math.abs(x) < 3.9 && z > -15 && z < 27) return false;
   // Main home-to-village dirt route
   if (x >= -20 && x <= 3 && Math.abs(z - 9) < 2.55) return false;
+  // Continuous courtyard crossing and the two western bridge landings.
+  if (x >= -49.5 && x <= -16 && Math.abs(z - 8.6) < 2.0) return false;
   // Protagonist's home footprint and expanded front entry
   if (Math.abs(x + 32.5) < 6 && Math.abs(z + 9.4) < 6.2) return false;
   if (Math.abs(x + 32.5) < 3.0 && z > -4.8 && z < 10.4) return false;

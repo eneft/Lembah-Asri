@@ -107,3 +107,9 @@ test('grass is deterministic, varied, and excludes walkable paths/house/garden/w
   assert.ok(a.every(point => !(point.x > -42.2 && point.x < -16 && point.z > -10 && point.z < 13)), 'central dirt courtyard stays bare');
   assert.notDeepEqual(scatterLowPolyGrass(17).slice(0, 2), a.slice(0, 2));
 });
+
+test('bridge approach and courtyard crossing stay free of decorative grass', () => {
+  for (let x = -49; x <= -16; x += 0.25) {
+    for (const z of [7.1, 8.6, 10.1]) assert.equal(isGrassAllowed(x, z), false);
+  }
+});

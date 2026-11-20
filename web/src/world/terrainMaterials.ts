@@ -61,16 +61,26 @@ export function terrainTileRepeat(
  * The green channel is populated because three.js MeshBasicMaterial.alphaMap
  * explicitly reads G, not A.
  */
-export function makeTerrainEdgeMask(size = 64): THREE.DataTexture {
+export function makeTerrainEdgeMask(size = 128, width = 10, depth = 10): THREE.DataTexture {
   const pixels = new Uint8Array(size * size * 4);
+  // Work in metres: a long narrow footpath needs the same soft shoulder at
+  // either end, rather than a UV-percentage fade stretched along its length.
+  const shortSide = Math.min(width, depth);
+  const radius = Math.min(3, shortSide * 0.22);
+  const feather = Math.min(1.2, shortSide * 0.16);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const u = (x + 0.5) / size;
       const v = (y + 0.5) / size;
-      const edge = Math.min(u, 1 - u, v, 1 - v);
-      const irregular = Math.sin(u * 26 + v * 13) * 0.012 +
-        Math.sin(u * 51 - v * 37) * 0.009;
-      const t = THREE.MathUtils.clamp((edge - 0.01 - irregular) / 0.09, 0, 1);
+      const px = (u - 0.5) * width;
+      const pz = (v - 0.5) * depth;
+      const qx = Math.abs(px) - (width / 2 - radius);
+      const qz = Math.abs(pz) - (depth / 2 - radius);
+      const edge = radius - Math.hypot(Math.max(qx, 0), Math.max(qz, 0))
+        - Math.min(Math.max(qx, qz), 0);
+      const irregular = feather * (0.18 * Math.sin(px * 1.7 + pz * 0.9)
+        + 0.1 * Math.sin(px * 3.1 - pz * 2.3));
+      const t = THREE.MathUtils.clamp((edge - feather * 0.3 - irregular) / feather, 0, 1);
       const smooth = t * t * (3 - 2 * t);
       const value = Math.round(smooth * 255);
       const index = (y * size + x) * 4;
@@ -121,7 +131,7 @@ export function createTerrainMaterial(
     // The patch itself sits above ground, never writes depth when feathered.
     transparent: feathered,
     depthWrite: !feathered,
-    alphaMap: feathered ? makeTerrainEdgeMask() : null,
+    alphaMap: feathered ? makeTerrainEdgeMask(128, width, depth) : null,
     polygonOffset: feathered,
     polygonOffsetFactor: feathered ? -1 : 0,
     polygonOffsetUnits: feathered ? -1 : 0,

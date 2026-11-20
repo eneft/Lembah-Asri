@@ -159,3 +159,23 @@ test('enlarged house, porch, roof, colliders and fences maintain clearance', () 
   assert.equal(approach.position.x, HOME.house.x);
   assert.ok(approach.geometry.parameters.width >= 3.8, 'large house needs broad approach');
 });
+
+test('home crossing reaches bridge and gate with clear landings and tree clearance', () => {
+  const stage = createHomeStage(false);
+  const crossing = stage.root.getObjectByName('Courtyard cross path to western bridge');
+  const tree = stage.root.getObjectByName('Old fruit tree');
+  assert.ok(crossing);
+  assert.equal(crossing.material.userData.worldUV, true);
+  assert.ok(crossing.position.x - crossing.geometry.parameters.width / 2 <= -48);
+  assert.ok(crossing.position.x + crossing.geometry.parameters.width / 2 >= -18);
+  assert.ok(Math.abs(tree.position.z - crossing.position.z) > 2.5);
+  for (let x = -49; x <= -16; x += 0.25) {
+    assert.equal(stage.solids.some(s => insideSolid(x, 8.6, s)), false,
+      `crossing blocked at ${x}`);
+  }
+  stage.root.traverse(object => {
+    if (object.name === 'Stream bank stone') {
+      assert.ok(Math.abs(object.position.z - 8.6) > 1.5, 'bridge landing must remain clear');
+    }
+  });
+});

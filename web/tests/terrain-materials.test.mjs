@@ -81,3 +81,16 @@ test('courtyard soil, walkable paths, and raised village approach use textured l
   assert.ok(worn.position.y - clearing.position.y >= 0.02);
   assert.ok(path.position.y - worn.position.y >= 0.01);
 });
+
+test('long paths fade in world metres and clearing corners blend away', () => {
+  const mask = makeTerrainEdgeMask(512, 32, 4);
+  const alpha = (u, v) => mask.image.data[(Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4 + 1];
+  // 1.2m from a straight end/side is opaque on both axes; the old
+  // percentage mask left the long end translucent this far into the path.
+  assert.ok(alpha(1.2 / 32, 0.5) > 245);
+  assert.ok(alpha(0.5, 1.2 / 4) > 245);
+  assert.equal(alpha(0.005, 0.005), 0);
+  const yard = makeTerrainEdgeMask(128, 32, 29);
+  const at = (x, y) => yard.image.data[(y * 128 + x) * 4 + 1];
+  assert.ok(at(4, 4) < at(4, 64), 'rounded corner fades more than straight shoulder');
+});
