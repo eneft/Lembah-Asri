@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createTerrainMaterial, createPaintedTerrainPlane, makeTerrainEdgeMask, type TerrainSurface } from './terrainMaterials.ts';
 import { createHomeGroundDetails } from './homeGroundDetails.ts';
 import { createHouseGroundTransition, featherMergedHouseGround } from './houseTerrainSeam.ts';
+import { createHomeArtPass } from './homeArtPass.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -416,6 +417,9 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   addStreamAndBridge(root);
   // Paint-in real grass and stones along the worn yard boundary; leave paths clear.
   root.add(createHomeGroundDetails());
+  // Additional genuine 3D foliage and textured stones, matching the approved
+  // painterly courtyard reference without altering the approved house model.
+  root.add(createHomeArtPass());
   // Real house GLB contains a painted soil skirt. Blend its contact area into
   // the existing world-UV earth below instead of creating a separate island.
   root.add(createHouseGroundTransition(
