@@ -59,19 +59,45 @@ export const selectedHomeRocks: readonly RockPlacement[] = [
   { id:15,x:-18.53,z:12.74,scale:.96,yaw:1.91,zone:'path-edge' }
 ] as const;
 
-export const rockFile = './models/environment/lembah_asri_rocks_original_16.glb?rocks=1';
+export const rockFile = './models/environment/lembah_asri_rocks_original_16.glb?rocks=2';
+
+/**
+ * GLTFLoader sanitizes glTF node names: "LA Rock 00" becomes "LA_Rock_00".
+ * Resolve both source and loaded naming, with originalIndex metadata as an
+ * additional fallback. Never silently render zero rocks.
+ */
+export function findCuratedRockVariant(source: THREE.Object3D, id: number): THREE.Mesh {
+  if (!Number.isInteger(id) || id < 0 || id > 15) {
+    throw new Error('Invalid original rock index: ' + id);
+  }
+  const suffix = String(id).padStart(2, '0');
+  const candidates = [
+    'LA_Rock_' + suffix,
+    'LA Rock ' + suffix,
+    THREE.PropertyBinding.sanitizeNodeName('LA Rock ' + suffix)
+  ];
+  for (const name of candidates) {
+    const mesh = source.getObjectByName(name);
+    if (mesh instanceof THREE.Mesh && mesh.geometry.getAttribute('uv')) return mesh;
+  }
+  let found: THREE.Mesh | undefined;
+  source.traverse(object => {
+    if (found || !(object instanceof THREE.Mesh)) return;
+    const match = /^LA[_ ]Rock[_ ](\d{2})(?:_\d+)?$/.exec(object.name);
+    if ((object.userData.originalIndex === id || (match && Number(match[1]) === id))
+        && object.geometry.getAttribute('uv')) found = object;
+  });
+  if (!found) throw new Error('Original UV rock variant ' + suffix + ' missing after GLTFLoader name sanitization');
+  return found;
+}
 
 let rockSource: Promise<THREE.Group> | undefined;
 export function loadCuratedRockSource(): Promise<THREE.Group> {
   if (rockSource) return rockSource;
   rockSource = new GLTFLoader().loadAsync(rockFile)
     .then(({scene}) => {
-      for (let index=0;index<16;index++) {
-        const source = scene.getObjectByName('LA Rock '+String(index).padStart(2,'0'));
-        if (!(source instanceof THREE.Mesh) || !source.geometry.getAttribute('uv')) {
-          throw new Error('Missing original UV-painted rock variant '+index);
-        }
-      }
+      for (let index=0;index<16;index++) findCuratedRockVariant(scene, index);
+      console.info('[LembahAsri] Loaded all 16 original UV-textured rock variants');
       return scene;
     }).catch(error => {
       rockSource = undefined;
@@ -84,8 +110,7 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
   const group = new THREE.Group();
   group.name = 'Curated original UV textured rock placements';
   const instance = new THREE.Object3D();
-  const original = source.getObjectByName('LA Rock 00');
-  if (!(original instanceof THREE.Mesh)) throw new Error('No rocks in source GLB');
+  const original = findCuratedRockVariant(source, 0);
   const sourceMaterial = Array.isArray(original.material) ? original.material[0] : original.material;
   const originalMap = (sourceMaterial as THREE.MeshStandardMaterial).map;
   if (!originalMap) throw new Error('Rock texture from original shaded file is missing');
@@ -99,8 +124,7 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
   for(let id=0;id<16;id++) {
     const placements = selectedHomeRocks.filter(p=>p.id===id);
     if (!placements.length) continue;
-    const rock=source.getObjectByName('LA Rock '+String(id).padStart(2,'0'));
-    if (!(rock instanceof THREE.Mesh)) throw new Error('Rock variant '+id+' unavailable');
+    const rock = findCuratedRockVariant(source, id);
     const mesh=new THREE.InstancedMesh(rock.geometry,material,placements.length);
     mesh.name='UV original rock variant '+String(id).padStart(2,'0');
     const castsShadow=placements.some(p=>p.zone==='stream'||p.zone==='foundation') &&
@@ -118,6 +142,14 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
     mesh.instanceMatrix.needsUpdate=true;
     mesh.computeBoundingSphere();
     group.add(mesh);
+  }
+  if (group.children.length < 12) {
+    throw new Error('Original rock pack produced too few instanced meshes');
+  }
+  const total = group.children.reduce((count, mesh) => count +
+    (mesh instanceof THREE.InstancedMesh ? mesh.count : 0), 0);
+  if (total !== selectedHomeRocks.length) {
+    throw new Error('Original rock pack placement count mismatch: ' + total);
   }
   return group;
 }
