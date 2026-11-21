@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
 import { selectedHomeRocks, rockFile, findCuratedRockVariant, createCuratedRockGroup } from '../src/world/homeRocks.ts';
 import { createHomeStage } from '../src/world/homeStage.ts';
+import { CREEK, creekCenterX, creekWidth, createHomeCreek, createHomeCreekVegetation } from '../src/world/homeCreek.ts';
 
 function getGlb() {
   const raw=readFileSync(fileURLToPath(new URL(
@@ -55,13 +56,17 @@ test('all 16 rock meshes preserve uploaded original UV texture, not untextured g
 
 test('rock placement is curated by environment, not randomly thrown into player paths',()=>{
   assert.match(rockFile,/lembah_asri_rocks_original_16\.glb/);
-  assert.equal(selectedHomeRocks.length,29);
+  assert.equal(selectedHomeRocks.length,28);
   const zones=new Set(selectedHomeRocks.map(p=>p.zone));
   assert.deepEqual([...zones].sort(),
     ['foundation','garden','path-edge','stream','well'].sort());
+  const large=selectedHomeRocks.filter(p=>p.zone==='stream'&&p.size>=.95);
+  const tiny=selectedHomeRocks.filter(p=>p.size<=.26);
+  assert.ok(large.length>=6&&large.length<=9,'only a few 1 m anchor boulders');
+  assert.ok(tiny.length>=4,'small accent stones remain discreet');
   for(const p of selectedHomeRocks){
     assert.ok(p.id>=0&&p.id<16);
-    assert.ok(p.scale>=.75&&p.scale<=1.30);
+    assert.ok(p.size>=.14&&p.size<=1.30,'desired real-world size');
     assert.ok(p.yaw>=0&&p.yaw<2*Math.PI);
     if(p.zone==='stream'){
       assert.ok(Math.abs(p.x+45.5)>1.3, 'not in the middle of shallow water');
@@ -114,7 +119,7 @@ test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', 
   assert.ok(installed.children.length>=12);
   const placed=installed.children.reduce((count,child)=>count+child.count,0);
   assert.equal(placed,selectedHomeRocks.length);
-  assert.equal(placed,29);
+  assert.equal(placed,28);
   const variant=installed.getObjectByName('UV original rock variant 00');
   assert.ok(variant instanceof THREE.InstancedMesh);
   const first=selectedHomeRocks.find(p=>p.id===0);
@@ -126,4 +131,47 @@ test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', 
   assert.equal(variant.material.map,picture,'actual UV albedo map used for instanced rocks');
   assert.equal(variant.material.transparent,false);
   assert.equal(variant.material.toneMapped,false);
+  // The authored GLB is only 0.3-0.5 m; the *target footprint* wins,
+  // rather than old arbitrary source scale=1 which rendered tiny pebbles.
+  const scale=new THREE.Vector3().setFromMatrixScale(matrix);
+  assert.ok(Math.abs(scale.x-first.size/.3)<.01,'synthetic .3m rock is resized to real metres');
+  const actualSize=.3*scale.x;
+  assert.ok(Math.abs(actualSize-first.size)<.005);
+  const firstNatural=selectedHomeRocks.find(p=>p.zone==='stream'&&p.size>=1);
+  assert.ok(firstNatural);
+});
+
+
+test('creek is truly winding water with softened banks, not a rectangle', () => {
+  assert.ok(creekWidth(1)>2.5&&creekWidth(1)<3.0);
+  assert.notEqual(creekCenterX(-4),creekCenterX(4));
+  assert.ok(CREEK.bridgeMin<8.6&&CREEK.bridgeMax>8.6);
+  const creek=createHomeCreek();
+  assert.equal(creek.children.length,3);
+  const water=creek.getObjectByName('Shallow stream west of childhood home');
+  const west=creek.getObjectByName('Soft west creek bank');
+  const east=creek.getObjectByName('Soft east creek bank');
+  assert.ok(water instanceof THREE.Mesh);
+  assert.ok(west instanceof THREE.Mesh&&east instanceof THREE.Mesh);
+  assert.ok(water.material.map instanceof THREE.DataTexture,'actual shallow-bed painted UV albedo');
+  assert.ok(water.geometry.getAttribute('uv'),'water is UV unwrapped');
+  assert.ok(water.geometry.getAttribute('color'),'painted depth gradient at the water edges');
+  assert.ok(water.geometry.getAttribute('position').count>=300);
+  const pos=water.geometry.getAttribute('position');
+  const centerX=[];
+  for(let i=0;i<pos.count;i+=4)centerX.push((pos.getX(i)+pos.getX(i+3))*.5);
+  assert.ok(Math.max(...centerX)-Math.min(...centerX)>.15,'water meanders instead of perfectly straight');
+  const group=createHomeCreekVegetation();
+  assert.equal(group.userData.clusters,9);
+  assert.ok(group.userData.reedInstances>=40);
+  assert.ok(group.userData.shrubInstances>=15);
+  assert.ok(group.children.every(mesh=>mesh instanceof THREE.InstancedMesh));
+  assert.ok(group.getObjectByName('Stream clustered bank grasses'));
+  assert.ok(group.getObjectByName('Stream broadleaf foliage clusters'));
+  const stage=createHomeStage(false);
+  assert.ok(stage.root.getObjectByName(creek.name));
+  assert.ok(stage.root.getObjectByName(group.name));
+  assert.ok(stage.root.getObjectByName('West wooden bridge walkway'));
+  assert.ok(!stage.solids.some(s=>s.label.toLowerCase().includes('creek')));
+  assert.ok(!stage.solids.some(s=>s.label.toLowerCase().includes('bank')));
 });

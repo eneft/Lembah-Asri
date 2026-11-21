@@ -7,6 +7,7 @@ import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
+import { createHomeCreek, createHomeCreekVegetation } from './homeCreek.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -336,9 +337,11 @@ function addWoodenFence(
 }
 
 function addStreamAndBridge(root: THREE.Object3D) {
-  const stream = floorPatch(root, 'Shallow stream west of childhood home',
-    2.6, 29, -45.5, 10, '#73b3b1', 0.012);
-  stream.material.depthWrite = true;
+  // The river now follows a shallow winding ribbon with softened earthen
+  // banks, rather than a bright cyan straight rectangle.
+  root.add(createHomeCreek());
+  // Dense growth only around the major stone clusters, never on the bridge.
+  root.add(createHomeCreekVegetation());
   const stones = mat('#92978a');
   for (let i = 0; i < 26; i++) {
     const z = -4 + i * 1.06;

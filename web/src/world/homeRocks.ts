@@ -14,53 +14,72 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  */
 export type RockZone = 'stream' | 'well' | 'foundation' | 'garden' | 'path-edge';
 export type RockPlacement = Readonly<{
-  id: number; x: number; z: number; scale: number; yaw: number; zone: RockZone;
+  id: number; x: number; z: number;
+  /** Desired horizontal world-space footprint in meters, NOT raw GLB scale. */
+  size: number;
+  yaw: number;
+  zone: RockZone;
 }>;
 
+/**
+ * Hand-authored creek-side composition.
+ *
+ * Keep big stones in 2-3 asymmetric clusters; never repeat a single stone
+ * evenly along every metre of river. Small rocks are satellites of those
+ * clusters, not a solid border. Other stones only accent path edges, well
+ * and house sides. This is visual-only; don't introduce blocking collisions.
+ */
 export const selectedHomeRocks: readonly RockPlacement[] = [
-  // West stream: bigger mossy stones near water, loosen spacing along banks.
-  { id:0,x:-47.18,z:-3.5,scale:1.17,yaw:.38,zone:'stream' },
-  { id:2,x:-43.73,z:-2.15,scale:1.12,yaw:1.86,zone:'stream' },
-  { id:1,x:-47.20,z:-.80,scale:.98,yaw:2.43,zone:'stream' },
-  { id:4,x:-43.76,z:.92,scale:1.10,yaw:.49,zone:'stream' },
-  { id:3,x:-47.23,z:2.40,scale:1.14,yaw:1.57,zone:'stream' },
-  { id:0,x:-43.78,z:4.38,scale:1.28,yaw:2.91,zone:'stream' },
-  { id:10,x:-47.18,z:5.27,scale:.91,yaw:3.64,zone:'stream' },
-  { id:9,x:-43.85,z:5.90,scale:.86,yaw:.78,zone:'stream' },
-  // Clear bridge crossing from z=7.25 to 9.95.
-  { id:12,x:-47.19,z:11.53,scale:1.02,yaw:.41,zone:'stream' },
-  { id:11,x:-43.84,z:12.34,scale:1.02,yaw:1.78,zone:'stream' },
-  { id:7,x:-47.22,z:14.68,scale:.79,yaw:2.39,zone:'stream' },
-  { id:0,x:-43.74,z:16.67,scale:1.13,yaw:.95,zone:'stream' },
-  { id:1,x:-47.22,z:18.39,scale:1.02,yaw:2.71,zone:'stream' },
-  { id:8,x:-43.81,z:19.52,scale:.83,yaw:1.12,zone:'stream' },
+  // Upstream: a single mossy boulder with one little satellite.
+  { id:0,x:-47.33,z:-2.90,size:1.18,yaw:.38,zone:'stream' },
+  { id:6,x:-47.89,z:-3.42,size:.17,yaw:1.22,zone:'stream' },
 
-  // Well outskirts: don't obstruct the circular rim or tree trunk.
-  { id:2,x:-40.57,z:2.60,scale:1.10,yaw:.67,zone:'well' },
-  { id:4,x:-37.38,z:3.02,scale:1.00,yaw:2.39,zone:'well' },
-  { id:9,x:-40.60,z:5.83,scale:.80,yaw:1.32,zone:'well' },
-  { id:6,x:-37.72,z:5.51,scale:1.23,yaw:2.11,zone:'well' },
+  // Near bank cluster facing the well.
+  { id:2,x:-43.66,z:.84,size:1.28,yaw:1.86,zone:'stream' },
+  { id:9,x:-43.23,z:1.52,size:.47,yaw:2.28,zone:'stream' },
 
-  // Around the sides of the childhood home, never in front of the stairs.
-  { id:3,x:-40.80,z:-3.58,scale:1.06,yaw:2.42,zone:'foundation' },
-  { id:11,x:-39.71,z:-2.82,scale:.85,yaw:1.25,zone:'foundation' },
-  { id:2,x:-25.48,z:-3.42,scale:.98,yaw:.65,zone:'foundation' },
-  { id:15,x:-25.12,z:-5.34,scale:1.00,yaw:2.58,zone:'foundation' },
+  // Mid stream: one earthy boulder to the left, one smaller to the right.
+  { id:3,x:-47.31,z:4.43,size:1.04,yaw:1.57,zone:'stream' },
+  { id:12,x:-47.73,z:5.03,size:.43,yaw:.24,zone:'stream' },
+  { id:4,x:-43.71,z:5.96,size:.75,yaw:2.85,zone:'stream' },
 
-  // Garden: dusty flat stones and a few low mossy stones, beds stay empty.
-  { id:6,x:-24.82,z:-2.87,scale:1.15,yaw:1.05,zone:'garden' },
-  { id:15,x:-19.35,z:3.65,scale:1.12,yaw:.35,zone:'garden' },
-  { id:14,x:-23.04,z:4.05,scale:.84,yaw:1.98,zone:'garden' },
+  // Both sides of the existing bridge (7.25–9.95) intentionally stay empty.
+  { id:1,x:-47.39,z:11.99,size:1.14,yaw:.43,zone:'stream' },
+  { id:10,x:-47.88,z:12.55,size:.46,yaw:2.19,zone:'stream' },
 
-  // Discreet walk-edge markers, not an artificial continuous stone border.
-  { id:13,x:-36.34,z:11.95,scale:.81,yaw:1.39,zone:'path-edge' },
-  { id:6,x:-25.72,z:12.79,scale:1.13,yaw:.60,zone:'path-edge' },
-  { id:14,x:-21.76,z:12.18,scale:.82,yaw:2.88,zone:'path-edge' },
-  { id:15,x:-18.53,z:12.74,scale:.96,yaw:1.91,zone:'path-edge' }
+  // Largest creek-bank composition: one anchor boulder + short pebble train.
+  { id:7,x:-43.77,z:13.87,size:.78,yaw:1.14,zone:'stream' },
+  { id:0,x:-43.81,z:15.12,size:1.30,yaw:2.91,zone:'stream' },
+  { id:11,x:-43.43,z:15.75,size:.51,yaw:.36,zone:'stream' },
+
+  // Downstream: only a few asymmetrical, partly mossy stones.
+  { id:4,x:-47.31,z:18.08,size:.99,yaw:1.86,zone:'stream' },
+  { id:2,x:-43.64,z:21.00,size:1.21,yaw:.95,zone:'stream' },
+  { id:8,x:-43.22,z:21.72,size:.58,yaw:2.25,zone:'stream' },
+  { id:10,x:-47.27,z:23.26,size:.60,yaw:1.19,zone:'stream' },
+
+  // Three subtle accent rocks near the well, outside the rim and tree.
+  { id:1,x:-40.68,z:2.51,size:.60,yaw:.67,zone:'well' },
+  { id:15,x:-37.38,z:5.51,size:.26,yaw:2.39,zone:'well' },
+  { id:9,x:-40.63,z:5.89,size:.42,yaw:1.32,zone:'well' },
+
+  // House foundation: keep stone steps and porch front unobstructed.
+  { id:3,x:-40.80,z:-3.58,size:.52,yaw:2.42,zone:'foundation' },
+  { id:2,x:-25.48,z:-3.42,size:.55,yaw:.65,zone:'foundation' },
+  { id:15,x:-25.12,z:-5.34,size:.24,yaw:2.58,zone:'foundation' },
+
+  // Garden has discreet small stones; bed plots remain clear.
+  { id:9,x:-24.82,z:-2.87,size:.40,yaw:1.05,zone:'garden' },
+  { id:15,x:-19.35,z:3.65,size:.21,yaw:.35,zone:'garden' },
+
+  // Along paths: low stones, not waist-high obstacles.
+  { id:13,x:-36.34,z:11.95,size:.43,yaw:1.39,zone:'path-edge' },
+  { id:6,x:-25.72,z:12.79,size:.15,yaw:.60,zone:'path-edge' },
+  { id:14,x:-21.76,z:12.18,size:.44,yaw:2.88,zone:'path-edge' },
+  { id:15,x:-18.53,z:12.74,size:.23,yaw:1.91,zone:'path-edge' }
 ] as const;
 
-export const rockFile = './models/environment/lembah_asri_rocks_original_16.glb?rocks=2';
-
+export const rockFile = './models/environment/lembah_asri_rocks_original_16.glb?rocks=3-layout';
 /**
  * GLTFLoader sanitizes glTF node names: "LA Rock 00" becomes "LA_Rock_00".
  * Resolve both source and loaded naming, with originalIndex metadata as an
@@ -131,11 +150,22 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
       [0,1,2,3,4,10,12].includes(id);
     mesh.castShadow=castsShadow;
     mesh.receiveShadow=false;
+    // Source pack rocks have very different native sizes (some 8 cm,
+    // others 110 cm). Scale by desired WORLD footprint, never source scale.
+    // This makes a 1.2 m river boulder truly read as a big boulder in-game.
+    rock.geometry.computeBoundingBox();
+    const dimensions = new THREE.Vector3();
+    rock.geometry.boundingBox!.getSize(dimensions);
+    const nativeFootprint = Math.max(dimensions.x, dimensions.z);
+    if (nativeFootprint < 0.02 || !Number.isFinite(nativeFootprint)) {
+      throw new Error('Invalid original rock geometry dimensions '+id);
+    }
     for(let i=0;i<placements.length;i++){
       const p=placements[i];
-      instance.position.set(p.x,.022,p.z);
+      const scale = p.size / nativeFootprint;
+      instance.position.set(p.x, p.zone==='stream' ? -.027 : .022, p.z);
       instance.rotation.set(0,p.yaw,0);
-      instance.scale.setScalar(p.scale);
+      instance.scale.setScalar(scale);
       instance.updateMatrix();
       mesh.setMatrixAt(i,instance.matrix);
     }
