@@ -15,7 +15,8 @@ function paint(buf,size,x,y,r,g,b,a=255) { if(x<0||x>=size||y<0||y>=size||a<=0)r
 function leafAtlas() {
   const size=512,tile=256,pixels=new Uint8Array(size*size*4);
   // Brighter storybook pigments with enough contrast to keep the leaf groups readable.
-  const pigments=[[151,207,102],[122,184,95],[91,152,88],[170,208,119]];
+  // Softer natural greens: readable in sun without neon/chartreuse highlights.
+  const pigments=[[122,174,82],[101,157,79],[71,127,72],[141,184,99]];
   for(let v=0;v<4;v++) {
     const rnd=rand(31+v*427),offX=(v%2)*tile,offY=Math.floor(v/2)*tile;
     const tint=pigments[v];
@@ -38,7 +39,7 @@ function leafAtlas() {
         const grain=Math.sin((x+v*53)*.22+y*.13)*3+Math.cos(y*.25-x*.08)*2;
         const side=lateral>0?-10:9;
         const vein=Math.exp(-Math.abs(lateral)*.38)*18;
-        const wash=.87+.17*(1-t)+.06*Math.sin(13*t+v);
+        const wash=.85+.13*(1-t)+.035*Math.sin(13*t+v);
         const alpha=clamp(Math.round(clamp(edge+.7,0,1)*255));
         paint(pixels,size,x+offX,y+offY,clamp(tint[0]*wash+side+grain+vein),clamp(tint[1]*wash+side+grain+vein),clamp(tint[2]*wash+side+grain*.5+vein*.55),alpha);
       }
@@ -108,7 +109,7 @@ function trunk(seed){
  */
 function canopyLobes(orchard){
  const y=orchard?-.10:0;
- return [
+ const lobes = [
   {p:v3( .02,3.31+y, .02),r:v3(.97,.68,.91),n:54}, // core
   {p:v3(-1.12,3.15+y, .09),r:v3(.81,.62,.79),n:46},
   {p:v3( 1.08,3.18+y,-.18),r:v3(.86,.66,.80),n:45},
@@ -119,6 +120,12 @@ function canopyLobes(orchard){
   {p:v3(-1.01,2.56+y, .27),r:v3(.59,.44,.59),n:29},
   {p:v3( .97,2.61+y, .28),r:v3(.61,.44,.56),n:28}
  ];
+ // Orchard by the house remains compact and does not obscure the terrace.
+ // Height still comes from instance scaling, never squashing individual UVs.
+ return orchard ? lobes.map(l => ({ ...l,
+   p:v3(l.p[0]*.89,l.p[1],l.p[2]*.90),
+   r:v3(l.r[0]*.94,l.r[1],l.r[2]*.94)
+ })) : lobes;
 }
 function crown(seed,orchard){
  const rng=rand(seed),g=mesh(),lobes=canopyLobes(orchard);
@@ -142,10 +149,10 @@ function crown(seed,orchard){
    const r2=add(mul(right,Math.cos(spin)),mul(up,Math.sin(spin)));
    const u2=add(mul(right,-Math.sin(spin)),mul(up,Math.cos(spin)));
    // Larger painted leaf groups, fewer tiny noisy repeated marks.
-   const width=.96+rng()*.28,height=.93+rng()*.28;
+   const width=.76+rng()*.24,height=.80+rng()*.24;
    const light=center[1]>3.55;
    const rnd=rng();
-   const family=orchard&&rnd<.09?3:
+   const family=orchard&&rnd<.045?3:
       light?(rnd<.55?0:rnd<.88?1:2):(rnd<.25?0:rnd<.69?1:2);
    const base=g.p.length/3;
    for(let row=0;row<=2;row++)for(let column=0;column<=2;column++){

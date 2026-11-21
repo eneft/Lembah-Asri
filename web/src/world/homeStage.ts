@@ -304,7 +304,7 @@ function addWellAndFruitTree(root: THREE.Object3D, loadTexture: boolean) {
   // Actual stylized 3D tree with a UV-painted wood trunk and layered,
   // individually shaped textured leaves. No untextured ico-sphere crown.
   const tree = createPaintedStoryTree({
-    kind: 'orchard', seed: 210917, height: 4.05
+    kind: 'orchard', seed: 210917, height: 3.65
   });
   tree.name = 'Old fruit tree';
   tree.position.set(-40, 0, 8.3);
@@ -421,7 +421,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
       .then(source => {
         const oldTree = root.getObjectByName('Old fruit tree');
         if (oldTree) root.remove(oldTree);
-        const tree = instantiatePaintedTree(source, 4.05, -40, 8.3, 0.21);
+        const tree = instantiatePaintedTree(source, 3.65, -40, 8.3, 0.21);
         tree.name = 'Old fruit tree';
         root.add(tree);
         return true;

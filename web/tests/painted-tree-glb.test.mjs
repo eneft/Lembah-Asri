@@ -65,6 +65,7 @@ for (const kind of dirs) {
     }
     const meanGreen = sampleGreen.reduce((a,b)=>a+b,0) / sampleGreen.length;
     assert.ok(meanGreen > 118, 'foliage should not be overly dark on mobile');
+    assert.ok(meanGreen < 195, 'avoid washed-out neon lime leaf patches');
     assert.ok(alpha.some(a => a === 0), 'transparent gaps between leaf sprites');
     assert.ok(alpha.some(a => a >= 230), 'opaque hand-painted leaves');
   });

@@ -90,8 +90,8 @@ export function makePaintedLeafAtlas(): THREE.DataTexture {
   if (leavesAtlas) return leavesAtlas;
   const size = 256, pixels = new Uint8Array(size * size * 4);
   const bases = [
-    [154, 211, 105], [124, 183, 95],
-    [88, 151, 88], [171, 211, 115]
+    [124, 177, 84], [100, 159, 81],
+    [74, 131, 74], [141, 186, 101]
   ];
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -223,9 +223,9 @@ function createCrownGeometry(kind: PaintedTreeKind, random: () => number): THREE
       const rad = Math.sqrt(1 - v * v);
       const shell = (i % 7 === 0 ? .38 : .66) + random() * .28;
       centers.push(new THREE.Vector3(
-        lobe.x + rad * Math.cos(theta) * lobe.rx * shell,
+        (kind === 'orchard' ? .89 : 1) * (lobe.x + rad * Math.cos(theta) * lobe.rx * shell),
         lobe.y + yOffset + v * lobe.ry * shell,
-        lobe.z + rad * Math.sin(theta) * lobe.rz * shell
+        (kind === 'orchard' ? .90 : 1) * (lobe.z + rad * Math.sin(theta) * lobe.rz * shell)
       ));
     }
   }
