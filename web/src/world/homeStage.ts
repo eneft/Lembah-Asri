@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createTerrainMaterial, createPaintedTerrainPlane, makeTerrainEdgeMask, type TerrainSurface } from './terrainMaterials.ts';
+import { createHomeGroundDetails } from './homeGroundDetails.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -412,6 +413,8 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   addShed(root);
   addWellAndFruitTree(root, loadApprovedModel);
   addStreamAndBridge(root);
+  // Paint-in real grass and stones along the worn yard boundary; leave paths clear.
+  root.add(createHomeGroundDetails());
 
   // Fence boundary with a 5 m gap facing the connected village road.
   addWoodenFence(root, solids, 'North rear fence', -30.5, -16.5, 27, 'x');
