@@ -94,9 +94,10 @@ export function scatterHomeUndergrowth(seed = 18628): LeafPoint[] {
 
 /** A plant made of volumetric curved leaves, not a flat cross-plane sprite. */
 export function makeBroadLeafGeometry(): THREE.BufferGeometry {
-  const positions: number[] = [], colors: number[] = [];
+  const positions: number[] = [], colors: number[] = [], uvs: number[] = [];
   function point(vertex: readonly number[], shade: number) {
     positions.push(vertex[0], vertex[1], vertex[2]);
+    uvs.push(vertex[3], vertex[4]);
     // Top pigment remains light, root stays shaded; no glossy PBR pass.
     colors.push(shade * 0.86, shade, shade * 0.70);
   }
@@ -109,14 +110,14 @@ export function makeBroadLeafGeometry(): THREE.BufferGeometry {
     const dx = Math.cos(angle), dz = Math.sin(angle);
     const sideX = -dz, sideZ = dx;
     const h = 0.87 + (leaf % 3) * 0.055;
-    const at = (radius: number, y: number, side: number) =>
-      [dx * radius + sideX * side, y, dz * radius + sideZ * side] as const;
-    const base = at(0.01, 0.06, 0);
-    const innerL = at(0.16, 0.39 * h, -0.055);
-    const innerR = at(0.16, 0.39 * h, 0.055);
-    const broadL = at(0.39, 0.59 * h, -0.17);
-    const broadR = at(0.39, 0.59 * h, 0.17);
-    const tip = at(0.70, 0.36 * h, 0.02);
+    const at = (radius: number, y: number, side: number, u: number, v: number) =>
+      [dx * radius + sideX * side, y, dz * radius + sideZ * side, u, v] as const;
+    const base = at(0.01, 0.06, 0, 0.5, 0.03);
+    const innerL = at(0.16, 0.39 * h, -0.055, 0.30, 0.28);
+    const innerR = at(0.16, 0.39 * h, 0.055, 0.70, 0.28);
+    const broadL = at(0.39, 0.59 * h, -0.17, 0.06, 0.66);
+    const broadR = at(0.39, 0.59 * h, 0.17, 0.94, 0.66);
+    const tip = at(0.70, 0.36 * h, 0.02, 0.5, 0.97);
     tri(base, innerL, innerR, 0.63, 0.78, 0.71);
     tri(innerL, broadL, broadR, 0.76, 0.87, 0.84);
     tri(innerL, broadR, innerR, 0.76, 0.84, 0.72);
@@ -125,17 +126,50 @@ export function makeBroadLeafGeometry(): THREE.BufferGeometry {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geo.computeVertexNormals();
   geo.computeBoundingSphere();
   return geo;
 }
 
+/** UV-painted leaf pigment texture shared by every genuine 3D leaf mesh.
+ * Prebaked vein and pigment grain; runtime material stays unlit like the
+ * original character/house atlas. Memory: 128 x 128 RGBA (~64 KiB).
+ */
+export function makePaintedLeafAlbedo(): THREE.DataTexture {
+  const size = 128;
+  const rgba = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const u = (x + 0.5) / size;
+      const v = (y + 0.5) / size;
+      const vein = Math.exp(-Math.abs(u - 0.5) * 31) * 17;
+      const branch = Math.sin(v * 26 + u * 15) * Math.sin(v * 13 - u * 25) * 3.8;
+      const pigment = Math.sin(u * 69 + Math.sin(v * 21) * 2.4) * 4
+        + Math.cos(v * 48 + u * 11) * 3;
+      const highlight = (v > 0.32 && v < 0.76 ? 5 : 0);
+      const k = (y * size + x) * 4;
+      rgba[k] = THREE.MathUtils.clamp(210 + pigment + branch + highlight + vein * 0.75, 0, 255);
+      rgba[k + 1] = THREE.MathUtils.clamp(230 + pigment + highlight + vein, 0, 255);
+      rgba[k + 2] = THREE.MathUtils.clamp(197 + pigment * 0.7 + vein * 0.60, 0, 255);
+      rgba[k + 3] = 255;
+    }
+  }
+  const map = new THREE.DataTexture(rgba, size, size, THREE.RGBAFormat);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.magFilter = THREE.LinearFilter;
+  map.minFilter = THREE.LinearMipmapLinearFilter;
+  map.generateMipmaps = true;
+  map.needsUpdate = true;
+  return map;
+}
+
 function createPlantInstances(
   name: string, points: LeafPoint[], geometry: THREE.BufferGeometry,
-  castShadow: boolean
+  albedo: THREE.DataTexture, castShadow: boolean
 ): THREE.InstancedMesh {
   const material = new THREE.MeshBasicMaterial({
-    color: '#ffffff',
+    color: '#ffffff', map: albedo,
     vertexColors: true,
     toneMapped: false,
     side: THREE.DoubleSide
@@ -183,21 +217,22 @@ export function createHomeArtPass(): THREE.Group {
   const group = new THREE.Group();
   group.name = 'Lembah Asri hand-painted 3D environment art pass';
   const foliage = makeBroadLeafGeometry();
+  const foliageAlbedo = makePaintedLeafAlbedo();
   const shrubs = shrubAnchors.map(([x, z, scale], i) => ({
     x, z, scale, yaw: i * 1.81, hue: (i * 0.387) % 1
   }));
   group.add(createPlantInstances('Natural shrubs around childhood home',
-    shrubs, foliage, true));
+    shrubs, foliage, foliageAlbedo, true));
 
   const low = scatterHomeUndergrowth();
   group.add(createPlantInstances('Natural varied understory meadow',
-    low, foliage, false));
+    low, foliage, foliageAlbedo, false));
 
   const palms = tallPlants.map(([x, z, scale], i) => ({
     x, z, scale, yaw: i * 1.17, hue: (i * 0.31) % 1
   }));
   group.add(createPlantInstances('Tall tropical foliage behind home',
-    palms, foliage, true));
+    palms, foliage, foliageAlbedo, true));
 
   const atlas = makeStoneAlbedoAtlas();
   const material = new THREE.MeshBasicMaterial({
