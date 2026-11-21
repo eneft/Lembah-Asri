@@ -84,7 +84,8 @@ export function scatterHomeStones(seed = 15471): StoneDetail[] {
   ];
   let index = 0;
   for (const [cx, cz, count] of anchors) {
-    for (let attempt = 0; attempt < count * 5 && index < 50; attempt++) {
+    let placed = 0;
+    for (let attempt = 0; attempt < count * 5 && placed < count && index < 50; attempt++) {
       const x = cx + (random() - 0.5) * 2.9;
       const z = cz + (random() - 0.5) * 2.5;
       if (!isHomeGroundDetailAllowed(x, z)) continue;
@@ -98,7 +99,7 @@ export function scatterHomeStones(seed = 15471): StoneDetail[] {
         kind: index % 4, tint: 0.88 + random() * 0.12
       });
       index++;
-      if (index >= count && points.length >= 30) break;
+      placed++;
     }
   }
   return points;
