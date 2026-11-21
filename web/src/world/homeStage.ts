@@ -187,19 +187,66 @@ function addShed(root: THREE.Object3D) {
   }
 }
 
-function addWellAndFruitTree(root: THREE.Object3D) {
-  const stones = mat('#858a7c');
-  const wood = mat('#806349');
-  cylinder(root, 'Old village well stone rim', 0.83, 0.91, 0.78,
-    [HOME.well.x, 0.39, HOME.well.z], stones, 16);
-  cylinder(root, 'Well opening', 0.63, 0.63, 0.024,
-    [HOME.well.x, 0.796, HOME.well.z], mat('#384c51'), 16);
-  for (const offset of [-0.92, 0.92]) {
-    box(root, 'Well timber post', [0.15, 2.1, 0.17],
-      [HOME.well.x + offset, 1.1, HOME.well.z], wood);
+/** Atlas bands contain wall courses, coping stones, timber grain and end grain. */
+function addStoneWell(root: THREE.Object3D, loadTexture: boolean) {
+  const stone = mat('#999887');
+  const timber = mat('#966d49');
+  const inner = mat('#696e65');
+  const materials = [stone, timber, inner];
+  if (loadTexture) {
+    new THREE.TextureLoader().load('./textures/props/well.webp', texture => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = 4;
+      for (const material of materials) {
+        material.map = texture;
+        material.color.set(material === inner ? '#92988e' : '#ffffff');
+        material.needsUpdate = true;
+      }
+    }, undefined, error => console.warn('[LembahAsri] Well texture unavailable', error));
   }
-  box(root, 'Well crossbar', [2.05, 0.16, 0.19],
-    [HOME.well.x, 2.18, HOME.well.z], wood);
+
+  // Separate UV bands let the coping wrap inward over the lip of the opening.
+  function masonryBand(name: string, profile: number[][], pixels: number[], material: THREE.Material) {
+    const geometry = new THREE.LatheGeometry(
+      profile.map(([radius, height]) => new THREE.Vector2(radius, height)), 32
+    );
+    const uv = geometry.getAttribute('uv');
+    for (let i = 0; i < uv.count; i++) {
+      uv.setY(i, 1 - pixels[i % profile.length] / 512);
+    }
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = name;
+    mesh.position.set(HOME.well.x, 0, HOME.well.z);
+    root.add(mesh);
+  }
+  masonryBand('Old village well stone rim', [[0.9, 0], [0.85, 0.68]], [191, 1], stone);
+  masonryBand('Well coping stones', [[0.85, 0.68], [0.89, 0.71], [0.87, 0.79],
+    [0.84, 0.81], [0.65, 0.81], [0.62, 0.77]], [254, 246, 233, 226, 199, 193], stone);
+  masonryBand('Inner well masonry', [[0.62, 0.77], [0.62, 0.13]], [1, 191], inner);
+  cylinder(root, 'Well opening', 0.625, 0.625, 0.02,
+    [HOME.well.x, 0.14, HOME.well.z], mat('#364c50'), 32);
+
+  function beam(name: string, length: number, x: number, y: number) {
+    const mesh = box(root, name, [0.15, length, 0.17], [x, y, HOME.well.z], timber);
+    const uv = mesh.geometry.getAttribute('uv');
+    for (let i = 0; i < uv.count; i++) {
+      const face = Math.floor(i / 4);
+      const end = face === 2 || face === 3;
+      const side = [0, 2, 0, 0, 1, 3][face];
+      const u = end ? 0.63 + uv.getX(i) * 0.24 : (side + uv.getX(i) * 0.98) / 8;
+      uv.setXY(i, u, 0.008 + uv.getY(i) * 0.483);
+    }
+    return mesh;
+  }
+  for (const offset of [-0.92, 0.92]) {
+    beam('Well timber post', 2.1, HOME.well.x + offset, 1.1);
+  }
+  beam('Well crossbar', 2.05, HOME.well.x, 2.18).rotation.z = Math.PI / 2;
+}
+
+function addWellAndFruitTree(root: THREE.Object3D, loadTexture: boolean) {
+  addStoneWell(root, loadTexture);
+  const wood = mat('#806349');
   // A simple local fruit tree is a separate real-geometry prop (not an image billboard).
   const tree = new THREE.Group();
   tree.name = 'Old fruit tree';
@@ -313,7 +360,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   const fallback = buildLocalHouseFallback(root);
   addAbandonedPlots(root);
   addShed(root);
-  addWellAndFruitTree(root);
+  addWellAndFruitTree(root, loadApprovedModel);
   addStreamAndBridge(root);
 
   // Fence boundary with a 5 m gap facing the connected village road.
