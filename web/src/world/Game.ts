@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createPaintedStoryTree } from './paintedTrees';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTravel, resolveLocomotion } from './characterAnimation';
 import { applyHandPaintedMaterials } from './handPaintedMaterials';
@@ -422,7 +422,7 @@ export class Game {
     path.renderOrder=3; this.scene.add(path);
     const plazaPath = createPaintedTerrainPlane('path',5,14.5,0,-3.25,.138,true);
     plazaPath.renderOrder=3; this.scene.add(plazaPath);
-    // Tree placement is handled by the imported hand-painted GLB asset.
+    // Trees are placed using local UV-painted 3D assets in loadEnvironmentTrees.
     const water = new THREE.Mesh(new THREE.BoxGeometry(48,.12,2.6),this.mat('#5bafc2'));
     water.position.set(0,-.02,17); this.scene.add(water);
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(5,.35,4),this.mat('#8b6242')); bridge.position.set(0,.35,17); bridge.castShadow=true; this.scene.add(bridge);
@@ -434,46 +434,28 @@ export class Game {
     const roof=new THREE.Mesh(new THREE.ConeGeometry(5.2,2.1,4),this.mat(roofColor)); roof.position.y=4.45; roof.rotation.y=Math.PI/4; roof.castShadow=true; g.add(roof);
     this.cameraObstacles.push(roof);
   }
-  private async loadEnvironmentTrees() {
-    const treeUrl = 'https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/406c5088-133a-4af3-8e72-cc8c4d69228e.glb';
-    const placements: Array<{ x: number; z: number; height: number; yaw: number }> = [
-      { x: -48, z: -8, height: 4.1, yaw: 0.2 },  // outside the house garden
-      { x: -50, z: 19, height: 3.5, yaw: 1.1 },  // preserve the home gate and path
-      { x: 25, z: 4, height: 4.3, yaw: 2.2 },
-      { x: 24, z: -28, height: 4.0, yaw: 0.7 },
-      { x: -7, z: -30, height: 3.4, yaw: 2.8 },
-      { x: 29, z: 14, height: 3.8, yaw: 1.7 },
-      { x: -31, z: -22, height: 4.5, yaw: 0.9 }
+  /** UV-painted true 3D trees, bundled locally instead of fetched from
+   * an external GLB URL. All trees use the same reusable bark/leaf atlases.
+   * The actual leaf crown is layered 3D geometry (not spheres or billboards).
+   */
+  private loadEnvironmentTrees() {
+    const placements: Array<{ x: number; z: number; height: number; yaw: number; seed: number }> = [
+      { x: -48, z: -8, height: 4.1, yaw: 0.2, seed: 107 },  // outside house garden
+      { x: -50, z: 19, height: 3.5, yaw: 1.1, seed: 218 }, // preserve gate
+      { x: 25, z: 4, height: 4.3, yaw: 2.2, seed: 331 },
+      { x: 24, z: -28, height: 4.0, yaw: 0.7, seed: 442 },
+      { x: -7, z: -30, height: 3.4, yaw: 2.8, seed: 559 },
+      { x: 29, z: 14, height: 3.8, yaw: 1.7, seed: 667 },
+      { x: -31, z: -22, height: 4.5, yaw: 0.9, seed: 773 }
     ];
-
-    try {
-      const loader = new GLTFLoader();
-      const gltf = await loader.loadAsync(treeUrl);
-      const source = gltf.scene;
-      const bounds = new THREE.Box3().setFromObject(source);
-      const sourceHeight = Math.max(bounds.max.y - bounds.min.y, 0.001);
-      this.prepareImportedMaterials(source);
-      applyHandPaintedMaterials(
-        source,
-        Math.min(8, this.renderer.capabilities.getMaxAnisotropy())
-      );
-
-      for (const placement of placements) {
-        const tree = source.clone(true);
-        const scale = placement.height / sourceHeight;
-        tree.scale.setScalar(scale);
-        tree.position.set(placement.x, -bounds.min.y * scale, placement.z);
-        tree.rotation.y = placement.yaw;
-        tree.traverse(object => {
-          if (object instanceof THREE.Mesh) {
-            object.castShadow = true;
-            object.receiveShadow = true;
-          }
-        });
-        this.scene.add(tree);
-      }
-    } catch (error) {
-      console.error('Gagal memuat aset pohon Lembah Asri:', error);
+    for (const placement of placements) {
+      const tree = createPaintedStoryTree({
+        kind: 'shade', height: placement.height, seed: placement.seed
+      });
+      tree.position.set(placement.x, 0, placement.z);
+      tree.rotation.y = placement.yaw;
+      tree.name = 'Village handpainted shade tree ' + placement.seed;
+      this.scene.add(tree);
     }
   }
   private pointerX=0;
