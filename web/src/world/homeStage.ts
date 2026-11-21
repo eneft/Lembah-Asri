@@ -6,6 +6,7 @@ import { createHouseGroundTransition, featherMergedHouseGround, createHouseConta
 import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
+import { attachCuratedHomeRocks } from './homeRocks.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -431,6 +432,27 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
       })
     : Promise.resolve(false);
   addStreamAndBridge(root);
+  // Original 16-variation stone GLB loads once. Until ready, retain the old
+  // simple stream stones as a safe fallback; remove and dispose only after
+  // the UV-textured original rocks have been attached successfully.
+  const rockReady: Promise<boolean> = loadApprovedModel
+    ? attachCuratedHomeRocks(root).then(() => {
+        const oldStones = root.children.filter(child => child.name === 'Stream bank stone');
+        let stoneMaterial: THREE.Material | undefined;
+        for (const stone of oldStones) {
+          root.remove(stone);
+          if (stone instanceof THREE.Mesh) {
+            stone.geometry.dispose();
+            stoneMaterial = Array.isArray(stone.material) ? stone.material[0] : stone.material;
+          }
+        }
+        stoneMaterial?.dispose();
+        return true;
+      }).catch(error => {
+        console.warn('[LembahAsri] Keeping old bank-stone fallback', error);
+        return false;
+      })
+    : Promise.resolve(false);
   // Paint-in real grass and stones along the worn yard boundary; leave paths clear.
   root.add(createHomeGroundDetails());
   // Additional genuine 3D foliage and textured stones, matching the approved
@@ -508,5 +530,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, ready: Promise.all([loaded, orchardReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, ready: Promise.all([loaded, orchardReady, rockReady]).then(([house]) => house) };
 }

@@ -55,6 +55,8 @@ jobs:
         run: node --experimental-strip-types --test tests/scene-shadows.test.mjs
       - name: Verify imported GLB ground feather blends seamlessly with home terrain
         run: node --experimental-strip-types --test tests/house-terrain-seam.test.mjs
+      - name: Verify user-provided UV rock pack and safe environmental placements
+        run: node --experimental-strip-types --test tests/home-rocks.test.mjs
       - name: Verify 3D painterly courtyard vegetation and textured stepping stones
         run: node --experimental-strip-types --test tests/home-art-pass.test.mjs
       - name: Verify hand-painted home terrain details and path clearance
