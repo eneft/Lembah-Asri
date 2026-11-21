@@ -98,6 +98,8 @@ export function createCharacterContactShadow(): THREE.Mesh<THREE.PlaneGeometry, 
   mesh.name = 'Character soft painted contact shadow';
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.y = 0.11;
+  // The actor FBX loads asynchronously; never show a stray shadow at (0, 0).
+  mesh.visible = false;
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   mesh.renderOrder = 7;
@@ -112,6 +114,7 @@ export function updateCharacterContactShadow(
   const air = Math.max(0, worldPosition.y);
   shadow.position.x = worldPosition.x;
   shadow.position.z = worldPosition.z;
+  shadow.visible = true;
   const factor = 1 + Math.min(air, 4) * 0.17;
   shadow.scale.set(factor, factor, 1);
   shadow.material.opacity = 0.40 / (1 + air * 0.8);
