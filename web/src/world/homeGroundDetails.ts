@@ -230,7 +230,7 @@ export function createHomeGroundDetails(): THREE.Group {
     plane.name = 'Feathered organic courtyard soil ' + i;
     // Replace rectangle feather with radial/irregular green-channel mask.
     plane.material.alphaMap = makeOrganicGroundMask(i + 13);
-    plane.material.opacity = 0.70;
+    plane.material.opacity = 0.46;
     plane.material.depthWrite = false;
     plane.material.needsUpdate = true;
     plane.renderOrder = 4;
