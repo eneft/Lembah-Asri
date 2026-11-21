@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
-  createHomeArtPass, scatterHomeUndergrowth, makeBroadLeafGeometry, makePaintedLeafAlbedo
+  createHomeArtPass, scatterHomeUndergrowth, makeBroadLeafGeometry, makePaintedLeafAlbedo,
+  isFrontFoundationExclusionZone
 } from '../src/world/homeArtPass.ts';
 import { isHomeGroundDetailAllowed } from '../src/world/homeGroundDetails.ts';
 import { createHomeStage } from '../src/world/homeStage.ts';
@@ -14,6 +15,7 @@ test('understory is deterministic, distributed and does not invade playable rout
   assert.ok(one.length > 15 && one.length < 200,
     'mobile-safe foreground with visible natural gaps');
   assert.ok(one.every(p => isHomeGroundDetailAllowed(p.x, p.z)));
+  assert.ok(one.every(p => !isFrontFoundationExclusionZone(p.x, p.z)));
   assert.ok(one.every(p => p.scale > 0.3 && p.scale < 0.7));
   assert.ok(one.every(p => p.hue >= 0 && p.hue <= 1));
   assert.notDeepEqual(scatterHomeUndergrowth(91),one);
@@ -61,6 +63,7 @@ test('production environment pass is actual instanced 3D foliage and UV-textured
   const palms=group.getObjectByName('Tall tropical foliage behind home');
   assert.ok(shrubs && understory && palms);
   assert.ok(shrubs.count>=12);
+  assert.ok(shrubs.count<18, 'dense front-foundation shrubs removed');
   assert.equal(understory.count,scatterHomeUndergrowth().length);
   assert.equal(palms.count,3);
   assert.ok(shrubs.castShadow && palms.castShadow);

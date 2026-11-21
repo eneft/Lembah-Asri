@@ -26,6 +26,11 @@ const shrubAnchors: ReadonlyArray<readonly [number, number, number]> = [
   [-38.90, 12.85, 0.60], [-25.70, 12.73, 0.65]
 ];
 
+/** Keep the stone plinth and front steps visible. Not a gameplay collider. */
+export function isFrontFoundationExclusionZone(x: number, z: number): boolean {
+  return x > -38.7 && x < -26.5 && z > -5.45 && z < -2.55;
+}
+
 const tallPlants: ReadonlyArray<readonly [number, number, number]> = [
   [-41.75, -13.12, 2.05], [-25.33, -12.99, 1.67],
   [-41.35, -7.30, 1.46]
@@ -81,6 +86,7 @@ export function scatterHomeUndergrowth(seed = 18628): LeafPoint[] {
         THREE.MathUtils.clamp(1 - edge / 4.6, 0, 1) + nearFrontFoundation;
       if (random() > density) continue;
       if (!isHomeGroundDetailAllowed(px, pz)) continue;
+      if (isFrontFoundationExclusionZone(px, pz)) continue;
       result.push({
         x: px, z: pz,
         scale: 0.34 + random() * 0.34,
@@ -243,9 +249,11 @@ export function createHomeArtPass(): THREE.Group {
   group.name = 'Lembah Asri hand-painted 3D environment art pass';
   const foliage = makeBroadLeafGeometry();
   const foliageAlbedo = makePaintedLeafAlbedo();
-  const shrubs = shrubAnchors.map(([x, z, scale], i) => ({
-    x, z, scale, yaw: i * 1.81, hue: (i * 0.387) % 1
-  }));
+  const shrubs = shrubAnchors
+    .filter(([x, z]) => !isFrontFoundationExclusionZone(x, z))
+    .map(([x, z, scale], i) => ({
+      x, z, scale, yaw: i * 1.81, hue: (i * 0.387) % 1
+    }));
   group.add(createPlantInstances('Natural shrubs around childhood home',
     shrubs, foliage, foliageAlbedo, true));
 

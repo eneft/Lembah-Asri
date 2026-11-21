@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createTerrainMaterial, createPaintedTerrainPlane, makeTerrainEdgeMask, type TerrainSurface } from './terrainMaterials.ts';
 import { createHomeGroundDetails } from './homeGroundDetails.ts';
-import { createHouseGroundTransition, featherMergedHouseGround } from './houseTerrainSeam.ts';
+import { createHouseGroundTransition, featherMergedHouseGround, createHouseContactShadow } from './houseTerrainSeam.ts';
 import { createHomeArtPass } from './homeArtPass.ts';
 
 /**
@@ -435,6 +435,11 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   root.add(createHouseGroundTransition(
     HOME.house.x, HOME.house.z, HOME.house.width, HOME.house.depth
   ));
+  // Very soft contact under the FRONT foundation, not a glowing painted rim.
+  root.add(createHouseContactShadow(
+    HOME.house.x, HOME.house.z + HOME.house.depth / 2 + 0.12,
+    HOME.house.width + 0.75, 2.5
+  ));
 
   // Fence boundary with a 5 m gap facing the connected village road.
   addWoodenFence(root, solids, 'North rear fence', -30.5, -16.5, 27, 'x');
@@ -486,7 +491,9 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     const { applyHandPaintedMaterials } = await import('./handPaintedMaterials');
     applyHandPaintedMaterials(scene, 8);
     scene.updateMatrixWorld(true);
-    featherMergedHouseGround(scene, new THREE.Box3().setFromObject(scene), await courtyardAlbedo);
+    // Keep the authored courtyard painting loaded before the visible GLB.
+    await courtyardAlbedo;
+    featherMergedHouseGround(scene, new THREE.Box3().setFromObject(scene));
     fallback.visible = false;
     root.add(scene);
     return true;

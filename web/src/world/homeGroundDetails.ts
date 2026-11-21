@@ -28,6 +28,8 @@ function seeded(seed: number): () => number {
 export function isHomeGroundDetailAllowed(x: number, z: number): boolean {
   if (x < -43.15 || x > -17.35 || z < -15.45 || z > 14.3) return false;
   if (Math.abs(x + 32.5) < 6.05 && Math.abs(z + 9.4) < 6.20) return false;
+  // Keep a small uncluttered apron immediately in front of the stone foundation.
+  if (x > -38.7 && x < -26.5 && z > -5.45 && z < -2.55) return false;
   if (Math.abs(x + 32.5) < 2.55 && z > -4.85 && z < 10.7) return false;
   if (x > -22.4 && Math.abs(z - 9) < 2.7) return false;
   if (Math.hypot(x + 29.5, z - 7.4) < 2.2) return false;
