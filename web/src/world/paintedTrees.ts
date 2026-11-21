@@ -244,7 +244,7 @@ function createCrownGeometry(kind: PaintedTreeKind, random: () => number): THREE
         .add(new THREE.Vector3(0,-.20+random()*.43,0)).normalize();
       const widthDir = new THREE.Vector3(-direction.z,.035,direction.x).normalize();
       const ridge = new THREE.Vector3().crossVectors(widthDir,direction).normalize();
-      const length = (kind==='shade'?.42:.46)+random()*.28;
+      const length = (kind === 'shade' ? .42 : .46)+random()*.28;
       const breadth = (.075+random()*.045);
       const pigment = (Math.floor(random()*4))%4;
       const lowU=(pigment%2)*.5+.028, lowV=Math.floor(pigment/2)*.5+.028;
@@ -301,7 +301,7 @@ export function createPaintedStoryTree({
   bark.castShadow=true;
   bark.receiveShadow=false;
   root.add(bark);
-  const crown=new THREE.Mesh(makeCrownGeometry(kind,random),
+  const crown=new THREE.Mesh(createCrownGeometry(kind,random),
     new THREE.MeshBasicMaterial({
       color:'#ffffff', map:makePaintedLeafAtlas(), vertexColors:true,
       side:THREE.DoubleSide, toneMapped:false
