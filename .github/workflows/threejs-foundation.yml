@@ -43,6 +43,8 @@ jobs:
         run: npm run test:camera-idle
       - name: Verify childhood home GLB and walkable site
         run: npm run test:home
+      - name: Verify well stone and timber atlas UV isolation
+        run: node --experimental-strip-types --test tests/well-materials.test.mjs
       - name: Verify modular warung placement, fallback and collision
         run: npm run test:warung
       - name: Verify hand-painted terrain, UV tiling and blending
