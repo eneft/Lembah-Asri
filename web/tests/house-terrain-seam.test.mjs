@@ -15,30 +15,37 @@ test('mixed GLB ground/house mesh is never hidden, cut, or re-meshed', () => {
   mesh.name = 'Merged approved house and ground';
   const geometry = mesh.geometry;
   const bounds = new THREE.Box3().setFromObject(mesh);
+  const courtyard = new THREE.Texture();
   const group = new THREE.Group();
   group.add(mesh);
-  assert.equal(featherMergedHouseGround(group, bounds), 1);
+  assert.equal(featherMergedHouseGround(group, bounds, courtyard), 1);
   assert.equal(mesh.geometry, geometry, 'original house vertices/UVs remain unchanged');
   assert.equal(mesh.visible, true, 'do not hide the entire house to fix dirt');
   assert.ok(mesh.material instanceof THREE.MeshBasicMaterial);
-  assert.equal(mesh.material.alphaHash, true, 'hashed alpha avoids sorting whole house as translucent');
+  assert.equal(mesh.material.alphaHash, false, 'remove the stippled black/brown ground pixels');
   assert.equal(mesh.material.transparent, false);
   assert.equal(mesh.material.depthWrite, true);
   assert.equal(mesh.material.toneMapped, false);
   assert.equal(mesh.material.userData.houseGroundFeather, true);
-  assert.equal(mesh.material.customProgramCacheKey(), 'lembah-house-ground-feather-v1');
+  assert.equal(mesh.material.userData.groundBlendMode, 'opaque-color-match');
+  assert.equal(mesh.material.customProgramCacheKey(), 'lembah-house-opaque-color-join-v2');
   const fakeShader = {
     uniforms: {},
     vertexShader: '#include <begin_vertex>',
-    fragmentShader: '#include <alphahash_fragment>'
+    fragmentShader: '#include <map_fragment>\n#include <alphahash_fragment>'
   };
   mesh.material.onBeforeCompile(fakeShader, {});
   assert.ok(fakeShader.vertexShader.includes('modelMatrix * vec4(transformed'));
-  assert.ok(fakeShader.fragmentShader.includes('diffuseColor.a *= mix(1.0, seamWeight, groundWeight)'));
+  assert.ok(fakeShader.fragmentShader.includes('diffuseColor.rgb = mix(diffuseColor.rgb, paintedSoil'));
+  assert.ok(!fakeShader.fragmentShader.includes('diffuseColor.a *='));
+  assert.ok(fakeShader.fragmentShader.includes('texture2D(uHouseCourtyardMap, courtyardUV)'));
   assert.ok(fakeShader.fragmentShader.includes('vHouseJoinWorld.y'));
   assert.ok(fakeShader.fragmentShader.includes('#include <alphahash_fragment>'));
   assert.equal(fakeShader.uniforms.uHouseJoinBounds.value.x, bounds.min.x);
   assert.equal(fakeShader.uniforms.uHouseJoinBottom.value, bounds.min.y);
+  assert.equal(fakeShader.uniforms.uHouseCourtyardMap.value, courtyard);
+  assert.equal(fakeShader.uniforms.uHouseCourtyardRect.value.x, -45);
+  assert.equal(fakeShader.uniforms.uHouseCourtyardRect.value.y, 14.9);
 });
 
 test('transition under GLB has no rectangular opaque board or new collision body', () => {
