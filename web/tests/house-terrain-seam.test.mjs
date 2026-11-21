@@ -47,10 +47,11 @@ test('transition under GLB has no rectangular opaque board or new collision body
   assert.equal(soil.name, 'Seamless house footing soil-to-terrain transition');
   assert.equal(soil.geometry.parameters.width, 14.2);
   assert.equal(soil.geometry.parameters.height, 14.2);
-  assert.equal(soil.material.userData.terrainSurface, 'soil');
+  assert.equal(soil.material.userData.terrainSurface, 'earth');
   assert.equal(soil.material.userData.worldUV, true);
   assert.equal(soil.position.y, 0.051);
   assert.equal(soil.material.transparent, true);
+  assert.equal(soil.material.opacity, 0.44, 'transition must not create a dark halo');
   assert.equal(soil.material.depthWrite, false);
   const mask = soil.material.alphaMap;
   assert.equal(mask.image.width, 128);
