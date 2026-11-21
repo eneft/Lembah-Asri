@@ -391,24 +391,34 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   const entrance = floorPatch(root, 'House entrance footpath', 3.8, 12.8,
     HOME.house.x, 2.4, '#baa17a', 0.078, 'path', true);
 
-  if (loadApprovedModel) {
-    new THREE.TextureLoader().load('./textures/terrain/home_courtyard.webp', texture => {
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = 8;
-      // Local UVs place the entire painting once, with the trail toward the east gate.
-      const material = new THREE.MeshBasicMaterial({
-        map: texture, alphaMap: makeTerrainEdgeMask(), transparent: true,
-        depthWrite: false, toneMapped: false
-      });
-      const painted = new THREE.Mesh(clearing.geometry, material);
-      painted.name = 'Painted childhood courtyard';
-      painted.rotation.copy(clearing.rotation);
-      painted.position.copy(clearing.position);
-      painted.renderOrder = clearing.renderOrder;
-      root.add(painted);
-      clearing.visible = worn.visible = entrance.visible = false;
-    }, undefined, error => console.warn('[LembahAsri] Using fallback courtyard', error));
-  }
+  // The GLB soil edge now samples this SAME authored courtyard albedo.
+  // Await the shared image when attaching the imported building so the seam
+  // cannot briefly render black while its map is still downloading.
+  const courtyardAlbedo: Promise<THREE.Texture | undefined> = loadApprovedModel
+    ? new THREE.TextureLoader().loadAsync('./textures/terrain/home_courtyard.webp')
+      .then(texture => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 8;
+        texture.needsUpdate = true;
+        // Local UVs place the painting once on the 32 x 29 m clearing.
+        const material = new THREE.MeshBasicMaterial({
+          map: texture, alphaMap: makeTerrainEdgeMask(), transparent: true,
+          depthWrite: false, toneMapped: false
+        });
+        const painted = new THREE.Mesh(clearing.geometry, material);
+        painted.name = 'Painted childhood courtyard';
+        painted.rotation.copy(clearing.rotation);
+        painted.position.copy(clearing.position);
+        painted.renderOrder = clearing.renderOrder;
+        root.add(painted);
+        clearing.visible = worn.visible = entrance.visible = false;
+        return texture;
+      })
+      .catch(error => {
+        console.warn('[LembahAsri] Using fallback courtyard', error);
+        return undefined;
+      })
+    : Promise.resolve(undefined);
 
   const fallback = buildLocalHouseFallback(root);
   addAbandonedPlots(root);
@@ -476,7 +486,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     const { applyHandPaintedMaterials } = await import('./handPaintedMaterials');
     applyHandPaintedMaterials(scene, 8);
     scene.updateMatrixWorld(true);
-    featherMergedHouseGround(scene, new THREE.Box3().setFromObject(scene));
+    featherMergedHouseGround(scene, new THREE.Box3().setFromObject(scene), await courtyardAlbedo);
     fallback.visible = false;
     root.add(scene);
     return true;
