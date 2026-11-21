@@ -4,6 +4,7 @@ import { createTerrainMaterial, createPaintedTerrainPlane, makeTerrainEdgeMask, 
 import { createHomeGroundDetails } from './homeGroundDetails.ts';
 import { createHouseGroundTransition, featherMergedHouseGround, createHouseContactShadow } from './houseTerrainSeam.ts';
 import { createHomeArtPass } from './homeArtPass.ts';
+import { createPaintedStoryTree } from './paintedTrees.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -299,26 +300,14 @@ function addStoneWell(root: THREE.Object3D, loadTexture: boolean) {
 
 function addWellAndFruitTree(root: THREE.Object3D, loadTexture: boolean) {
   addStoneWell(root, loadTexture);
-  const wood = mat('#806349');
-  // A simple local fruit tree is a separate real-geometry prop (not an image billboard).
-  const tree = new THREE.Group();
+  // Actual stylized 3D tree with a UV-painted wood trunk and layered,
+  // individually shaped textured leaves. No untextured ico-sphere crown.
+  const tree = createPaintedStoryTree({
+    kind: 'orchard', seed: 210917, height: 4.05
+  });
   tree.name = 'Old fruit tree';
   tree.position.set(-40, 0, 8.3);
   root.add(tree);
-  cylinder(tree, 'Fruit tree trunk', 0.22, 0.32, 2.55, [0, 1.27, 0], wood, 7);
-  for (const [x, y, z, radius] of [
-    [-0.78, 3.16, 0.1, 1.2], [0.65, 3.4, 0.13, 1.35],
-    [0, 3.8, -0.45, 1.2], [0.12, 2.95, 0.75, 1.12]
-  ]) {
-    const crown = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(radius, 1),
-      mat(y > 3.6 ? '#6e8f64' : '#7b9b70')
-    );
-    crown.name = 'Handpainted-style fruit tree crown';
-    crown.position.set(x, y, z);
-    crown.castShadow = true;
-    tree.add(crown);
-  }
 }
 
 function addWoodenFence(
