@@ -24,7 +24,7 @@ test('curved broadleaf vegetation has real 3D depth and baked hand-painted color
   assert.ok(geometry instanceof THREE.BufferGeometry);
   const positions = geometry.getAttribute('position');
   const colors = geometry.getAttribute('color');
-  assert.ok(positions.count > 60 && positions.count < 120);
+  assert.ok(positions.count >= 300 && positions.count <= 360, 'curved leaves use thin subdivided surfaces');
   assert.equal(positions.count, colors.count);
   assert.equal(positions.count, geometry.getAttribute('uv').count, 'all leaves have genuine UV coordinates');
   assert.ok(geometry.boundingSphere.radius > 0.1);
