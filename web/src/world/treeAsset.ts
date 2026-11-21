@@ -6,8 +6,10 @@ export type TreeAssetKind = 'shade' | 'orchard';
 
 const sourceCache = new Map<TreeAssetKind, Promise<THREE.Group>>();
 const urls: Record<TreeAssetKind, string> = {
-  shade: './models/environment/pohon_rimbun_shade.glb',
-  orchard: './models/environment/pohon_rimbun_orchard.glb'
+  // Bump query when changing the generated GLB's geometry/atlas. iOS Safari
+  // may otherwise retain the previous model despite a fresh JS bundle.
+  shade: './models/environment/pohon_rimbun_shade.glb?canopy=2',
+  orchard: './models/environment/pohon_rimbun_orchard.glb?canopy=2'
 };
 
 /**
