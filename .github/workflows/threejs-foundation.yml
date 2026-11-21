@@ -43,6 +43,8 @@ jobs:
         run: npm run test:camera-idle
       - name: Verify childhood home GLB and walkable site
         run: npm run test:home
+      - name: Verify imported GLB ground feather blends seamlessly with home terrain
+        run: node --experimental-strip-types --test tests/house-terrain-seam.test.mjs
       - name: Verify hand-painted home terrain details and path clearance
         run: node --experimental-strip-types --test tests/home-ground-details.test.mjs
       - name: Verify well stone and timber atlas UV isolation
