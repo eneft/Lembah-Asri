@@ -172,8 +172,8 @@ function makeAtlasRockGeometry(variant: number): THREE.BufferGeometry {
   const uv = geometry.getAttribute('uv');
   for (let i = 0; i < uv.count; i++) {
     uv.setXY(
-      i, (variant % 2) * 0.5 + 0.035 + uv.getX(i) * 0.43,
-      Math.floor(variant / 2) * 0.5 + 0.035 + uv.getY(i) * 0.43
+      i, (variant % 2) * 0.5 + 0.035 + THREE.MathUtils.clamp(uv.getX(i), 0, 1) * 0.43,
+      Math.floor(variant / 2) * 0.5 + 0.035 + THREE.MathUtils.clamp(uv.getY(i), 0, 1) * 0.43
     );
   }
   return geometry;
