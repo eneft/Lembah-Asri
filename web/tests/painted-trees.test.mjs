@@ -49,7 +49,8 @@ test('tree is actual densely layered 3D leaf geometry and textured branching bar
     assert.ok(trunk.geometry.getAttribute('normal'));
     assert.ok(leaves.geometry.getAttribute('normal'));
     assert.ok(leaves.geometry.userData.texturedLeafCrown);
-    assert.ok(leaves.geometry.userData.layeredCenters>=25);
+    assert.equal(leaves.geometry.userData.layeredClusters, 9);
+    assert.ok(leaves.geometry.userData.layeredCenters>=250);
     assert.ok(leaves.geometry.userData.leafCount>=250);
     assert.ok(leaves.geometry.getAttribute('position').count>9000);
     const bb=new THREE.Box3().setFromObject(tree);

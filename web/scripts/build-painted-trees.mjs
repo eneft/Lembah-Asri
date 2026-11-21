@@ -14,15 +14,16 @@ function png(rgba,w,h) { const scan=Buffer.alloc(h*(w*4+1)); for(let y=0;y<h;y++
 function paint(buf,size,x,y,r,g,b,a=255) { if(x<0||x>=size||y<0||y>=size||a<=0)return;const i=(y*size+x)*4;const aa=a/255;const bg=1-aa;buf[i]=r*aa+buf[i]*bg;buf[i+1]=g*aa+buf[i+1]*bg;buf[i+2]=b*aa+buf[i+2]*bg;buf[i+3]=Math.min(255,a+buf[i+3]*bg); }
 function leafAtlas() {
   const size=512,tile=256,pixels=new Uint8Array(size*size*4);
-  const pigments=[[64,121,52],[52,109,60],[42,97,56],[70,118,61]];
+  // Brighter storybook pigments with enough contrast to keep the leaf groups readable.
+  const pigments=[[151,207,102],[122,184,95],[91,152,88],[170,208,119]];
   for(let v=0;v<4;v++) {
     const rnd=rand(31+v*427),offX=(v%2)*tile,offY=Math.floor(v/2)*tile;
     const tint=pigments[v];
-    const n=v===3?10:15;
+    const n=v===3?10:12;
     for(let k=0;k<n;k++) {
       const dir=k*2.399963+v*.15+(rnd()-.5)*.55;
       const rootX=128+Math.cos(dir)*rnd()*29,rootY=127+Math.sin(dir)*rnd()*26;
-      const length=58+rnd()*44,width=16+rnd()*12,curl=(rnd()-.5)*.35;
+      const length=64+rnd()*48,width=19+rnd()*14,curl=(rnd()-.5)*.28;
       const ddx=Math.cos(dir),ddy=Math.sin(dir),sx=-ddy,sy=ddx;
       // Rasterize a pointed hand-painted leaf with a raised midrib, darker edge,
       // asymmetric shaded side and fine painted veins into an ALPHA atlas.
@@ -35,9 +36,9 @@ function leafAtlas() {
         const edge=w-Math.abs(lateral);
         if(edge < -.7) continue;
         const grain=Math.sin((x+v*53)*.22+y*.13)*3+Math.cos(y*.25-x*.08)*2;
-        const side=lateral>0?-14:8;
+        const side=lateral>0?-10:9;
         const vein=Math.exp(-Math.abs(lateral)*.38)*18;
-        const wash=.75+.28*(1-t)+.07*Math.sin(13*t+v);
+        const wash=.87+.17*(1-t)+.06*Math.sin(13*t+v);
         const alpha=clamp(Math.round(clamp(edge+.7,0,1)*255));
         paint(pixels,size,x+offX,y+offY,clamp(tint[0]*wash+side+grain+vein),clamp(tint[1]*wash+side+grain+vein),clamp(tint[2]*wash+side+grain*.5+vein*.55),alpha);
       }
@@ -67,37 +68,117 @@ function cross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[
 function dot(a,b){return a.reduce((v,x,i)=>v+x*b[i],0);}function norm(a){return mul(a,1/Math.sqrt(dot(a,a)));}
 function mesh(){return {p:[],uv:[],idx:[]};}
 function cylinder(g,a,b,r0,r1,sides=9){const axis=norm(sub(b,a)),ref=Math.abs(axis[1])>.95?v3(1,0,0):v3(0,1,0),u=norm(cross(axis,ref)),v=cross(axis,u);const index=g.p.length/3;for(let j=0;j<=1;j++) for(let i=0;i<=sides;i++){const angle=i*TAU/sides,r=j?r1:r0,pos=add(j?b:a,add(mul(u,r*Math.cos(angle)),mul(v,r*Math.sin(angle))));g.p.push(...pos);g.uv.push(i/sides,j*.78);}for(let i=0;i<sides;i++){const k=index+i,l=index+sides+1+i;g.idx.push(k,l,k+1,k+1,l,l+1);} }
-function trunk(seed){const rng=rand(seed),g=mesh(),p=[v3(0,0,0),v3(.07,.93,.02),v3(-.05,1.79,-.05),v3(.06,2.55,.05),v3(-.04,3.25,.02)];const r=[.33,.28,.20,.115,.04];for(let k=0;k<4;k++)cylinder(g,p[k],p[k+1],r[k],r[k+1],11);for(let k=0;k<7;k++){const a=k*TAU/7;cylinder(g,v3(.07*Math.cos(a),.38,.07*Math.sin(a)),v3(.48*Math.cos(a),.04,.48*Math.sin(a)),.14,.045,6);}for(let k=0;k<10;k++){const a=k*2.399963+(rng()-.5)*.35,y=1.63+(k%4)*.30,rad=1+rng()*.55;const s=v3(0,y,0),m=v3(rad*.64*Math.cos(a),y+.38,rad*.64*Math.sin(a)),e=v3(rad*Math.cos(a),y+.58,rad*Math.sin(a));cylinder(g,s,m,.103,.065,7);cylinder(g,m,e,.065,.024,6);}return g;}
-function crown(seed,orchard){const rng=rand(seed),g=mesh();for (const [shell,n] of [[1,143],[.81,112],[.62,79]])for(let k=0;k<n;k++){
- const t=(k+.5)/n,sy=1-2*t,angle=k*2.399963+rng()*.4,sr=Math.sqrt(1-sy*sy);
- const sx=sr*Math.cos(angle),sz=sr*Math.sin(angle);
- const center=v3(sx*1.89*shell+(rng()-.5)*.23,3.10+sy*1.28*shell+(rng()-.5)*.18,sz*1.75*shell+(rng()-.5)*.23);
- if(center[1]<2.05&&shell===1)center[1]=2.07+rng()*.12;
- let normal=norm(v3(sx*.81,(sy+.18)*.94,sz*.81));
- for(let pair=0;pair<(shell===1&&k%4===0?2:1);pair++) {
-  const c=add(center,v3((rng()-.5)*.2,(rng()-.5)*.18,(rng()-.5)*.2));
-  let rand=norm(v3(rng()-.5,(rng()-.5)*.8,rng()-.5));const nrm=norm(add(mul(normal,.76),mul(rand,.24)));
-  const ref=Math.abs(nrm[1])>.95?v3(1,0,0):v3(0,1,0);
-  let right=norm(cross(ref,nrm)), up=norm(cross(nrm,right));const spin=(rng()-.5)*TAU;
-  const r2=add(mul(right,Math.cos(spin)),mul(up,Math.sin(spin)));
-  const u2=add(mul(right,-Math.sin(spin)),mul(up,Math.cos(spin)));
-  const width=.68+rng()*.34, height=.69+rng()*.37;
-  const type=rng()<(orchard?.08:.013)?3:Math.floor(rng()*3);
-  const base=g.p.length/3;
-  for(let y=0;y<=2;y++) for(let x=0;x<=2;x++) {
-   const u=x/2,v=y/2;
-   const pos=add(add(c,mul(r2,(u-.5)*width)),add(mul(u2,(v-.5)*height),mul(nrm,.045*(1-(u*2-1)**2)*Math.sin(Math.PI*v))));
-   g.p.push(...pos);g.uv.push((type%2)*.5+.016+.468*u,Math.floor(type/2)*.5+.016+.468*v);
-  }
-  for(let y=0;y<2;y++)for(let x=0;x<2;x++) {const a=base+y*3+x,b=a+1,c=a+3,d=c+1;g.idx.push(a,c,b,b,c,d);}
+/**
+ * Six broad primary boughs and tapered secondary twigs. The crown starts high
+ * enough that this branching silhouette is visible below its foliage masses.
+ */
+function trunk(seed){
+ const rng=rand(seed),g=mesh();
+ const spine=[v3(0,0,0),v3(.06,.93,.01),v3(-.06,1.80,-.04),v3(.045,2.55,.07),v3(-.035,3.32,.02)];
+ const widths=[.35,.28,.20,.12,.042];
+ for(let k=0;k<4;k++)cylinder(g,spine[k],spine[k+1],widths[k],widths[k+1],11);
+ for(let k=0;k<7;k++){
+  const a=k*TAU/7;
+  cylinder(g,v3(.065*Math.cos(a),.36,.065*Math.sin(a)),
+   v3(.47*Math.cos(a),.035,.47*Math.sin(a)),.14,.043,6);
  }
-}return g;}
+ const boughs=6;
+ for(let k=0;k<boughs;k++){
+  const a=k*TAU/boughs+(rng()-.5)*.32;
+  const y=1.85+(k%3)*.30,reach=1.17+rng()*.52;
+  const start=v3(.055*Math.cos(a),y,.055*Math.sin(a));
+  const elbow=v3(reach*.63*Math.cos(a),y+.38,reach*.63*Math.sin(a));
+  const tip=v3(reach*Math.cos(a),y+.59,reach*Math.sin(a));
+  cylinder(g,start,elbow,.135,.076,8);
+  cylinder(g,elbow,tip,.076,.030,7);
+  // Twigs turn independently; they must remain thin and visible between lobes.
+  const side=a+(k%2?-.68:.68);
+  const twig=v3(elbow[0]+(.46+rng()*.25)*Math.cos(side),
+   elbow[1]+.24+rng()*.16,
+   elbow[2]+(.46+rng()*.25)*Math.sin(side));
+  cylinder(g,elbow,twig,.051,.018,6);
+ }
+ return g;
+}
+
+/**
+ * Nine overlapping, deliberately asymmetric foliage lobes. Distribution is
+ * volumetric (outer and inner shells); it is NOT a sphere painted with leaves.
+ * Each lobe has different height/size/count and individual cards swivel in 3D.
+ */
+function canopyLobes(orchard){
+ const y=orchard?-.10:0;
+ return [
+  {p:v3( .02,3.31+y, .02),r:v3(.97,.68,.91),n:54}, // core
+  {p:v3(-1.12,3.15+y, .09),r:v3(.81,.62,.79),n:46},
+  {p:v3( 1.08,3.18+y,-.18),r:v3(.86,.66,.80),n:45},
+  {p:v3(-.24,3.21+y, 1.06),r:v3(.79,.66,.72),n:41},
+  {p:v3( .27,3.29+y,-1.06),r:v3(.76,.65,.78),n:39},
+  {p:v3(-.41,3.99+y, .21),r:v3(.70,.56,.66),n:38},
+  {p:v3( .56,3.89+y,-.17),r:v3(.68,.58,.67),n:35},
+  {p:v3(-1.01,2.56+y, .27),r:v3(.59,.44,.59),n:29},
+  {p:v3( .97,2.61+y, .28),r:v3(.61,.44,.56),n:28}
+ ];
+}
+function crown(seed,orchard){
+ const rng=rand(seed),g=mesh(),lobes=canopyLobes(orchard);
+ let cards=0;
+ for(let cluster=0;cluster<lobes.length;cluster++){
+  const lobe=lobes[cluster];
+  for(let k=0;k<lobe.n;k++){
+   const az=rng()*TAU,vertical=rng()*2-1;
+   const radial=Math.sqrt(1-vertical*vertical);
+   const shell=(k%7===0?.38:.66)+rng()*.28;
+   const outward=v3(radial*Math.cos(az),vertical,radial*Math.sin(az));
+   const center=add(lobe.p,mul(v3(
+    outward[0]*lobe.r[0],outward[1]*lobe.r[1],outward[2]*lobe.r[2]),shell));
+   const nrm=norm(v3(
+    outward[0]+lobe.p[0]*.12,
+    outward[1]*.95+.12,
+    outward[2]+lobe.p[2]*.12));
+   const ref=Math.abs(nrm[1])>.94?v3(1,0,0):v3(0,1,0);
+   const right=norm(cross(ref,nrm)),up=norm(cross(nrm,right));
+   const spin=(rng()-.5)*TAU;
+   const r2=add(mul(right,Math.cos(spin)),mul(up,Math.sin(spin)));
+   const u2=add(mul(right,-Math.sin(spin)),mul(up,Math.cos(spin)));
+   // Larger painted leaf groups, fewer tiny noisy repeated marks.
+   const width=.96+rng()*.28,height=.93+rng()*.28;
+   const light=center[1]>3.55;
+   const rnd=rng();
+   const family=orchard&&rnd<.09?3:
+      light?(rnd<.55?0:rnd<.88?1:2):(rnd<.25?0:rnd<.69?1:2);
+   const base=g.p.length/3;
+   for(let row=0;row<=2;row++)for(let column=0;column<=2;column++){
+    const u=column/2,v=row/2;
+    const bend=.052*Math.sin(Math.PI*v)*(1-(u*2-1)**2);
+    const pos=add(center,add(
+      mul(r2,(u-.5)*width),
+      add(mul(u2,(v-.5)*height),mul(nrm,bend))
+    ));
+    g.p.push(...pos);
+    // Keep a gutter to prevent neighbouring atlas families bleeding in mipmaps.
+    g.uv.push((family%2)*.5+.018+.464*u,
+      Math.floor(family/2)*.5+.018+.464*v);
+   }
+   for(let row=0;row<2;row++)for(let col=0;col<2;col++){
+    const a=base+row*3+col,b=a+1,c=a+3,d=c+1;
+    g.idx.push(a,c,b,b,c,d);
+   }
+   cards++;
+  }
+ }
+ g.lobeCount=lobes.length;
+ g.cardCount=cards;
+ g.canopyStyle='asymmetric-overlapping-lobes-v2';
+ return g;
+}
 function f32(a){const b=Buffer.alloc(a.length*4);a.forEach((x,i)=>b.writeFloatLE(x,i*4));return b;}
 function u16(a){const b=Buffer.alloc(a.length*2);a.forEach((x,i)=>b.writeUInt16LE(x,i*2));return b;}
 function buildGLB(kind,leaf,bark){const orchard=kind==='orchard',meshes=[trunk(orchard?336:931),crown(orchard?336:931,orchard)],bin=[],views=[],accessors=[];let offset=0;
  function view(data,target) { const pad=(4-offset%4)%4;if(pad){bin.push(Buffer.alloc(pad));offset+=pad;}const i=views.length;views.push({buffer:0,byteOffset:offset,byteLength:data.length,...(target?{target}:{})});bin.push(data);offset+=data.length;return i; }
  function accessor(data,type,comp,count,kind,withMin=false){const bv=view(data,kind),i=accessors.length;const a={bufferView:bv,componentType:comp,count,type};if(withMin){const nums=[];for(let j=0;j<count;j++)nums.push([data.readFloatLE(j*12),data.readFloatLE(j*12+4),data.readFloatLE(j*12+8)]);a.min=[0,1,2].map(j=>Math.min(...nums.map(row=>row[j])));a.max=[0,1,2].map(j=>Math.max(...nums.map(row=>row[j])));}accessors.push(a);return i;}
  const gm=[];for(let k=0;k<2;k++){const m=meshes[k],pos=accessor(f32(m.p),'VEC3',5126,m.p.length/3,34962,true),uv=accessor(f32(m.uv),'VEC2',5126,m.uv.length/2,34962),idx=accessor(u16(m.idx),'SCALAR',5123,m.idx.length,34963);gm.push({name:k?'Layered Alpha-Cutout Crown':'Real 3D Branching Trunk',primitives:[{attributes:{POSITION:pos,TEXCOORD_0:uv},indices:idx,material:k}]});}
+ gm[1].extras={canopyLobes:meshes[1].lobeCount,leafCards:meshes[1].cardCount,canopyStyle:meshes[1].canopyStyle};
  const barkView=view(bark),leafView=view(leaf);
  const j={asset:{version:'2.0',generator:'Lembah Asri real-3D hand-painted alpha tree generator'},scene:0,scenes:[{nodes:[0,1]}],nodes:[{mesh:0,name:'UV Bark Trunk and Branches'},{mesh:1,name:'Layered Alpha-Texture Leaves'}],meshes:gm,accessors,bufferViews:views,buffers:[{byteLength:offset}],images:[{bufferView:barkView,mimeType:'image/png'},{bufferView:leafView,mimeType:'image/png'}],samplers:[{magFilter:9729,minFilter:9987,wrapS:33071,wrapT:33071}],textures:[{sampler:0,source:0},{sampler:0,source:1}],materials:[{name:'UV Painted Tree Bark',pbrMetallicRoughness:{baseColorTexture:{index:0},metallicFactor:0,roughnessFactor:1},doubleSided:true},{name:'Hand Painted Alpha Leaves',pbrMetallicRoughness:{baseColorTexture:{index:1},metallicFactor:0,roughnessFactor:1},alphaMode:'MASK',alphaCutoff:.46,doubleSided:true}]};
  const json=Buffer.from(JSON.stringify(j),'utf8');const pad=(4-json.length%4)%4;const jb=Buffer.concat([json,Buffer.alloc(pad,32)]);const raw=Buffer.concat(bin);const tail=(4-raw.length%4)%4;const bb=Buffer.concat([raw,Buffer.alloc(tail)]);const header=Buffer.alloc(12);header.write('glTF',0);header.writeUInt32LE(2,4);header.writeUInt32LE(12+8+jb.length+8+bb.length,8);const jc=Buffer.alloc(8);jc.writeUInt32LE(jb.length,0);jc.writeUInt32LE(0x4e4f534a,4);const bc=Buffer.alloc(8);bc.writeUInt32LE(bb.length,0);bc.writeUInt32LE(0x004e4942,4);return Buffer.concat([header,jc,jb,bc,bb]); }

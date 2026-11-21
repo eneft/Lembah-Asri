@@ -33,6 +33,12 @@ for (const kind of dirs) {
     assert.ok(vertices.max[0]-vertices.min[0] > 3.5);
     assert.ok(vertices.max[2]-vertices.min[2] > 3.5);
     assert.ok(vertices.max[1]-vertices.min[1] > 2, 'deep crown from top to underside');
+    assert.equal(json.meshes[1].extras.canopyLobes, 9, 'asymmetric cluster volumes, not a single round shell');
+    assert.match(json.meshes[1].extras.canopyStyle, /asymmetric-overlapping-lobes/);
+    assert.ok(json.meshes[1].extras.leafCards >= 320 && json.meshes[1].extras.leafCards <= 420);
+    assert.ok(json.accessors[crown.indices].count / 3 <= 3800, 'mobile-safe triangle budget');
+    assert.equal(json.materials[1].alphaMode, 'MASK');
+    assert.ok(!json.materials[1].alphaHash, 'never use stippled transparency');
     const view = json.bufferViews[json.images[1].bufferView];
     const offset = binaryStart + view.byteOffset;
     const png = data.subarray(offset, offset + view.byteLength);
@@ -48,7 +54,17 @@ for (const kind of dirs) {
     }
     const pixels = inflateSync(Buffer.concat(idat));
     const alpha = [];
-    for (let i = 4; i < pixels.length; i += 5) alpha.push(pixels[i]);
+    const sampleGreen = [];
+    const stride = 512 * 4 + 1; // each PNG scanline starts with one filter byte
+    for (let y = 0; y < 512; y++) {
+      for (let x = 0; x < 512; x++) {
+        const i = y * stride + 1 + x * 4;
+        alpha.push(pixels[i + 3]);
+        if (pixels[i + 3] > 180) sampleGreen.push(pixels[i + 1]);
+      }
+    }
+    const meanGreen = sampleGreen.reduce((a,b)=>a+b,0) / sampleGreen.length;
+    assert.ok(meanGreen > 118, 'foliage should not be overly dark on mobile');
     assert.ok(alpha.some(a => a === 0), 'transparent gaps between leaf sprites');
     assert.ok(alpha.some(a => a >= 230), 'opaque hand-painted leaves');
   });

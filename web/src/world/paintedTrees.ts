@@ -90,8 +90,8 @@ export function makePaintedLeafAtlas(): THREE.DataTexture {
   if (leavesAtlas) return leavesAtlas;
   const size = 256, pixels = new Uint8Array(size * size * 4);
   const bases = [
-    [139, 191, 85], [102, 162, 79],
-    [72, 127, 69], [159, 193, 98]
+    [154, 211, 105], [124, 183, 95],
+    [88, 151, 88], [171, 211, 115]
   ];
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -149,19 +149,28 @@ function makeBarkGeometry(kind: PaintedTreeKind, random: () => number): THREE.Bu
     segments.push({from:nodes[i],to:nodes[i+1],
       baseRadius:mainRadius*taper[i],tipRadius:mainRadius*taper[i+1],sides:9});
   }
-  // Branches are real tapered textured cylinders, rather than a silhouette
-  // hidden behind the canopy. Keep one merged mesh for efficient rendering.
-  for (let i = 0; i < 9; i++) {
-    const angle = i * 2.399963 + random() * .34;
-    const originY = 1.80 + (i % 4) * .25;
-    const root = new THREE.Vector3(
-      -0.06 + Math.sin(originY * 3)*.03, originY, .06
+  // Six primary boughs with secondary twigs visible below the new lobes.
+  const primaryCount = 6;
+  for (let i = 0; i < primaryCount; i++) {
+    const angle = i * Math.PI * 2 / primaryCount + (random() - .5) * .32;
+    const height = 1.85 + (i % 3) * .30;
+    const reach = 1.17 + random() * .52;
+    const root = new THREE.Vector3(.05 * Math.cos(angle), height, .05 * Math.sin(angle));
+    const elbow = new THREE.Vector3(
+      reach * .63 * Math.cos(angle), height + .38, reach * .63 * Math.sin(angle)
     );
-    const radial = .75 + random() * .76;
-    const tip = root.clone().add(new THREE.Vector3(
-      Math.cos(angle) * radial, .42 + random() * .45, Math.sin(angle) * radial
+    const tip = new THREE.Vector3(
+      reach * Math.cos(angle), height + .59, reach * Math.sin(angle)
+    );
+    segments.push({ from: root, to: elbow, baseRadius: .135, tipRadius: .076, sides: 8 });
+    segments.push({ from: elbow, to: tip, baseRadius: .076, tipRadius: .030, sides: 7 });
+    const subAngle = angle + (i % 2 ? -.68 : .68);
+    const subTip = elbow.clone().add(new THREE.Vector3(
+      (.46 + random() * .25) * Math.cos(subAngle),
+      .24 + random() * .16,
+      (.46 + random() * .25) * Math.sin(subAngle)
     ));
-    segments.push({from:root, to:tip, baseRadius:.105,tipRadius:.042,sides:6});
+    segments.push({ from: elbow, to: subTip, baseRadius: .051, tipRadius: .018, sides: 6 });
   }
   const geometries: THREE.BufferGeometry[] = [];
   for (const segment of segments) {
@@ -194,24 +203,32 @@ type FoliageVertex = {
 
 function createCrownGeometry(kind: PaintedTreeKind, random: () => number): THREE.BufferGeometry {
   const positions: number[] = [], colors: number[] = [], uv: number[] = [];
+  const yOffset = kind === 'orchard' ? -.10 : 0;
+  const lobes = [
+    { x: .02,  y: 3.31, z: .02,  rx: .97, ry: .68, rz: .91, n: 48 },
+    { x: -1.12,y: 3.15, z: .09,  rx: .81, ry: .62, rz: .79, n: 42 },
+    { x: 1.08, y: 3.18, z: -.18, rx: .86, ry: .66, rz: .80, n: 41 },
+    { x: -.24, y: 3.21, z: 1.06, rx: .79, ry: .66, rz: .72, n: 37 },
+    { x: .27,  y: 3.29, z: -1.06,rx: .76, ry: .65, rz: .78, n: 35 },
+    { x: -.41, y: 3.99, z: .21,  rx: .70, ry: .56, rz: .66, n: 34 },
+    { x: .56,  y: 3.89, z: -.17, rx: .68, ry: .58, rz: .67, n: 33 },
+    { x: -1.01,y: 2.56, z: .27,  rx: .59, ry: .44, rz: .59, n: 28 },
+    { x: .97,  y: 2.61, z: .28,  rx: .61, ry: .44, rz: .56, n: 27 }
+  ];
   const centers: THREE.Vector3[] = [];
-  const rings = kind === 'shade'
-    ? [{n:8,r:1.05,y:2.56},{n:10,r:1.18,y:3.11},
-       {n:8,r:.82,y:3.62},{n:5,r:.43,y:4.03}]
-    : [{n:9,r:1.05,y:2.32},{n:11,r:1.14,y:2.88},
-       {n:9,r:.80,y:3.40},{n:5,r:.39,y:3.83}];
-  for (let level=0; level<rings.length; level++) {
-    const ring=rings[level];
-    for (let k=0; k<ring.n; k++) {
-      const angle=(k + (level % 2)*.45) * Math.PI*2 / ring.n + random()*.18;
-      const radius=ring.r*(.82+random()*.32);
+  for (const lobe of lobes) {
+    for (let i = 0; i < lobe.n; i++) {
+      const theta = random() * Math.PI * 2;
+      const v = random() * 2 - 1;
+      const rad = Math.sqrt(1 - v * v);
+      const shell = (i % 7 === 0 ? .38 : .66) + random() * .28;
       centers.push(new THREE.Vector3(
-        Math.cos(angle)*radius, ring.y+(random()-.5)*.27,
-        Math.sin(angle)*radius
+        lobe.x + rad * Math.cos(theta) * lobe.rx * shell,
+        lobe.y + yOffset + v * lobe.ry * shell,
+        lobe.z + rad * Math.sin(theta) * lobe.rz * shell
       ));
     }
   }
-  centers.push(new THREE.Vector3(0,kind==='shade'?4.24:3.99,0));
   const trianglesPerLeaf = 12;
   function emit(v: FoliageVertex) {
     positions.push(v.p.x,v.p.y,v.p.z);
@@ -225,7 +242,7 @@ function createCrownGeometry(kind: PaintedTreeKind, random: () => number): THREE
   // Cluster with dense overlapping leaves of different sizes/orientations.
   for (let c=0; c<centers.length; c++) {
     const center=centers[c];
-    const leafCount=kind==='shade'?12:11;
+    const leafCount = 1; // each clustered point owns one large painted leaf
     for (let l=0;l<leafCount;l++) {
       const point = new THREE.Vector3(
         center.x+(random()-.5)*.72,
@@ -244,8 +261,8 @@ function createCrownGeometry(kind: PaintedTreeKind, random: () => number): THREE
         .add(new THREE.Vector3(0,-.20+random()*.43,0)).normalize();
       const widthDir = new THREE.Vector3(-direction.z,.035,direction.x).normalize();
       const ridge = new THREE.Vector3().crossVectors(widthDir,direction).normalize();
-      const length = (kind === 'shade' ? .42 : .46)+random()*.28;
-      const breadth = (.075+random()*.045);
+      const length = (kind === 'shade' ? .59 : .63) + random() * .21;
+      const breadth = .12 + random() * .045;
       const pigment = (Math.floor(random()*4))%4;
       const lowU=(pigment%2)*.5+.028, lowV=Math.floor(pigment/2)*.5+.028;
       const span=.444;
@@ -278,7 +295,8 @@ function createCrownGeometry(kind: PaintedTreeKind, random: () => number): THREE
   geom.computeVertexNormals();
   geom.computeBoundingSphere();
   geom.userData = { leafCount: positions.length/(trianglesPerLeaf*3),
-    texturedLeafCrown:true, layeredCenters:centers.length };
+    texturedLeafCrown:true, layeredCenters:centers.length,
+    layeredClusters: lobes.length };
   return geom;
 }
 
