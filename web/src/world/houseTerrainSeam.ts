@@ -65,8 +65,8 @@ export function featherMergedHouseGround(
               'float zEdge = min(vHouseJoinWorld.z - uHouseJoinBounds.z,',
               '                  uHouseJoinBounds.w - vHouseJoinWorld.z);',
               'float border = min(xEdge, zEdge);',
-              'float contour = 0.12 * sin(vHouseJoinWorld.x * 2.73 + vHouseJoinWorld.z * 1.49)',
-              '  + 0.065 * sin(vHouseJoinWorld.x * 7.13 - vHouseJoinWorld.z * 3.31);',
+              'float contour = 0.065 * sin(vHouseJoinWorld.x * 2.73 + vHouseJoinWorld.z * 1.49)',
+              '  + 0.032 * sin(vHouseJoinWorld.x * 7.13 - vHouseJoinWorld.z * 3.31);',
               'float seamWeight = smoothstep(0.01, 1.52, border + contour);',
               '// Preserve foliage, masonry, the steps and the rest of the house.',
               'float groundWeight = 1.0 - smoothstep(',
@@ -96,12 +96,12 @@ export function createHouseGroundTransition(
   centerX: number, centerZ: number, houseWidth: number, houseDepth: number
 ): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
   const soil = createPaintedTerrainPlane(
-    'soil', houseWidth + 4.6, houseDepth + 4.6,
+    'earth', houseWidth + 4.6, houseDepth + 4.6,
     centerX, centerZ, 0.051, true
   );
   soil.name = 'Seamless house footing soil-to-terrain transition';
   soil.material.alphaMap = makeOrganicGroundMask(27, 128);
-  soil.material.opacity = 0.88;
+  soil.material.opacity = 0.44;
   soil.material.depthWrite = false;
   soil.material.polygonOffset = true;
   soil.material.polygonOffsetFactor = -1;
