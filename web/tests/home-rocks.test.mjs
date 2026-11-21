@@ -165,7 +165,8 @@ test('creek is truly winding water with softened banks, not a rectangle', () => 
   assert.ok(bed.geometry.boundingBox===null || bed.geometry.getAttribute('position').count>=300);
   const pos=water.geometry.getAttribute('position');
   const centerX=[];
-  for(let i=0;i<pos.count;i+=4)centerX.push((pos.getX(i)+pos.getX(i+3))*.5);
+  // New 3D water ribbon has six vertices per z-section (was four).
+  for(let i=0;i<pos.count;i+=6)centerX.push((pos.getX(i)+pos.getX(i+5))*.5);
   assert.ok(Math.max(...centerX)-Math.min(...centerX)>.15,'water meanders instead of perfectly straight');
   const group=createHomeCreekVegetation();
   assert.equal(group.userData.clusters,9);
