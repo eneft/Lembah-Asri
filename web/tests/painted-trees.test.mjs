@@ -12,9 +12,9 @@ test('both painted tree atlases are actual detailed sRGB UV textures', () => {
   const bark=makePaintedBarkAtlas(),leaves=makePaintedLeafAtlas();
   assert.ok(bark instanceof THREE.DataTexture);
   assert.ok(leaves instanceof THREE.DataTexture);
-  assert.equal(bark.image.width,512);
-  assert.equal(bark.wrapS,THREE.RepeatWrapping);
-  assert.equal(bark.wrapT,THREE.RepeatWrapping);
+  assert.equal(bark.image.width,1024);
+  assert.equal(bark.wrapS,THREE.ClampToEdgeWrapping);
+  assert.equal(bark.wrapT,THREE.ClampToEdgeWrapping);
   assert.equal(leaves.image.height,256);
   assert.equal(bark.colorSpace,THREE.SRGBColorSpace);
   assert.equal(leaves.colorSpace,THREE.SRGBColorSpace);
@@ -51,7 +51,8 @@ test('tree is actual densely layered 3D leaf geometry and textured branching bar
       least=Math.min(least,vertexPigment.getX(i));
       highest=Math.max(highest,vertexPigment.getX(i));
     }
-    assert.ok(upperV>1.5,'trunk UV follows real branch length');
+    assert.ok(upperV<1 && upperV>.9,'continuous trunk UV lies within painted atlas');
+    assert.equal(trunk.geometry.userData.uvLayout,'separate-unwrapped-painterly-islands');
     assert.ok(least<.9,'soft roots');
     assert.ok(highest>.98,'upper trunk stays bright');
     assert.equal(leaves.material.map,makePaintedLeafAtlas());

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { BARK_ATLAS_SIZE, paintBarkUVAtlas, addUnwrappedBarkTube } from '../../scripts/tree-bark-uv.mjs';
 
 /**
  * True 3D stylized trees with baked painterly UV albedo.
@@ -49,42 +49,24 @@ function smoothNoise(x: number, y: number, seed: number): number {
 }
 
 /** 256px opaque sRGB hand-painted bark: longitudinal grain, warm highlights, moss. */
+/** The emergency fallback uses exactly the same UV layout + albedo as the
+ * generated GLB, rather than a differently mapped striped procedural wood.
+ */
 export function makePaintedBarkAtlas(): THREE.DataTexture {
   if (barkAtlas) return barkAtlas;
-  const n=512, pixels=new Uint8Array(n*n*4), tau=Math.PI*2;
-  for(let y=0;y<n;y++) for(let x=0;x<n;x++){
-    const u=(x+.5)/n,v=(y+.5)/n;
-    const twist=.11*Math.sin(tau*2*v)+.035*Math.sin(tau*5*v);
-    const grain=Math.sin(tau*(13*u+twist));
-    const fibers=Math.sin(tau*(39*u+.06*Math.sin(tau*3*v)));
-    const broad=Math.cos(tau*(3*u+.08*Math.sin(tau*2*v)))*.5+.5;
-    const crack=Math.pow(Math.max(0,Math.cos(tau*(19*u+.09*Math.sin(tau*3*v)))),22);
-    const micro=Math.pow(Math.max(0,Math.cos(tau*(48*u+.04*Math.sin(tau*6*v)))),12);
-    let knot=0;
-    for(const [ku,kv,rx,ry] of [[.34,.30,.071,.102],[.77,.72,.054,.074]]){
-      const du=Math.abs(u-ku),dv=Math.abs(v-kv);
-      const d=Math.hypot(Math.min(du,1-du)/rx,Math.min(dv,1-dv)/ry);
-      if(d<1.4) knot+=Math.exp(-d*d*3)*(16+11*Math.sin(d*15));
-    }
-    const ridge=grain*6+fibers*3,shade=.91+.14*broad+.045*Math.cos(tau*4*v);
-    const moss=Math.max(0,Math.sin(tau*(2*u+3*v))*.5+.5-.76)*31;
-    const i=(y*n+x)*4;
-    pixels[i]=colorChannel(134*shade+ridge-29*crack-11*micro-knot-moss*.38);
-    pixels[i+1]=colorChannel(100*shade+ridge*.74-25*crack-10*micro-knot*.73+moss);
-    pixels[i+2]=colorChannel(72*shade+ridge*.52-20*crack-8*micro-knot*.55+moss*.37);
-    pixels[i+3]=255;
-  }
-  const map=new THREE.DataTexture(pixels,n,n,THREE.RGBAFormat);
-  map.colorSpace=THREE.SRGBColorSpace;
-  map.wrapS=THREE.RepeatWrapping;
-  map.wrapT=THREE.RepeatWrapping;
-  map.magFilter=THREE.LinearFilter;
-  map.minFilter=THREE.LinearMipmapLinearFilter;
-  map.generateMipmaps=true;
-  map.anisotropy=4;
-  map.needsUpdate=true;
-  barkAtlas=map;
-  return map;
+  const texture=new THREE.DataTexture(
+    paintBarkUVAtlas(), BARK_ATLAS_SIZE,BARK_ATLAS_SIZE,THREE.RGBAFormat
+  );
+  texture.colorSpace=THREE.SRGBColorSpace;
+  texture.wrapS=THREE.ClampToEdgeWrapping;
+  texture.wrapT=THREE.ClampToEdgeWrapping;
+  texture.magFilter=THREE.LinearFilter;
+  texture.minFilter=THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps=true;
+  texture.anisotropy=4;
+  texture.needsUpdate=true;
+  barkAtlas=texture;
+  return texture;
 }
 
 /**
@@ -135,81 +117,46 @@ export function makePaintedLeafAtlas(): THREE.DataTexture {
   return map;
 }
 
-type BarkSegment = {
-  from: THREE.Vector3; to: THREE.Vector3;
-  baseRadius: number; tipRadius: number; sides: number;
-};
-
-function makeBarkGeometry(kind: PaintedTreeKind, random: () => number): THREE.BufferGeometry {
-  const mainRadius = kind === 'shade' ? .33 : .29;
-  const nodes = [
-    new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(.035, .95, -.04),
-    new THREE.Vector3(-.09, 1.95, .02),
-    new THREE.Vector3(.06, 2.73, .11),
-    new THREE.Vector3(-.06, 3.37, .04)
+function makeBarkGeometry(_kind: PaintedTreeKind, random: () => number): THREE.BufferGeometry {
+  const g={p:[] as number[],uv:[] as number[],idx:[] as number[],colors:[] as number[]};
+  const spine=[
+    [0,0,0],[.06,.93,.01],[-.06,1.80,-.04],
+    [.045,2.55,.07],[-.035,3.32,.02]
   ];
-  const segments: BarkSegment[] = [];
-  for (let i = 0; i < nodes.length - 1; i++) {
-    const taper = [1.12,.83,.63,.35,.12];
-    segments.push({from:nodes[i],to:nodes[i+1],
-      baseRadius:mainRadius*taper[i],tipRadius:mainRadius*taper[i+1],sides:9});
+  const widths=[.35,.28,.20,.12,.042];
+  addUnwrappedBarkTube(g,spine,widths,11,'trunk');
+  for(let k=0;k<7;k++){
+    const a=k*Math.PI*2/7;
+    addUnwrappedBarkTube(g,[
+      [.065*Math.cos(a),.36,.065*Math.sin(a)],
+      [.47*Math.cos(a),.035,.47*Math.sin(a)]
+    ],[.14,.043],6,'twig',k);
   }
-  // Six primary boughs with secondary twigs visible below the new lobes.
-  const primaryCount = 6;
-  for (let i = 0; i < primaryCount; i++) {
-    const angle = i * Math.PI * 2 / primaryCount + (random() - .5) * .32;
-    const height = 1.85 + (i % 3) * .30;
-    const reach = 1.17 + random() * .52;
-    const root = new THREE.Vector3(.05 * Math.cos(angle), height, .05 * Math.sin(angle));
-    const elbow = new THREE.Vector3(
-      reach * .63 * Math.cos(angle), height + .38, reach * .63 * Math.sin(angle)
-    );
-    const tip = new THREE.Vector3(
-      reach * Math.cos(angle), height + .59, reach * Math.sin(angle)
-    );
-    segments.push({ from: root, to: elbow, baseRadius: .135, tipRadius: .076, sides: 8 });
-    segments.push({ from: elbow, to: tip, baseRadius: .076, tipRadius: .030, sides: 7 });
-    const subAngle = angle + (i % 2 ? -.68 : .68);
-    const subTip = elbow.clone().add(new THREE.Vector3(
-      (.46 + random() * .25) * Math.cos(subAngle),
-      .24 + random() * .16,
-      (.46 + random() * .25) * Math.sin(subAngle)
-    ));
-    segments.push({ from: elbow, to: subTip, baseRadius: .051, tipRadius: .018, sides: 6 });
+  const boughs=6;
+  for(let k=0;k<boughs;k++){
+    const a=k*Math.PI*2/boughs+(random()-.5)*.32;
+    const y=1.85+(k%3)*.30,reach=1.17+random()*.52;
+    const start=[.055*Math.cos(a),y,.055*Math.sin(a)];
+    const elbow=[reach*.63*Math.cos(a),y+.38,reach*.63*Math.sin(a)];
+    const tip=[reach*Math.cos(a),y+.59,reach*Math.sin(a)];
+    addUnwrappedBarkTube(g,[start,elbow,tip],[.135,.076,.030],8,'bough',k);
+    const side=a+(k%2?-.68:.68);
+    const twig=[
+      elbow[0]+(.46+random()*.25)*Math.cos(side),
+      elbow[1]+.24+random()*.16,
+      elbow[2]+(.46+random()*.25)*Math.sin(side)
+    ];
+    addUnwrappedBarkTube(g,[elbow,twig],[.051,.018],6,'twig',k+1);
   }
-  const geometries: THREE.BufferGeometry[] = [];
-  for (const segment of segments) {
-    const height = segment.from.distanceTo(segment.to);
-    const geo = new THREE.CylinderGeometry(
-      segment.tipRadius, segment.baseRadius, height,
-      segment.sides, 2, false
-    );
-    const midpoint = segment.from.clone().add(segment.to).multiplyScalar(.5);
-    geo.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0,1,0),
-      segment.to.clone().sub(segment.from).normalize()
-    ));
-    geo.translate(midpoint.x, midpoint.y, midpoint.z);
-    const coords=geo.getAttribute('uv');
-    const positions=geo.getAttribute('position');
-    const colors=new Float32Array(positions.count*3);
-    for(let i=0;i<positions.count;i++){
-      // Three cylinder UV V=1 at bottom and V=0 at top.
-      coords.setY(i, segment.from.y*.92+(1-coords.getY(i))*height*.92);
-      const groundShade=1-.13*Math.max(0,1-positions.getY(i)/.55);
-      colors[i*3]=groundShade;
-      colors[i*3+1]=groundShade*.991;
-      colors[i*3+2]=groundShade*.978;
-    }
-    geo.setAttribute('color',new THREE.BufferAttribute(colors,3));
-    geometries.push(geo);
-  }
-  const merged = mergeGeometries(geometries, false);
-  for (const geo of geometries) geo.dispose();
-  if (!merged) throw new Error('Unable to merge tree bark geometry');
-  merged.computeBoundingSphere();
-  return merged;
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(g.p,3));
+  geo.setAttribute('uv',new THREE.Float32BufferAttribute(g.uv,2));
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(g.colors,3));
+  geo.setIndex(g.idx);
+  geo.computeVertexNormals();
+  geo.computeBoundingSphere();
+  geo.userData.uvLayout='separate-unwrapped-painterly-islands';
+  return geo;
 }
 
 type FoliageVertex = {

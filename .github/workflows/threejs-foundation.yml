@@ -43,6 +43,8 @@ jobs:
         run: npm run test:camera-idle
       - name: Generate local alpha-cutout GLB assets
         run: node scripts/build-painted-trees.mjs
+      - name: Verify unique bark UV islands and painted albedo atlas
+        run: node --test tests/tree-bark-uv.test.mjs
       - name: Verify packed alpha-cutout GLB, textures and canopy thickness
         run: node --test tests/painted-tree-glb.test.mjs
       - name: Verify volumetric UV-painted tree foliage and bark in actual 3D game
