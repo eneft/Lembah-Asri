@@ -11,6 +11,10 @@ import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
 import { createWarungStage } from './warungStage';
+import {
+  configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
+  createCharacterContactShadow, updateCharacterContactShadow
+} from './sceneShadows';
 
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 export type PerformanceStats = { fps: number; drawCalls: number; triangles: number };
@@ -19,6 +23,8 @@ export class Game {
   private renderer: THREE.WebGLRenderer;
   private environmentTarget?: THREE.WebGLRenderTarget;
   private characterBaseColor?: THREE.Texture;
+  private sunLight!: THREE.DirectionalLight;
+  private characterContactShadow!: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(48, 1, 0.1, 500);
   private world!: RAPIER.World;
@@ -120,16 +126,12 @@ export class Game {
     this.camera.position.set(0, 6, -9);
     this.scene.add(new THREE.HemisphereLight('#e9f5ff', '#82775f', 1.15));
     const sun = new THREE.DirectionalLight('#fff0d8', 2.1);
-    sun.position.set(-18, 30, -12);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
-    // Reduce ground shadow acne as the camera moves through the village.
-    sun.shadow.bias = -0.00035;
-    sun.shadow.normalBias = 0.025;
-    sun.shadow.radius = 4;
-    sun.shadow.camera.left = -35; sun.shadow.camera.right = 35;
-    sun.shadow.camera.top = 35; sun.shadow.camera.bottom = -35;
-    this.scene.add(sun);
+    this.sunLight = sun;
+    configureSunShadows(sun, mobile);
+    // Shadow camera follows the actor, not the map origin. This prevents
+    // the childhood home from falling off the edge of the shadow frustum.
+    focusSunShadows(sun, HOME.spawn.x, HOME.spawn.z);
+    this.scene.add(sun, sun.target);
     // Camera-side sky fill lifts dark leaf undersides without flattening the sun direction.
     const skyFill = new THREE.DirectionalLight('#c7e5f4', 0.42);
     skyFill.position.set(12, 9, 18);
@@ -370,6 +372,13 @@ export class Game {
     const ground = createPaintedTerrainPlane('grass', 160, 160, 0, 0, 0);
     ground.name = 'World painted grass UV terrain';
     this.scene.add(ground);
+    // Preserve the painted albedo: a transparent ShadowMaterial layer catches
+    // actual character, roof and tree shadows without re-lighting the texture.
+    this.scene.add(createPaintedShadowReceiver(
+      'World painted-terrain real shadows', 160, 160, 0, 0, 0.103
+    ));
+    this.characterContactShadow = createCharacterContactShadow();
+    this.scene.add(this.characterContactShadow);
     // One or two InstancedMesh draws for all small 3D grass tufts.
     this.scene.add(createInstancedGrass());
     const plaza = new THREE.Mesh(new THREE.BoxGeometry(24,0.18,18), this.mat('#c8b991'));
@@ -377,6 +386,11 @@ export class Game {
     const plazaTop = createPaintedTerrainPlane('plaza', 24, 18, 0, -5, 0.113);
     plazaTop.name = 'Village plaza handpainted UV surface';
     this.scene.add(plazaTop);
+    // Plaza surface is higher than the world receiver; receive shadows over
+    // its hand-painted paved/earth surfaces as well.
+    this.scene.add(createPaintedShadowReceiver(
+      'Village plaza real shadows', 24, 18, 0, -5, 0.151
+    ));
     const hall = new THREE.Group(); hall.position.set(-13,0,-12); this.scene.add(hall);
     this.cameraObstacles.push(this.box(hall,'Balai Desa walls',[10,4.2,7],[0,2.1,0],'#e8d5ae'));
     this.box(hall,'Balai Desa timber trim',[10.2,.25,7.2],[0,3.6,0],'#76543a');
@@ -560,6 +574,10 @@ export class Game {
       if (this.idleSpine) this.idleSpine.rotation.x += this.idleSpineOffset;
     }
     const target=this.playerMesh?.position??new THREE.Vector3();
+    if (this.playerMesh) {
+      focusSunShadows(this.sunLight, target.x, target.z);
+      updateCharacterContactShadow(this.characterContactShadow, target);
+    }
     const desiredFocus=target.clone().add(new THREE.Vector3(0,1.3,0));
     this.cameraFocus.lerp(desiredFocus,1-Math.exp(-12*dt));
     const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*.58,Math.cos(this.yaw)*this.cameraDistance);
