@@ -248,7 +248,7 @@ function addStoneWell(root: THREE.Object3D, loadTexture: boolean) {
         const radius = Math.hypot(position.getX(i), position.getZ(i));
         if (radius > 0.01) {
           const scale = (radius + variation) / radius;
-          position.setXZ(i, position.getX(i) * scale, position.getZ(i) * scale);
+          position.setXYZ(i, position.getX(i) * scale, position.getY(i), position.getZ(i) * scale);
         }
       }
       const shade = Math.max(0.88, Math.min(1,
