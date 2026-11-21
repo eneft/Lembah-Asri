@@ -187,42 +187,90 @@ function addShed(root: THREE.Object3D) {
   }
 }
 
-/** Atlas bands contain wall courses, coping stones, timber grain and end grain. */
+/** 
+ * One hand-painted UV atlas, with *separate* stone and timber surfaces.
+ * Stone occupies atlas pixels y=0..255, wood grain/end grain y=256..511.
+ * Keep the actual masonry/wood as 3D meshes; no billboard or PBR re-lighting.
+ */
 function addStoneWell(root: THREE.Object3D, loadTexture: boolean) {
-  const stone = mat('#999887');
-  const timber = mat('#966d49');
-  const inner = mat('#696e65');
-  const materials = [stone, timber, inner];
+  const wellMat = (color: string, surface: 'stone' | 'coping' | 'inner-stone' | 'timber') => {
+    const material = new THREE.MeshBasicMaterial({
+      color, toneMapped: false, vertexColors: surface !== 'timber'
+    });
+    material.userData.wellSurface = surface;
+    return material;
+  };
+  const stone = wellMat('#999887', 'stone');
+  const coping = wellMat('#a9a693', 'coping');
+  const inner = wellMat('#696e65', 'inner-stone');
+  const timber = wellMat('#966d49', 'timber');
+
   if (loadTexture) {
     new THREE.TextureLoader().load('./textures/props/well.webp', texture => {
       texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = 4;
-      for (const material of materials) {
+      texture.wrapS = THREE.RepeatWrapping; // continuous courses at the ring seam
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.anisotropy = 8;
+      for (const material of [stone, coping, inner, timber]) {
         material.map = texture;
-        material.color.set(material === inner ? '#92988e' : '#ffffff');
+        // The atlas is already painted/shaded. Preserve its original albedo,
+        // with a darker well interior and slightly warmer capstones.
+        material.color.set(
+          material === inner ? '#a3a49a' :
+          material === coping ? '#f5f0e5' : '#ffffff'
+        );
         material.needsUpdate = true;
       }
     }, undefined, error => console.warn('[LembahAsri] Well texture unavailable', error));
   }
 
-  // Separate UV bands let the coping wrap inward over the lip of the opening.
-  function masonryBand(name: string, profile: number[][], pixels: number[], material: THREE.Material) {
+  // Each course samples only the stone half of the atlas. The vertex tint is
+  // baked color variation (not dynamic lighting) and keeps the stones organic.
+  function masonryBand(
+    name: string, profile: number[][], pixelRows: number[],
+    material: THREE.MeshBasicMaterial
+  ) {
     const geometry = new THREE.LatheGeometry(
       profile.map(([radius, height]) => new THREE.Vector2(radius, height)), 32
     );
     const uv = geometry.getAttribute('uv');
+    const position = geometry.getAttribute('position');
+    const colors = new Float32Array(uv.count * 3);
+    const isInner = material === inner;
     for (let i = 0; i < uv.count; i++) {
-      uv.setY(i, 1 - pixels[i % profile.length] / 512);
+      const angle = uv.getX(i) * Math.PI * 2;
+      // Leave a clear buffer from the wood region to avoid brown mip bleeding
+      // into capstones, especially at third-person camera distances.
+      uv.setY(i, 1 - pixelRows[i % profile.length] / 512);
+      const variation = Math.sin(angle * 7 + 0.8) * 0.012
+        + Math.sin(angle * 11 - 0.4) * 0.007;
+      if (!isInner) {
+        const radius = Math.hypot(position.getX(i), position.getZ(i));
+        if (radius > 0.01) {
+          const scale = (radius + variation) / radius;
+          position.setXZ(i, position.getX(i) * scale, position.getZ(i) * scale);
+        }
+      }
+      const shade = Math.max(0.88, Math.min(1,
+        0.955 + 0.027 * Math.sin(angle * 7 + 1.1)
+        + 0.016 * Math.cos(angle * 11 - 0.6)
+        + (material === coping ? 0.018 : 0)));
+      colors[i * 3] = shade;
+      colors[i * 3 + 1] = shade * 0.992;
+      colors[i * 3 + 2] = shade * 0.978;
     }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.computeVertexNormals();
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = name;
     mesh.position.set(HOME.well.x, 0, HOME.well.z);
+    mesh.castShadow = true;
     root.add(mesh);
   }
-  masonryBand('Old village well stone rim', [[0.9, 0], [0.85, 0.68]], [191, 1], stone);
+  masonryBand('Old village well stone rim', [[0.9, 0], [0.85, 0.68]], [190, 3], stone);
   masonryBand('Well coping stones', [[0.85, 0.68], [0.89, 0.71], [0.87, 0.79],
-    [0.84, 0.81], [0.65, 0.81], [0.62, 0.77]], [254, 246, 233, 226, 199, 193], stone);
-  masonryBand('Inner well masonry', [[0.62, 0.77], [0.62, 0.13]], [1, 191], inner);
+    [0.84, 0.81], [0.65, 0.81], [0.62, 0.77]], [238, 232, 225, 218, 201, 194], coping);
+  masonryBand('Inner well masonry', [[0.62, 0.77], [0.62, 0.13]], [3, 189], inner);
   cylinder(root, 'Well opening', 0.625, 0.625, 0.02,
     [HOME.well.x, 0.14, HOME.well.z], mat('#364c50'), 32);
 
@@ -233,8 +281,10 @@ function addStoneWell(root: THREE.Object3D, loadTexture: boolean) {
       const face = Math.floor(i / 4);
       const end = face === 2 || face === 3;
       const side = [0, 2, 0, 0, 1, 3][face];
+      // Long-grain follows the beam; short end faces use the concentric rings
+      // on the right of the timber atlas. Stay clear of stone/wood seam.
       const u = end ? 0.63 + uv.getX(i) * 0.24 : (side + uv.getX(i) * 0.98) / 8;
-      uv.setXY(i, u, 0.008 + uv.getY(i) * 0.483);
+      uv.setXY(i, u, 0.03 + uv.getY(i) * 0.44);
     }
     return mesh;
   }
