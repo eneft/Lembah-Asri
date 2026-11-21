@@ -41,6 +41,10 @@ jobs:
         run: npm run test:materials
       - name: Verify camera occlusion and Idle playback
         run: npm run test:camera-idle
+      - name: Generate local alpha-cutout GLB assets
+        run: node scripts/build-painted-trees.mjs
+      - name: Verify packed alpha-cutout GLB, textures and canopy thickness
+        run: node --test tests/painted-tree-glb.test.mjs
       - name: Verify volumetric UV-painted tree foliage and bark in actual 3D game
         run: node --experimental-strip-types --test tests/painted-trees.test.mjs
       - name: Verify childhood home GLB and walkable site

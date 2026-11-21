@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { createPaintedStoryTree } from './paintedTrees';
+import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTravel, resolveLocomotion } from './characterAnimation';
 import { applyHandPaintedMaterials } from './handPaintedMaterials';
@@ -438,22 +439,33 @@ export class Game {
    * an external GLB URL. All trees use the same reusable bark/leaf atlases.
    * The actual leaf crown is layered 3D geometry (not spheres or billboards).
    */
-  private loadEnvironmentTrees() {
+  private async loadEnvironmentTrees() {
     const placements: Array<{ x: number; z: number; height: number; yaw: number; seed: number }> = [
-      { x: -48, z: -8, height: 4.1, yaw: 0.2, seed: 107 },  // outside house garden
-      { x: -50, z: 19, height: 3.5, yaw: 1.1, seed: 218 }, // preserve gate
+      { x: -48, z: -8, height: 4.1, yaw: 0.2, seed: 107 },
+      { x: -50, z: 19, height: 3.5, yaw: 1.1, seed: 218 },
       { x: 25, z: 4, height: 4.3, yaw: 2.2, seed: 331 },
       { x: 24, z: -28, height: 4.0, yaw: 0.7, seed: 442 },
       { x: -7, z: -30, height: 3.4, yaw: 2.8, seed: 559 },
       { x: 29, z: 14, height: 3.8, yaw: 1.7, seed: 667 },
       { x: -31, z: -22, height: 4.5, yaw: 0.9, seed: 773 }
     ];
+    let source: THREE.Group | undefined;
+    try {
+      source = await loadPaintedTreeSource('shade');
+    } catch (error) {
+      // A broken/missing GLB must never prevent the rest of the game loading.
+      console.warn('[LembahAsri] Using local 3D tree fallback', error);
+    }
     for (const placement of placements) {
-      const tree = createPaintedStoryTree({
-        kind: 'shade', height: placement.height, seed: placement.seed
-      });
-      tree.position.set(placement.x, 0, placement.z);
-      tree.rotation.y = placement.yaw;
+      const tree = source
+        ? instantiatePaintedTree(source, placement.height, placement.x, placement.z, placement.yaw)
+        : createPaintedStoryTree({
+            kind: 'shade', height: placement.height, seed: placement.seed
+          });
+      if (!source) {
+        tree.position.set(placement.x, 0, placement.z);
+        tree.rotation.y = placement.yaw;
+      }
       tree.name = 'Village handpainted shade tree ' + placement.seed;
       this.scene.add(tree);
     }

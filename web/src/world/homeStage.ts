@@ -5,6 +5,7 @@ import { createHomeGroundDetails } from './homeGroundDetails.ts';
 import { createHouseGroundTransition, featherMergedHouseGround, createHouseContactShadow } from './houseTerrainSeam.ts';
 import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
+import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -413,6 +414,22 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   addAbandonedPlots(root);
   addShed(root);
   addWellAndFruitTree(root, loadApprovedModel);
+  // Keep fallback tree while the 3D GLB downloads. Replace it with the actual
+  // voluminous alpha-cutout textured orchard tree when the asset is ready.
+  const orchardReady: Promise<boolean> = loadApprovedModel
+    ? loadPaintedTreeSource('orchard')
+      .then(source => {
+        const oldTree = root.getObjectByName('Old fruit tree');
+        if (oldTree) root.remove(oldTree);
+        const tree = instantiatePaintedTree(source, 4.05, -40, 8.3, 0.21);
+        tree.name = 'Old fruit tree';
+        root.add(tree);
+        return true;
+      }).catch(error => {
+        console.warn('[LembahAsri] Keeping orchard tree fallback', error);
+        return false;
+      })
+    : Promise.resolve(false);
   addStreamAndBridge(root);
   // Paint-in real grass and stones along the worn yard boundary; leave paths clear.
   root.add(createHomeGroundDetails());
@@ -491,5 +508,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, ready: loaded };
+  return { root, solids, cameraBlockers, ready: Promise.all([loaded, orchardReady]).then(([house]) => house) };
 }
