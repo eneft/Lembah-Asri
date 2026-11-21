@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createTerrainMaterial, createPaintedTerrainPlane, makeTerrainEdgeMask, type TerrainSurface } from './terrainMaterials.ts';
 import { createHomeGroundDetails } from './homeGroundDetails.ts';
+import { createHouseGroundTransition, featherMergedHouseGround } from './houseTerrainSeam.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -415,6 +416,11 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   addStreamAndBridge(root);
   // Paint-in real grass and stones along the worn yard boundary; leave paths clear.
   root.add(createHomeGroundDetails());
+  // Real house GLB contains a painted soil skirt. Blend its contact area into
+  // the existing world-UV earth below instead of creating a separate island.
+  root.add(createHouseGroundTransition(
+    HOME.house.x, HOME.house.z, HOME.house.width, HOME.house.depth
+  ));
 
   // Fence boundary with a 5 m gap facing the connected village road.
   addWoodenFence(root, solids, 'North rear fence', -30.5, -16.5, 27, 'x');
@@ -465,6 +471,8 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     scene.name = 'Approved original rumah_utama.glb';
     const { applyHandPaintedMaterials } = await import('./handPaintedMaterials');
     applyHandPaintedMaterials(scene, 8);
+    scene.updateMatrixWorld(true);
+    featherMergedHouseGround(scene, new THREE.Box3().setFromObject(scene));
     fallback.visible = false;
     root.add(scene);
     return true;
