@@ -5,7 +5,7 @@ import { isHomeGroundDetailAllowed, makeStoneAlbedoAtlas } from './homeGroundDet
  * The approved art reference is not a flat image placed behind the player:
  * these are genuine textured/stylized 3D props in the existing world.
  *
- * One low-poly fan of 7 broad curved leaves per plant (28 triangles).
+ * One curved fan of 7 narrow leaves per plant (112 low-poly triangles).
  * One InstancedMesh for all low foliage and another for the two tall
  * tropical plants. Four stone variants reuse a single 256px rock atlas.
  * The original house GLB, step geometry, animations and Rapier stay intact.
@@ -94,34 +94,58 @@ export function scatterHomeUndergrowth(seed = 18628): LeafPoint[] {
 
 /** A plant made of volumetric curved leaves, not a flat cross-plane sprite. */
 export function makeBroadLeafGeometry(): THREE.BufferGeometry {
-  const positions: number[] = [], colors: number[] = [], uvs: number[] = [];
-  function point(vertex: readonly number[], shade: number) {
-    positions.push(vertex[0], vertex[1], vertex[2]);
-    uvs.push(vertex[3], vertex[4]);
-    // Top pigment remains light, root stays shaded; no glossy PBR pass.
-    colors.push(shade * 0.86, shade, shade * 0.70);
-  }
-  const tri = (
-    a: readonly number[], b: readonly number[], c: readonly number[],
-    ca: number, cb: number, cc: number
-  ) => { point(a, ca); point(b, cb); point(c, cc); };
-  for (let leaf = 0; leaf < 7; leaf++) {
-    const angle = leaf * Math.PI * 2 / 7 + (leaf % 2) * 0.12;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const uvs: number[] = [];
+
+  // Curved tapering leaves with a raised midrib and softly bent tips.
+  // The previous 4-triangle leaves looked like broad rigid paper shards.
+  // 7 leaves x 4 length sections x 4 triangles = 112 triangles per tuft.
+  const leaves = 7;
+  const segments = 4;
+  type LeafVertex = { p: [number, number, number]; uv: [number, number]; shade: number };
+
+  function vertex(angle: number, leaf: number, t: number, side: -1 | 0 | 1): LeafVertex {
     const dx = Math.cos(angle), dz = Math.sin(angle);
-    const sideX = -dz, sideZ = dx;
-    const h = 0.87 + (leaf % 3) * 0.055;
-    const at = (radius: number, y: number, side: number, u: number, v: number) =>
-      [dx * radius + sideX * side, y, dz * radius + sideZ * side, u, v] as const;
-    const base = at(0.01, 0.06, 0, 0.5, 0.03);
-    const innerL = at(0.16, 0.39 * h, -0.055, 0.30, 0.28);
-    const innerR = at(0.16, 0.39 * h, 0.055, 0.70, 0.28);
-    const broadL = at(0.39, 0.59 * h, -0.17, 0.06, 0.66);
-    const broadR = at(0.39, 0.59 * h, 0.17, 0.94, 0.66);
-    const tip = at(0.70, 0.36 * h, 0.02, 0.5, 0.97);
-    tri(base, innerL, innerR, 0.63, 0.78, 0.71);
-    tri(innerL, broadL, broadR, 0.76, 0.87, 0.84);
-    tri(innerL, broadR, innerR, 0.76, 0.84, 0.72);
-    tri(broadL, tip, broadR, 0.88, 0.75, 0.82);
+    const sx = -dz, sz = dx;
+    const length = 0.60 + (leaf % 3) * 0.045;
+    const radius = length * t;
+    // The blade rises from its stem, then arches downward at its tapered tip.
+    const height = 0.07 + 0.53 * Math.sin(Math.PI * t * 0.87) + 0.065 * t
+      + (leaf % 2) * 0.025;
+    const width = (0.009 + 0.115 * Math.sin(Math.PI * t)) * side;
+    const ridge = side === 0 ? 0.025 * Math.sin(Math.PI * t) : 0;
+    return {
+      p: [dx * radius + sx * width, height + ridge, dz * radius + sz * width],
+      uv: [side === -1 ? 0.08 : side === 1 ? 0.92 : 0.5, 0.025 + t * 0.95],
+      shade: 0.70 + t * 0.16 + (side === 0 ? 0.07 : 0)
+    };
+  }
+
+  function tri(a: LeafVertex, b: LeafVertex, c: LeafVertex) {
+    for (const v of [a,b,c]) {
+      positions.push(...v.p);
+      uvs.push(...v.uv);
+      colors.push(v.shade * 0.89, v.shade, v.shade * 0.79);
+    }
+  }
+
+  for (let leaf = 0; leaf < leaves; leaf++) {
+    const angle = leaf * Math.PI * 2 / leaves + (leaf % 2) * 0.085;
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
+      const a = vertex(angle, leaf, t0, -1);
+      const b = vertex(angle, leaf, t0, 0);
+      const c = vertex(angle, leaf, t0, 1);
+      const d = vertex(angle, leaf, t1, -1);
+      const e = vertex(angle, leaf, t1, 0);
+      const f = vertex(angle, leaf, t1, 1);
+      tri(a, d, b);
+      tri(b, d, e);
+      tri(b, e, c);
+      tri(c, e, f);
+    }
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -181,7 +205,8 @@ function createPlantInstances(
     const p = points[i];
     transform.position.set(p.x, 0.065, p.z);
     transform.rotation.set(0, p.yaw, 0);
-    transform.scale.set(p.scale, p.scale * (0.90 + p.hue * 0.35), p.scale);
+    const size = p.scale * (name.startsWith('Tall') ? 0.90 : 0.72);
+    transform.scale.set(size, size * (0.92 + p.hue * 0.22), size);
     transform.updateMatrix();
     mesh.setMatrixAt(i, transform.matrix);
     mesh.setColorAt(i, new THREE.Color(colors[Math.min(4, Math.floor(p.hue * 5))]));
