@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
-  createHomeArtPass, scatterHomeUndergrowth, makeBroadLeafGeometry
+  createHomeArtPass, scatterHomeUndergrowth, makeBroadLeafGeometry, makePaintedLeafAlbedo
 } from '../src/world/homeArtPass.ts';
 import { isHomeGroundDetailAllowed } from '../src/world/homeGroundDetails.ts';
 import { createHomeStage } from '../src/world/homeStage.ts';
@@ -26,6 +26,7 @@ test('curved broadleaf vegetation has real 3D depth and baked hand-painted color
   const colors = geometry.getAttribute('color');
   assert.ok(positions.count > 60 && positions.count < 120);
   assert.equal(positions.count, colors.count);
+  assert.equal(positions.count, geometry.getAttribute('uv').count, 'all leaves have genuine UV coordinates');
   assert.ok(geometry.boundingSphere.radius > 0.1);
   assert.ok(geometry.boundingSphere.radius < 1.1);
   const ys=Array.from({length:positions.count},(_,i)=>positions.getY(i));
@@ -35,6 +36,19 @@ test('curved broadleaf vegetation has real 3D depth and baked hand-painted color
   assert.ok(Math.max(...xs)-Math.min(...xs)>0.9);
   assert.ok(Math.max(...zs)-Math.min(...zs)>0.9);
   assert.notEqual(colors.getY(0),colors.getY(3), 'painted root/middle tone differs');
+});
+
+test('leaf UV atlas is painted pigment, not a flat vertex tint', () => {
+  const map = makePaintedLeafAlbedo();
+  assert.equal(map.image.width, 128);
+  const pixel = (x,y) => { const i=(y*128+x)*4;return [...map.image.data.slice(i,i+3)]; };
+  assert.notDeepEqual(pixel(64,40),pixel(3,40));
+  assert.notDeepEqual(pixel(20,40),pixel(20,61));
+  const uv = makeBroadLeafGeometry().getAttribute('uv');
+  for(let i=0;i<uv.count;i++) {
+    assert.ok(uv.getX(i)>=0 && uv.getX(i)<=1);
+    assert.ok(uv.getY(i)>=0 && uv.getY(i)<=1);
+  }
 });
 
 test('production environment pass is actual instanced 3D foliage and UV-textured stones', () => {
@@ -55,6 +69,10 @@ test('production environment pass is actual instanced 3D foliage and UV-textured
   assert.equal(shrubs.material.vertexColors,true);
   assert.equal(shrubs.material.side,THREE.DoubleSide);
   assert.ok(shrubs.instanceColor);
+  assert.ok(shrubs.material.map instanceof THREE.DataTexture);
+  assert.equal(shrubs.material.map.colorSpace, THREE.SRGBColorSpace);
+  assert.equal(shrubs.material.map.image.width, 128);
+  assert.equal(shrubs.material.map, understory.material.map, 'all foliage shares one small atlas');
   const stones=group.children.filter(o=>o.name.startsWith('Naturally shaped textured stepping stones'));
   assert.equal(stones.length,4);
   assert.equal(stones.reduce((n,s)=>n+s.count,0),10);
