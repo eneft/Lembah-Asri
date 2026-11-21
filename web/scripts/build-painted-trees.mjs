@@ -57,18 +57,59 @@ function leafAtlas() {
   }
   return png(pixels,size,size);
 }
-function barkAtlas() { const n=256,pixels=new Uint8Array(n*n*4); for(let y=0;y<n;y++)for(let x=0;x<n;x++){
- const grain=Math.sin((x+9*Math.sin(y/20))/5.8)*7+Math.sin(x*.32+y*.008)*3;
- const d=1+.05*Math.sin(x/27+y/44)+.03*Math.sin(x*.09-y*.011);
- const moss=Math.max(0,Math.sin(x/11+y/36)-.55)*15;const i=(y*n+x)*4;
- pixels[i]=clamp((132+grain)*d-moss*.4);pixels[i+1]=clamp((95+grain*.7)*d+moss);pixels[i+2]=clamp((64+grain*.5)*d+moss*.45);pixels[i+3]=255;
- } return png(pixels,n,n); }
+/** 512px seamless painterly bark: fine longitudinal fissures, knots and moss.
+ * All X/Y frequencies are periodic to permit sampler REPEAT without seams.
+ */
+function barkAtlas() {
+ const n=512,pixels=new Uint8Array(n*n*4),tau=TAU;
+ for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+  const u=(x+.5)/n,v=(y+.5)/n;
+  const twist=.11*Math.sin(tau*2*v)+.035*Math.sin(tau*5*v);
+  const grain=Math.sin(tau*(13*u+twist));
+  const fibers=Math.sin(tau*(39*u+.06*Math.sin(tau*3*v)));
+  const broad=Math.cos(tau*(3*u+.08*Math.sin(tau*2*v)))*.5+.5;
+  const crack=Math.pow(Math.max(0,Math.cos(tau*(19*u+.09*Math.sin(tau*3*v)))),22);
+  const micro=Math.pow(Math.max(0,Math.cos(tau*(48*u+.04*Math.sin(tau*6*v)))),12);
+  let knot=0;
+  for(const [ku,kv,rx,ry] of [[.34,.30,.071,.102],[.77,.72,.054,.074]]){
+   const du=Math.abs(u-ku),dv=Math.abs(v-kv);
+   const d=Math.hypot(Math.min(du,1-du)/rx,Math.min(dv,1-dv)/ry);
+   if(d<1.4) knot+=Math.exp(-d*d*3)*(16+11*Math.sin(d*15));
+  }
+  const ridge=grain*6+fibers*3,shade=.91+.14*broad+.045*Math.cos(tau*4*v);
+  const moss=Math.max(0,Math.sin(tau*(2*u+3*v))*.5+.5-.76)*31;
+  const k=(y*n+x)*4;
+  pixels[k]=clamp(134*shade+ridge-29*crack-11*micro-knot-moss*.38);
+  pixels[k+1]=clamp(100*shade+ridge*.74-25*crack-10*micro-knot*.73+moss);
+  pixels[k+2]=clamp(72*shade+ridge*.52-20*crack-8*micro-knot*.55+moss*.37);
+  pixels[k+3]=255;
+ }
+ return png(pixels,n,n);
+}
 function v3(x,y,z){return [x,y,z];}
 function sub(a,b){return a.map((v,i)=>v-b[i]);}function add(a,b){return a.map((v,i)=>v+b[i]);}function mul(a,s){return a.map(v=>v*s);}
 function cross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
 function dot(a,b){return a.reduce((v,x,i)=>v+x*b[i],0);}function norm(a){return mul(a,1/Math.sqrt(dot(a,a)));}
-function mesh(){return {p:[],uv:[],idx:[]};}
-function cylinder(g,a,b,r0,r1,sides=9){const axis=norm(sub(b,a)),ref=Math.abs(axis[1])>.95?v3(1,0,0):v3(0,1,0),u=norm(cross(axis,ref)),v=cross(axis,u);const index=g.p.length/3;for(let j=0;j<=1;j++) for(let i=0;i<=sides;i++){const angle=i*TAU/sides,r=j?r1:r0,pos=add(j?b:a,add(mul(u,r*Math.cos(angle)),mul(v,r*Math.sin(angle))));g.p.push(...pos);g.uv.push(i/sides,j*.78);}for(let i=0;i<sides;i++){const k=index+i,l=index+sides+1+i;g.idx.push(k,l,k+1,k+1,l,l+1);} }
+function mesh(){return {p:[],uv:[],idx:[],colors:[]};}
+// World-length UVs avoid grain stretching. Vertex colors shade only the roots.
+function cylinder(g,a,b,r0,r1,sides=9,vOffset=a[1]*.92){
+ const segment=sub(b,a),length=Math.sqrt(dot(segment,segment));
+ const axis=mul(segment,1/length);
+ const ref=Math.abs(axis[1])>.95?v3(1,0,0):v3(0,1,0);
+ const u=norm(cross(axis,ref)),v=cross(axis,u),index=g.p.length/3;
+ for(let j=0;j<=1;j++)for(let i=0;i<=sides;i++){
+  const angle=i*TAU/sides,r=j?r1:r0;
+  const pos=add(j?b:a,add(mul(u,r*Math.cos(angle)),mul(v,r*Math.sin(angle))));
+  g.p.push(...pos);
+  g.uv.push(i/sides,vOffset+j*length*.92);
+  const dark=1-.13*Math.max(0,1-pos[1]/.55);
+  g.colors.push(dark,dark*.991,dark*.978);
+ }
+ for(let i=0;i<sides;i++){
+  const k=index+i,l=index+sides+1+i;
+  g.idx.push(k,l,k+1,k+1,l,l+1);
+ }
+}
 /**
  * Six broad primary boughs and tapered secondary twigs. The crown starts high
  * enough that this branching silhouette is visible below its foliage masses.
@@ -90,14 +131,16 @@ function trunk(seed){
   const start=v3(.055*Math.cos(a),y,.055*Math.sin(a));
   const elbow=v3(reach*.63*Math.cos(a),y+.38,reach*.63*Math.sin(a));
   const tip=v3(reach*Math.cos(a),y+.59,reach*Math.sin(a));
-  cylinder(g,start,elbow,.135,.076,8);
-  cylinder(g,elbow,tip,.076,.030,7);
+  const startV=start[1]*.92;
+  const elbowV=startV+Math.sqrt(dot(sub(elbow,start),sub(elbow,start)))*.92;
+  cylinder(g,start,elbow,.135,.076,8,startV);
+  cylinder(g,elbow,tip,.076,.030,7,elbowV);
   // Twigs turn independently; they must remain thin and visible between lobes.
   const side=a+(k%2?-.68:.68);
   const twig=v3(elbow[0]+(.46+rng()*.25)*Math.cos(side),
    elbow[1]+.24+rng()*.16,
    elbow[2]+(.46+rng()*.25)*Math.sin(side));
-  cylinder(g,elbow,twig,.051,.018,6);
+  cylinder(g,elbow,twig,.051,.018,6,elbowV);
  }
  return g;
 }
@@ -184,9 +227,10 @@ function u16(a){const b=Buffer.alloc(a.length*2);a.forEach((x,i)=>b.writeUInt16L
 function buildGLB(kind,leaf,bark){const orchard=kind==='orchard',meshes=[trunk(orchard?336:931),crown(orchard?336:931,orchard)],bin=[],views=[],accessors=[];let offset=0;
  function view(data,target) { const pad=(4-offset%4)%4;if(pad){bin.push(Buffer.alloc(pad));offset+=pad;}const i=views.length;views.push({buffer:0,byteOffset:offset,byteLength:data.length,...(target?{target}:{})});bin.push(data);offset+=data.length;return i; }
  function accessor(data,type,comp,count,kind,withMin=false){const bv=view(data,kind),i=accessors.length;const a={bufferView:bv,componentType:comp,count,type};if(withMin){const nums=[];for(let j=0;j<count;j++)nums.push([data.readFloatLE(j*12),data.readFloatLE(j*12+4),data.readFloatLE(j*12+8)]);a.min=[0,1,2].map(j=>Math.min(...nums.map(row=>row[j])));a.max=[0,1,2].map(j=>Math.max(...nums.map(row=>row[j])));}accessors.push(a);return i;}
- const gm=[];for(let k=0;k<2;k++){const m=meshes[k],pos=accessor(f32(m.p),'VEC3',5126,m.p.length/3,34962,true),uv=accessor(f32(m.uv),'VEC2',5126,m.uv.length/2,34962),idx=accessor(u16(m.idx),'SCALAR',5123,m.idx.length,34963);gm.push({name:k?'Layered Alpha-Cutout Crown':'Real 3D Branching Trunk',primitives:[{attributes:{POSITION:pos,TEXCOORD_0:uv},indices:idx,material:k}]});}
+ const gm=[];for(let k=0;k<2;k++){const m=meshes[k],pos=accessor(f32(m.p),'VEC3',5126,m.p.length/3,34962,true),uv=accessor(f32(m.uv),'VEC2',5126,m.uv.length/2,34962),idx=accessor(u16(m.idx),'SCALAR',5123,m.idx.length,34963);const attributes={POSITION:pos,TEXCOORD_0:uv};if(k===0)attributes.COLOR_0=accessor(f32(m.colors),'VEC3',5126,m.colors.length/3,34962);gm.push({name:k?'Layered Alpha-Cutout Crown':'Real 3D Branching Trunk',primitives:[{attributes,indices:idx,material:k}]});}
+ gm[0].extras={barkUV:'world-length-repeat',baseVertexAO:true,barkAtlasSize:512};
  gm[1].extras={canopyLobes:meshes[1].lobeCount,leafCards:meshes[1].cardCount,canopyStyle:meshes[1].canopyStyle};
  const barkView=view(bark),leafView=view(leaf);
- const j={asset:{version:'2.0',generator:'Lembah Asri real-3D hand-painted alpha tree generator'},scene:0,scenes:[{nodes:[0,1]}],nodes:[{mesh:0,name:'UV Bark Trunk and Branches'},{mesh:1,name:'Layered Alpha-Texture Leaves'}],meshes:gm,accessors,bufferViews:views,buffers:[{byteLength:offset}],images:[{bufferView:barkView,mimeType:'image/png'},{bufferView:leafView,mimeType:'image/png'}],samplers:[{magFilter:9729,minFilter:9987,wrapS:33071,wrapT:33071}],textures:[{sampler:0,source:0},{sampler:0,source:1}],materials:[{name:'UV Painted Tree Bark',pbrMetallicRoughness:{baseColorTexture:{index:0},metallicFactor:0,roughnessFactor:1},doubleSided:true},{name:'Hand Painted Alpha Leaves',pbrMetallicRoughness:{baseColorTexture:{index:1},metallicFactor:0,roughnessFactor:1},alphaMode:'MASK',alphaCutoff:.46,doubleSided:true}]};
+ const j={asset:{version:'2.0',generator:'Lembah Asri real-3D hand-painted alpha tree generator'},scene:0,scenes:[{nodes:[0,1]}],nodes:[{mesh:0,name:'UV Bark Trunk and Branches'},{mesh:1,name:'Layered Alpha-Texture Leaves'}],meshes:gm,accessors,bufferViews:views,buffers:[{byteLength:offset}],images:[{bufferView:barkView,mimeType:'image/png'},{bufferView:leafView,mimeType:'image/png'}],samplers:[{magFilter:9729,minFilter:9987,wrapS:10497,wrapT:10497},{magFilter:9729,minFilter:9987,wrapS:33071,wrapT:33071}],textures:[{sampler:0,source:0},{sampler:1,source:1}],materials:[{name:'UV Painted Tree Bark',pbrMetallicRoughness:{baseColorTexture:{index:0},metallicFactor:0,roughnessFactor:1},doubleSided:true},{name:'Hand Painted Alpha Leaves',pbrMetallicRoughness:{baseColorTexture:{index:1},metallicFactor:0,roughnessFactor:1},alphaMode:'MASK',alphaCutoff:.46,doubleSided:true}]};
  const json=Buffer.from(JSON.stringify(j),'utf8');const pad=(4-json.length%4)%4;const jb=Buffer.concat([json,Buffer.alloc(pad,32)]);const raw=Buffer.concat(bin);const tail=(4-raw.length%4)%4;const bb=Buffer.concat([raw,Buffer.alloc(tail)]);const header=Buffer.alloc(12);header.write('glTF',0);header.writeUInt32LE(2,4);header.writeUInt32LE(12+8+jb.length+8+bb.length,8);const jc=Buffer.alloc(8);jc.writeUInt32LE(jb.length,0);jc.writeUInt32LE(0x4e4f534a,4);const bc=Buffer.alloc(8);bc.writeUInt32LE(bb.length,0);bc.writeUInt32LE(0x004e4942,4);return Buffer.concat([header,jc,jb,bc,bb]); }
 const leaf=leafAtlas(),bark=barkAtlas();fs.mkdirSync(OUT,{recursive:true});for(const kind of ['shade','orchard']) {const asset=buildGLB(kind,leaf,bark);const file=path.join(OUT,`pohon_rimbun_${kind}.glb`);fs.writeFileSync(file,asset);console.log('Generated',file,asset.length,'bytes');}

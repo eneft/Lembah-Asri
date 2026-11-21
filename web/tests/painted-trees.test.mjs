@@ -12,14 +12,16 @@ test('both painted tree atlases are actual detailed sRGB UV textures', () => {
   const bark=makePaintedBarkAtlas(),leaves=makePaintedLeafAtlas();
   assert.ok(bark instanceof THREE.DataTexture);
   assert.ok(leaves instanceof THREE.DataTexture);
-  assert.equal(bark.image.width,256);
+  assert.equal(bark.image.width,512);
+  assert.equal(bark.wrapS,THREE.RepeatWrapping);
+  assert.equal(bark.wrapT,THREE.RepeatWrapping);
   assert.equal(leaves.image.height,256);
   assert.equal(bark.colorSpace,THREE.SRGBColorSpace);
   assert.equal(leaves.colorSpace,THREE.SRGBColorSpace);
   assert.equal(makePaintedLeafAtlas(),leaves,'reuse leaf texture across trees');
   assert.equal(makePaintedBarkAtlas(),bark,'reuse bark texture across trees');
   const pixel=(t,x,y)=>{
-    const start=(y*256+x)*4;
+    const start=(y*t.image.width+x)*4;
     return Array.from(t.image.data.slice(start,start+3));
   };
   assert.notDeepEqual(pixel(bark,45,55),pixel(bark,61,55),'visible bark grain');
@@ -39,6 +41,19 @@ test('tree is actual densely layered 3D leaf geometry and textured branching bar
     assert.ok(trunk instanceof THREE.Mesh);
     assert.ok(leaves instanceof THREE.Mesh);
     assert.equal(trunk.material.map,makePaintedBarkAtlas());
+    assert.equal(trunk.material.vertexColors,true,'trunk vertex AO retained');
+    const uvBark=trunk.geometry.getAttribute('uv');
+    const vertexPigment=trunk.geometry.getAttribute('color');
+    assert.equal(uvBark.count,vertexPigment.count);
+    let upperV=-Infinity,least=Infinity,highest=-Infinity;
+    for(let i=0;i<uvBark.count;i++){
+      upperV=Math.max(upperV,uvBark.getY(i));
+      least=Math.min(least,vertexPigment.getX(i));
+      highest=Math.max(highest,vertexPigment.getX(i));
+    }
+    assert.ok(upperV>1.5,'trunk UV follows real branch length');
+    assert.ok(least<.9,'soft roots');
+    assert.ok(highest>.98,'upper trunk stays bright');
     assert.equal(leaves.material.map,makePaintedLeafAtlas());
     assert.equal(leaves.material.vertexColors,true);
     assert.equal(leaves.material.side,THREE.DoubleSide);

@@ -51,33 +51,39 @@ function smoothNoise(x: number, y: number, seed: number): number {
 /** 256px opaque sRGB hand-painted bark: longitudinal grain, warm highlights, moss. */
 export function makePaintedBarkAtlas(): THREE.DataTexture {
   if (barkAtlas) return barkAtlas;
-  const width = 256, pixels = new Uint8Array(width * width * 4);
-  for (let y = 0; y < width; y++) {
-    for (let x = 0; x < width; x++) {
-      const grain = Math.sin(x * .21 + Math.sin(y * .045) * 2.5);
-      const twist = Math.sin(x * .095 + y * .034) * .6;
-      const broad = smoothNoise(x / 37, y / 35, 93);
-      const detail = smoothNoise(x / 8, y / 24, 41);
-      const line = Math.sin(x * .48 + twist * 3.7 + broad * 2.8);
-      const shade = .80 + .22 * broad + .10 * detail + .055 * grain + .045 * line;
-      const moss = Math.max(0, smoothNoise(x / 25, y / 31, 121) - .59) * 65;
-      const idx = (y * width + x) * 4;
-      pixels[idx] = colorChannel(130 * shade - moss * .5);
-      pixels[idx + 1] = colorChannel(98 * shade + moss);
-      pixels[idx + 2] = colorChannel(70 * shade + moss * .38);
-      pixels[idx + 3] = 255;
+  const n=512, pixels=new Uint8Array(n*n*4), tau=Math.PI*2;
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++){
+    const u=(x+.5)/n,v=(y+.5)/n;
+    const twist=.11*Math.sin(tau*2*v)+.035*Math.sin(tau*5*v);
+    const grain=Math.sin(tau*(13*u+twist));
+    const fibers=Math.sin(tau*(39*u+.06*Math.sin(tau*3*v)));
+    const broad=Math.cos(tau*(3*u+.08*Math.sin(tau*2*v)))*.5+.5;
+    const crack=Math.pow(Math.max(0,Math.cos(tau*(19*u+.09*Math.sin(tau*3*v)))),22);
+    const micro=Math.pow(Math.max(0,Math.cos(tau*(48*u+.04*Math.sin(tau*6*v)))),12);
+    let knot=0;
+    for(const [ku,kv,rx,ry] of [[.34,.30,.071,.102],[.77,.72,.054,.074]]){
+      const du=Math.abs(u-ku),dv=Math.abs(v-kv);
+      const d=Math.hypot(Math.min(du,1-du)/rx,Math.min(dv,1-dv)/ry);
+      if(d<1.4) knot+=Math.exp(-d*d*3)*(16+11*Math.sin(d*15));
     }
+    const ridge=grain*6+fibers*3,shade=.91+.14*broad+.045*Math.cos(tau*4*v);
+    const moss=Math.max(0,Math.sin(tau*(2*u+3*v))*.5+.5-.76)*31;
+    const i=(y*n+x)*4;
+    pixels[i]=colorChannel(134*shade+ridge-29*crack-11*micro-knot-moss*.38);
+    pixels[i+1]=colorChannel(100*shade+ridge*.74-25*crack-10*micro-knot*.73+moss);
+    pixels[i+2]=colorChannel(72*shade+ridge*.52-20*crack-8*micro-knot*.55+moss*.37);
+    pixels[i+3]=255;
   }
-  const map = new THREE.DataTexture(pixels, width, width, THREE.RGBAFormat);
-  map.colorSpace = THREE.SRGBColorSpace;
-  map.wrapS = THREE.RepeatWrapping;
-  map.wrapT = THREE.RepeatWrapping;
-  map.magFilter = THREE.LinearFilter;
-  map.minFilter = THREE.LinearMipmapLinearFilter;
-  map.generateMipmaps = true;
-  map.anisotropy = 4;
-  map.needsUpdate = true;
-  barkAtlas = map;
+  const map=new THREE.DataTexture(pixels,n,n,THREE.RGBAFormat);
+  map.colorSpace=THREE.SRGBColorSpace;
+  map.wrapS=THREE.RepeatWrapping;
+  map.wrapT=THREE.RepeatWrapping;
+  map.magFilter=THREE.LinearFilter;
+  map.minFilter=THREE.LinearMipmapLinearFilter;
+  map.generateMipmaps=true;
+  map.anisotropy=4;
+  map.needsUpdate=true;
+  barkAtlas=map;
   return map;
 }
 
@@ -185,6 +191,18 @@ function makeBarkGeometry(kind: PaintedTreeKind, random: () => number): THREE.Bu
       segment.to.clone().sub(segment.from).normalize()
     ));
     geo.translate(midpoint.x, midpoint.y, midpoint.z);
+    const coords=geo.getAttribute('uv');
+    const positions=geo.getAttribute('position');
+    const colors=new Float32Array(positions.count*3);
+    for(let i=0;i<positions.count;i++){
+      // Three cylinder UV V=1 at bottom and V=0 at top.
+      coords.setY(i, segment.from.y*.92+(1-coords.getY(i))*height*.92);
+      const groundShade=1-.13*Math.max(0,1-positions.getY(i)/.55);
+      colors[i*3]=groundShade;
+      colors[i*3+1]=groundShade*.991;
+      colors[i*3+2]=groundShade*.978;
+    }
+    geo.setAttribute('color',new THREE.BufferAttribute(colors,3));
     geometries.push(geo);
   }
   const merged = mergeGeometries(geometries, false);
@@ -313,7 +331,7 @@ export function createPaintedStoryTree({
   root.name=kind==='shade'?'UV painted shade tree':'UV painted orchard fruit tree';
   const bark=new THREE.Mesh(makeBarkGeometry(kind,random),
     new THREE.MeshBasicMaterial({
-      color:'#ffffff',map:makePaintedBarkAtlas(),toneMapped:false
+      color:'#ffffff',map:makePaintedBarkAtlas(),vertexColors:true,toneMapped:false
     }));
   bark.name='UV hand-painted tree trunk and branches';
   bark.castShadow=true;

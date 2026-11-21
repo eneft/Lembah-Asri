@@ -75,3 +75,69 @@ test('both models generated deterministically from local tool (no CDN)', () => {
   assert.match(script,/alphaMode:'MASK'/);
   assert.doesNotMatch(script,/https?:\/\//);
 });
+
+
+test('trunk has length-scaled UVs, repeated bark sampler and dark roots', () => {
+  const bytes=readFileSync(fileURLToPath(new URL(
+    '../public/models/environment/pohon_rimbun_shade.glb',import.meta.url
+  )));
+  const size=bytes.readUInt32LE(12);
+  const gltf=JSON.parse(bytes.subarray(20,20+size).toString('utf8'));
+  const bin=20+size+8;
+  assert.equal(gltf.meshes[0].extras.barkUV,'world-length-repeat');
+  assert.equal(gltf.meshes[0].extras.barkAtlasSize,512);
+  assert.equal(gltf.samplers[0].wrapS,10497,'repeat around trunk');
+  assert.equal(gltf.samplers[0].wrapT,10497,'repeat vertically');
+  assert.equal(gltf.samplers[1].wrapS,33071,'alpha leaf atlas remains clamped');
+  assert.equal(gltf.textures[0].sampler,0);
+  assert.equal(gltf.textures[1].sampler,1);
+  const attributes=gltf.meshes[0].primitives[0].attributes;
+  assert.ok(attributes.COLOR_0!==undefined,'vertex color for roots');
+  const uv=gltf.accessors[attributes.TEXCOORD_0];
+  const uvView=gltf.bufferViews[uv.bufferView];
+  const uvBytes=bytes.subarray(bin+uvView.byteOffset,bin+uvView.byteOffset+uvView.byteLength);
+  let maxV=-Infinity;
+  for(let i=0;i<uv.count;i++)maxV=Math.max(maxV,uvBytes.readFloatLE(i*8+4));
+  assert.ok(maxV>1.5,'grain spans multiple texel periods on long trunk');
+  const color=gltf.accessors[attributes.COLOR_0];
+  const view=gltf.bufferViews[color.bufferView];
+  const colorBytes=bytes.subarray(bin+view.byteOffset,bin+view.byteOffset+view.byteLength);
+  assert.equal(color.count,gltf.accessors[attributes.POSITION].count);
+  let minShade=Infinity,maxShade=-Infinity;
+  for(let i=0;i<color.count;i++){
+    const shade=colorBytes.readFloatLE(i*12);
+    minShade=Math.min(minShade,shade);
+    maxShade=Math.max(maxShade,shade);
+  }
+  assert.ok(minShade<.90,'root gently darkened');
+  assert.ok(maxShade>.98,'upper bark stays clear');
+});
+
+test('embedded bark PNG has readable wood grain, knots and seamless repeat', () => {
+  const bytes=readFileSync(fileURLToPath(new URL(
+    '../public/models/environment/pohon_rimbun_shade.glb',import.meta.url
+  )));
+  const length=bytes.readUInt32LE(12);
+  const gltf=JSON.parse(bytes.subarray(20,20+length).toString('utf8'));
+  const bin=20+length+8;
+  const view=gltf.bufferViews[gltf.images[0].bufferView];
+  const png=bytes.subarray(bin+view.byteOffset,bin+view.byteOffset+view.byteLength);
+  assert.equal(png.readUInt32BE(16),512);
+  assert.equal(png.readUInt32BE(20),512);
+  const chunks=[];let offset=8;
+  while(offset<png.length){
+    const n=png.readUInt32BE(offset),type=png.subarray(offset+4,offset+8).toString();
+    if(type==='IDAT')chunks.push(png.subarray(offset+8,offset+8+n));
+    offset+=n+12;
+    if(type==='IEND')break;
+  }
+  const rgba=inflateSync(Buffer.concat(chunks));
+  const stride=512*4+1;
+  const sample=(x,y,channel=0)=>rgba[y*stride+1+x*4+channel];
+  const row=[];
+  for(let x=0;x<512;x+=7)row.push(sample(x,225));
+  assert.ok(Math.max(...row)-Math.min(...row)>25,'visible fissure and paint contrast');
+  assert.ok(Math.abs(sample(0,225)-sample(511,225))<13,'no horizontal seam');
+  assert.ok(Math.abs(sample(140,0)-sample(140,511))<13,'no vertical repeat seam');
+  assert.equal(sample(100,150,3),255,'solid, non-plastic painted bark');
+});
