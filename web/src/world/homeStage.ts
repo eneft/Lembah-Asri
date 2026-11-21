@@ -7,7 +7,7 @@ import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
-import { createHomeCreek, createHomeCreekVegetation } from './homeCreek.ts';
+import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek } from './homeCreek.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -337,8 +337,8 @@ function addWoodenFence(
 }
 
 function addStreamAndBridge(root: THREE.Object3D) {
-  // The river now follows a shallow winding ribbon with softened earthen
-  // banks, rather than a bright cyan straight rectangle.
+  // Sunken real cross-section, UV-painted riverbed + flowing translucent water.
+  // The large visual grass/shadow planes must also be carved to see below Y=0.
   root.add(createHomeCreek());
   // Dense growth only around the major stone clusters, never on the bridge.
   root.add(createHomeCreekVegetation());
@@ -377,7 +377,9 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
 
   // Earth clearing with no cultivated flowers or crops; connects directly
   // to the existing village, without a floating island/cliff edge.
-  const clearing = floorPatch(root, 'Childhood courtyard - earth clearing', 32, 29, -29, 0.4, '#ac9575', 0.028, 'earth', true);
+  const clearing = carveVisualCreek(floorPatch(root,
+    'Childhood courtyard - earth clearing', 32, 29, -29, 0.4,
+    '#ac9575', 0.028, 'earth', true));
   const worn = floorPatch(root, 'Worn central courtyard', 15, 12, -29, 5.2, '#b7a07c', 0.052, 'soil', true);
   floorPatch(root, 'Path from the house gate to the village', 22, 3.3, -8.5, HOME.gate.z, '#b9a27d', 0.066, 'path', true);
   // A wider approach helps the enlarged house read as the protagonist's home.
@@ -401,6 +403,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
         });
         const painted = new THREE.Mesh(clearing.geometry, material);
         painted.name = 'Painted childhood courtyard';
+        carveVisualCreek(painted);
         painted.rotation.copy(clearing.rotation);
         painted.position.copy(clearing.position);
         painted.renderOrder = clearing.renderOrder;

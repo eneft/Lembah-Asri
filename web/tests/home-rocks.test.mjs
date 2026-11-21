@@ -147,7 +147,7 @@ test('creek is truly winding water with softened banks, not a rectangle', () => 
   assert.notEqual(creekCenterX(-4),creekCenterX(4));
   assert.ok(CREEK.bridgeMin<8.6&&CREEK.bridgeMax>8.6);
   const creek=createHomeCreek();
-  assert.equal(creek.children.length,3);
+  assert.equal(creek.children.length,4);
   const water=creek.getObjectByName('Shallow stream west of childhood home');
   const west=creek.getObjectByName('Soft west creek bank');
   const east=creek.getObjectByName('Soft east creek bank');
@@ -157,6 +157,12 @@ test('creek is truly winding water with softened banks, not a rectangle', () => 
   assert.ok(water.geometry.getAttribute('uv'),'water is UV unwrapped');
   assert.ok(water.geometry.getAttribute('color'),'painted depth gradient at the water edges');
   assert.ok(water.geometry.getAttribute('position').count>=300);
+  const bed=creek.getObjectByName('Visible gravel bed below clear creek water');
+  assert.ok(bed instanceof THREE.Mesh,'riverbed must be real 3D below water');
+  assert.ok(water.material.transparent && water.material.opacity < .85,
+    'clear water must reveal submerged riverbed');
+  assert.ok(bed.material.map instanceof THREE.DataTexture);
+  assert.ok(bed.geometry.boundingBox===null || bed.geometry.getAttribute('position').count>=300);
   const pos=water.geometry.getAttribute('position');
   const centerX=[];
   for(let i=0;i<pos.count;i+=4)centerX.push((pos.getX(i)+pos.getX(i+3))*.5);

@@ -9,6 +9,7 @@ import { applyHandPaintedMaterials } from './handPaintedMaterials';
 import { keepCameraOutsideGeometry } from './cameraOcclusion';
 import { activateCharacterMotion } from './animationState';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
+import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
 import { createWarungStage } from './warungStage';
@@ -26,6 +27,8 @@ export class Game {
   private characterBaseColor?: THREE.Texture;
   private sunLight!: THREE.DirectionalLight;
   private characterContactShadow!: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  private flowingCreekWater?: THREE.Object3D;
+  private creekElapsedSeconds = 0;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(48, 1, 0.1, 500);
   private world!: RAPIER.World;
@@ -368,16 +371,18 @@ export class Game {
     // scene stays one continuous world and does not introduce loading screens.
     const home = createHomeStage();
     this.scene.add(home.root);
+    this.flowingCreekWater = home.root.getObjectByName('Shallow stream west of childhood home');
     this.cameraObstacles.push(...home.cameraBlockers);
     this.homeSolids = home.solids;
     const ground = createPaintedTerrainPlane('grass', 160, 160, 0, 0, 0);
     ground.name = 'World painted grass UV terrain';
+    carveVisualCreek(ground);
     this.scene.add(ground);
     // Preserve the painted albedo: a transparent ShadowMaterial layer catches
     // actual character, roof and tree shadows without re-lighting the texture.
-    this.scene.add(createPaintedShadowReceiver(
+    this.scene.add(carveVisualCreek(createPaintedShadowReceiver(
       'World painted-terrain real shadows', 160, 160, 0, 0, 0.103
-    ));
+    )));
     this.characterContactShadow = createCharacterContactShadow();
     this.scene.add(this.characterContactShadow);
     // One or two InstancedMesh draws for all small 3D grass tufts.
@@ -477,6 +482,8 @@ export class Game {
   private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
+    this.creekElapsedSeconds+=dt;
+    updateHomeCreekWater(this.flowingCreekWater,this.creekElapsedSeconds);
     // The render loop starts during construction, before async FBX + texture loading finishes.
     // Do not read playerMesh.position or update physics-driven visuals until the model exists.
     if(this.world&&this.player&&this.playerMesh){
