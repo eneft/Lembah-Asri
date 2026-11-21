@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { selectedHomeRocks, rockFile } from '../src/world/homeRocks.ts';
+import * as THREE from 'three';
+import { selectedHomeRocks, rockFile, findCuratedRockVariant, createCuratedRockGroup } from '../src/world/homeRocks.ts';
 import { createHomeStage } from '../src/world/homeStage.ts';
 
 function getGlb() {
@@ -84,4 +85,45 @@ test('loading fallback retains original well, river bridge and bank stones',()=>
   assert.ok(stage.solids.some(s=>s.label==='Childhood home walls'));
   assert.ok(!stage.solids.some(s=>s.label.toLowerCase().includes('rock')),
     'small scenic stones never add unplanned collisions');
+});
+
+test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', () => {
+  const {json}=getGlb();
+  const scene = new THREE.Group();
+  const picture = new THREE.DataTexture(
+    new Uint8Array([148, 136, 117, 255]), 1, 1, THREE.RGBAFormat
+  );
+  picture.colorSpace = THREE.SRGBColorSpace;
+  picture.needsUpdate = true;
+  const material = new THREE.MeshStandardMaterial({map: picture});
+  for(let i=0;i<16;i++) {
+    const authored=json.nodes[i].name;
+    const loaderName=THREE.PropertyBinding.sanitizeNodeName(authored);
+    assert.equal(loaderName,'LA_Rock_'+String(i).padStart(2,'0'));
+    assert.notEqual(loaderName,authored,'reproduces original production bug');
+    const rock=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.3),material);
+    rock.name=loaderName;
+    rock.userData.originalIndex=i;
+    scene.add(rock);
+    assert.equal(findCuratedRockVariant(scene,i),rock);
+  }
+  // Check the same adapter used after GLTFLoader finishes, not only name parsing.
+  const installed=createCuratedRockGroup(scene);
+  assert.equal(installed.name,'Curated original UV textured rock placements');
+  assert.ok(installed.children.every(child=>child instanceof THREE.InstancedMesh));
+  assert.ok(installed.children.length>=12);
+  const placed=installed.children.reduce((count,child)=>count+child.count,0);
+  assert.equal(placed,selectedHomeRocks.length);
+  assert.equal(placed,29);
+  const variant=installed.getObjectByName('UV original rock variant 00');
+  assert.ok(variant instanceof THREE.InstancedMesh);
+  const first=selectedHomeRocks.find(p=>p.id===0);
+  const matrix=new THREE.Matrix4();
+  variant.getMatrixAt(0,matrix);
+  const position=new THREE.Vector3().setFromMatrixPosition(matrix);
+  assert.ok(Math.abs(position.x-first.x)<.001);
+  assert.ok(Math.abs(position.z-first.z)<.001);
+  assert.equal(variant.material.map,picture,'actual UV albedo map used for instanced rocks');
+  assert.equal(variant.material.transparent,false);
+  assert.equal(variant.material.toneMapped,false);
 });
