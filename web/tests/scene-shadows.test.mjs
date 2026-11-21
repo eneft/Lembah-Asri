@@ -52,6 +52,7 @@ test('transparent shadow receivers preserve textured terrain color and depth', (
 
 test('contact shadow is a tiny feathered alpha texture below the moving character', () => {
   const shadow = createCharacterContactShadow();
+  assert.equal(shadow.visible,false, 'do not draw a stray shadow before FBX loads');
   assert.equal(shadow.castShadow,false);
   assert.equal(shadow.receiveShadow,false);
   assert.equal(shadow.material.transparent,true);
@@ -64,6 +65,7 @@ test('contact shadow is a tiny feathered alpha texture below the moving characte
   assert.ok(alpha(32,32)>alpha(0,0));
   const ground = new THREE.Vector3(-29.5,0,7.4);
   updateCharacterContactShadow(shadow, ground);
+  assert.equal(shadow.visible,true);
   assert.equal(shadow.position.x,ground.x);
   assert.equal(shadow.position.z,ground.z);
   assert.equal(shadow.material.opacity,0.4);
