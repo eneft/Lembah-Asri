@@ -447,6 +447,18 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
           }
         }
         stoneMaterial?.dispose();
+        // Original UV rock pack replaces the old procedural pebble scatter
+        // as well. Keep the grass, painted soil and intentional stepping stones.
+        // Only remove the placeholder stones AFTER 29 new placements exist.
+        const details = root.getObjectByName('Childhood home organic ground details');
+        if (details) {
+          for (const child of [...details.children]) {
+            if (!child.name.startsWith('Textured natural stones variant ')) continue;
+            details.remove(child);
+            if (child instanceof THREE.Mesh) child.geometry.dispose();
+          }
+        }
+        console.info('[LembahAsri] Original 16-variant rocks now visible: 29 curated placements');
         return true;
       }).catch(error => {
         console.warn('[LembahAsri] Keeping old bank-stone fallback', error);
