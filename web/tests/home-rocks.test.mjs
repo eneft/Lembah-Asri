@@ -60,6 +60,15 @@ test('rock placement is curated by environment, not randomly thrown into player 
   const zones=new Set(selectedHomeRocks.map(p=>p.zone));
   assert.deepEqual([...zones].sort(),
     ['foundation','garden','path-edge','stream','well'].sort());
+  const submerged=selectedHomeRocks.filter(p=>p.submerge!==undefined);
+  assert.ok(submerged.length>=6,'use the uploaded mossy GLBs partly inside water');
+  for(const p of submerged){
+    assert.equal(p.type,'mossy');
+    assert.ok(p.submerge>0&&p.submerge<.5);
+    assert.ok(Math.abs(p.x-creekCenterX(p.z)) <
+      creekWidth(p.z)*.5+p.size*.55,
+      'rock footprint should actually intersect the creek water');
+  }
   const large=selectedHomeRocks.filter(p=>p.zone==='stream'&&p.size>=.95);
   assert.ok(large.length>=6&&large.length<=8,'6–8 mossy anchor boulders');
   assert.deepEqual(ROCK_MODELS,{mossy:0,plain:2});
@@ -149,6 +158,13 @@ test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', 
   assert.ok(Math.abs(scale.x-first.size/.3)<.01,'synthetic .3m rock is resized to real metres');
   const actualSize=.3*scale.x;
   assert.ok(Math.abs(actualSize-first.size)<.005);
+  assert.ok(installed.userData.partiallySubmergedRocks>=6);
+  const mossIndex=selectedHomeRocks.filter(p=>p.type==='mossy')
+    .findIndex(p=>p.submerge!==undefined);
+  variant.getMatrixAt(mossIndex,matrix);
+  const submergedCenter=new THREE.Vector3().setFromMatrixPosition(matrix);
+  assert.ok(submergedCenter.y<CREEK.waterY,
+    'selected mossy base lies below actual water surface');
   const firstNatural=selectedHomeRocks.find(p=>p.zone==='stream'&&p.size>=1);
   assert.ok(firstNatural);
 });
