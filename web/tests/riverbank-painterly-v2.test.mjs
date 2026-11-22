@@ -7,6 +7,7 @@ import {
 import {createHomeCreek,CREEK} from '../src/world/homeCreek.ts';
 import {createSculptedCreekMeadow} from '../src/world/homeTerrain3D.ts';
 import {createHomeStage} from '../src/world/homeStage.ts';
+import {applyCreekCourtyardAlbedo} from '../src/world/shoreCourtyard.ts';
 
 function compiled(mat) {
   const shader={
@@ -157,4 +158,31 @@ test('most of the visible above-water riverbank uses meadow rather than a brown 
     assert.match(shader.fragmentShader,/edgeFlow=/);
     assert.match(shader.fragmentShader,/meadowCover/);
   }
+});
+
+test('house clearing paint and its alpha feather are shared by shore materials at real UV0',()=>{
+  const stage=createHomeStage(false), paint=new THREE.Texture(), alpha=new THREE.Texture();
+  const source=new THREE.Mesh(
+    new THREE.PlaneGeometry(32,29),
+    new THREE.MeshBasicMaterial({map:paint,alphaMap:alpha,transparent:true})
+  );
+  source.position.set(-29,.028,.4);
+  assert.equal(applyCreekCourtyardAlbedo(stage.root,source),4);
+  assert.equal(applyCreekCourtyardAlbedo(stage.root,source),0,'same material cannot be rebound twice');
+  for(const name of [
+    'West bank sculpted meadow terrain','East bank sculpted meadow terrain',
+    'Soft west creek bank','Soft east creek bank'
+  ]){
+    const mesh=stage.root.getObjectByName(name);
+    const shader=compiled(mesh.material);
+    assert.equal(shader.uniforms.uCreekHomePaint.value,paint);
+    assert.equal(shader.uniforms.uCreekHomeMask.value,alpha);
+    assert.deepEqual(shader.uniforms.uCreekHomeRect.value.toArray(),[-29,.4,32,29]);
+    assert.match(shader.fragmentShader,/texture2D\(uCreekHomeMask,homeUv\)\.g/);
+    assert.match(shader.fragmentShader,/texture2D\(uCreekHomePaint,homeUv\)\.rgb/);
+    assert.match(shader.fragmentShader,/uCreekHomeRect/);
+    assert.match(mesh.material.customProgramCacheKey(),/shore-shared-courtyard-v5/);
+  }
+  assert.equal((-43.4+29)/32+.5,.05,'the near river shoulder overlaps the home clearing');
+  assert.ok((-49+29)/32+.5<0,'far bank does not receive the home painting');
 });
