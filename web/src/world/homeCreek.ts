@@ -249,10 +249,14 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
         // straight bank ribbon. Preserve the exact bank-to-meadow weld (j=0)
         // and keep the bridge landings quiet for navigation.
         const bridgeQuiet=THREE.MathUtils.smoothstep(Math.abs(z-8.6),1.6,5.2);
-        const microEdge=j===0?0:bridgeQuiet*
+        const rawScallop=bridgeQuiet*
           ((.038+.010*j)*Math.sin(z*.67+j*.73)+
            .036*Math.sin(z*1.73-j*.47)+
            .019*Math.sin(z*3.11+j*.91));
+        // Constrain the lateral displacement to keep adjacent rings in
+        // strictly land-to-water order and avoid inverted bank triangles.
+        const microEdge=j===0?0:
+          THREE.MathUtils.clamp(rawScallop,j===1?-.045:-.075,j===1?.045:.075);
         x=center+side*(half+ring.dist+microEdge);
         y=ring.y+(j>0&&j<5?bridgeQuiet*
           (.016*Math.sin(z*.84+j*.65)+.010*Math.sin(z*2.17-j*.7)):0);
