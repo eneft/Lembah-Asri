@@ -154,3 +154,27 @@ test('fine creek grass is short, on raised terrain, away from bridge approaches'
   assert.ok(home.root.getObjectByName('Fine soft creek bank grass'));
   assert.ok(!home.solids.some(s=>s.label.includes('grass')));
 });
+
+test('eroded creek cross sections keep all seven bank rings in correct order',()=>{
+  const river=createHomeCreek();
+  for(const name of ['Soft west creek bank','Soft east creek bank']){
+    const bank=river.getObjectByName(name);
+    const points=bank.geometry.getAttribute('position');
+    const sign=name.startsWith('Soft west')?-1:1;
+    let scallopVariation=0;
+    for(let i=0;i<=284;i++){
+      const x0=points.getX(i*7);
+      const x3=points.getX(i*7+3);
+      const z=points.getZ(i*7);
+      if(Math.abs(z-8.6)>5)scallopVariation=Math.max(scallopVariation,
+        Math.abs(Math.abs(x3-creekCenterX(z))-creekWidth(z)/2-.32));
+      for(let j=1;j<7;j++){
+        const previous=sign*(points.getX(i*7+j-1)-creekCenterX(z));
+        const current=sign*(points.getX(i*7+j)-creekCenterX(z));
+        assert.ok(current<previous-.01,
+          'bank ring flipped near z='+z+' ring '+j+' side '+sign);
+      }
+    }
+    assert.ok(scallopVariation>.03,'erosion creates a real curved lateral contour');
+  }
+});
