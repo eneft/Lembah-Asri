@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
-  RIVERBANK_PAINT,applyRiverbankPainterlyShader
+  RIVERBANK_PAINT,applyRiverbankPainterlyShader,setRiverbankMeadowTexture
 } from '../src/world/riverbankMaterial.ts';
 import {createHomeCreek,CREEK} from '../src/world/homeCreek.ts';
 import {createSculptedCreekMeadow} from '../src/world/homeTerrain3D.ts';
@@ -38,8 +38,10 @@ test('both riverbanks use real two-scale UV samples and non-square macro tint',(
     assert.match(shader.fragmentShader,/zBank\/29\.3/);
     assert.match(shader.fragmentShader,/bankGrass/);
     assert.match(shader.fragmentShader,/bankDamp/);
-    assert.equal((shader.fragmentShader.match(/texture2D\(/g)||[]).length,2);
-    assert.match(mat.customProgramCacheKey(),/riverbank-painterly-macro-v2/);
+    assert.equal((shader.fragmentShader.match(/texture2D\(/g)||[]).length,4);
+    assert.match(shader.fragmentShader,/uRiverMeadowLoaded/);
+    assert.match(shader.fragmentShader,/bankPigment=mix\(bankPigment,meadowPigment,lipMatch\)/);
+    assert.match(mat.customProgramCacheKey(),/riverbank-painterly-meadow-weld-v3/);
     assert.equal(mat.map,null,'material has fallback before asynchronous painted texture load');
     assert.equal(mesh.geometry.getAttribute('uv').count,mesh.geometry.getAttribute('position').count);
   }
@@ -108,4 +110,20 @@ test('soil-to-grass boundary changes organically without past dark moss stains',
     assert.doesNotMatch(shader.fragmentShader,/greenLip=vec3\(\.26,\.37,\.16\)/,
       'old nearly black moss lip must not return');
   }
+});
+
+test('bank lip shares world UV meadow albedo after load and keeps fallback beforehand',()=>{
+  const bank=createHomeCreek().getObjectByName('Soft west creek bank').material;
+  const shader=compiled(bank);
+  assert.equal(shader.uniforms.uRiverMeadowLoaded.value,0);
+  const meadow=new THREE.Texture();
+  meadow.wrapS=meadow.wrapT=THREE.MirroredRepeatWrapping;
+  assert.equal(setRiverbankMeadowTexture(bank,meadow),true);
+  assert.equal(shader.uniforms.uRiverMeadow.value,meadow);
+  assert.equal(shader.uniforms.uRiverMeadowLoaded.value,1);
+  assert.match(shader.fragmentShader,/pMeadow\/3\.5\+waveMeadow/);
+  assert.match(shader.fragmentShader,/lipMatch=1\.0-smoothstep\(\.035,\.34,crossBank\)/);
+  assert.match(shader.fragmentShader,/uvFine\.x\*\.52-uvFine\.y\*\.27\+1\.23/);
+  assert.match(shader.fragmentShader,/colorWash=sin\(pMeadow\.x\*\.044\+pMeadow\.y\*\.031\)/);
+  assert.equal(setRiverbankMeadowTexture(new THREE.MeshBasicMaterial(),meadow),false);
 });

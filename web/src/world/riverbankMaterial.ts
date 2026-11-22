@@ -11,10 +11,24 @@ import * as THREE from 'three';
 export const RIVERBANK_PAINT=Object.freeze({
   detailMetres:7.7,macroMetres:29.3,
   grassyEdgeWidth:.34,wetEdgeStart:.55,imageSamples:2,
-  shaderVersion:'riverbank-painterly-macro-v2'
+  shaderVersion:'riverbank-painterly-meadow-weld-v3'
 });
 
 type RiverMaterialStyle='earth-bank'|'grassy-shoulder';
+
+/** Share the painted meadow atlas with the adjacent terrain at the bank lip. */
+type MeadowUniforms = {
+  texture: { value: THREE.Texture | null };
+  loaded: { value: number };
+};
+
+export function setRiverbankMeadowTexture(material: THREE.MeshBasicMaterial, texture: THREE.Texture): boolean {
+  const uniforms = material.userData.riverbankMeadowUniforms as MeadowUniforms | undefined;
+  if (!uniforms) return false;
+  uniforms.texture.value = texture;
+  uniforms.loaded.value = 1;
+  return true;
+}
 
 const BANK_FRAGMENT=[
   'float zBank=vRiverBankWorld.y;',
@@ -42,6 +56,25 @@ const BANK_FRAGMENT=[
   'float bankDamp=smoothstep(.64,.97,crossBank);',
   'bankPigment*=mix(vec3(1.0),vec3(.88,.91,.87),bankDamp*.28);',
   'bankPigment*=1.0+.024*slowBank;',
+  '// Weld colour at the existing geometric seam to the world grass atlas.',
+  '// The bank keeps its own earthen texture below the narrow green rim.',
+  'float lipMatch=1.0-smoothstep(.035,.34,crossBank);',
+  'if(uRiverMeadowLoaded>.5 && lipMatch>.001){',
+  '  vec2 pMeadow=vRiverBankWorld;',
+  '  vec2 waveMeadow=vec2(',
+  '    .20*sin(pMeadow.y*.079+pMeadow.x*.033)+.11*sin(pMeadow.y*.183-pMeadow.x*.062),',
+  '    .17*sin(pMeadow.x*.094-pMeadow.y*.027)+.10*sin(pMeadow.x*.145+pMeadow.y*.075));',
+  '  vec2 uvFine=pMeadow/3.5+waveMeadow;',
+  '  vec2 uvWide=vec2(uvFine.x*.52-uvFine.y*.27+1.23,',
+  '    uvFine.x*.27+uvFine.y*.52+.79);',
+  '  vec3 meadowFine=texture2D(uRiverMeadow,uvFine).rgb;',
+  '  vec3 meadowWide=texture2D(uRiverMeadow,uvWide).rgb;',
+  '  vec3 meadowPigment=mix(meadowFine,meadowWide,.41);',
+  '  float colorWash=sin(pMeadow.x*.044+pMeadow.y*.031)',
+  '    *sin(pMeadow.y*.063-pMeadow.x*.022);',
+  '  meadowPigment*=1.0+.022*colorWash;',
+  '  bankPigment=mix(bankPigment,meadowPigment,lipMatch);',
+  '}',
   'diffuseColor.rgb*=bankPigment;'
 ].join('\n');
 
@@ -87,6 +120,10 @@ export function applyRiverbankPainterlyShader(
   const isBank=style==='earth-bank';
   const world=isBank?'vRiverBankWorld':'vRiverGrassWorld';
   const across=isBank?'vRiverBankAcross':'vRiverGrassAcross';
+  const meadowUniforms: MeadowUniforms = {
+    texture: { value: null }, loaded: { value: 0 }
+  };
+  if (isBank) material.userData.riverbankMeadowUniforms = meadowUniforms;
   material.onBeforeCompile=(shader,renderer)=>{
     previous.call(material,shader,renderer);
     shader.vertexShader='varying vec2 '+world+';\nvarying float '+across+';\n'+
@@ -94,7 +131,13 @@ export function applyRiverbankPainterlyShader(
         '#include <begin_vertex>\n'+
         world+'=(modelMatrix*vec4(transformed,1.0)).xz;\n'+
         across+'=uv.x;');
-    shader.fragmentShader='varying vec2 '+world+';\nvarying float '+across+';\n'+
+    if (isBank) {
+      shader.uniforms.uRiverMeadow = meadowUniforms.texture;
+      shader.uniforms.uRiverMeadowLoaded = meadowUniforms.loaded;
+    }
+    shader.fragmentShader=(isBank
+      ? 'uniform sampler2D uRiverMeadow;\nuniform float uRiverMeadowLoaded;\n'
+      : '')+'varying vec2 '+world+';\nvarying float '+across+';\n'+
       shader.fragmentShader.replace('#include <map_fragment>',
         isBank?BANK_FRAGMENT:SHOULDER_FRAGMENT);
   };

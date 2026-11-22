@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeLowPolyGrassGeometry } from './lowPolyGrass.ts';
 import { makeBroadLeafGeometry, makePaintedLeafAlbedo } from './homeArtPass.ts';
-import { applyRiverbankPainterlyShader } from './riverbankMaterial.ts';
+import { applyRiverbankPainterlyShader, setRiverbankMeadowTexture } from './riverbankMaterial.ts';
 
 /**
  * Physically recessed VISUAL creek with painted gravel riverbed.
@@ -446,6 +446,20 @@ export async function loadPaintedCreekTextures(root:THREE.Object3D):Promise<bool
       mat.map=bankArt;
       mat.color.set('#ffffff');
       mat.needsUpdate=true;
+    }
+    // Match the bank lip to the actual meadow painting, including mirrored
+    // world-UV antitiling. A failed optional load must not remove river art.
+    try {
+      const meadowArt=await loader.loadAsync('./textures/terrain/village_grass_painted.webp');
+      meadowArt.colorSpace=THREE.SRGBColorSpace;
+      meadowArt.wrapS=meadowArt.wrapT=THREE.MirroredRepeatWrapping;
+      meadowArt.anisotropy=4;
+      meadowArt.needsUpdate=true;
+      setRiverbankMeadowTexture(west.material as THREE.MeshBasicMaterial,meadowArt);
+      setRiverbankMeadowTexture(east.material as THREE.MeshBasicMaterial,meadowArt);
+      root.userData.sharedMeadowBankLip=true;
+    }catch(error){
+      console.warn('[LembahAsri] Keeping riverbank lip colour fallback',error);
     }
     root.userData.paintedCreekLoaded=true;
     root.userData.paintedWaterAsset=CREEK_PAINTED_TEXTURES.water;
