@@ -92,7 +92,7 @@ test('ground detail installation preserves existing house and well colliders', (
   const stage = createHomeStage(false);
   assert.ok(stage.root.getObjectByName('Childhood home organic ground details'));
   assert.ok(stage.root.getObjectByName('Old village well stone rim'));
-  assert.ok(stage.root.getObjectByName('Empty abandoned soil plot'));
+  assert.ok(stage.root.getObjectByName('Hand-shaped vegetable garden bed'));
   assert.ok(stage.solids.find(s=>s.label==='Childhood home walls'));
   assert.ok(stage.solids.find(s=>s.label==='Old village well'));
   assert.ok(!stage.solids.some(s=>s.label.includes('ground detail')));
