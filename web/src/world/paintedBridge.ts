@@ -11,7 +11,7 @@ export const BRIDGE_TEXTURES = Object.freeze({
   roughness: './textures/bridge/bridge_wood_roughness.png'
 });
 export const BRIDGE_DECK = Object.freeze({
-  x: -45.5, z: 8.6, length: 5.1, width: 2.4, boards: 12
+  x: -45.5, z: 8.6, length: 5.1, width: 2.4, boards: 16
 });
 export const paintedBridgeMaterial = new THREE.MeshStandardMaterial({
   name:'Lembah Asri painted wooden bridge UV/PBR',
@@ -80,42 +80,51 @@ export function createPaintedWoodenBridge():THREE.Group{
   const root=new THREE.Group();
   root.name='West wooden bridge walkway';
   root.userData.bridgeUV='painterly-individual-planks';
+  root.userData.walkAxis='X';
+  root.userData.boardGrainAxis='Z';
   root.userData.collisionFootprint=[BRIDGE_DECK.length,BRIDGE_DECK.width];
-  // Board grain follows bridge crossing X and samples the authored albedo
-  // continuously over each box-face UV; avoid stretching one texture over
-  // the whole 5.1 x 2.4 m crossing.
-  const plankSpan=BRIDGE_DECK.width/BRIDGE_DECK.boards;
+  // Walking goes across X; each individual plank runs across width Z.
+  // The old five-metre longitudinal strips were oriented incorrectly.
+  const plankSpan=BRIDGE_DECK.length/BRIDGE_DECK.boards;
   const planks=Array.from({length:BRIDGE_DECK.boards},(_,i)=>({
-    x:BRIDGE_DECK.x+(i%3-1)*.009,
+    x:BRIDGE_DECK.x-BRIDGE_DECK.length*.5+plankSpan*(i+.5),
     y:.258+(i%4===0?.006:0),
-    z:BRIDGE_DECK.z-BRIDGE_DECK.width*.5+plankSpan*(i+.5),
+    z:BRIDGE_DECK.z+(i%3-1)*.008,
     brightness:[1,.94,1.04,.98,.96,1.03][i%6]
   }));
   const boards=instancedBox('Individual UV-painted timber bridge planks',
-    new THREE.BoxGeometry(BRIDGE_DECK.length-.055,.12,plankSpan-.018),planks);
+    new THREE.BoxGeometry(plankSpan-.013,.12,BRIDGE_DECK.width-.065),planks);
   boards.userData.boardCount=BRIDGE_DECK.boards;
   root.add(boards);
   const runnerPos=[
-    {x:BRIDGE_DECK.x,y:.13,z:BRIDGE_DECK.z-.96,brightness:.78},
-    {x:BRIDGE_DECK.x,y:.13,z:BRIDGE_DECK.z+.96,brightness:.82}
+    {x:BRIDGE_DECK.x,y:.13,z:BRIDGE_DECK.z-.83,brightness:.78},
+    {x:BRIDGE_DECK.x,y:.13,z:BRIDGE_DECK.z+.83,brightness:.82}
   ];
   root.add(instancedBox('Bridge underside structural runners',
     new THREE.BoxGeometry(BRIDGE_DECK.length-.08,.23,.19),runnerPos));
   const posts=[];
-  for(const z of [7.50,9.70]){
-    for(const x of [-47.72,-43.28]){
-      posts.push({x,y:.66,z,brightness:1.0});
+  const postInsetX=BRIDGE_DECK.length*.5-.13;
+  const postInsetZ=BRIDGE_DECK.width*.5-.10;
+  for(const z of [BRIDGE_DECK.z-postInsetZ,BRIDGE_DECK.z+postInsetZ]){
+    for(const x of [BRIDGE_DECK.x-postInsetX,BRIDGE_DECK.x+postInsetX]){
+      posts.push({x,y:.68,z,brightness:1.0});
     }
   }
   root.add(instancedBox('Four painted wooden bridge posts',
-    new THREE.BoxGeometry(.18,.9,.18),posts));
+    new THREE.BoxGeometry(.24,.99,.24),posts));
+  // Two subtle rails frame the crossing but leave the stream visible.
+  root.add(instancedBox('Two painted side handrails',
+    new THREE.BoxGeometry(BRIDGE_DECK.length-.33,.115,.105),[
+      {x:BRIDGE_DECK.x,y:.85,z:BRIDGE_DECK.z-postInsetZ,brightness:.94},
+      {x:BRIDGE_DECK.x,y:.85,z:BRIDGE_DECK.z+postInsetZ,brightness:.97}
+    ]));
   // Dark carved joinery is geometry, not a giant painted outline over the deck.
   const nailMat=new THREE.MeshBasicMaterial({color:'#79664d',toneMapped:false});
   const nailGeo=new THREE.CylinderGeometry(.012,.012,.004,5);
   const nailTransforms: {x:number;y:number;z:number}[]=[];
   for(const plank of planks){
-    for(const x of [BRIDGE_DECK.x-2.35,BRIDGE_DECK.x+2.35]){
-      nailTransforms.push({x,y:.325,z:plank.z});
+    for(const z of [BRIDGE_DECK.z-.82,BRIDGE_DECK.z+.82]){
+      nailTransforms.push({x:plank.x,y:plank.y+.062,z});
     }
   }
   const nailMesh=new THREE.InstancedMesh(nailGeo,nailMat,nailTransforms.length);
