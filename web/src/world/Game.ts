@@ -11,6 +11,7 @@ import { activateCharacterMotion } from './animationState';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
 import { applyMeadowAntiTileShader } from './meadowAntiTile';
+import { ToonOutlineRenderer, createVillageToonMaterial } from './toonRenderer';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
 import { createWarungStage } from './warungStage';
@@ -24,6 +25,7 @@ export type PerformanceStats = { fps: number; drawCalls: number; triangles: numb
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
+  private toonRenderer!: ToonOutlineRenderer;
   private environmentTarget?: THREE.WebGLRenderTarget;
   private characterBaseColor?: THREE.Texture;
   private sunLight!: THREE.DirectionalLight;
@@ -150,6 +152,9 @@ export class Game {
     // Static occluder meshes need valid world matrices for camera raycasts.
     this.scene.updateMatrixWorld(true);
     void this.loadEnvironmentTrees();
+    // Preserve all UV hand-painted assets; add a light toon ink screen pass.
+    // It reads true scene depth, including moving player and instanced props.
+    this.toonRenderer = new ToonOutlineRenderer(this.renderer,mobile);
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(host);
     window.addEventListener('keydown', this.onKeyDown);
@@ -260,11 +265,9 @@ export class Game {
   }
 
   private makeAlbedoMaterial(color: string) {
-    return new THREE.MeshStandardMaterial({
-      color: new THREE.Color(color),
-      roughness: 0.88,
-      metalness: 0
-    });
+    // Painted GLBs and PBR bambu/bridge retain their original materials.
+    // Only simple untextured village geometry uses lit 4-step cel shading.
+    return createVillageToonMaterial(color);
   }
 
   private async loadPlayer(): Promise<THREE.Group> {
@@ -484,7 +487,7 @@ export class Game {
   private onPointerDown=(e:PointerEvent)=>{this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
   private onPointerMove=(e:PointerEvent)=>{if(!this.dragging)return;this.yaw-=(e.clientX-this.pointerX)*.006;this.pointerX=e.clientX;};
   private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
-  private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
+  private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();this.toonRenderer?.resize();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
     this.creekElapsedSeconds+=dt;
     updateHomeCreekWater(this.flowingCreekWater,this.creekElapsedSeconds);
@@ -593,7 +596,7 @@ export class Game {
     const smoothed=this.camera.position.clone().lerp(safeRequested,easing);
     this.camera.position.copy(keepCameraOutsideGeometry(this.cameraFocus,smoothed,this.cameraObstacles));
     this.camera.lookAt(this.cameraFocus);
-    this.renderer.render(this.scene,this.camera);
+    this.toonRenderer.render(this.scene,this.camera);
     // Diagnostic HUD is opt-in and samples at most once per second to avoid
     // the per-frame React rerenders that previously made mobile input janky.
     if (this.performanceListener) {
@@ -613,5 +616,5 @@ export class Game {
       this.lastPerfTick = now;
     }
   };
-  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
+  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.toonRenderer?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }
