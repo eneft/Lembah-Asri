@@ -7,7 +7,8 @@ import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
-import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek } from './homeCreek.ts';
+import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
+import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
 
 /**
@@ -337,13 +338,9 @@ function addStreamAndBridge(root: THREE.Object3D) {
   root.add(createHomeCreekVegetation());
   // No fallback row of 52 plain stones. Only the two selected UV GLB rock
   // types are displayed, with natural scale variation.
-  // A western connector bridge; no decorative 'floating island' boundary.
-  box(root, 'West wooden bridge walkway', [5.1, 0.2, 2.4], [-45.5, 0.18, 8.6], mat('#9d7751'));
-  for (const z of [7.5, 9.7]) {
-    for (const x of [-47.7, -43.3]) {
-      box(root, 'Bridge timber rail post', [0.13, 0.86, 0.13], [x, 0.66, z], mat('#73563c'));
-    }
-  }
+  // 12 separate real UV wooden boards, support beams, posts and joinery.
+  // The crossing location/size stays identical to preserve level navigation.
+  root.add(createPaintedWoodenBridge());
 }
 
 /**
@@ -420,6 +417,10 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
       })
     : Promise.resolve(false);
   addStreamAndBridge(root);
+  const creekArtReady: Promise<boolean> = loadApprovedModel
+    ? loadPaintedCreekTextures(root) : Promise.resolve(false);
+  const bridgeArtReady: Promise<boolean> = loadApprovedModel
+    ? loadPaintedBridgeTextures() : Promise.resolve(false);
   // User-approved landscape: exactly two UV-textured rock models.
   const rockReady: Promise<boolean> = loadApprovedModel
     ? attachCuratedHomeRocks(root).then(() => {
@@ -523,5 +524,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, ready: Promise.all([loaded, orchardReady, rockReady, fencePBRReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, ready: Promise.all([loaded, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady]).then(([house]) => house) };
 }

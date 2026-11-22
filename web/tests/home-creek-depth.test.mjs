@@ -15,7 +15,7 @@ function heights(mesh) {
 
 test('water is really recessed below Y=0 with bank walls and gravel floor',()=>{
   const creek=createHomeCreek();
-  assert.equal(creek.children.length,5);
+  assert.equal(creek.children.length,6);
   const surface=creek.getObjectByName('Shallow stream west of childhood home');
   const bed=creek.getObjectByName('Visible gravel bed below clear creek water');
   const west=creek.getObjectByName('Soft west creek bank');

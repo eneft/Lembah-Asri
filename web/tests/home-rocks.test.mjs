@@ -159,7 +159,7 @@ test('creek is truly winding water with softened banks, not a rectangle', () => 
   assert.notEqual(creekCenterX(-4),creekCenterX(4));
   assert.ok(CREEK.bridgeMin<8.6&&CREEK.bridgeMax>8.6);
   const creek=createHomeCreek();
-  assert.equal(creek.children.length,5);
+  assert.equal(creek.children.length,6);
   const water=creek.getObjectByName('Shallow stream west of childhood home');
   const west=creek.getObjectByName('Soft west creek bank');
   const east=creek.getObjectByName('Soft east creek bank');

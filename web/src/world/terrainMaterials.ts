@@ -22,7 +22,7 @@ type SurfaceStyle = {
   tint: string;
 };
 const STYLES: Record<TerrainSurface, SurfaceStyle> = {
-  grass: { source: 'grass', tileMetres: 3.5, fallback: '#91a96e', tint: '#ffffff' },
+  grass: { source: 'grass', tileMetres: 3.5, fallback: '#9aad74', tint: '#ffffff' },
   // At 20 metres per tile the painted marks stay legible on mobile without
   // obvious 2-metre paving repeats or sharp pixelation close to the camera.
   // All earth surfaces share one world UV scale so roads and yards line up.
@@ -202,7 +202,10 @@ export function loadPaintedTerrainTextures(maxAnisotropy = 8): Promise<void> {
           if (STYLES[binding.surface].source === 'earth') applyLoadedTexture(binding, earth);
         }
       }),
-    loader.loadAsync('./models/environment/grass_painterly_tile.webp')
+    // Village meadow color-grade painted from the accepted Lembah Asri palette.
+    // Baked brush strokes replace neon short-period grass noise without
+    // placing dark decal patches on top of the walkable ground.
+    loader.loadAsync('./textures/terrain/village_grass_painted.webp')
       .then(texture => {
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.anisotropy = maxAnisotropy;
