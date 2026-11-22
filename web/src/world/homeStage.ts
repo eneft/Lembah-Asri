@@ -204,6 +204,7 @@ function addHomeGarden(root: THREE.Object3D, loadTexture: boolean) {
   const soil = new THREE.MeshStandardMaterial({
     map: fallbackSoil, color: '#ffffff', roughness: 1, metalness: 0, toneMapped: false
   });
+  soil.userData.terrainSurface = 'soil';
   // TextureLoader requires a browser DOM; createHomeStage(false) stays usable
   // in headless tests with the small painted-earth DataTexture above.
   if (loadTexture) {

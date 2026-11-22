@@ -63,12 +63,17 @@ test('courtyard soil, walkable paths, and raised village approach use textured l
     ['Worn central courtyard', 'soil', 2],
     ['Path from the house gate to the village', 'path', 3],
     ['House entrance footpath', 'path', 3],
-    ['Hand-shaped vegetable garden bed', 'soil', 0]
+    ['Bare hand-painted garden soil bed', 'soil', 0]
   ];
   for (const [name, surface, renderOrder] of samples) {
     const mesh = stage.root.getObjectByName(name);
     assert.ok(mesh instanceof THREE.Mesh, name);
-    assert.ok(mesh.material instanceof THREE.MeshBasicMaterial);
+    if (name === 'Bare hand-painted garden soil bed') {
+      assert.ok(mesh.material instanceof THREE.MeshStandardMaterial);
+      assert.ok(mesh.material.map instanceof THREE.Texture);
+    } else {
+      assert.ok(mesh.material instanceof THREE.MeshBasicMaterial);
+    }
     assert.equal(mesh.material.userData.terrainSurface, surface);
     if (renderOrder > 0) {
       assert.ok(mesh.material.alphaMap, name + ' must blend at patch edges');
