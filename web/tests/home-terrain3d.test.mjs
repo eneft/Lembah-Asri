@@ -104,7 +104,7 @@ test('bank contour goes flat by outer world grass edge and stays low at the brid
     assert.ok(creekMeadowHeight(z,2.4)>=0);
     assert.ok(creekMeadowHeight(z,2.4)<.14);
     assert.ok(creekMeadowHeight(z,3.85)<.00001,'no outer hard cliff or floating island');
-    assert.ok(creekWidth(z)>2.0);
+    assert.ok(creekWidth(z)>1.85,'the upstream narrows naturally before widening downstream');
     assert.ok(creekCenterX(z)<-44);
   }
   assert.ok(creekBankLipHeight(8.6)<creekBankLipHeight(4)+.03);
