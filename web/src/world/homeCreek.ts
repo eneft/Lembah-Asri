@@ -450,7 +450,7 @@ export async function loadPaintedCreekTextures(root:THREE.Object3D):Promise<bool
     // Match the bank lip to the actual meadow painting, including mirrored
     // world-UV antitiling. A failed optional load must not remove river art.
     try {
-      const meadowArt=await loader.loadAsync('./textures/terrain/village_grass_painted.webp');
+      const meadowArt=await new THREE.TextureLoader().loadAsync('./textures/terrain/village_grass_painted.webp');
       meadowArt.colorSpace=THREE.SRGBColorSpace;
       meadowArt.wrapS=meadowArt.wrapT=THREE.MirroredRepeatWrapping;
       meadowArt.anisotropy=4;
