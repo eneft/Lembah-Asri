@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makeLowPolyGrassGeometry } from './lowPolyGrass.ts';
 import { makeBroadLeafGeometry, makePaintedLeafAlbedo } from './homeArtPass.ts';
+import { applyRiverbankPainterlyShader } from './riverbankMaterial.ts';
 
 /**
  * Physically recessed VISUAL creek with painted gravel riverbed.
@@ -253,6 +254,11 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
     transparent:water||foam,opacity:water?.81:foam?.89:1,
     depthWrite:!water&&!foam
   });
+  if(side===-1||side===1){
+    // 2-scale material removes the 8-metre square repeat in the bank albedo.
+    // Material is unique to each bank, so the shader cannot touch water/foam.
+    applyRiverbankPainterlyShader(material,'earth-bank');
+  }
   const mesh=new THREE.Mesh(geo,material);
   mesh.name=water?'Shallow stream west of childhood home':bed?
     'Visible gravel bed below clear creek water':foam?
@@ -397,6 +403,12 @@ export async function loadPaintedCreekTextures(root:THREE.Object3D):Promise<bool
     waterMat.map=waterArt;
     waterMat.color.set('#ffffff');
     waterMat.needsUpdate=true;
+    // Mirrored sampling guarantees continuity at original image boundaries
+    // even though the supplied image was not authored as a seamless tile.
+    // Layered 7.7m detail and 29.3m macro UV are sampled in the bank shader.
+    bankArt.wrapT=THREE.MirroredRepeatWrapping;
+    bankArt.wrapS=THREE.ClampToEdgeWrapping;
+    bankArt.needsUpdate=true;
     for(const bank of [west,east]){
       const mat=(bank as THREE.Mesh).material as THREE.MeshBasicMaterial;
       mat.map=bankArt;

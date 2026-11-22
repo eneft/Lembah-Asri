@@ -95,8 +95,13 @@ function applyLoadedTexture(binding: Binding, source: THREE.Texture): void {
   // different UV repeat for grass, courtyard, paths and small garden plots.
   const texture = source.clone();
   const repeat = terrainTileRepeat(binding.surface, binding.width, binding.depth);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
+  // Only the sculpted grassy river shoulders receive mirrored wrapping:
+  // its painted source image has non-matching tile borders. Reflection
+  // prevents square seams while the two-scale riverbank shader breaks repeats.
+  // The world terrain/paths preserve their existing shared UV behavior.
+  const riverShoulder = binding.material.userData.riverbankPainterlyStyle === 'grassy-shoulder';
+  texture.wrapS = riverShoulder ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
+  texture.wrapT = riverShoulder ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
   // Dedicated UV1 is in metres and warped in world space; UV0 is reserved
   // for the edge mask. Independent sets prevent the mask from tiling.
   texture.channel = binding.worldUV ? 1 : 0;

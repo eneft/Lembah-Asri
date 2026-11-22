@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CREEK, creekCenterX, creekWidth, creekBankLipHeight } from './homeCreek.ts';
 import { createTerrainMaterial } from './terrainMaterials.ts';
+import { applyRiverbankPainterlyShader } from './riverbankMaterial.ts';
 
 /**
  * Sculpted grass-land transition that integrates the genuinely sunken creek
@@ -128,6 +129,14 @@ function makeContour(side:-1|1):THREE.Mesh {
   material.polygonOffset=true;
   material.polygonOffsetFactor=-1;
   material.polygonOffsetUnits=-1;
+  // Two-scale meadow UV breaks the obvious 3.5 m square repetitions right
+  // next to the river while leaving the full world grass untouched.
+  applyRiverbankPainterlyShader(material,'grassy-shoulder');
+  if(material.map){
+    material.map.wrapS=THREE.MirroredRepeatWrapping;
+    material.map.wrapT=THREE.MirroredRepeatWrapping;
+    material.map.needsUpdate=true;
+  }
   material.needsUpdate=true;
   const mesh=new THREE.Mesh(geometry,material);
   mesh.name=side===-1?'West bank sculpted meadow terrain':'East bank sculpted meadow terrain';
