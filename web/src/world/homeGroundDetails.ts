@@ -4,7 +4,7 @@ import { makeLowPolyGrassGeometry } from './lowPolyGrass.ts';
 
 /**
  * Production courtyard dressing: real low-poly grass and irregular textured
- * rocks, plus feathered world-UV soil accents. No procedural terrain height,
+ * rocks, without extra dark soil decals. No procedural terrain height,
  * no sprite/billboard substitutions, no extra Rapier colliders.
  *
  * Every placement is seeded, so builds/reloads preserve the same scene.
@@ -219,25 +219,11 @@ export function createHomeGroundDetails(): THREE.Group {
   const group = new THREE.Group();
   group.name = 'Childhood home organic ground details';
 
-  // Soft-edged soil washes dissolve the harsh rectangular courtyard boundary.
-  // They sample the existing same world-UV terrain albedo; no new photo plane.
-  const accents: Array<[number, number, number, number]> = [
-    [-41.6,  0.3, 4.5, 5.6], [-41.4, 11.7, 5.2, 4.3],
-    [-39.0, -13.1, 5.8, 3.7], [-24.9, -13.2, 5.4, 3.5],
-    [-18.7, -4.0, 5.0, 4.4], [-18.5,  4.3, 4.0, 5.0],
-    [-38.9, 13.2, 5.8, 4.1], [-25.6, 13.2, 5.0, 3.6]
-  ];
-  accents.forEach(([x, z, width, depth], i) => {
-    const plane = createPaintedTerrainPlane('soil', width, depth, x, z, 0.085 + i * 0.0001, true);
-    plane.name = 'Feathered organic courtyard soil ' + i;
-    // Replace rectangle feather with radial/irregular green-channel mask.
-    plane.material.alphaMap = makeOrganicGroundMask(i + 13);
-    plane.material.opacity = 0.46;
-    plane.material.depthWrite = false;
-    plane.material.needsUpdate = true;
-    plane.renderOrder = 4;
-    group.add(plane);
-  });
+  // Do not scatter tinted 4–6 m soil/olive overlays across the meadow.
+  // Those eight alpha-masked planes looked like large dark stains, especially
+  // beside the river and under the foliage, despite the original painted grass
+  // texture being fine. Keep ONLY the genuine hand-painted base ground and
+  // real low-poly vegetation. This applies to the WHOLE courtyard, not one spot.
 
   const grass = scatterHomeGrass();
   const blade = makeLowPolyGrassGeometry(); // shared geometry

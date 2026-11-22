@@ -66,7 +66,7 @@ test('all stone variations are true 3D instanced UV atlas meshes', () => {
   const soils = group.children.filter(child => child.name.startsWith('Feathered organic courtyard soil'));
   assert.equal(rocks.length,4,'4 shape/texture combinations');
   assert.equal(grasses.length,2,'2 color families use just 2 instanced draws');
-  assert.equal(soils.length,8);
+  assert.equal(soils.length,0,'no dark irregular soil stain overlays anywhere');
   assert.ok(rocks.every(mesh => mesh instanceof THREE.InstancedMesh && mesh.material.map instanceof THREE.DataTexture));
   assert.ok(grasses.every(mesh => mesh instanceof THREE.InstancedMesh && !mesh.castShadow));
   assert.equal(rocks.reduce((n,mesh) => n + mesh.count,0),scatterHomeStones().length);
@@ -83,12 +83,9 @@ test('all stone variations are true 3D instanced UV atlas meshes', () => {
     assert.ok(mesh.geometry.getAttribute('position').count > 8);
     assert.equal(mesh.castShadow,false);
   }
-  for (const plane of soils) {
-    assert.equal(plane.material.userData.worldUV, true);
-    assert.equal(plane.geometry.getAttribute('position').count, 4);
-    assert.ok(plane.material.transparent && !plane.material.depthWrite);
-    assert.equal(plane.material.alphaMap.image.width,64);
-  }
+  // The eight 4–6-metre tinted soil decals were the dark blobs in screenshot.
+  // Their shared generator must not put ANY of them into the returned group.
+  assert.equal(group.children.filter(c=>c.name.startsWith('Feathered organic courtyard soil')).length,0);
 });
 
 test('ground detail installation preserves existing house and well colliders', () => {
@@ -99,4 +96,23 @@ test('ground detail installation preserves existing house and well colliders', (
   assert.ok(stage.solids.find(s=>s.label==='Childhood home walls'));
   assert.ok(stage.solids.find(s=>s.label==='Old village well'));
   assert.ok(!stage.solids.some(s=>s.label.includes('ground detail')));
+});
+
+
+test('full home stage contains no irregular olive/brown soil stain planes anywhere',()=>{
+  const stage=createHomeStage(false);
+  const names=[];
+  stage.root.traverse(obj=>names.push(obj.name));
+  assert.equal(names.filter(n=>/^Feathered organic courtyard soil/.test(n)).length,0);
+  // Keep the original approved grass, paths, trees, well and two UV rock
+  // placements. Only dark decorative soil stains were removed.
+  assert.ok(stage.root.getObjectByName('Childhood courtyard - earth clearing'));
+  assert.ok(stage.root.getObjectByName('Worn central courtyard'));
+  assert.ok(stage.root.getObjectByName('Courtyard green grass clumps'));
+  assert.ok(stage.root.getObjectByName('Courtyard dry grass clumps'));
+  assert.ok(stage.root.getObjectByName('Meandering shallow creek and earthen banks'));
+  assert.ok(stage.root.getObjectByName('Old village well stone rim'));
+  assert.equal(stage.root.getObjectByName('Feathered organic courtyard soil 0'),undefined);
+  assert.equal(stage.root.getObjectByName('Feathered organic courtyard soil 7'),undefined);
+  assert.ok(stage.solids.some(c=>c.label==='Childhood home walls'));
 });
