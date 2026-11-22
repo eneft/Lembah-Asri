@@ -32,30 +32,45 @@ const BANK_FRAGMENT=[
   'bankPigment=mix(bankDetail,bankMacro,.31+.06*sin(zBank*.068+vRiverBankWorld.x*.15));',
   '#endif',
   '// Continuous grass lip, exposed middle soil, slightly damp foot.',
-  'float bankGrass=1.0-smoothstep(.045,.34,crossBank+.035*slowBank);',
-  'vec3 greenLip=vec3(.26,.37,.16);',
-  'bankPigment=mix(bankPigment,greenLip,bankGrass*.80);',
-  'float bankDamp=smoothstep(.55,.96,crossBank);',
-  'bankPigment*=mix(vec3(1.0),vec3(.81,.86,.84),bankDamp*.37);',
-  'bankPigment*=1.0+.038*slowBank;',
+  // Moss from grassy shoulder spreads unevenly down the earthen slope.
+  // No single dark line, no square decals and no repeated stamp pattern.
+  'float mossWave=.085*sin(zBank*.24+sin(zBank*.091)*1.3)',
+  ' +.045*sin(zBank*.55-vRiverBankWorld.x*.24);',
+  'float bankGrass=1.0-smoothstep(.07,.63,crossBank+mossWave);',
+  'vec3 greenLip=vec3(.46,.52,.31);',
+  'bankPigment=mix(bankPigment,greenLip,bankGrass*.58);',
+  'float bankDamp=smoothstep(.64,.97,crossBank);',
+  'bankPigment*=mix(vec3(1.0),vec3(.88,.91,.87),bankDamp*.28);',
+  'bankPigment*=1.0+.024*slowBank;',
   'diffuseColor.rgb*=bankPigment;'
 ].join('\n');
 
 const SHOULDER_FRAGMENT=[
   'vec3 paintedGrass=vec3(1.0);',
   'float grassWorld=vRiverGrassWorld.y;',
-  'float grassSlow=sin(grassWorld*.13+vRiverGrassWorld.x*.20)*sin(grassWorld*.051-vRiverGrassWorld.x*.18);',
   '#ifdef USE_MAP',
-  '// UV1 stays globally aligned, the macro sample quietly breaks rigid tiles.',
-  'vec2 uvMeadow=vMapUv;',
-  'vec2 uvBroad=vec2(uvMeadow.x*.267+.23,uvMeadow.y*.267+.41);',
-  'vec3 detailMeadow=texture2D(map,uvMeadow).rgb;',
-  'vec3 broadMeadow=texture2D(map,uvBroad).rgb;',
-  'paintedGrass=mix(detailMeadow,broadMeadow,.24);',
+  // Use EXACTLY the same sampling and gentle color wash as the main meadow.
+  // This prevents a hard texture band at the new 3D shoulder-to-ground seam.
+  'vec2 pMeadow=vRiverGrassWorld;',
+  'vec2 waveMeadow=vec2(',
+  ' .20*sin(pMeadow.y*.079+pMeadow.x*.033)',
+  ' +.11*sin(pMeadow.y*.183-pMeadow.x*.062),',
+  ' .17*sin(pMeadow.x*.094-pMeadow.y*.027)',
+  ' +.10*sin(pMeadow.x*.145+pMeadow.y*.075));',
+  'vec2 uvFine=vMapUv+waveMeadow;',
+  'vec2 uvWide=vec2(',
+  ' uvFine.x*.52-uvFine.y*.27+1.23,',
+  ' uvFine.x*.27+uvFine.y*.52+.79);',
+  'vec3 grassFine=texture2D(map,uvFine).rgb;',
+  'vec3 grassBroad=texture2D(map,uvWide).rgb;',
+  'paintedGrass=mix(grassFine,grassBroad,.41);',
+  'float colorWash=sin(pMeadow.x*.044+pMeadow.y*.031)',
+  ' *sin(pMeadow.y*.063-pMeadow.x*.022);',
+  'paintedGrass*=1.0+.022*colorWash;',
   '#endif',
-  'float innerBank=1.0-smoothstep(.08,.51,vRiverGrassAcross);',
-  'paintedGrass=mix(paintedGrass,paintedGrass*vec3(.96,.98,.91),innerBank*.16);',
-  'paintedGrass*=1.0+.031*grassSlow;',
+  // Only a faint organic green lip; never revive the deleted dark stains.
+  'float innerBank=1.0-smoothstep(.02,.44,vRiverGrassAcross);',
+  'paintedGrass=mix(paintedGrass,paintedGrass*vec3(.99,1.0,.98),innerBank*.10);',
   'diffuseColor.rgb*=paintedGrass;'
 ].join('\n');
 

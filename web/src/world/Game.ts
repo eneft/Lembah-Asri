@@ -10,6 +10,7 @@ import { keepCameraOutsideGeometry } from './cameraOcclusion';
 import { activateCharacterMotion } from './animationState';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
+import { applyMeadowAntiTileShader } from './meadowAntiTile';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
 import { createWarungStage } from './warungStage';
@@ -377,6 +378,9 @@ export class Game {
     const ground = createPaintedTerrainPlane('grass', 160, 160, 0, 0, 0);
     ground.name = 'World painted grass UV terrain';
     carveVisualCreek(ground);
+    // Break distant 3.5-m repeating grass tile grid globally, using the
+    // approved painterly albedo without adding dark overlay planes.
+    applyMeadowAntiTileShader(ground.material);
     this.scene.add(ground);
     // Preserve the painted albedo: a transparent ShadowMaterial layer catches
     // actual character, roof and tree shadows without re-lighting the texture.

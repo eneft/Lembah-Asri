@@ -58,10 +58,11 @@ test('grassy river shoulders retain UV1, alpha fade and shared meadow albedo',()
     assert.equal(mat.userData.worldUV,true);
     assert.equal(mat.userData.riverbankTwoScaleUV,true);
     const shader=compiled(mat);
-    assert.match(shader.fragmentShader,/vec2 uvMeadow=vMapUv/);
-    assert.match(shader.fragmentShader,/detailMeadow/);
-    assert.match(shader.fragmentShader,/broadMeadow/);
-    assert.match(shader.fragmentShader,/\.267/);
+    assert.match(shader.fragmentShader,/vec2 uvFine=vMapUv\+waveMeadow/);
+    assert.match(shader.fragmentShader,/grassFine/);
+    assert.match(shader.fragmentShader,/grassBroad/);
+    assert.match(shader.fragmentShader,/uvFine\.x\*\.52/);
+    assert.match(shader.fragmentShader,/paintedGrass=mix\(grassFine,grassBroad,\.41\)/);
     assert.match(shader.fragmentShader,/vRiverGrassAcross/);
     assert.equal((shader.fragmentShader.match(/texture2D\(/g)||[]).length,2);
     const uv0=mesh.geometry.getAttribute('uv');
@@ -92,4 +93,19 @@ test('shaders are composable, idempotent and do not create dark decal geometry',
   assert.ok(stage.root.getObjectByName('West wooden bridge walkway'));
   assert.ok(stage.root.getObjectByName('Painted foam breaking against mossy river boulders'));
   assert.ok(!stage.solids.some(s=>/riverbank|bank contour|water/i.test(s.label)));
+});
+
+
+test('soil-to-grass boundary changes organically without past dark moss stains',()=>{
+  const river=createHomeCreek();
+  for(const name of ['Soft west creek bank','Soft east creek bank']){
+    const mesh=river.getObjectByName(name);
+    const shader=compiled(mesh.material);
+    assert.match(shader.fragmentShader,/mossWave/);
+    assert.match(shader.fragmentShader,/greenLip=vec3\(\.46,\.52,\.31\)/);
+    assert.match(shader.fragmentShader,/bankGrass\*\.58/);
+    assert.match(shader.fragmentShader,/bankDamp\*\.28/);
+    assert.doesNotMatch(shader.fragmentShader,/greenLip=vec3\(\.26,\.37,\.16\)/,
+      'old nearly black moss lip must not return');
+  }
 });
