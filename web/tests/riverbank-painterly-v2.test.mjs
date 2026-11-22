@@ -183,6 +183,6 @@ test('house clearing paint and its alpha feather are shared by shore materials a
     assert.match(shader.fragmentShader,/uCreekHomeRect/);
     assert.match(mesh.material.customProgramCacheKey(),/shore-shared-courtyard-v5/);
   }
-  assert.equal((-43.4+29)/32+.5,.05,'the near river shoulder overlaps the home clearing');
+  assert.ok(Math.abs(((-43.4+29)/32+.5)-.05)<1e-8,'the near river shoulder overlaps the home clearing');
   assert.ok((-49+29)/32+.5<0,'far bank does not receive the home painting');
 });
