@@ -21,7 +21,7 @@ function readAsset(path){
 test('real authored village meadow, stream, banks and bridge maps ship with valid image bytes',()=>{
   for(const name of [
     'textures/terrain/village_grass_painted.webp',
-    'textures/terrain/creek_water_painted.webp',
+    'textures/terrain/creek_water_painterly_illustrated.webp',
     'textures/terrain/creek_bank_painted.webp',
     'textures/bridge/bridge_wood_painted.webp'
   ]){
@@ -39,7 +39,7 @@ test('real authored village meadow, stream, banks and bridge maps ship with vali
     assert.equal(data.readUInt32BE(16),256,name);
     assert.equal(data.readUInt32BE(20),256,name);
   }
-  assert.match(CREEK_PAINTED_TEXTURES.water,/creek_water_painted\.webp/);
+  assert.match(CREEK_PAINTED_TEXTURES.water,/creek_water_painterly_illustrated\.webp/);
   assert.match(CREEK_PAINTED_TEXTURES.bank,/creek_bank_painted\.webp/);
   assert.match(BRIDGE_TEXTURES.albedo,/bridge_wood_painted\.webp/);
   const grassSource=readFileSync(new URL('../src/world/terrainMaterials.ts',import.meta.url),'utf8');
@@ -58,7 +58,7 @@ test('creek uses physical banks with repeated real world UVs, no giant stretched
   assert.equal(scene.children.length,6);
   assert.ok(west && east && water && bed && foam && wakes);
   assert.equal(water.material.transparent,true);
-  assert.ok(water.material.opacity>.74 && water.material.opacity<.84);
+  assert.ok(water.material.opacity>.87 && water.material.opacity<.92);
   assert.equal(water.userData.sourcePaintedUV,true);
   assert.equal(west.userData.sourcePaintedUV,true);
   for(const object of [water,west,east,bed]){
@@ -142,4 +142,24 @@ test('full house scene preserves fences, gate and walkability while changing bri
   assert.ok(stage.solids.some(s=>s.label==='Childhood home walls'));
   assert.ok(!stage.solids.some(s=>s.label.startsWith('Bridge')));
   assert.ok(stage.root.getObjectByName('Painted foam breaking against mossy river boulders'));
+});
+
+
+test('generated turquoise water concept is shipped as an optimized real painted WebP map',()=>{
+  const bytes=readAsset('textures/terrain/creek_water_painterly_illustrated.webp');
+  assert.equal(bytes.subarray(0,4).toString(),'RIFF');
+  assert.equal(bytes.subarray(8,12).toString(),'WEBP');
+  assert.ok(bytes.length>20000 && bytes.length<80000,
+    'user-approved hand-painted texture is optimized for iPhone');
+  const river=createHomeCreek();
+  const water=river.getObjectByName('Shallow stream west of childhood home');
+  assert.equal(water.userData.waterAlbedo,'user-approved-painterly-turquoise-water');
+  const uv=water.geometry.getAttribute('uv');
+  assert.ok(uv.getY(0)===0,'flow starts at upstream UV origin');
+  assert.ok(uv.getY(uv.count-1)>10 && uv.getY(uv.count-1)<12,
+    'paint strokes repeat at approximately 14.5m in +Z rather than stretch 160m');
+  const foam=river.getObjectByName('Illustrated river foam and flow trails');
+  const wakes=river.getObjectByName('Painted foam breaking against mossy river boulders');
+  assert.ok(foam.material.opacity<.65,'avoid double-bright foam over painted white highlights');
+  assert.ok(wakes.material.opacity<.8);
 });

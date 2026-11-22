@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
-  CREEK, creekCenterX, creekOuterMeander, creekWidth, createHomeCreek, createHomeCreekVegetation,
+  CREEK, CREEK_WATER_UV, creekCenterX, creekOuterMeander, creekWidth, createHomeCreek, createHomeCreekVegetation,
   carveVisualCreek, updateHomeCreekWater, makeCreekAlbedo, makeCreekBedAlbedo,
   makeCreekFoamAlbedo
 } from '../src/world/homeCreek.ts';
@@ -44,7 +44,7 @@ test('clear water shows painted silt and local illustrated foam without alphaHas
   const surface=creek.getObjectByName('Shallow stream west of childhood home');
   const bed=creek.getObjectByName('Visible gravel bed below clear creek water');
   assert.equal(surface.material.transparent,true);
-  assert.ok(surface.material.opacity>.62&&surface.material.opacity<.85);
+  assert.ok(surface.material.opacity>.87&&surface.material.opacity<.92);
   assert.equal(surface.material.depthWrite,false);
   assert.notEqual(surface.material.alphaHash,true);
   assert.equal(surface.material.map,makeCreekAlbedo());
@@ -192,4 +192,25 @@ test('planted river edges reach into the distant countryside without blocking th
   }
   assert.ok(farPlants>=3,'new vegetation follows the upstream channel');
   assert.equal(giantLeaves,0,'no giant spiky leaf umbrellas on riverbank');
+});
+
+
+test('authored turquoise handpainted water scrolls downstream without changing collisions',()=>{
+  const creek=createHomeCreek();
+  const surface=creek.getObjectByName('Shallow stream west of childhood home');
+  assert.equal(CREEK_WATER_UV.longitudinalTileMetres,14.5);
+  assert.equal(CREEK_WATER_UV.flowUvUnitsPerSecond,.018);
+  assert.equal(surface.userData.waterAlbedo,CREEK_WATER_UV.albedoSource);
+  const texture=new THREE.Texture();
+  texture.wrapT=THREE.RepeatWrapping;
+  texture.wrapS=THREE.ClampToEdgeWrapping;
+  surface.material.map=texture;
+  updateHomeCreekWater(surface,10);
+  assert.ok(Math.abs(texture.offset.y+.18)<.00001,'paint strokes move with downstream current');
+  updateHomeCreekWater(surface,20);
+  assert.ok(Math.abs(texture.offset.y+.36)<.00001);
+  const foam=creek.getObjectByName('Illustrated river foam and flow trails');
+  assert.ok(foam.material.opacity<.65,'existing foam toned down above illustrated water');
+  assert.equal(surface.material.depthWrite,false);
+  assert.equal(surface.material.transparent,true);
 });

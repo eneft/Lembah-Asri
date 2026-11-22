@@ -171,7 +171,7 @@ test('creek is truly winding water with softened banks, not a rectangle', () => 
   assert.ok(water.geometry.getAttribute('position').count>=300);
   const bed=creek.getObjectByName('Visible gravel bed below clear creek water');
   assert.ok(bed instanceof THREE.Mesh,'riverbed must be real 3D below water');
-  assert.ok(water.material.transparent && water.material.opacity < .85,
+  assert.ok(water.material.transparent && water.material.opacity < .94,
     'clear water must reveal submerged riverbed');
   assert.ok(bed.material.map instanceof THREE.DataTexture);
   assert.ok(bed.geometry.boundingBox===null || bed.geometry.getAttribute('position').count>=300);
