@@ -103,7 +103,9 @@ export class ToonOutlineRenderer{
   private camera=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
   private size=new THREE.Vector2(1,1);
   private enabled=true;
-  constructor(private renderer:THREE.WebGLRenderer,mobile:boolean){
+  private renderer:THREE.WebGLRenderer;
+  constructor(renderer:THREE.WebGLRenderer,mobile:boolean){
+    this.renderer=renderer;
     const target=new THREE.WebGLRenderTarget(1,1,{
       format:THREE.RGBAFormat,type:THREE.UnsignedByteType,
       depthBuffer:true,stencilBuffer:false,
