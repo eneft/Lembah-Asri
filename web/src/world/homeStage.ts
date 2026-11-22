@@ -190,20 +190,35 @@ function makeGardenRidgeGeometry(length: number): THREE.BufferGeometry {
   return geometry;
 }
 
-function addHomeGarden(root: THREE.Object3D) {
+function addHomeGarden(root: THREE.Object3D, loadTexture: boolean) {
   const gardenCenter = HOME.garden;
   const bedLength = 8.6;
   const rows = [-2.0, -0.65, 0.7, 2.05];
-  const soilTexture = new THREE.TextureLoader().load('./textures/terrain/home_garden_soil.webp');
-  soilTexture.colorSpace = THREE.SRGBColorSpace;
-  soilTexture.wrapS = THREE.RepeatWrapping;
-  soilTexture.wrapT = THREE.ClampToEdgeWrapping;
-  soilTexture.generateMipmaps = true;
-  soilTexture.anisotropy = 8;
-  soilTexture.needsUpdate = true;
+  const fallbackPixels = new Uint8Array([
+    142, 91, 54, 255, 154, 102, 62, 255,
+    132, 84, 51, 255, 148, 95, 57, 255
+  ]);
+  const fallbackSoil = new THREE.DataTexture(fallbackPixels, 2, 2, THREE.RGBAFormat);
+  fallbackSoil.colorSpace = THREE.SRGBColorSpace;
+  fallbackSoil.needsUpdate = true;
   const soil = new THREE.MeshStandardMaterial({
-    map: soilTexture, color: '#ffffff', roughness: 1, metalness: 0, toneMapped: false
+    map: fallbackSoil, color: '#ffffff', roughness: 1, metalness: 0, toneMapped: false
   });
+  // TextureLoader requires a browser DOM; createHomeStage(false) stays usable
+  // in headless tests with the small painted-earth DataTexture above.
+  if (loadTexture) {
+    new THREE.TextureLoader().load('./textures/terrain/home_garden_soil.webp', texture => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.repeat.set(1, 1);
+      texture.generateMipmaps = true;
+      texture.anisotropy = 8;
+      soil.map = texture;
+      soil.needsUpdate = true;
+      fallbackSoil.dispose();
+    }, undefined, error => console.warn('[LembahAsri] Garden soil texture unavailable', error));
+  }
   rows.forEach((rowZ, rowIndex) => {
     const bed = new THREE.Mesh(makeGardenRidgeGeometry(bedLength), soil);
     bed.name = 'Bare hand-painted garden soil bed';
@@ -441,7 +456,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     : Promise.resolve(undefined);
 
   const fallback = buildLocalHouseFallback(root);
-  addHomeGarden(root);
+  addHomeGarden(root, loadApprovedModel);
   addShed(root);
   addWellAndFruitTree(root, loadApprovedModel);
   // Keep fallback tree while the 3D GLB downloads. Replace it with the actual
