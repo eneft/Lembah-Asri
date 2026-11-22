@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { CREEK } from './homeCreek.ts';
 
 /**
  * Curated original rocks supplied for Lembah Asri (base_basic_shaded.glb).
@@ -26,6 +27,8 @@ export type RockPlacement = Readonly<{
   size: number;
   yaw: number;
   zone: RockZone;
+  /** Portion of the original GLB height placed below water (0..1). */
+  submerge?: number;
 }>;
 /**
  * Curated natural clusters, no tiny scattered pebbles or stone border.
@@ -34,24 +37,24 @@ export type RockPlacement = Readonly<{
  */
 export const selectedHomeRocks: readonly RockPlacement[] = [
   // Upstream: isolated rounded boulder and a smaller partner.
-  { type:'mossy',x:-47.31,z:-3.08,size:1.15,yaw:.38,zone:'stream' },
+  { type:'mossy',x:-47.10,z:-3.08,size:1.15,yaw:.38,zone:'stream',submerge:.28 },
   { type:'mossy',x:-47.78,z:-2.21,size:.57,yaw:1.25,zone:'stream' },
 
   // Bend near the well: clustered, not evenly spaced stones.
-  { type:'mossy',x:-43.70,z:.78,size:1.27,yaw:1.88,zone:'stream' },
+  { type:'mossy',x:-43.92,z:.78,size:1.27,yaw:1.88,zone:'stream',submerge:.33 },
   { type:'mossy',x:-43.25,z:1.67,size:.65,yaw:2.36,zone:'stream' },
-  { type:'mossy',x:-47.31,z:4.42,size:1.06,yaw:1.52,zone:'stream' },
+  { type:'mossy',x:-47.05,z:4.42,size:1.06,yaw:1.52,zone:'stream',submerge:.20 },
   { type:'mossy',x:-43.75,z:5.94,size:.72,yaw:2.80,zone:'stream' },
 
   // Bridge remains clear. Immediately downstream a second natural cluster.
-  { type:'mossy',x:-47.35,z:11.86,size:1.10,yaw:.43,zone:'stream' },
+  { type:'mossy',x:-47.08,z:11.86,size:1.10,yaw:.43,zone:'stream',submerge:.30 },
   { type:'mossy',x:-47.79,z:12.69,size:.56,yaw:2.14,zone:'stream' },
-  { type:'mossy',x:-43.83,z:14.91,size:1.24,yaw:2.88,zone:'stream' },
+  { type:'mossy',x:-43.92,z:14.91,size:1.24,yaw:2.88,zone:'stream',submerge:.37 },
   { type:'mossy',x:-43.25,z:15.78,size:.65,yaw:.34,zone:'stream' },
 
   // Downstream: progressively fewer rocks, flow becomes open.
-  { type:'mossy',x:-47.30,z:18.31,size:.84,yaw:1.90,zone:'stream' },
-  { type:'mossy',x:-43.71,z:22.05,size:1.15,yaw:.98,zone:'stream' },
+  { type:'mossy',x:-47.07,z:18.31,size:.84,yaw:1.90,zone:'stream',submerge:.26 },
+  { type:'mossy',x:-43.75,z:22.05,size:1.15,yaw:.98,zone:'stream',submerge:.29 },
 
   // Plain rocks only on dry ground; never inside water or in front of stairs.
   { type:'plain',x:-40.63,z:2.51,size:.59,yaw:.67,zone:'well' },
@@ -146,7 +149,13 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
     for(let i=0;i<placements.length;i++){
       const p=placements[i];
       const scale = p.size / nativeFootprint;
-      instance.position.set(p.x, p.zone==='stream' ? -.027 : .022, p.z);
+      // Authored GLB is grounded at minY = 0. Lower only selected mossy
+      // stones into real creek water while retaining their visible upper mass.
+      const submerged=p.zone==='stream' && p.submerge!==undefined;
+      instance.position.set(p.x,
+        submerged ? CREEK.waterY-dimensions.y*scale*p.submerge! :
+          p.zone==='stream' ? -.027 : .022,
+        p.z);
       instance.rotation.set(0,p.yaw,0);
       instance.scale.setScalar(scale);
       instance.updateMatrix();
@@ -164,6 +173,7 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
   if (total !== selectedHomeRocks.length) {
     throw new Error('Original rock pack placement count mismatch: ' + total);
   }
+  group.userData.partiallySubmergedRocks=selectedHomeRocks.filter(p=>p.submerge!==undefined).length;
   return group;
 }
 
