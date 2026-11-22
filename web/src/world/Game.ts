@@ -456,7 +456,13 @@ export class Game {
       { x: 24, z: -28, height: 4.0, yaw: 0.7, seed: 442 },
       { x: -7, z: -30, height: 3.4, yaw: 2.8, seed: 559 },
       { x: 29, z: 14, height: 3.8, yaw: 1.7, seed: 667 },
-      { x: -31, z: -22, height: 4.5, yaw: 0.9, seed: 773 }
+      { x: -31, z: -22, height: 4.5, yaw: 0.9, seed: 773 },
+      // Sparse 3D tree silhouettes frame the distant creek, breaking the
+      // huge featureless field without fencing in the village or touching
+      // the playable house/road. Reuse the same UV tree source and shader.
+      { x: -57, z: -42, height: 4.6, yaw: 2.4, seed: 831 },
+      { x: -60, z: -28, height: 3.7, yaw: 0.6, seed: 907 },
+      { x: -34, z: -39, height: 4.0, yaw: 1.5, seed: 991 }
     ];
     let source: THREE.Group | undefined;
     try {

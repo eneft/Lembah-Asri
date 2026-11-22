@@ -21,8 +21,19 @@ export const CREEK_PAINTED_TEXTURES=Object.freeze({
   bank:'./textures/terrain/creek_bank_painted.webp'
 });
 
+/**
+ * Distinctive shallow S-curves in the open countryside, while the childhood
+ * garden, bamboo fence and bridge retain their original exact footprint.
+ */
+export function creekOuterMeander(z:number):number{
+  const farUpstream=1-THREE.MathUtils.smoothstep(z,-28,-12);
+  const farDownstream=THREE.MathUtils.smoothstep(z,27,43);
+  const strength=Math.max(farUpstream,farDownstream);
+  return strength*(1.25*Math.sin(z*.085+.63)+.4*Math.sin(z*.19-.4));
+}
 export function creekCenterX(z:number):number{
-  return -45.5+.12*Math.sin(z*.37+.2)+.09*Math.sin(z*.82-.7);
+  return -45.5+.12*Math.sin(z*.37+.2)+.09*Math.sin(z*.82-.7)
+    +creekOuterMeander(z);
 }
 export function creekWidth(z:number):number{
   // Narrower at the upstream source; progressively opens towards the mouth.
@@ -54,7 +65,10 @@ export function carveVisualCreek<T extends THREE.Mesh>(mesh:T):T{
     const fragmentCut=[
       'float zC=vCreekWorldXZ.y;',
       'if(zC>=-79.5&&zC<=79.5){',
-      ' float xC=-45.5+.12*sin(zC*.37+.2)+.09*sin(zC*.82-.7);',
+      // Keep the flat terrain cutout identical to the CPU river geometry.
+      ' float envelope=max(1.0-smoothstep(-28.0,-12.0,zC),smoothstep(27.0,43.0,zC));',
+      ' float farBend=envelope*(1.25*sin(zC*.085+.63)+.4*sin(zC*.19-.4));',
+      ' float xC=-45.5+.12*sin(zC*.37+.2)+.09*sin(zC*.82-.7)+farBend;',
       ' float halfC=.5*(2.64+.010*(zC+4.5)+.13*sin(zC*.29+.8)+.07*cos(zC*.69-.3));',
       ' if(abs(vCreekWorldXZ.x-xC)<halfC+.73)discard;',
       '}'
@@ -448,9 +462,14 @@ export function createHomeCreekVegetation(): THREE.Group {
   const root=new THREE.Group();
   root.name='Curated creek bank reeds and leafy clumps';
   const bankGroups: ReadonlyArray<readonly [number,-1|1,number]>=[
+    // Groups continue into the background, framing the stream's origin.
+    // Alternating shores create asymmetric, organic planted reaches.
+    [-43,-1,.68],[-37,1,.60],[-28,-1,.81],[-21,1,.74],
+    [-14,-1,.78],[-8,1,.61],
     [-3.0,-1,1.0],[.9,1,1.08],[4.3,-1,1.05],
     [6.1,1,.72],[11.9,-1,.98],[14.8,1,1.15],
-    [18.2,-1,.9],[21.0,1,1.2],[23.1,-1,.78]
+    [18.2,-1,.9],[21.0,1,1.2],[23.1,-1,.78],
+    [33,1,.66],[42,-1,.57]
   ];
   let state=161123;
   const rng=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
@@ -471,7 +490,7 @@ export function createHomeCreekVegetation(): THREE.Group {
       const zz=z+(rng()-.5)*1.25;
       const x=creekCenterX(zz)+side*(creekWidth(zz)/2+.83+.44*rng());
       shrubs.push({
-        x,z:zz,scale:.63+rng()*.63,
+        x,z:zz,scale:.43+rng()*.40,
         yaw:rng()*Math.PI*2,tint:rng()
       });
     }

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
-  CREEK, creekCenterX, creekWidth, createHomeCreek,
+  CREEK, creekCenterX, creekOuterMeander, creekWidth, createHomeCreek, createHomeCreekVegetation,
   carveVisualCreek, updateHomeCreekWater, makeCreekAlbedo, makeCreekBedAlbedo,
   makeCreekFoamAlbedo
 } from '../src/world/homeCreek.ts';
@@ -143,4 +143,53 @@ test('foam follows downstream direction without modifying character movement',()
   assert.ok(Math.max(...[creekWidth(-50),creekWidth(0),creekWidth(50)])>3);
   assert.equal(floor.userData.depthProfile,'3D-bank-to-bed-0.65m');
   assert.ok(!creek.children.some(child=>child.name.includes('kerikil')));
+});
+
+
+test('countryside river meanders while the house fence, bridge and creek hole remain aligned',()=>{
+  // Keep the original exact river footprint through the built home.
+  for(const z of [-12,-4,0,8.6,14,23,27]){
+    assert.ok(Math.abs(creekOuterMeander(z))<1e-10,
+      'garden creek must not move the approved bridge/fence');
+    const oldCenter=-45.5+.12*Math.sin(z*.37+.2)+.09*Math.sin(z*.82-.7);
+    assert.ok(Math.abs(creekCenterX(z)-oldCenter)<1e-9);
+  }
+  assert.ok(Math.abs(creekOuterMeander(-35))>.25,
+    'river must actually bend in its scenic background');
+  assert.ok(Math.abs(creekOuterMeander(54))>.25,
+    'downstream river is not a 160m ruler-straight canal');
+  // Outer meander added to BOTH the geometry and the ground cutout shader.
+  const grass=new THREE.Mesh(new THREE.PlaneGeometry(10,10),
+    new THREE.MeshBasicMaterial());
+  carveVisualCreek(grass);
+  const shader={vertexShader:'#include <begin_vertex>',
+    fragmentShader:'#include <clipping_planes_fragment>',uniforms:{}};
+  grass.material.onBeforeCompile(shader,{});
+  assert.match(shader.fragmentShader,/farBend=envelope\*/);
+  assert.match(shader.fragmentShader,/smoothstep\(-28\.0,-12\.0,zC\)/);
+  assert.match(shader.fragmentShader,/smoothstep\(27\.0,43\.0,zC\)/);
+  assert.match(shader.fragmentShader,/xC=-45\.5.*\+farBend/);
+});
+
+test('planted river edges reach into the distant countryside without blocking the bridge',()=>{
+  const greenery=createHomeCreekVegetation();
+  assert.equal(greenery.name,'Curated creek bank reeds and leafy clumps');
+  assert.ok(greenery.userData.clusters>=16);
+  const grass=greenery.getObjectByName('Stream clustered bank grasses');
+  const leaves=greenery.getObjectByName('Stream broadleaf foliage clusters');
+  assert.ok(grass instanceof THREE.InstancedMesh);
+  assert.ok(leaves instanceof THREE.InstancedMesh);
+  assert.ok(grass.count>70);
+  assert.ok(leaves.count>20);
+  const world=new THREE.Matrix4(),pos=new THREE.Vector3();
+  let farPlants=0,giantLeaves=0;
+  for(let i=0;i<leaves.count;i++){
+    leaves.getMatrixAt(i,world);
+    pos.setFromMatrixPosition(world);
+    if(pos.z<-25)farPlants++;
+    const sc=new THREE.Vector3().setFromMatrixScale(world);
+    if(sc.x>.90)giantLeaves++;
+  }
+  assert.ok(farPlants>=3,'new vegetation follows the upstream channel');
+  assert.equal(giantLeaves,0,'no giant spiky leaf umbrellas on riverbank');
 });

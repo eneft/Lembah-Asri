@@ -32,8 +32,9 @@ export function isFrontFoundationExclusionZone(x: number, z: number): boolean {
 }
 
 const tallPlants: ReadonlyArray<readonly [number, number, number]> = [
-  [-41.75, -13.12, 2.05], [-25.33, -12.99, 1.67],
-  [-41.35, -7.30, 1.46]
+  // Make tropical fans supporting details, not oversized flat green umbrellas.
+  [-41.75, -13.12, 1.65], [-25.33, -12.99, 1.38],
+  [-41.35, -7.30, 1.23]
 ];
 
 type StonePoint = {
@@ -114,12 +115,14 @@ export function makeBroadLeafGeometry(): THREE.BufferGeometry {
   function vertex(angle: number, leaf: number, t: number, side: -1 | 0 | 1): LeafVertex {
     const dx = Math.cos(angle), dz = Math.sin(angle);
     const sx = -dz, sz = dx;
-    const length = 0.60 + (leaf % 3) * 0.045;
+    // Unequal slender leaves prevent every clump reading as a radial star.
+    const length = 0.50 + (leaf % 4) * 0.052;
     const radius = length * t;
     // The blade rises from its stem, then arches downward at its tapered tip.
-    const height = 0.07 + 0.53 * Math.sin(Math.PI * t * 0.87) + 0.065 * t
-      + (leaf % 2) * 0.025;
-    const width = (0.009 + 0.115 * Math.sin(Math.PI * t)) * side;
+    const height = 0.06 + 0.49 * Math.sin(Math.PI * t * 0.89) + 0.065 * t
+      + (leaf % 3) * 0.019;
+    const width = (0.006 + (0.080 + (leaf % 3) * .013) *
+      Math.sin(Math.PI * t)) * side;
     const ridge = side === 0 ? 0.025 * Math.sin(Math.PI * t) : 0;
     return {
       p: [dx * radius + sx * width, height + ridge, dz * radius + sz * width],
