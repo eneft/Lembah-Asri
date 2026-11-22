@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /**
- * Riverbank Painterly V2.
+ * Riverbank Painterly V4: visible grass-to-wet-soil ecotone.
  * The previous image repeated every 8 metres with visible hard square edges.
  * This is TWO independently scaled samples of the existing approved albedo,
  * macro colour variations, and a continuous soil/grass/wet cross-section.
@@ -10,8 +10,8 @@ import * as THREE from 'three';
  */
 export const RIVERBANK_PAINT=Object.freeze({
   detailMetres:7.7,macroMetres:29.3,
-  grassyEdgeWidth:.34,wetEdgeStart:.55,imageSamples:2,
-  shaderVersion:'riverbank-painterly-meadow-weld-v3'
+  grassyEdgeWidth:.84,wetEdgeStart:.55,imageSamples:2,
+  shaderVersion:'riverbank-visible-ecotone-v4'
 });
 
 type RiverMaterialStyle='earth-bank'|'grassy-shoulder';
@@ -56,10 +56,14 @@ const BANK_FRAGMENT=[
   'float bankDamp=smoothstep(.64,.97,crossBank);',
   'bankPigment*=mix(vec3(1.0),vec3(.88,.91,.87),bankDamp*.28);',
   'bankPigment*=1.0+.024*slowBank;',
-  '// Weld colour at the existing geometric seam to the world grass atlas.',
-  '// The bank keeps its own earthen texture below the narrow green rim.',
-  'float lipMatch=1.0-smoothstep(.035,.34,crossBank);',
-  'if(uRiverMeadowLoaded>.5 && lipMatch>.001){',
+  '// This bank rises above the water for about half its cross section.',
+  '// The old .34-wide lip weld coloured only the hidden crest: the visible',
+  '// part remained a uniformly brown stripe. Extend the real meadow over',
+  '// the exposed upper slope, irregularly feathering into damp bank soil.',
+  'float edgeFlow=.085*sin(zBank*.43+.5*sin(zBank*.14))',
+  '  +.047*sin(zBank*1.34-vRiverBankWorld.x*.21);',
+  'float meadowCover=1.0-smoothstep(.42,.84,crossBank+edgeFlow);',
+  'if(uRiverMeadowLoaded>.5 && meadowCover>.001){',
   '  vec2 pMeadow=vRiverBankWorld;',
   '  vec2 waveMeadow=vec2(',
   '    .20*sin(pMeadow.y*.079+pMeadow.x*.033)+.11*sin(pMeadow.y*.183-pMeadow.x*.062),',
@@ -73,7 +77,7 @@ const BANK_FRAGMENT=[
   '  float colorWash=sin(pMeadow.x*.044+pMeadow.y*.031)',
   '    *sin(pMeadow.y*.063-pMeadow.x*.022);',
   '  meadowPigment*=1.0+.022*colorWash;',
-  '  bankPigment=mix(bankPigment,meadowPigment,lipMatch);',
+  '  bankPigment=mix(bankPigment,meadowPigment,meadowCover);',
   '}',
   'diffuseColor.rgb*=bankPigment;'
 ].join('\n');
