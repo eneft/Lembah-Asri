@@ -49,6 +49,8 @@ jobs:
         run: node --test tests/painted-tree-glb.test.mjs
       - name: Verify volumetric UV-painted tree foliage and bark in actual 3D game
         run: node --experimental-strip-types --test tests/painted-trees.test.mjs
+      - name: Verify actual 3D creek terrain geometry, seamless UV and protected walkways
+        run: node --experimental-strip-types --test tests/home-terrain3d.test.mjs
       - name: Verify painterly terrain, deep riverbanks, wood bridge UV and foam assets
         run: node --experimental-strip-types --test tests/painterly-landscape.test.mjs
       - name: Verify reference-derived bamboo PBR atlas and 3D UV fence geometry

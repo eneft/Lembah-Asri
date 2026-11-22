@@ -8,6 +8,7 @@ import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
+import { createSculptedCreekMeadow } from './homeTerrain3D.ts';
 import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
 
@@ -331,8 +332,12 @@ function addWoodenFence(
 }
 
 function addStreamAndBridge(root: THREE.Object3D) {
+  // Organic, genuinely sculpted 3D grassy shoulders merge into the entire
+  // world meadow. Exact crest vertices meet the recessed creek geometry.
+  // This replaces a straight brown ribbon without altering world physics.
+  root.add(createSculptedCreekMeadow());
   // Sunken real cross-section, UV-painted riverbed + flowing translucent water.
-  // The large visual grass/shadow planes must also be carved to see below Y=0.
+  // The flat world grass/shadow planes are already cut only inside this channel.
   root.add(createHomeCreek());
   // Dense growth only around the major stone clusters, never on the bridge.
   root.add(createHomeCreekVegetation());

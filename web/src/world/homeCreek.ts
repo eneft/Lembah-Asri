@@ -30,6 +30,16 @@ export function creekWidth(z:number):number{
     +.07*Math.cos(z*.69-.3);
 }
 
+/** Shared exact inner bank-crest height for both the organic terrain
+ * shoulders and the excavated cross-section. The bridge ramp stays modest.
+ * Geometry is actual 3D, not a dark overlay on the original flat meadow. */
+export function creekBankLipHeight(z:number):number{
+  const raw=.081+.016*Math.sin(z*.51+.4)+.010*Math.sin(z*1.19-.3);
+  const crossing=THREE.MathUtils.smoothstep(z,6.25,7.35)
+    *(1-THREE.MathUtils.smoothstep(z,9.85,10.95));
+  return THREE.MathUtils.clamp(raw*(1-.64*crossing),.026,.118);
+}
+
 /** Remove waterway pixels from flat visual ground AND shadow receiver.
  * Otherwise a real sub-zero river is hidden by the original 160m grass plane.
  */
@@ -175,7 +185,7 @@ export function makeCreekFoamAlbedo():THREE.DataTexture {
 
 function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
   const positions:number[]=[],uvs:number[]=[],colors:number[]=[],indices:number[]=[];
-  const segments=284,levels=(side===0||side===3)?6:side===2?4:5;
+  const segments=284,levels=(side===0||side===3)?6:side===2?4:7;
   for(let i=0;i<=segments;i++){
     const t=i/segments,z=CREEK.start+(CREEK.end-CREEK.start)*t;
     const center=creekCenterX(z),half=creekWidth(z)/2;
@@ -196,18 +206,24 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
         // shallow natural undulation, exposed soil and a damp darker foot.
         // The painted cross-section UV controls soil/moss color instead of
         // baking a uniform brown strip into the geometry.
+        const lip=creekBankLipHeight(z);
         const rings=[
-          {dist:.79,y:.029,color:[1,1,1]},
-          {dist:.67,y:.036,color:[1,1,1]},
-          {dist:.42,y:-.087,color:[.98,.98,.98]},
-          {dist:.12,y:-.415,color:[.92,.94,.94]},
-          {dist:-.30,y:CREEK.bedY,color:[.85,.87,.88]}
+          // First ring EXACTLY matches the sculpted grassy terrace;
+          // no micro-noise here or seams would open between the meshes.
+          {dist:.79,y:lip,color:[1,1,1]},
+          {dist:.69,y:lip*.79,color:[1,1,1]},
+          {dist:.53,y:-.045,color:[.98,.98,.98]},
+          {dist:.32,y:-.18,color:[.94,.95,.95]},
+          {dist:.11,y:-.35,color:[.89,.91,.92]},
+          {dist:-.10,y:-.52,color:[.86,.88,.89]},
+          {dist:-.30,y:CREEK.bedY,color:[.82,.85,.86]}
         ];
         const ring=rings[j];
-        const microEdge=.022*Math.sin(z*2.37+j*1.17)
-          +.019*Math.sin(z*4.03+j*.69);
-        x=center+side*(half+ring.dist+(j<3?microEdge:0));
-        y=ring.y+(j<3?.012*Math.sin(z*1.54+j):0);
+        const microEdge=j===0?0:
+          (.028*Math.sin(z*2.37+j*1.17)
+          +.019*Math.sin(z*4.03+j*.69));
+        x=center+side*(half+ring.dist+microEdge);
+        y=ring.y+(j>0&&j<5?.011*Math.sin(z*1.54+j):0);
         color=ring.color as [number,number,number];
       }
       positions.push(x,y,z);
@@ -457,7 +473,7 @@ export function createHomeCreekVegetation(): THREE.Group {
   reedMesh.name='Stream clustered bank grasses';
   for(let i=0;i<reeds.length;i++){
     const p=reeds[i];
-    instance.position.set(p.x,.052,p.z);
+    instance.position.set(p.x,Math.max(.052,creekBankLipHeight(p.z)*.92),p.z);
     instance.rotation.set(0,p.yaw,0);
     instance.scale.setScalar(p.scale);
     instance.updateMatrix();
@@ -477,7 +493,7 @@ export function createHomeCreekVegetation(): THREE.Group {
   leafMesh.name='Stream broadleaf foliage clusters';
   for(let i=0;i<shrubs.length;i++){
     const p=shrubs[i];
-    instance.position.set(p.x,.045,p.z);
+    instance.position.set(p.x,Math.max(.045,creekBankLipHeight(p.z)*.85),p.z);
     instance.rotation.set(0,p.yaw,0);
     instance.scale.setScalar(p.scale);
     instance.updateMatrix();
