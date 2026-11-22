@@ -1,10 +1,21 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createTerrainMaterial, createPaintedTerrainPlane, makeTerrainEdgeMask, type TerrainSurface } from './terrainMaterials.ts';
+import { createHomeGroundDetails } from './homeGroundDetails.ts';
+import { createHouseGroundTransition, featherMergedHouseGround, createHouseContactShadow } from './houseTerrainSeam.ts';
+import { createHomeArtPass } from './homeArtPass.ts';
+import { createPaintedStoryTree } from './paintedTrees.ts';
+import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
+import { attachCuratedHomeRocks } from './homeRocks.ts';
+import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
+import { createSculptedCreekMeadow } from './homeTerrain3D.ts';
+import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
+import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
  * Coordinates are metres, Y=0 is the walking floor, and the front door faces +Z.
+ * A restored village vegetable garden now sits beside the player's childhood home.
  */
 export const HOME = {
   // Option B: ~74% larger linear footprint than the previously rendered
@@ -309,42 +320,90 @@ function addShed(root: THREE.Object3D) {
   }
 }
 
-/** Atlas bands contain wall courses, coping stones, timber grain and end grain. */
+/** 
+ * One hand-painted UV atlas, with *separate* stone and timber surfaces.
+ * Stone occupies atlas pixels y=0..255, wood grain/end grain y=256..511.
+ * Keep the actual masonry/wood as 3D meshes; no billboard or PBR re-lighting.
+ */
 function addStoneWell(root: THREE.Object3D, loadTexture: boolean) {
-  const stone = mat('#999887');
-  const timber = mat('#966d49');
-  const inner = mat('#696e65');
-  const materials = [stone, timber, inner];
+  const wellMat = (color: string, surface: 'stone' | 'coping' | 'inner-stone' | 'timber') => {
+    const material = new THREE.MeshBasicMaterial({
+      color, toneMapped: false, vertexColors: surface !== 'timber'
+    });
+    material.userData.wellSurface = surface;
+    return material;
+  };
+  const stone = wellMat('#999887', 'stone');
+  const coping = wellMat('#a9a693', 'coping');
+  const inner = wellMat('#696e65', 'inner-stone');
+  const timber = wellMat('#966d49', 'timber');
+
   if (loadTexture) {
     new THREE.TextureLoader().load('./textures/props/well.webp', texture => {
       texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = 4;
-      for (const material of materials) {
+      texture.wrapS = THREE.RepeatWrapping; // continuous courses at the ring seam
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.anisotropy = 8;
+      for (const material of [stone, coping, inner, timber]) {
         material.map = texture;
-        material.color.set(material === inner ? '#92988e' : '#ffffff');
+        // The atlas is already painted/shaded. Preserve its original albedo,
+        // with a darker well interior and slightly warmer capstones.
+        material.color.set(
+          material === inner ? '#a3a49a' :
+          material === coping ? '#f5f0e5' : '#ffffff'
+        );
         material.needsUpdate = true;
       }
     }, undefined, error => console.warn('[LembahAsri] Well texture unavailable', error));
   }
 
-  // Separate UV bands let the coping wrap inward over the lip of the opening.
-  function masonryBand(name: string, profile: number[][], pixels: number[], material: THREE.Material) {
+  // Each course samples only the stone half of the atlas. The vertex tint is
+  // baked color variation (not dynamic lighting) and keeps the stones organic.
+  function masonryBand(
+    name: string, profile: number[][], pixelRows: number[],
+    material: THREE.MeshBasicMaterial
+  ) {
     const geometry = new THREE.LatheGeometry(
       profile.map(([radius, height]) => new THREE.Vector2(radius, height)), 32
     );
     const uv = geometry.getAttribute('uv');
+    const position = geometry.getAttribute('position');
+    const colors = new Float32Array(uv.count * 3);
+    const isInner = material === inner;
     for (let i = 0; i < uv.count; i++) {
-      uv.setY(i, 1 - pixels[i % profile.length] / 512);
+      const angle = uv.getX(i) * Math.PI * 2;
+      // Leave a clear buffer from the wood region to avoid brown mip bleeding
+      // into capstones, especially at third-person camera distances.
+      uv.setY(i, 1 - pixelRows[i % profile.length] / 512);
+      const variation = Math.sin(angle * 7 + 0.8) * 0.012
+        + Math.sin(angle * 11 - 0.4) * 0.007;
+      if (!isInner) {
+        const radius = Math.hypot(position.getX(i), position.getZ(i));
+        if (radius > 0.01) {
+          const scale = (radius + variation) / radius;
+          position.setXYZ(i, position.getX(i) * scale, position.getY(i), position.getZ(i) * scale);
+        }
+      }
+      const shade = Math.max(0.88, Math.min(1,
+        0.955 + 0.027 * Math.sin(angle * 7 + 1.1)
+        + 0.016 * Math.cos(angle * 11 - 0.6)
+        + (material === coping ? 0.018 : 0)));
+      colors[i * 3] = shade;
+      colors[i * 3 + 1] = shade * 0.992;
+      colors[i * 3 + 2] = shade * 0.978;
     }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.computeVertexNormals();
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = name;
     mesh.position.set(HOME.well.x, 0, HOME.well.z);
+    mesh.castShadow = true;
     root.add(mesh);
   }
-  masonryBand('Old village well stone rim', [[0.9, 0], [0.85, 0.68]], [191, 1], stone);
+  masonryBand('Old village well stone rim', [[0.9, 0], [0.85, 0.68]], [190, 3], stone);
   masonryBand('Well coping stones', [[0.85, 0.68], [0.89, 0.71], [0.87, 0.79],
-    [0.84, 0.81], [0.65, 0.81], [0.62, 0.77]], [254, 246, 233, 226, 199, 193], stone);
-  masonryBand('Inner well masonry', [[0.62, 0.77], [0.62, 0.13]], [1, 191], inner);
+    [0.84, 0.81], [0.65, 0.81], [0.62, 0.77]], [238, 232, 225, 218, 201, 194], coping);
+  masonryBand('Inner well masonry', [[0.62, 0.77], [0.62, 0.13]], [3, 189], inner);
   cylinder(root, 'Well opening', 0.625, 0.625, 0.02,
     [HOME.well.x, 0.14, HOME.well.z], mat('#364c50'), 32);
 
@@ -355,8 +414,10 @@ function addStoneWell(root: THREE.Object3D, loadTexture: boolean) {
       const face = Math.floor(i / 4);
       const end = face === 2 || face === 3;
       const side = [0, 2, 0, 0, 1, 3][face];
+      // Long-grain follows the beam; short end faces use the concentric rings
+      // on the right of the timber atlas. Stay clear of stone/wood seam.
       const u = end ? 0.63 + uv.getX(i) * 0.24 : (side + uv.getX(i) * 0.98) / 8;
-      uv.setXY(i, u, 0.008 + uv.getY(i) * 0.483);
+      uv.setXY(i, u, 0.03 + uv.getY(i) * 0.44);
     }
     return mesh;
   }
@@ -368,26 +429,14 @@ function addStoneWell(root: THREE.Object3D, loadTexture: boolean) {
 
 function addWellAndFruitTree(root: THREE.Object3D, loadTexture: boolean) {
   addStoneWell(root, loadTexture);
-  const wood = mat('#806349');
-  // A simple local fruit tree is a separate real-geometry prop (not an image billboard).
-  const tree = new THREE.Group();
+  // Actual stylized 3D tree with a UV-painted wood trunk and layered,
+  // individually shaped textured leaves. No untextured ico-sphere crown.
+  const tree = createPaintedStoryTree({
+    kind: 'orchard', seed: 210917, height: 3.65
+  });
   tree.name = 'Old fruit tree';
   tree.position.set(-40, 0, 8.3);
   root.add(tree);
-  cylinder(tree, 'Fruit tree trunk', 0.22, 0.32, 2.55, [0, 1.27, 0], wood, 7);
-  for (const [x, y, z, radius] of [
-    [-0.78, 3.16, 0.1, 1.2], [0.65, 3.4, 0.13, 1.35],
-    [0, 3.8, -0.45, 1.2], [0.12, 2.95, 0.75, 1.12]
-  ]) {
-    const crown = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(radius, 1),
-      mat(y > 3.6 ? '#6e8f64' : '#7b9b70')
-    );
-    crown.name = 'Handpainted-style fruit tree crown';
-    crown.position.set(x, y, z);
-    crown.castShadow = true;
-    tree.add(crown);
-  }
 }
 
 function addWoodenFence(
@@ -395,17 +444,9 @@ function addWoodenFence(
   x: number, z: number, length: number, direction: 'x' | 'z'
 ) {
   if (length < 0.6) return;
-  const timber = mat('#907352');
-  const size: [number, number, number] =
-    direction === 'x' ? [length, 0.16, 0.12] : [0.12, 0.16, length];
-  for (const y of [0.69, 1.18]) box(root, label + ' timber rails', size, [x, y, z], timber);
-  const postCount = Math.max(2, Math.ceil(length / 2.1) + 1);
-  for (let i = 0; i < postCount; i++) {
-    const delta = -length / 2 + (length * i) / (postCount - 1);
-    const px = x + (direction === 'x' ? delta : 0);
-    const pz = z + (direction === 'z' ? delta : 0);
-    box(root, label + ' fence post', [0.15, 1.48, 0.15], [px, 0.74, pz], timber);
-  }
+  // Real 3D bamboo, four UV islands and a matte non-metal PBR material.
+  // Keep the original fence footprint and gap/physics exactly unchanged.
+  root.add(createUVBambooFence(label,x,z,length,direction));
   solids.push({
     label,
     center: [x, 0.77, z],
@@ -414,29 +455,20 @@ function addWoodenFence(
 }
 
 function addStreamAndBridge(root: THREE.Object3D) {
-  const stream = floorPatch(root, 'Shallow stream west of childhood home',
-    2.6, 29, -45.5, 10, '#73b3b1', 0.012);
-  stream.material.depthWrite = true;
-  const stones = mat('#92978a');
-  for (let i = 0; i < 26; i++) {
-    const z = -4 + i * 1.06;
-    for (const side of [-1, 1]) {
-      const rock = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(0.23 + (i % 3) * 0.07, 0), stones
-      );
-      rock.name = 'Stream bank stone';
-      rock.scale.set(1.3, 0.45, 0.75);
-      rock.position.set(-45.5 + side * 1.48, 0.11, z);
-      root.add(rock);
-    }
-  }
-  // A western connector bridge; no decorative 'floating island' boundary.
-  box(root, 'West wooden bridge walkway', [5.1, 0.2, 2.4], [-45.5, 0.18, 8.6], mat('#9d7751'));
-  for (const z of [7.5, 9.7]) {
-    for (const x of [-47.7, -43.3]) {
-      box(root, 'Bridge timber rail post', [0.13, 0.86, 0.13], [x, 0.66, z], mat('#73563c'));
-    }
-  }
+  // Organic, genuinely sculpted 3D grassy shoulders merge into the entire
+  // world meadow. Exact crest vertices meet the recessed creek geometry.
+  // This replaces a straight brown ribbon without altering world physics.
+  root.add(createSculptedCreekMeadow());
+  // Sunken real cross-section, UV-painted riverbed + flowing translucent water.
+  // The flat world grass/shadow planes are already cut only inside this channel.
+  root.add(createHomeCreek());
+  // Dense growth only around the major stone clusters, never on the bridge.
+  root.add(createHomeCreekVegetation());
+  // No fallback row of 52 plain stones. Only the two selected UV GLB rock
+  // types are displayed, with natural scale variation.
+  // 12 separate real UV wooden boards, support beams, posts and joinery.
+  // The crossing location/size stays identical to preserve level navigation.
+  root.add(createPaintedWoodenBridge());
 }
 
 /**
@@ -452,7 +484,9 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
 
   // A worn earth yard and soft meadow edge connect the homestead directly
   // to the existing village, without a floating island/cliff edge.
-  const clearing = floorPatch(root, 'Childhood courtyard - earth clearing', 32, 29, -29, 0.4, '#ac9575', 0.028, 'earth', true);
+  const clearing = carveVisualCreek(floorPatch(root,
+    'Childhood courtyard - earth clearing', 32, 29, -29, 0.4,
+    '#ac9575', 0.028, 'earth', true));
   const worn = floorPatch(root, 'Worn central courtyard', 15, 12, -29, 5.2, '#b7a07c', 0.052, 'soil', true);
   floorPatch(root, 'Path from the house gate to the village', 22, 3.3, -8.5, HOME.gate.z, '#b9a27d', 0.066, 'path', true);
   // A wider approach helps the enlarged house read as the protagonist's home.
@@ -460,30 +494,98 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   const entrance = floorPatch(root, 'House entrance footpath', 3.8, 12.8,
     HOME.house.x, 2.4, '#baa17a', 0.078, 'path', true);
 
-  if (loadApprovedModel) {
-    new THREE.TextureLoader().load('./textures/terrain/home_courtyard.webp', texture => {
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = 8;
-      // Local UVs place the entire painting once, with the trail toward the east gate.
-      const material = new THREE.MeshBasicMaterial({
-        map: texture, alphaMap: makeTerrainEdgeMask(), transparent: true,
-        depthWrite: false, toneMapped: false
-      });
-      const painted = new THREE.Mesh(clearing.geometry, material);
-      painted.name = 'Painted childhood courtyard';
-      painted.rotation.copy(clearing.rotation);
-      painted.position.copy(clearing.position);
-      painted.renderOrder = clearing.renderOrder;
-      root.add(painted);
-      clearing.visible = worn.visible = entrance.visible = false;
-    }, undefined, error => console.warn('[LembahAsri] Using fallback courtyard', error));
-  }
+  // The GLB soil edge now samples this SAME authored courtyard albedo.
+  // Await the shared image when attaching the imported building so the seam
+  // cannot briefly render black while its map is still downloading.
+  const courtyardAlbedo: Promise<THREE.Texture | undefined> = loadApprovedModel
+    ? new THREE.TextureLoader().loadAsync('./textures/terrain/home_courtyard.webp')
+      .then(texture => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 8;
+        texture.needsUpdate = true;
+        // Local UVs place the painting once on the 32 x 29 m clearing.
+        const material = new THREE.MeshBasicMaterial({
+          map: texture, alphaMap: makeTerrainEdgeMask(), transparent: true,
+          depthWrite: false, toneMapped: false
+        });
+        const painted = new THREE.Mesh(clearing.geometry, material);
+        painted.name = 'Painted childhood courtyard';
+        carveVisualCreek(painted);
+        painted.rotation.copy(clearing.rotation);
+        painted.position.copy(clearing.position);
+        painted.renderOrder = clearing.renderOrder;
+        root.add(painted);
+        clearing.visible = worn.visible = entrance.visible = false;
+        return texture;
+      })
+      .catch(error => {
+        console.warn('[LembahAsri] Using fallback courtyard', error);
+        return undefined;
+      })
+    : Promise.resolve(undefined);
 
   const fallback = buildLocalHouseFallback(root);
   addHomeGarden(root);
   addShed(root);
   addWellAndFruitTree(root, loadApprovedModel);
+  // Keep fallback tree while the 3D GLB downloads. Replace it with the actual
+  // voluminous alpha-cutout textured orchard tree when the asset is ready.
+  const orchardReady: Promise<boolean> = loadApprovedModel
+    ? loadPaintedTreeSource('orchard')
+      .then(source => {
+        const oldTree = root.getObjectByName('Old fruit tree');
+        if (oldTree) root.remove(oldTree);
+        const tree = instantiatePaintedTree(source, 3.65, -40, 8.3, 0.21);
+        tree.name = 'Old fruit tree';
+        root.add(tree);
+        return true;
+      }).catch(error => {
+        console.warn('[LembahAsri] Keeping orchard tree fallback', error);
+        return false;
+      })
+    : Promise.resolve(false);
   addStreamAndBridge(root);
+  const creekArtReady: Promise<boolean> = loadApprovedModel
+    ? loadPaintedCreekTextures(root) : Promise.resolve(false);
+  const bridgeArtReady: Promise<boolean> = loadApprovedModel
+    ? loadPaintedBridgeTextures() : Promise.resolve(false);
+  // User-approved landscape: exactly two UV-textured rock models.
+  const rockReady: Promise<boolean> = loadApprovedModel
+    ? attachCuratedHomeRocks(root).then(() => {
+        console.info('[LembahAsri] Rendered 2 rock species: mossy + plain, 19 placements');
+        return true;
+      }).catch(error => {
+        console.warn('[LembahAsri] Original UV rock asset unavailable', error);
+        return false;
+      })
+    : Promise.resolve(false);
+
+  // Preserve the plants and painted soil, but never add procedural pebbles
+  // or the extra four varieties of stepping-stone meshes.
+  const groundDetails = createHomeGroundDetails();
+  for (const child of [...groundDetails.children]) {
+    if (!child.name.startsWith('Textured natural stones variant ')) continue;
+    groundDetails.remove(child);
+    if (child instanceof THREE.Mesh) child.geometry.dispose();
+  }
+  root.add(groundDetails);
+  const vegetation = createHomeArtPass();
+  for (const child of [...vegetation.children]) {
+    if (!child.name.startsWith('Naturally shaped textured stepping stones ')) continue;
+    vegetation.remove(child);
+    if (child instanceof THREE.Mesh) child.geometry.dispose();
+  }
+  root.add(vegetation);
+  // Real house GLB contains a painted soil skirt. Blend its contact area into
+  // the existing world-UV earth below instead of creating a separate island.
+  root.add(createHouseGroundTransition(
+    HOME.house.x, HOME.house.z, HOME.house.width, HOME.house.depth
+  ));
+  // Very soft contact under the FRONT foundation, not a glowing painted rim.
+  root.add(createHouseContactShadow(
+    HOME.house.x, HOME.house.z + HOME.house.depth / 2 + 0.12,
+    HOME.house.width + 0.75, 2.5
+  ));
 
   // Fence boundary with a 5 m gap facing the connected village road.
   addWoodenFence(root, solids, 'North rear fence', -30.5, -16.5, 27, 'x');
@@ -492,6 +594,10 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   addWoodenFence(root, solids, 'East side fence south', -16.8, 13.7, 2.6, 'z');
   addWoodenFence(root, solids, 'West side fence north', -43.8, -11.6, 9.3, 'z');
   addWoodenFence(root, solids, 'West side fence south', -43.8, 13.7, 2.6, 'z');
+  // Asset loading is async: colored bamboo geometry is visible immediately.
+  // The approved illustration's albedo/normal/roughness maps arrive together.
+  const fencePBRReady: Promise<boolean> = loadApprovedModel
+    ? loadBambooFencePBR() : Promise.resolve(false);
 
   // Player cannot walk through house walls or the storage structure.
   solids.push({
@@ -534,6 +640,10 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     scene.name = 'Approved original rumah_utama.glb';
     const { applyHandPaintedMaterials } = await import('./handPaintedMaterials');
     applyHandPaintedMaterials(scene, 8);
+    scene.updateMatrixWorld(true);
+    // Keep the authored courtyard painting loaded before the visible GLB.
+    await courtyardAlbedo;
+    featherMergedHouseGround(scene, new THREE.Box3().setFromObject(scene));
     fallback.visible = false;
     root.add(scene);
     return true;
@@ -542,5 +652,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, ready: loaded };
+  return { root, solids, cameraBlockers, ready: Promise.all([loaded, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady]).then(([house]) => house) };
 }

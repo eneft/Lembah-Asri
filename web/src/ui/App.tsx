@@ -68,7 +68,7 @@ export default function App() {
   return <main className="game-shell">
     <div className="game-canvas" ref={host} />
     <header className="brand"><span className="brand-mark">LA</span><div><strong>Lembah Asri</strong><small>RUMAH MASA KECIL · PLAYABLE 0.2</small></div></header>
-    <section className="objective"><b>Kembali ke Lembah Asri</b><span>Jelajahi rumah masa kecil</span><span>Lihat kebun yang terbengkalai</span><span>Ikuti jalan menuju desa</span></section>
+    <section className="objective"><b>Kembali ke Lembah Asri</b><span>Jelajahi rumah masa kecil</span><span>Jelajahi kebun sayur rumah</span><span>Ikuti jalan menuju desa</span></section>
     <aside className="status">
       <span>☀ Musim Kemarau</span><strong>08:20</strong>
       <small>{ready ? '3D WORLD READY' : error ? 'ENGINE ERROR' : 'LOADING 3D CHARACTER'}</small>

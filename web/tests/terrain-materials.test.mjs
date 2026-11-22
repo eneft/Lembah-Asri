@@ -29,8 +29,8 @@ test('tile repeats scale with world metres so large areas are not stretched', ()
   assert.ok(largeEarth.y > 1.4 && largeEarth.y < 1.5);
   const path = terrainTileRepeat('path', 22, 3.3);
   assert.ok(path.x > 1 && path.y > 0.1 && path.y < 0.2);
-  const garden = terrainTileRepeat('soil', 8.6, 1.16);
-  assert.ok(garden.x > 0.4 && garden.y < 0.1);
+  const garden = terrainTileRepeat('soil', 2.35, 1.55);
+  assert.ok(garden.x > 0.1 && garden.y < 0.1);
   assert.deepEqual(terrainTileRepeat('earth', 20, 20), {x:1,y:1});
   assert.deepEqual(terrainTileRepeat('earth', 20, 20), terrainTileRepeat('path', 20, 20));
   assert.throws(() => terrainTileRepeat('earth', 0, 3));
