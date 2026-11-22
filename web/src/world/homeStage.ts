@@ -11,6 +11,7 @@ import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
 import { createSculptedCreekMeadow } from './homeTerrain3D.ts';
+import { applyCreekCourtyardAlbedo } from './shoreCourtyard.ts';
 import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
 
@@ -388,6 +389,10 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
         painted.position.copy(clearing.position);
         painted.renderOrder = clearing.renderOrder;
         root.add(painted);
+        // The sculpted creek bank crosses the brighter courtyard painting.
+        // Share its actual image and alpha mask with the overlapping shore,
+        // rather than blending the unrelated world-grass tile over the yard.
+        applyCreekCourtyardAlbedo(root, painted);
         clearing.visible = worn.visible = entrance.visible = false;
         return texture;
       })
