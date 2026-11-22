@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
   TERRAIN_CONTOUR, createSculptedCreekMeadow,
-  creekMeadowHeight, makeRiverMeadowFade
+  creekMeadowHeight, makeRiverMeadowFade, createFineCreekBankGrass
 } from '../src/world/homeTerrain3D.ts';
 import {
   CREEK, createHomeCreek, creekWidth, creekCenterX, creekBankLipHeight
@@ -130,4 +130,27 @@ test('actual home stage integrates sculpted banks with no extra collision or cha
   assert.equal(HOME.gate.z,9);
   assert.equal(stage.root.getObjectByName('Feathered organic courtyard soil 0'),undefined,
     'do not bring back previously rejected dark ground overlays');
+});
+
+test('fine creek grass is short, on raised terrain, away from bridge approaches',()=>{
+  const grass=createFineCreekBankGrass();
+  assert.ok(grass instanceof THREE.InstancedMesh);
+  assert.equal(grass.name,'Fine soft creek bank grass');
+  assert.ok(grass.count>260&&grass.count<600,'mobile-friendly 3D fine tufts');
+  assert.equal(grass.geometry.getAttribute('position').count,36);
+  assert.equal(grass.userData.visualOnly,true);
+  const m=new THREE.Matrix4(),point=new THREE.Vector3(),scale=new THREE.Vector3();
+  for(let i=0;i<grass.count;i++){
+    grass.getMatrixAt(i,m);
+    point.setFromMatrixPosition(m);
+    scale.setFromMatrixScale(m);
+    assert.ok(point.z<6.2 || point.z>11.2,'bridge deck and approaches not obstructed');
+    assert.ok(point.y>=0&&point.y<.20,'small blades sit at sculpted surface');
+    assert.ok(scale.x>=.42 && scale.x<=.78,'fine blades do not become oversized');
+    const dist=Math.abs(point.x-creekCenterX(point.z))-creekWidth(point.z)*.5;
+    assert.ok(dist>.76&&dist<2.2,'bank grass follows the real creek geometry');
+  }
+  const home=createHomeStage(false);
+  assert.ok(home.root.getObjectByName('Fine soft creek bank grass'));
+  assert.ok(!home.solids.some(s=>s.label.includes('grass')));
 });
