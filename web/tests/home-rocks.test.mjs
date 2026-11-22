@@ -181,7 +181,8 @@ test('creek is truly winding water with softened banks, not a rectangle', () => 
   for(let i=0;i<pos.count;i+=6)centerX.push((pos.getX(i)+pos.getX(i+5))*.5);
   assert.ok(Math.max(...centerX)-Math.min(...centerX)>.15,'water meanders instead of perfectly straight');
   const group=createHomeCreekVegetation();
-  assert.equal(group.userData.clusters,9);
+  assert.equal(group.userData.clusters,17,
+    'the scenic creek now has bank vegetation in both near and far reaches');
   assert.ok(group.userData.reedInstances>=40);
   assert.ok(group.userData.shrubInstances>=15);
   assert.ok(group.children.every(mesh=>mesh instanceof THREE.InstancedMesh));
