@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { CREEK, creekCenterX, creekWidth, creekBankLipHeight } from './homeCreek.ts';
 import { createTerrainMaterial } from './terrainMaterials.ts';
 import { applyRiverbankPainterlyShader } from './riverbankMaterial.ts';
+import { makeLowPolyGrassGeometry } from './lowPolyGrass.ts';
+import { selectedHomeRocks } from './homeRocks.ts';
 
 /**
  * Sculpted grass-land transition that integrates the genuinely sunken creek
@@ -69,15 +71,19 @@ export function creekMeadowHeight(z:number, offset:number):number{
   const d=Math.max(.79,offset);
   const crest=.35+.65*Math.exp(-Math.pow((d-1.17)/.73,2));
   const outerFade=1-THREE.MathUtils.smoothstep(d,2.32,3.85);
-  const undulation=(.014*Math.sin(z*1.43+d*2.1)+.009*Math.sin(z*3.03-d*1.7))
-    * THREE.MathUtils.smoothstep(d,.79,1.05)*outerFade;
+  // Low rolling relief without creating a collision-breaking cliff.
+  const undulation=(
+    .019*Math.sin(z*.54+d*.87)+
+    .013*Math.sin(z*1.41+d*1.13)+
+    .006*Math.sin(z*3.03-d*1.7)
+  )*THREE.MathUtils.smoothstep(d,.79,1.05)*outerFade;
   if(d<=.79)return lip;
   // Interpolate from lip to a shallow crest, then down to 0 at the meadow.
   const h=d<1.17
     ?THREE.MathUtils.lerp(lip,Math.min(TERRAIN_CONTOUR.lipHeightMax,lip+.038),
       THREE.MathUtils.smoothstep(d,.79,1.17))
     :Math.min(TERRAIN_CONTOUR.lipHeightMax,lip+.038)*crest*outerFade;
-  return Math.max(0,h+undulation);
+  return Math.max(0,Math.min(.159,h+undulation));
 }
 
 function makeContour(side:-1|1):THREE.Mesh {
@@ -158,4 +164,61 @@ export function createSculptedCreekMeadow():THREE.Group {
   group.userData.villageTerrainUnchanged=true;
   group.userData.bridgePassagePreserved=true;
   return group;
+}
+
+
+/**
+ * Short gentle hand-shaped blades nestle in the sloped shoulders. Seeded
+ * spacing makes quiet bare-earth gaps beside rocks and under the bridge.
+ * A single instanced draw is cheap even on a phone.
+ */
+export function createFineCreekBankGrass():THREE.InstancedMesh{
+  let seed=342018;
+  const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+  type Tuft={x:number;y:number;z:number;scale:number;rotation:number;shade:number};
+  const tufts:Tuft[]=[];
+  for(let z=-51;z<46;z+=.65){
+    if(z>6.15&&z<11.25)continue; // keep bridge and near-bank approaches clear
+    for(const side of [-1,1] as const){
+      for(let lane=0;lane<2;lane++){
+        const zz=z+(random()-.5)*.48;
+        const dist=.82+lane*.66+random()*.59;
+        const x=creekCenterX(zz)+side*(creekWidth(zz)*.5+dist);
+        if(random()>.74+.14*Math.sin(zz*.29+side))continue;
+        if(selectedHomeRocks.some(p=>p.zone==='stream' &&
+          Math.hypot(p.x-x,p.z-zz)<p.size*.53+.12))continue;
+        tufts.push({
+          x,z:zz,y:creekMeadowHeight(zz,dist)+.012,
+          scale:.43+random()*.34,rotation:random()*Math.PI*2,
+          shade:random()
+        });
+      }
+    }
+  }
+  const geometry=makeLowPolyGrassGeometry();
+  const material=new THREE.MeshBasicMaterial({
+    color:'#a0b679',vertexColors:true,side:THREE.DoubleSide,
+    toneMapped:false
+  });
+  const mesh=new THREE.InstancedMesh(geometry,material,tufts.length);
+  mesh.name='Fine soft creek bank grass';
+  const transform=new THREE.Object3D();
+  for(let i=0;i<tufts.length;i++){
+    const tuft=tufts[i];
+    transform.position.set(tuft.x,tuft.y,tuft.z);
+    transform.rotation.set(0,tuft.rotation,0);
+    transform.scale.setScalar(tuft.scale);
+    transform.updateMatrix();
+    mesh.setMatrixAt(i,transform.matrix);
+    mesh.setColorAt(i,new THREE.Color(tuft.shade>.65?'#a2b66f':
+      tuft.shade<.17?'#bac78e':'#b2c68a'));
+  }
+  mesh.instanceMatrix.needsUpdate=true;
+  if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+  mesh.receiveShadow=false;
+  mesh.castShadow=false;
+  mesh.frustumCulled=false;
+  mesh.userData.terrainKind='short-3d-rivergrass';
+  mesh.userData.visualOnly=true;
+  return mesh;
 }

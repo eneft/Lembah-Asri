@@ -89,6 +89,16 @@ jobs:
         run: test -s dist/index.html
       - name: Play the farming loop in the production browser build
         run: npm run test:farm-browser
+      - name: Render and capture the 3D creek, immersed mossy GLBs and timber bridge
+        run: node scripts/check-creek-visual.mjs
+      - name: Save scenic creek screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scenic-creek-reference-v6
+          path: web/artifacts/creek/*.jpg
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Save in-game garden screenshots
         if: always()
         uses: actions/upload-artifact@v4

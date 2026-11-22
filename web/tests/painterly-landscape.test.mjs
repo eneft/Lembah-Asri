@@ -97,24 +97,32 @@ test('localized hand-painted foam has alpha and animated water flow preserves fa
   assert.equal(t.value,5);
 });
 
-test('actual bridge geometry uses 12 separate UV boards, beams and support posts',()=>{
+test('bridge uses properly transverse boards, beams, posts and two slim rails',()=>{
   const bridge=createPaintedWoodenBridge();
   assert.equal(bridge.name,'West wooden bridge walkway');
   assert.equal(bridge.userData.bridgeUV,'painterly-individual-planks');
   assert.deepEqual(bridge.userData.collisionFootprint,[5.1,2.4]);
-  assert.equal(BRIDGE_DECK.boards,12);
+  assert.equal(BRIDGE_DECK.boards,16);
   assert.ok(bridge.children.every(o=>o instanceof THREE.InstancedMesh));
-  assert.equal(bridge.children.length,4);
+  assert.equal(bridge.children.length,5);
   const planks=bridge.getObjectByName('Individual UV-painted timber bridge planks');
   const runners=bridge.getObjectByName('Bridge underside structural runners');
   const posts=bridge.getObjectByName('Four painted wooden bridge posts');
   const nails=bridge.getObjectByName('Bridge tiny dark joinery nails');
-  assert.ok(planks&&runners&&posts&&nails);
-  assert.equal(planks.count,12);
+  const rails=bridge.getObjectByName('Two painted side handrails');
+  assert.ok(planks&&runners&&posts&&nails&&rails);
+  assert.equal(planks.count,16);
   assert.equal(runners.count,2);
   assert.equal(posts.count,4);
-  assert.equal(nails.count,24);
+  assert.equal(nails.count,32);
+  assert.equal(rails.count,2);
   assert.equal(planks.material,paintedBridgeMaterial);
+  assert.equal(bridge.userData.walkAxis,'X');
+  assert.equal(bridge.userData.boardGrainAxis,'Z');
+  const plankSize=new THREE.Box3().setFromBufferAttribute(
+    planks.geometry.getAttribute('position')).getSize(new THREE.Vector3());
+  assert.ok(plankSize.x<.35,'short ends must follow walking direction X');
+  assert.ok(plankSize.z>2.30,'each board spans the width across Z');
   assert.equal(paintedBridgeMaterial.type,'MeshStandardMaterial');
   assert.equal(paintedBridgeMaterial.metalness,0);
   assert.ok(paintedBridgeMaterial.roughness>=.85);
