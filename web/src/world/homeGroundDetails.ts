@@ -32,6 +32,8 @@ export function isHomeGroundDetailAllowed(x: number, z: number): boolean {
   if (x > -38.7 && x < -26.5 && z > -5.45 && z < -2.55) return false;
   if (Math.abs(x + 32.5) < 2.55 && z > -4.85 && z < 10.7) return false;
   if (x > -22.4 && Math.abs(z - 9) < 2.7) return false;
+  // The bare cultivated home beds stay completely clear of decorative foliage.
+  if (x >= -27.2 && x <= -16.7 && z >= -3.0 && z <= 4.1) return false;
   if (Math.hypot(x + 29.5, z - 7.4) < 2.2) return false;
   if (Math.hypot(x + 39, z - 4) < 1.85) return false;
   if (Math.abs(x + 22) < 2.65 && Math.abs(z + 10.4) < 2.50) return false;

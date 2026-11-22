@@ -24,7 +24,7 @@ test('courtyard remains sparse, deterministic and mobile-bounded', () => {
 test('no decorations inside protected house, spawn, entrance, well, stream, shed and plots', () => {
   for (const [x,z] of [
     [-32.5,-9.4], [-29.5,7.4], [-32.5,2.3], [-39,4], [-45.5,8],
-    [-22,-10.4], [-19,9], [-24.8,-0.5], [-21.8,1.8], [-18.8,-0.5]
+    [-22,-10.4], [-19,9], [-24.8,-0.5], [-21.8,1.8], [-18.8,-0.5], [-22,0.5], [-18,3.7]
   ]) {
     assert.equal(isHomeGroundDetailAllowed(x,z), false, [x,z].join(','));
   }
@@ -92,7 +92,13 @@ test('ground detail installation preserves existing house and well colliders', (
   const stage = createHomeStage(false);
   assert.ok(stage.root.getObjectByName('Childhood home organic ground details'));
   assert.ok(stage.root.getObjectByName('Old village well stone rim'));
-  assert.ok(stage.root.getObjectByName('Hand-shaped vegetable garden bed'));
+  const beds = [];
+  stage.root.traverse(obj => { if (obj.name === 'Bare hand-painted garden soil bed') beds.push(obj); });
+  assert.equal(beds.length, 4, 'four bare low soil ridges remain');
+  assert.ok(beds.every(bed => bed.material.map instanceof THREE.Texture));
+  assert.equal(stage.root.getObjectByName('Sawi and kangkung leaves'), undefined);
+  assert.equal(stage.root.getObjectByName('Ripe red garden tomatoes'), undefined);
+  assert.equal(stage.root.getObjectByName('Bamboo trellis top rail'), undefined);
   assert.ok(stage.solids.find(s=>s.label==='Childhood home walls'));
   assert.ok(stage.solids.find(s=>s.label==='Old village well'));
   assert.ok(!stage.solids.some(s=>s.label.includes('ground detail')));

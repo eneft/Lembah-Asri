@@ -151,25 +151,35 @@ function buildLocalHouseFallback(root: THREE.Object3D): THREE.Group {
 }
 
 function makeGardenRidgeGeometry(length: number): THREE.BufferGeometry {
-  // A low, hand-shaped soil mound with no timber edging. Rows run along X,
-  // leaving narrow grass-and-earth paths that stay open to the player.
+  // Bare, low soil rows with a soft hand-shaped crown. Dense cross-sections and
+  // subtle lengthwise variation avoid the hard rectangular plank appearance.
   const profile: Array<[number, number]> = [
-    [-0.58, 0.055], [-0.43, 0.14], [-0.22, 0.205],
-    [0.22, 0.205], [0.43, 0.14], [0.58, 0.055]
+    [-0.58, 0.006], [-0.50, 0.025], [-0.37, 0.062],
+    [-0.20, 0.105], [0, 0.132], [0.20, 0.105],
+    [0.37, 0.062], [0.50, 0.025], [0.58, 0.006]
   ];
+  const segments = 40;
   const positions: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
-  const x0 = -length / 2;
-  const x1 = length / 2;
-  for (let i = 0; i < profile.length - 1; i++) {
-    const [z0, y0] = profile[i];
-    const [z1, y1] = profile[i + 1];
-    const base = positions.length / 3;
-    positions.push(x0, y0, z0, x1, y0, z0, x0, y1, z1, x1, y1, z1);
-    uvs.push(0, i / profile.length, 1, i / profile.length,
-      0, (i + 1) / profile.length, 1, (i + 1) / profile.length);
-    indices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
+  for (let ix = 0; ix <= segments; ix++) {
+    const u = ix / segments;
+    const x = -length / 2 + u * length;
+    const endSoftening = Math.min(1, 0.82 + Math.sin(u * Math.PI) * 0.18);
+    const ridgeWobble = 1 + Math.sin(u * Math.PI * 4.2) * 0.022
+      + Math.sin(u * Math.PI * 8.6 + 0.7) * 0.009;
+    for (let iz = 0; iz < profile.length; iz++) {
+      const [z, y] = profile[iz];
+      positions.push(x, 0.055 + y * endSoftening, z * ridgeWobble);
+      uvs.push(u * 3.2, iz / (profile.length - 1));
+    }
+  }
+  for (let ix = 0; ix < segments; ix++) {
+    for (let iz = 0; iz < profile.length - 1; iz++) {
+      const a = ix * profile.length + iz;
+      const b = a + profile.length;
+      indices.push(a, a + 1, b, b, a + 1, b + 1);
+    }
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -180,123 +190,29 @@ function makeGardenRidgeGeometry(length: number): THREE.BufferGeometry {
   return geometry;
 }
 
-function addBambooTrellis(root: THREE.Object3D, centerX: number, centerZ: number) {
-  const bamboo = mat('#aa8a50');
-  const darkBamboo = mat('#836a43');
-  const beam = (name: string, from: THREE.Vector3, to: THREE.Vector3, radius = 0.035) => {
-    const direction = new THREE.Vector3().subVectors(to, from);
-    const mesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius * 0.84, radius, direction.length(), 6), bamboo
-    );
-    mesh.name = name;
-    mesh.position.copy(from).add(to).multiplyScalar(0.5);
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
-    mesh.castShadow = true;
-    root.add(mesh);
-  };
-  // Two simple A-frame supports and a top rail, like a practical village-yard
-  // support for beans or tomatoes. It sits at the far edge of the beds.
-  for (const x of [centerX - 2.15, centerX + 2.15]) {
-    const left = new THREE.Vector3(x - 0.5, 0.08, centerZ);
-    const top = new THREE.Vector3(x, 1.35, centerZ);
-    const right = new THREE.Vector3(x + 0.5, 0.08, centerZ);
-    beam('Bamboo garden trellis leg', left, top);
-    beam('Bamboo garden trellis leg', top, right);
-    const crossbar = box(root, 'Bamboo garden trellis crossbar', [0.07, 0.07, 1.15],
-      [x, 1.05, centerZ], darkBamboo, true);
-    crossbar.rotation.z = -0.12;
-  }
-  beam('Bamboo trellis top rail',
-    new THREE.Vector3(centerX - 2.15, 1.35, centerZ),
-    new THREE.Vector3(centerX + 2.15, 1.35, centerZ), 0.045);
-}
-
 function addHomeGarden(root: THREE.Object3D) {
   const gardenCenter = HOME.garden;
   const bedLength = 8.6;
   const rows = [-2.0, -0.65, 0.7, 2.05];
-  const soil = createTerrainMaterial('soil', bedLength, 1.16);
+  const soilTexture = new THREE.TextureLoader().load('./textures/terrain/home_garden_soil.webp');
+  soilTexture.colorSpace = THREE.SRGBColorSpace;
+  soilTexture.wrapS = THREE.RepeatWrapping;
+  soilTexture.wrapT = THREE.ClampToEdgeWrapping;
+  soilTexture.generateMipmaps = true;
+  soilTexture.anisotropy = 8;
+  soilTexture.needsUpdate = true;
+  const soil = new THREE.MeshStandardMaterial({
+    map: soilTexture, color: '#ffffff', roughness: 1, metalness: 0, toneMapped: false
+  });
   rows.forEach((rowZ, rowIndex) => {
     const bed = new THREE.Mesh(makeGardenRidgeGeometry(bedLength), soil);
-    bed.name = 'Hand-shaped vegetable garden bed';
+    bed.name = 'Bare hand-painted garden soil bed';
     bed.position.set(gardenCenter.x, 0, gardenCenter.z + rowZ);
-    bed.castShadow = true;
     bed.receiveShadow = true;
+    bed.castShadow = false;
     bed.userData.cropRow = rowIndex;
     root.add(bed);
   });
-
-  const leafGeometry = new THREE.SphereGeometry(1, 7, 5);
-  const leafMaterials = [mat('#557b43'), mat('#6d914b'), mat('#829c55'), mat('#496c3b')];
-  const leafInstances = leafMaterials.map((material, i) => {
-    const mesh = new THREE.InstancedMesh(leafGeometry, material, 160);
-    mesh.name = ['Sawi and kangkung leaves', 'Garden leafy greens',
-      'Tomato vines', 'Eggplant foliage'][i];
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    root.add(mesh);
-    return mesh;
-  });
-  const fruitDefinitions = [
-    { name: 'Ripe red garden tomatoes', color: '#c94f38', scale: [0.09, 0.1, 0.09] as const, capacity: 64 },
-    { name: 'Purple village eggplants', color: '#704777', scale: [0.075, 0.15, 0.075] as const, capacity: 40 },
-    { name: 'Red chili peppers', color: '#d65b35', scale: [0.045, 0.12, 0.045] as const, capacity: 64 }
-  ];
-  const fruitInstances = fruitDefinitions.map(({ name, color, capacity }) => {
-    const mesh = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(1, 7, 5), mat(color), capacity
-    );
-    mesh.name = name;
-    mesh.castShadow = true;
-    root.add(mesh);
-    return mesh;
-  });
-  const leafCounts = leafInstances.map(() => 0);
-  const fruitCounts = fruitInstances.map(() => 0);
-  const dummy = new THREE.Object3D();
-  const plantsPerRow = 6;
-  const startX = gardenCenter.x - 3.25;
-  const spacing = 1.3;
-
-  rows.forEach((rowZ, rowIndex) => {
-    for (let plantIndex = 0; plantIndex < plantsPerRow; plantIndex++) {
-      const x = startX + plantIndex * spacing;
-      const z = gardenCenter.z + rowZ + ((plantIndex % 2) - 0.5) * 0.11;
-      const leafKind = rowIndex === 0 ? 0 : rowIndex === 1 ? 1 : rowIndex === 2 ? 2 : 3;
-      const leaves = rowIndex === 0 || rowIndex === 3 ? 6 : 5;
-      for (let leaf = 0; leaf < leaves; leaf++) {
-        const angle = leaf * Math.PI * 2 / leaves + (plantIndex % 2) * 0.2;
-        const reach = (rowIndex === 1 ? 0.16 : 0.22) + (leaf % 2) * 0.045;
-        dummy.position.set(x + Math.cos(angle) * reach, 0.24 + (leaf % 3) * 0.045,
-          z + Math.sin(angle) * reach * 0.62);
-        dummy.rotation.set(-0.42 + (leaf % 2) * 0.12, -angle, 0.12 * Math.sin(angle));
-        const size = rowIndex === 1 ? 0.21 : 0.27;
-        dummy.scale.set(size, 0.075, size * 0.48);
-        dummy.updateMatrix();
-        leafInstances[leafKind].setMatrixAt(leafCounts[leafKind]++, dummy.matrix);
-      }
-      // Small fruit clusters provide crop variety without turning the garden
-      // into a uniform wall of green. These are static scene dressing for now.
-      const fruitKind = rowIndex === 1 ? 2 : rowIndex === 2 ? 0 : rowIndex === 3 ? 1 : -1;
-      if (fruitKind >= 0) {
-        const fruitCount = fruitKind === 0 ? 2 : 3;
-        for (let fruit = 0; fruit < fruitCount; fruit++) {
-          const angle = fruit * Math.PI * 2 / fruitCount + plantIndex * 0.37;
-          const def = fruitDefinitions[fruitKind];
-          const scale = def.scale;
-          dummy.position.set(x + Math.cos(angle) * 0.16, 0.31 + fruit % 2 * 0.09,
-            z + Math.sin(angle) * 0.12);
-          dummy.rotation.set(0.18, angle, 0.28 * Math.sin(angle));
-          dummy.scale.set(scale[0], scale[1], scale[2]);
-          dummy.updateMatrix();
-          fruitInstances[fruitKind].setMatrixAt(fruitCounts[fruitKind]++, dummy.matrix);
-        }
-      }
-    }
-  });
-  leafInstances.forEach((mesh, i) => { mesh.count = leafCounts[i]; mesh.instanceMatrix.needsUpdate = true; });
-  fruitInstances.forEach((mesh, i) => { mesh.count = fruitCounts[i]; mesh.instanceMatrix.needsUpdate = true; });
-  addBambooTrellis(root, gardenCenter.x, gardenCenter.z + 2.9);
 }
 
 function addShed(root: THREE.Object3D) {
