@@ -8,6 +8,7 @@ import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek } from './homeCreek.ts';
+import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -318,17 +319,9 @@ function addWoodenFence(
   x: number, z: number, length: number, direction: 'x' | 'z'
 ) {
   if (length < 0.6) return;
-  const timber = mat('#907352');
-  const size: [number, number, number] =
-    direction === 'x' ? [length, 0.16, 0.12] : [0.12, 0.16, length];
-  for (const y of [0.69, 1.18]) box(root, label + ' timber rails', size, [x, y, z], timber);
-  const postCount = Math.max(2, Math.ceil(length / 2.1) + 1);
-  for (let i = 0; i < postCount; i++) {
-    const delta = -length / 2 + (length * i) / (postCount - 1);
-    const px = x + (direction === 'x' ? delta : 0);
-    const pz = z + (direction === 'z' ? delta : 0);
-    box(root, label + ' fence post', [0.15, 1.48, 0.15], [px, 0.74, pz], timber);
-  }
+  // Real 3D bamboo, four UV islands and a matte non-metal PBR material.
+  // Keep the original fence footprint and gap/physics exactly unchanged.
+  root.add(createUVBambooFence(label,x,z,length,direction));
   solids.push({
     label,
     center: [x, 0.77, z],
@@ -472,6 +465,10 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   addWoodenFence(root, solids, 'East side fence south', -16.8, 13.7, 2.6, 'z');
   addWoodenFence(root, solids, 'West side fence north', -43.8, -11.6, 9.3, 'z');
   addWoodenFence(root, solids, 'West side fence south', -43.8, 13.7, 2.6, 'z');
+  // Asset loading is async: colored bamboo geometry is visible immediately.
+  // The approved illustration's albedo/normal/roughness maps arrive together.
+  const fencePBRReady: Promise<boolean> = loadApprovedModel
+    ? loadBambooFencePBR() : Promise.resolve(false);
 
   // Player cannot walk through house walls or the storage structure.
   solids.push({
@@ -526,5 +523,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, ready: Promise.all([loaded, orchardReady, rockReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, ready: Promise.all([loaded, orchardReady, rockReady, fencePBRReady]).then(([house]) => house) };
 }
