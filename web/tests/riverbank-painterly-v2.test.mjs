@@ -40,8 +40,8 @@ test('both riverbanks use real two-scale UV samples and non-square macro tint',(
     assert.match(shader.fragmentShader,/bankDamp/);
     assert.equal((shader.fragmentShader.match(/texture2D\(/g)||[]).length,4);
     assert.match(shader.fragmentShader,/uRiverMeadowLoaded/);
-    assert.match(shader.fragmentShader,/bankPigment=mix\(bankPigment,meadowPigment,lipMatch\)/);
-    assert.match(mat.customProgramCacheKey(),/riverbank-painterly-meadow-weld-v3/);
+    assert.match(shader.fragmentShader,/bankPigment=mix\(bankPigment,meadowPigment,meadowCover\)/);
+    assert.match(mat.customProgramCacheKey(),/riverbank-visible-ecotone-v4/);
     assert.equal(mat.map,null,'material has fallback before asynchronous painted texture load');
     assert.equal(mesh.geometry.getAttribute('uv').count,mesh.geometry.getAttribute('position').count);
   }
@@ -122,8 +122,39 @@ test('bank lip shares world UV meadow albedo after load and keeps fallback befor
   assert.equal(shader.uniforms.uRiverMeadow.value,meadow);
   assert.equal(shader.uniforms.uRiverMeadowLoaded.value,1);
   assert.match(shader.fragmentShader,/pMeadow\/3\.5\+waveMeadow/);
-  assert.match(shader.fragmentShader,/lipMatch=1\.0-smoothstep\(\.035,\.34,crossBank\)/);
+  assert.match(shader.fragmentShader,/meadowCover=1\.0-smoothstep\(\.42,\.84,crossBank\+edgeFlow\)/);
   assert.match(shader.fragmentShader,/uvFine\.x\*\.52-uvFine\.y\*\.27\+1\.23/);
   assert.match(shader.fragmentShader,/colorWash=sin\(pMeadow\.x\*\.044\+pMeadow\.y\*\.031\)/);
   assert.equal(setRiverbankMeadowTexture(new THREE.MeshBasicMaterial(),meadow),false);
+});
+
+test('most of the visible above-water riverbank uses meadow rather than a brown stripe',()=>{
+  const banks=createHomeCreek();
+  const sampleCover=(cross,z,x=0)=>{
+    const wave=.085*Math.sin(z*.43+.5*Math.sin(z*.14))
+      +.047*Math.sin(z*1.34-x*.21);
+    const v=Math.max(0,Math.min(1,(cross+wave-.42)/(.84-.42)));
+    return 1-v*v*(3-2*v);
+  };
+  // Existing river geometry has its waterline around the third/fourth
+  // cross-section ring (UV 0.5). Previously the seam blend ended at 0.34.
+  for(const name of ['Soft west creek bank','Soft east creek bank']){
+    const mesh=banks.getObjectByName(name);
+    const uv=mesh.geometry.getAttribute('uv');
+    const pos=mesh.geometry.getAttribute('position');
+    let visible=0,mostlyMeadow=0;
+    for(let i=0;i<pos.count;i++){
+      const y=pos.getY(i),cross=uv.getX(i);
+      if(y>-.18){
+        visible++;
+        if(sampleCover(cross,pos.getZ(i),pos.getX(i))>.67)mostlyMeadow++;
+      }
+    }
+    assert.ok(visible>500);
+    assert.ok(mostlyMeadow/visible>.75,
+      'above-water bank should mostly look like adjoining meadow, not a repeated brown ribbon');
+    const shader=compiled(mesh.material);
+    assert.match(shader.fragmentShader,/edgeFlow=/);
+    assert.match(shader.fragmentShader,/meadowCover/);
+  }
 });
