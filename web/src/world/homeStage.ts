@@ -342,19 +342,8 @@ function addStreamAndBridge(root: THREE.Object3D) {
   root.add(createHomeCreek());
   // Dense growth only around the major stone clusters, never on the bridge.
   root.add(createHomeCreekVegetation());
-  const stones = mat('#92978a');
-  for (let i = 0; i < 26; i++) {
-    const z = -4 + i * 1.06;
-    for (const side of [-1, 1]) {
-      const rock = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(0.23 + (i % 3) * 0.07, 0), stones
-      );
-      rock.name = 'Stream bank stone';
-      rock.scale.set(1.3, 0.45, 0.75);
-      rock.position.set(-45.5 + side * 1.48, 0.11, z);
-      root.add(rock);
-    }
-  }
+  // No fallback row of 52 plain stones. Only the two selected UV GLB rock
+  // types are displayed, with natural scale variation.
   // A western connector bridge; no decorative 'floating island' boundary.
   box(root, 'West wooden bridge walkway', [5.1, 0.2, 2.4], [-45.5, 0.18, 8.6], mat('#9d7751'));
   for (const z of [7.5, 9.7]) {
@@ -438,44 +427,33 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
       })
     : Promise.resolve(false);
   addStreamAndBridge(root);
-  // Original 16-variation stone GLB loads once. Until ready, retain the old
-  // simple stream stones as a safe fallback; remove and dispose only after
-  // the UV-textured original rocks have been attached successfully.
+  // User-approved landscape: exactly two UV-textured rock models.
   const rockReady: Promise<boolean> = loadApprovedModel
     ? attachCuratedHomeRocks(root).then(() => {
-        const oldStones = root.children.filter(child => child.name === 'Stream bank stone');
-        let stoneMaterial: THREE.Material | undefined;
-        for (const stone of oldStones) {
-          root.remove(stone);
-          if (stone instanceof THREE.Mesh) {
-            stone.geometry.dispose();
-            stoneMaterial = Array.isArray(stone.material) ? stone.material[0] : stone.material;
-          }
-        }
-        stoneMaterial?.dispose();
-        // Original UV rock pack replaces the old procedural pebble scatter
-        // as well. Keep the grass, painted soil and intentional stepping stones.
-        // Only remove the placeholder stones AFTER 29 new placements exist.
-        const details = root.getObjectByName('Childhood home organic ground details');
-        if (details) {
-          for (const child of [...details.children]) {
-            if (!child.name.startsWith('Textured natural stones variant ')) continue;
-            details.remove(child);
-            if (child instanceof THREE.Mesh) child.geometry.dispose();
-          }
-        }
-        console.info('[LembahAsri] Original 16-variant rocks now visible: 29 curated placements');
+        console.info('[LembahAsri] Rendered 2 rock species: mossy + plain, 19 placements');
         return true;
       }).catch(error => {
-        console.warn('[LembahAsri] Keeping old bank-stone fallback', error);
+        console.warn('[LembahAsri] Original UV rock asset unavailable', error);
         return false;
       })
     : Promise.resolve(false);
-  // Paint-in real grass and stones along the worn yard boundary; leave paths clear.
-  root.add(createHomeGroundDetails());
-  // Additional genuine 3D foliage and textured stones, matching the approved
-  // painterly courtyard reference without altering the approved house model.
-  root.add(createHomeArtPass());
+
+  // Preserve the plants and painted soil, but never add procedural pebbles
+  // or the extra four varieties of stepping-stone meshes.
+  const groundDetails = createHomeGroundDetails();
+  for (const child of [...groundDetails.children]) {
+    if (!child.name.startsWith('Textured natural stones variant ')) continue;
+    groundDetails.remove(child);
+    if (child instanceof THREE.Mesh) child.geometry.dispose();
+  }
+  root.add(groundDetails);
+  const vegetation = createHomeArtPass();
+  for (const child of [...vegetation.children]) {
+    if (!child.name.startsWith('Naturally shaped textured stepping stones ')) continue;
+    vegetation.remove(child);
+    if (child instanceof THREE.Mesh) child.geometry.dispose();
+  }
+  root.add(vegetation);
   // Real house GLB contains a painted soil skirt. Blend its contact area into
   // the existing world-UV earth below instead of creating a separate island.
   root.add(createHouseGroundTransition(

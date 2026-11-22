@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
-import { selectedHomeRocks, rockFile, findCuratedRockVariant, createCuratedRockGroup } from '../src/world/homeRocks.ts';
+import { selectedHomeRocks, rockFile, ROCK_MODELS, findCuratedRockVariant, createCuratedRockGroup } from '../src/world/homeRocks.ts';
 import { createHomeStage } from '../src/world/homeStage.ts';
 import { CREEK, creekCenterX, creekWidth, createHomeCreek, createHomeCreekVegetation } from '../src/world/homeCreek.ts';
 
@@ -56,17 +56,21 @@ test('all 16 rock meshes preserve uploaded original UV texture, not untextured g
 
 test('rock placement is curated by environment, not randomly thrown into player paths',()=>{
   assert.match(rockFile,/lembah_asri_rocks_original_16\.glb/);
-  assert.equal(selectedHomeRocks.length,28);
+  assert.equal(selectedHomeRocks.length,19);
   const zones=new Set(selectedHomeRocks.map(p=>p.zone));
   assert.deepEqual([...zones].sort(),
     ['foundation','garden','path-edge','stream','well'].sort());
   const large=selectedHomeRocks.filter(p=>p.zone==='stream'&&p.size>=.95);
-  const tiny=selectedHomeRocks.filter(p=>p.size<=.26);
-  assert.ok(large.length>=6&&large.length<=9,'only a few 1 m anchor boulders');
-  assert.ok(tiny.length>=4,'small accent stones remain discreet');
+  assert.ok(large.length>=6&&large.length<=8,'6–8 mossy anchor boulders');
+  assert.deepEqual(ROCK_MODELS,{mossy:0,plain:2});
+  assert.deepEqual([...new Set(selectedHomeRocks.map(p=>p.type))].sort(),
+    ['mossy','plain']);
+  assert.ok(selectedHomeRocks.every(p=>p.size>=.45),'no decorative tiny pebbles');
   for(const p of selectedHomeRocks){
-    assert.ok(p.id>=0&&p.id<16);
-    assert.ok(p.size>=.14&&p.size<=1.30,'desired real-world size');
+    assert.ok(Object.hasOwn(ROCK_MODELS,p.type));
+    assert.equal(p.type==='mossy',p.zone==='stream',
+      'mossy only on damp banks, ordinary stone only on dry ground');
+    assert.ok(p.size>=.45&&p.size<=1.30,'metre-sized stones, no pebbles');
     assert.ok(p.yaw>=0&&p.yaw<2*Math.PI);
     if(p.zone==='stream'){
       assert.ok(Math.abs(p.x+45.5)>1.3, 'not in the middle of shallow water');
@@ -82,11 +86,18 @@ test('rock placement is curated by environment, not randomly thrown into player 
   }
 });
 
-test('loading fallback retains original well, river bridge and bank stones',()=>{
+test('home retains well and bridge but drops all old pebble and dodecahedron placeholders',()=>{
   const stage=createHomeStage(false);
   assert.ok(stage.root.getObjectByName('Old village well stone rim'));
   assert.ok(stage.root.getObjectByName('West wooden bridge walkway'));
-  assert.ok(stage.root.getObjectByName('Stream bank stone'));
+  assert.equal(stage.root.getObjectByName('Stream bank stone'),undefined,
+    'remove the former 52 dodecahedron stones'); 
+  const details=stage.root.getObjectByName('Childhood home organic ground details');
+  const plants=stage.root.getObjectByName('Childhood home enhanced vegetation');
+  assert.ok(details);
+  assert.ok(!details.children.some(c=>c.name.startsWith('Textured natural stones variant ')));
+  assert.ok(!stage.root.getObjectByName('Naturally shaped textured stepping stones 0'));
+  assert.ok(!stage.root.getObjectByName('Naturally shaped textured stepping stones 1'));
   assert.ok(stage.solids.some(s=>s.label==='Childhood home walls'));
   assert.ok(!stage.solids.some(s=>s.label.toLowerCase().includes('rock')),
     'small scenic stones never add unplanned collisions');
@@ -116,13 +127,14 @@ test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', 
   const installed=createCuratedRockGroup(scene);
   assert.equal(installed.name,'Curated original UV textured rock placements');
   assert.ok(installed.children.every(child=>child instanceof THREE.InstancedMesh));
-  assert.ok(installed.children.length>=12);
+  assert.equal(installed.children.length,2,'exactly two rock InstancedMesh draws');
   const placed=installed.children.reduce((count,child)=>count+child.count,0);
   assert.equal(placed,selectedHomeRocks.length);
-  assert.equal(placed,28);
-  const variant=installed.getObjectByName('UV original rock variant 00');
+  assert.equal(placed,19);
+  const variant=installed.getObjectByName('UV mossy rock variant 00');
+  assert.ok(installed.getObjectByName('UV plain rock variant 02'));
   assert.ok(variant instanceof THREE.InstancedMesh);
-  const first=selectedHomeRocks.find(p=>p.id===0);
+  const first=selectedHomeRocks.find(p=>p.type==='mossy');
   const matrix=new THREE.Matrix4();
   variant.getMatrixAt(0,matrix);
   const position=new THREE.Vector3().setFromMatrixPosition(matrix);
@@ -147,7 +159,7 @@ test('creek is truly winding water with softened banks, not a rectangle', () => 
   assert.notEqual(creekCenterX(-4),creekCenterX(4));
   assert.ok(CREEK.bridgeMin<8.6&&CREEK.bridgeMax>8.6);
   const creek=createHomeCreek();
-  assert.equal(creek.children.length,4);
+  assert.equal(creek.children.length,5);
   const water=creek.getObjectByName('Shallow stream west of childhood home');
   const west=creek.getObjectByName('Soft west creek bank');
   const east=creek.getObjectByName('Soft east creek bank');
