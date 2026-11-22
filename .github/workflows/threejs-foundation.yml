@@ -87,3 +87,13 @@ jobs:
         run: npm run build
       - name: Verify production entry point
         run: test -s dist/index.html
+      - name: Play the farming loop in the production browser build
+        run: npm run test:farm-browser
+      - name: Save in-game garden screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-garden-gameplay
+          path: web/artifacts/garden/*.jpg
+          if-no-files-found: ignore
+          retention-days: 7

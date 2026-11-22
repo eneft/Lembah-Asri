@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { createTerrainMaterial, createPaintedTerrainPlane, makeTerrainEdgeMask, type TerrainSurface } from './terrainMaterials.ts';
+import { createPaintedTerrainPlane, makeTerrainEdgeMask, type TerrainSurface } from './terrainMaterials.ts';
+import { GARDEN, sculptGardenGround, gardenCollision, gardenProfile, gardenUV, type GardenGround } from './gardenLayout.ts';
+import { GardenSurface } from './gardenSurface.ts';
 import { createHomeGroundDetails } from './homeGroundDetails.ts';
 import { createHouseGroundTransition, featherMergedHouseGround, createHouseContactShadow } from './houseTerrainSeam.ts';
 import { createHomeArtPass } from './homeArtPass.ts';
@@ -24,7 +26,7 @@ export const HOME = {
   spawn: { x: -29.5, y: 1.2, z: 7.4 },
   gate: { x: -16.5, z: 9 },
   villageRoad: { x: 0, z: 9 },
-  garden: { x: -22, z: 0.5 },
+  garden: GARDEN,
   well: { x: -39, z: 4 },
   stream: { x: -45.5, z: 9 }
 } as const;
@@ -55,6 +57,8 @@ export type HomeStage = {
   root: THREE.Group;
   solids: SolidCollider[];
   cameraBlockers: THREE.Object3D[];
+  garden: GardenSurface;
+  gardenGround: GardenGround;
   ready: Promise<boolean>;
 };
 
@@ -148,87 +152,6 @@ function buildLocalHouseFallback(root: THREE.Object3D): THREE.Group {
   box(group, 'Roof ridge', [8.7, 0.22, 0.23], [0, 4.25, 0], roof);
   box(group, 'Veranda wooden bench', [1.25, 0.14, 0.5], [-2.25, 0.65, 3.4], timber);
   return group;
-}
-
-function makeGardenRidgeGeometry(length: number): THREE.BufferGeometry {
-  // Bare, low soil rows with a soft hand-shaped crown. Dense cross-sections and
-  // subtle lengthwise variation avoid the hard rectangular plank appearance.
-  const profile: Array<[number, number]> = [
-    [-0.58, 0.006], [-0.50, 0.025], [-0.37, 0.062],
-    [-0.20, 0.105], [0, 0.132], [0.20, 0.105],
-    [0.37, 0.062], [0.50, 0.025], [0.58, 0.006]
-  ];
-  const segments = 40;
-  const positions: number[] = [];
-  const uvs: number[] = [];
-  const indices: number[] = [];
-  for (let ix = 0; ix <= segments; ix++) {
-    const u = ix / segments;
-    const x = -length / 2 + u * length;
-    const endSoftening = Math.min(1, 0.82 + Math.sin(u * Math.PI) * 0.18);
-    const ridgeWobble = 1 + Math.sin(u * Math.PI * 4.2) * 0.022
-      + Math.sin(u * Math.PI * 8.6 + 0.7) * 0.009;
-    for (let iz = 0; iz < profile.length; iz++) {
-      const [z, y] = profile[iz];
-      positions.push(x, 0.055 + y * endSoftening, z * ridgeWobble);
-      uvs.push(u * 3.2, iz / (profile.length - 1));
-    }
-  }
-  for (let ix = 0; ix < segments; ix++) {
-    for (let iz = 0; iz < profile.length - 1; iz++) {
-      const a = ix * profile.length + iz;
-      const b = a + profile.length;
-      indices.push(a, a + 1, b, b, a + 1, b + 1);
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  geometry.computeBoundingSphere();
-  return geometry;
-}
-
-function addHomeGarden(root: THREE.Object3D, loadTexture: boolean) {
-  const gardenCenter = HOME.garden;
-  const bedLength = 8.6;
-  const rows = [-2.0, -0.65, 0.7, 2.05];
-  const fallbackPixels = new Uint8Array([
-    142, 91, 54, 255, 154, 102, 62, 255,
-    132, 84, 51, 255, 148, 95, 57, 255
-  ]);
-  const fallbackSoil = new THREE.DataTexture(fallbackPixels, 2, 2, THREE.RGBAFormat);
-  fallbackSoil.colorSpace = THREE.SRGBColorSpace;
-  fallbackSoil.needsUpdate = true;
-  const soil = new THREE.MeshStandardMaterial({
-    map: fallbackSoil, color: '#ffffff', roughness: 1, metalness: 0, toneMapped: false
-  });
-  soil.userData.terrainSurface = 'soil';
-  // TextureLoader requires a browser DOM; createHomeStage(false) stays usable
-  // in headless tests with the small painted-earth DataTexture above.
-  if (loadTexture) {
-    new THREE.TextureLoader().load('./textures/terrain/home_garden_soil.webp', texture => {
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.repeat.set(1, 1);
-      texture.generateMipmaps = true;
-      texture.anisotropy = 8;
-      soil.map = texture;
-      soil.needsUpdate = true;
-      fallbackSoil.dispose();
-    }, undefined, error => console.warn('[LembahAsri] Garden soil texture unavailable', error));
-  }
-  rows.forEach((rowZ, rowIndex) => {
-    const bed = new THREE.Mesh(makeGardenRidgeGeometry(bedLength), soil);
-    bed.name = 'Bare hand-painted garden soil bed';
-    bed.position.set(gardenCenter.x, 0, gardenCenter.z + rowZ);
-    bed.receiveShadow = true;
-    bed.castShadow = false;
-    bed.userData.cropRow = rowIndex;
-    root.add(bed);
-  });
 }
 
 function addShed(root: THREE.Object3D) {
@@ -419,7 +342,24 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   const clearing = carveVisualCreek(floorPatch(root,
     'Childhood courtyard - earth clearing', 32, 29, -29, 0.4,
     '#ac9575', 0.028, 'earth', true));
+  const garden = new GardenSurface();
+  sculptGardenGround(clearing);
+  garden.bind(clearing.material);
+  const gardenGround = gardenCollision(clearing);
+  root.add(garden.crops);
+  const gardenReady = loadApprovedModel ? garden.loadArt() : Promise.resolve();
   const worn = floorPatch(root, 'Worn central courtyard', 15, 12, -29, 5.2, '#b7a07c', 0.052, 'soil', true);
+  // The old wear layer is visible while the courtyard albedo loads. Keep its
+  // transparency continuous where the footpath enters the cultivated earth.
+  const wearMask = worn.material.alphaMap as THREE.DataTexture;
+  const { data, width, height } = wearMask.image;
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const wx = worn.position.x + ((x + .5) / width - .5) * worn.geometry.parameters.width;
+    const wz = worn.position.z + (.5 - (y + .5) / height) * worn.geometry.parameters.height;
+    const { u, t } = gardenUV(wx, wz);
+    data[(y * width + x) * 4 + 1] *= 1 - gardenProfile(u, t).coverage;
+  }
+  wearMask.needsUpdate = true;
   floorPatch(root, 'Path from the house gate to the village', 22, 3.3, -8.5, HOME.gate.z, '#b9a27d', 0.066, 'path', true);
   // A wider approach helps the enlarged house read as the protagonist's home.
   // Ends at the actual front wall rather than diving under the house.
@@ -443,6 +383,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
         const painted = new THREE.Mesh(clearing.geometry, material);
         painted.name = 'Painted childhood courtyard';
         carveVisualCreek(painted);
+        garden.bind(material);
         painted.rotation.copy(clearing.rotation);
         painted.position.copy(clearing.position);
         painted.renderOrder = clearing.renderOrder;
@@ -457,7 +398,6 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     : Promise.resolve(undefined);
 
   const fallback = buildLocalHouseFallback(root);
-  addHomeGarden(root, loadApprovedModel);
   addShed(root);
   addWellAndFruitTree(root, loadApprovedModel);
   // Keep fallback tree while the 3D GLB downloads. Replace it with the actual
@@ -584,5 +524,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, ready: Promise.all([loaded, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, gardenReady]).then(([house]) => house) };
 }

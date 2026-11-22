@@ -92,10 +92,10 @@ test('ground detail installation preserves existing house and well colliders', (
   const stage = createHomeStage(false);
   assert.ok(stage.root.getObjectByName('Childhood home organic ground details'));
   assert.ok(stage.root.getObjectByName('Old village well stone rim'));
-  const beds = [];
-  stage.root.traverse(obj => { if (obj.name === 'Bare hand-painted garden soil bed') beds.push(obj); });
-  assert.equal(beds.length, 4, 'four bare low soil ridges remain');
-  assert.ok(beds.every(bed => bed.material.map instanceof THREE.Texture));
+  const yard = stage.root.getObjectByName('Childhood courtyard - earth clearing');
+  assert.ok(yard.geometry.getAttribute('gardenPaint'), 'garden and yard share one painted surface');
+  assert.equal(stage.root.getObjectByName('Bare hand-painted garden soil bed'), undefined);
+  assert.ok(stage.garden.crops.children.every(batch => batch.count === 0));
   assert.equal(stage.root.getObjectByName('Sawi and kangkung leaves'), undefined);
   assert.equal(stage.root.getObjectByName('Ripe red garden tomatoes'), undefined);
   assert.equal(stage.root.getObjectByName('Bamboo trellis top rail'), undefined);

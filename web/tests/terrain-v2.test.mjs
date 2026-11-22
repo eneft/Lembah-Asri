@@ -66,7 +66,12 @@ test('home clearing and village connection share plain world UV1 with protected 
     const mesh = stage.root.getObjectByName(name);
     assert.ok(mesh instanceof THREE.Mesh);
     assert.ok(mesh.geometry.getAttribute('uv1'), name);
-    assert.equal(mesh.geometry.getAttribute('position').count, 4, name + ' stays a flat quad');
+    if (name === 'Childhood courtyard - earth clearing') {
+      assert.ok(mesh.geometry.getAttribute('gardenPaint'));
+      assert.ok(mesh.geometry.getAttribute('position').count < 5000, 'only the garden needs a dense grid');
+    } else {
+      assert.equal(mesh.geometry.getAttribute('position').count, 4, name + ' stays a flat quad');
+    }
     assert.ok(mesh.material.alphaMap, name);
     assert.equal(mesh.material.userData.worldUV, true);
   }

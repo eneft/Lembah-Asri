@@ -10,8 +10,9 @@
     "build": "tsc --noEmit && vite build",
     "test:animation": "node --experimental-strip-types --test tests/character-animation.test.mjs",
     "test:materials": "node --experimental-strip-types --test tests/hand-painted-materials.test.mjs",
+    "test:farm-browser": "node scripts/check-garden-browser.mjs",
     "test:camera-idle": "node --experimental-strip-types --test tests/camera-idle.test.mjs",
-    "test:home": "node --experimental-strip-types --test tests/home-stage.test.mjs",
+    "test:home": "node --experimental-strip-types --test tests/home-stage.test.mjs tests/garden-farming.test.mjs",
     "test:warung": "node --experimental-strip-types --test tests/warung-stage.test.mjs",
     "test:terrain": "node --experimental-strip-types --test tests/terrain-materials.test.mjs",
     "test:terrain-v2": "node --experimental-strip-types --test tests/terrain-v2.test.mjs",
@@ -36,6 +37,7 @@
     "concurrently": "^9.1.2",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
+    "playwright-core": "1.56.1",
     "typescript": "~5.7.2",
     "vite": "^6.0.7",
     "wait-on": "^8.0.1"

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Game, type PerformanceStats } from '../world/Game';
+import type { FarmHUD } from '../world/homeFarm';
+import { farmKeys, farmLabels } from '../world/farmPlots';
 
 export default function App() {
   const host = useRef<HTMLDivElement>(null);
@@ -9,6 +11,7 @@ export default function App() {
   const runActiveRef = useRef(false);
   const [runActive, setRunActive] = useState(false);
   const [ready, setReady] = useState(false);
+  const [farm, setFarm] = useState<FarmHUD | null>(null);
   const [showPerformance, setShowPerformance] = useState(false);
   const [performanceSample, setPerformanceSample] = useState<PerformanceStats>();
   const [error, setError] = useState('');
@@ -22,6 +25,7 @@ export default function App() {
       game = instance;
       gameRef.current = instance;
       instance.setTouchRun(runActiveRef.current);
+      instance.setFarmListener(setFarm);
       setReady(true);
     }).catch(reason => setError(String(reason)));
     return () => { active = false; gameRef.current = undefined; game?.dispose(); };
@@ -68,7 +72,19 @@ export default function App() {
   return <main className="game-shell">
     <div className="game-canvas" ref={host} />
     <header className="brand"><span className="brand-mark">LA</span><div><strong>Lembah Asri</strong><small>RUMAH MASA KECIL · PLAYABLE 0.2</small></div></header>
-    <section className="objective"><b>Kembali ke Lembah Asri</b><span>Jelajahi rumah masa kecil</span><span>Jelajahi kebun sayur rumah</span><span>Ikuti jalan menuju desa</span></section>
+    {!farm && <section className="objective"><b>Kembali ke Lembah Asri</b><span>Jelajahi rumah masa kecil</span><span>Dekati bedeng untuk berkebun</span><span>Ikuti jalan menuju desa</span></section>}
+    {farm && <section className="farm-panel" aria-label="Rawat kebun">
+      <div className="farm-location">Bedeng {farm.row} · Titik {farm.spot}</div>
+      <strong aria-live="polite">{farm.description}</strong>
+      {farm.actions.length > 0 && <div className="farm-actions">
+        {farm.actions.map(action => <button type="button" key={action}
+          onClick={() => gameRef.current?.useFarmAction(action, farm.id)}>
+          {farmLabels[action]} <kbd aria-hidden="true">{farmKeys.indexOf(action) + 1}</kbd>
+        </button>)}
+      </div>}
+      {farm.harvests > 0 && <small>Hasil panen · {farm.harvests} sawi</small>}
+      {!farm.saved && <small>Progres tersimpan selama sesi ini.</small>}
+    </section>}
     <aside className="status">
       <span>☀ Musim Kemarau</span><strong>08:20</strong>
       <small>{ready ? '3D WORLD READY' : error ? 'ENGINE ERROR' : 'LOADING 3D CHARACTER'}</small>

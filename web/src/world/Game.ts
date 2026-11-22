@@ -8,6 +8,9 @@ import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTr
 import { applyHandPaintedMaterials } from './handPaintedMaterials';
 import { keepCameraOutsideGeometry } from './cameraOcclusion';
 import { activateCharacterMotion } from './animationState';
+import { HomeFarm, type FarmHUD } from './homeFarm';
+import { farmKeys, type FarmAction } from './farmPlots';
+import { sculptGardenGround, gardenHeightAt, type GardenGround } from './gardenLayout';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
 import { applyMeadowAntiTileShader } from './meadowAntiTile';
@@ -48,6 +51,28 @@ export class Game {
   private cameraFocus = new THREE.Vector3();
   private cameraObstacles: THREE.Object3D[] = [];
   private homeSolids: SolidCollider[] = [];
+  private farm!: HomeFarm;
+  private gardenGround!: GardenGround;
+
+  setFarmListener(fn?: (hud: FarmHUD | null) => void) { this.farm.setListener(fn); }
+
+  useFarmAction(action: FarmAction, id?: number) {
+    if (!this.playerMesh) return false;
+    const {x, y, z} = this.playerMesh.position;
+    this.farm.update(x, y, z, this.playerMesh.rotation.y);
+    return this.farm.act(action, id);
+  }
+
+  private onWalkingGround() {
+    const p = this.player.translation(), velocity = this.player.linvel();
+    const height = gardenHeightAt(p.x, p.z);
+    // Remove the vertical component of walking along a raised bed from the
+    // jump/landing check. On the flat yard this reduces to the usual check.
+    const step = .06;
+    const slopeX = (gardenHeightAt(p.x + step, p.z) - gardenHeightAt(p.x - step, p.z)) / (2 * step);
+    const slopeZ = (gardenHeightAt(p.x, p.z + step) - gardenHeightAt(p.x, p.z - step)) / (2 * step);
+    return isPlayerGrounded(p.y - height, velocity.y - slopeX * velocity.x - slopeZ * velocity.z);
+  }
   private performanceListener?: (stats: PerformanceStats) => void;
   private performanceFrames = 0;
   private performanceElapsed = 0;
@@ -83,6 +108,12 @@ export class Game {
   private resizeObserver: ResizeObserver;
   private onKeyDown = (e: KeyboardEvent) => {
     const key = e.key.toLowerCase();
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (/^[1-4]$/.test(key)) {
+      if (!e.repeat) this.useFarmAction(farmKeys[Number(key) - 1]);
+      return;
+    }
+    if (key === ' ' && e.target instanceof HTMLElement && e.target.closest('button')) return;
     this.keys.add(key);
     if (key === ' ') {
       e.preventDefault();
@@ -169,6 +200,8 @@ export class Game {
     game.world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     const floor = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     game.world.createCollider(RAPIER.ColliderDesc.cuboid(80, 0.25, 80).setTranslation(0, -0.25, 0), floor);
+    const { vertices, indices } = game.gardenGround;
+    game.world.createCollider(RAPIER.ColliderDesc.trimesh(vertices, indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES), floor);
     // Distinct static colliders for the house, empty storage shed and fences.
     // Paths and the open gate remain physically traversable.
     const fixedScenery = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
@@ -372,6 +405,8 @@ export class Game {
     // scene stays one continuous world and does not introduce loading screens.
     const home = createHomeStage();
     this.scene.add(home.root);
+    this.farm = new HomeFarm(home.garden);
+    this.gardenGround = home.gardenGround;
     this.flowingCreekWater = home.root.getObjectByName('Shallow stream west of childhood home');
     this.cameraObstacles.push(...home.cameraBlockers);
     this.homeSolids = home.solids;
@@ -384,9 +419,10 @@ export class Game {
     this.scene.add(ground);
     // Preserve the painted albedo: a transparent ShadowMaterial layer catches
     // actual character, roof and tree shadows without re-lighting the texture.
-    this.scene.add(carveVisualCreek(createPaintedShadowReceiver(
+    const groundShadows = createPaintedShadowReceiver(
       'World painted-terrain real shadows', 160, 160, 0, 0, 0.103
-    )));
+    );
+    this.scene.add(carveVisualCreek(sculptGardenGround(groundShadows)));
     this.characterContactShadow = createCharacterContactShadow();
     this.scene.add(this.characterContactShadow);
     // One or two InstancedMesh draws for all small 3D grass tufts.
@@ -510,7 +546,7 @@ export class Game {
       const vel=this.player.linvel();
       this.player.setLinvel({x:dir.x*speed,y:vel.y,z:dir.z*speed},true);
       // Jump only from a resting capsule; never restart or cut it midair.
-      if(this.jumpRequested && !this.jumpInProgress && isPlayerGrounded(this.player.translation().y, vel.y)){
+      if(this.jumpRequested && !this.jumpInProgress && this.onWalkingGround()){
         this.player.setLinvel({x:dir.x*speed,y:5.2,z:dir.z*speed},true);
         this.jumpInProgress=true;
         this.jumpLeftGround=false;
@@ -554,7 +590,7 @@ export class Game {
       }
       if(this.jumpInProgress){
         this.jumpElapsed+=dt;
-        const onGround=isPlayerGrounded(p.y,this.player.linvel().y);
+        const onGround=this.onWalkingGround();
         if(!onGround) this.jumpLeftGround=true;
         // Leave Jump active throughout takeoff, flight and the landing pose.
         this.playMotion('jump',0.08);
@@ -586,6 +622,7 @@ export class Game {
     }
     const target=this.playerMesh?.position??new THREE.Vector3();
     if (this.playerMesh) {
+      this.farm.update(target.x, target.y, target.z, this.playerMesh.rotation.y);
       focusSunShadows(this.sunLight, target.x, target.z);
       updateCharacterContactShadow(this.characterContactShadow, target);
     }
@@ -619,5 +656,5 @@ export class Game {
       this.lastPerfTick = now;
     }
   };
-  dispose(){this.running=false;cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
+  dispose(){this.running=false;this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }

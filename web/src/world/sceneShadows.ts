@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { gardenHeightAt } from './gardenLayout.ts';
 
 /**
  * The terrain and character use MeshBasicMaterial to keep the authored
@@ -111,7 +112,9 @@ export function updateCharacterContactShadow(
   worldPosition: THREE.Vector3
 ): void {
   // Ground stays fixed and the silhouette softens as the character jumps.
-  const air = Math.max(0, worldPosition.y);
+  const ground = gardenHeightAt(worldPosition.x, worldPosition.z);
+  shadow.position.y = .11 + ground;
+  const air = Math.max(0, worldPosition.y - ground);
   shadow.position.x = worldPosition.x;
   shadow.position.z = worldPosition.z;
   shadow.visible = true;
