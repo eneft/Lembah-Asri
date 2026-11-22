@@ -13,7 +13,7 @@ export const TOON_SETTINGS=Object.freeze({
   pixelWidthDesktop:1.3,
   thresholdNear:.055,
   thresholdFar:.16,
-  toonColorStrength:.14,
+  colorStepping:.14,
   taps:5,
   version:'lembah-toon-black-v1'
 });
