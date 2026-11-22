@@ -10,7 +10,7 @@ import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
-import { createSculptedCreekMeadow } from './homeTerrain3D.ts';
+import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerrain3D.ts';
 import { applyCreekCourtyardAlbedo } from './shoreCourtyard.ts';
 import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
@@ -320,6 +320,7 @@ function addStreamAndBridge(root: THREE.Object3D) {
   root.add(createHomeCreek());
   // Dense growth only around the major stone clusters, never on the bridge.
   root.add(createHomeCreekVegetation());
+  root.add(createFineCreekBankGrass());
   // No fallback row of 52 plain stones. Only the two selected UV GLB rock
   // types are displayed, with natural scale variation.
   // 12 separate real UV wooden boards, support beams, posts and joinery.
