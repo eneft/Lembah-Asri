@@ -46,9 +46,9 @@ test('the childhood home is an open, navigable area with the village gate unobst
   assert.equal(await stage.ready, false, 'test skips network model load');
   assert.ok(stage.root instanceof THREE.Group);
   assert.equal(stage.root.name, 'Rumah Masa Kecil / Playable House Garden');
-  assert.ok(stage.root.getObjectByName('Hand-shaped vegetable garden bed'));
-  assert.ok(stage.root.getObjectByName('Sawi and kangkung leaves'));
-  assert.ok(stage.root.getObjectByName('Bamboo trellis top rail'));
+  assert.ok(stage.root.getObjectByName('Bare hand-painted garden soil bed'));
+  assert.equal(stage.root.getObjectByName('Sawi and kangkung leaves'), undefined);
+  assert.equal(stage.root.getObjectByName('Bamboo trellis top rail'), undefined);
   assert.ok(stage.root.getObjectByName('Old village well stone rim'));
   assert.ok(stage.root.getObjectByName('West wooden bridge walkway'));
   assert.ok(stage.root.getObjectByName('Path from the house gate to the village'));
