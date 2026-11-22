@@ -97,7 +97,7 @@ test('grass is deterministic, varied, and excludes walkable paths/house/garden/w
   assert.ok(a.some(point => point.kind === 1));
   assert.ok(a.every(point => isGrassAllowed(point.x, point.z)));
   assert.equal(isGrassAllowed(-32.5, -9.4), false, 'no grass in house');
-  assert.equal(isGrassAllowed(-22, 0.5), false, 'garden bed stays empty');
+  assert.equal(isGrassAllowed(-22, 0.5), false, 'garden crops stay clear of decorative grass');
   assert.equal(isGrassAllowed(-10, 9), false, 'dirt road stays visible');
   assert.equal(isGrassAllowed(0, -5), false, 'village plaza stays clear');
   assert.equal(isGrassAllowed(-45.5, 8.3), false, 'stream remains clear');

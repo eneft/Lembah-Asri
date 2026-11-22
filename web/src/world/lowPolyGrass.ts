@@ -67,8 +67,8 @@ export function isGrassAllowed(x: number, z: number): boolean {
   // The central childhood earth courtyard is worn/bare, not a meadow. Keep
   // growth mainly at the edges near the fence and on the grass beyond.
   if (x > -42.2 && x < -16 && z > -10 && z < 13) return false;
-  // Abandoned beds stay bare: no invented garden plants
-  if (x >= -27.5 && x <= -17.2 && z >= -2.4 && z <= 3.0) return false;
+  // Keep decorative grass out of the cultivated beds and bamboo trellis.
+  if (x >= -27.5 && x <= -16.5 && z >= -2.9 && z <= 4.2) return false;
   // Storehouse, well and immediate player arrival area
   if (Math.abs(x + 22) < 2.7 && Math.abs(z + 10.4) < 2.4) return false;
   if (Math.hypot(x + 39, z - 4) < 1.6) return false;
