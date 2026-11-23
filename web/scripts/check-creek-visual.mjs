@@ -109,52 +109,43 @@ try{
   assert.ok(assets.has(prefix+'models/environment/bridge_user_reference_wood_v2.glb'));
   assert.ok(facts.submerged>=6);
   assert.ok(facts.grass>260&&facts.grass<600,'restore the earlier softer riverside density');
-  // Only the 7.5m front-yard sentinel remains; wait for the REAL new 3D
-  // model, not the temporary UV fallback. Both smaller trees are removed.
+  // Restore the real 3.65m orchard GLB from the pre-PR#93 layout,
+  // not the temporary fallback. The former 7.5m sentinel must be absent.
   await page.waitForFunction(()=>{
-    const tree=window.__lembahVisualQA.scene
-      .getObjectByName('Pohon tua di depan rumah');
-    return !!(tree?.getObjectByName('Pangkal_akar')
-      && tree?.getObjectByName('Batang_dan_dahan')
-      && tree?.getObjectByName('Tajuk_Alpha'));
+    const tree=window.__lembahVisualQA.scene.getObjectByName('Old fruit tree');
+    return tree?.userData?.renderStyle==='textured volumetric alpha-cutout GLB';
   },null,{timeout:120000});
-  const sentinel=await page.evaluate(()=>{
+  const orchard=await page.evaluate(()=>{
     const stage=window.__lembahVisualQA.scene
       .getObjectByName('Rumah Masa Kecil / Playable House Garden');
-    const tree=stage?.getObjectByName('Pohon tua di depan rumah');
-    const root=tree?.getObjectByName('Pangkal_akar');
-    const trunk=tree?.getObjectByName('Batang_dan_dahan');
-    const leaves=tree?.getObjectByName('Tajuk_Alpha');
-    let materialCount=0;
-    tree?.traverse(object=>{if(object.isMesh)materialCount++;});
+    const tree=stage?.getObjectByName('Old fruit tree');
+    let meshCount=0,barkUV=false,leavesUV=false,leafAlpha=false;
+    tree?.traverse(object=>{
+      if(!object.isMesh)return;
+      meshCount++;
+      if(object.geometry.getAttribute('uv')){
+        barkUV ||= !object.material.alphaTest;
+        leavesUV ||= object.material.alphaTest>=.4;
+      }
+      leafAlpha ||= object.material.alphaTest>=.4;
+    });
     return {
       x:tree?.position.x,z:tree?.position.z,
-      roots:root?.geometry.getAttribute('position')?.count,
-      rootUV:!!root?.geometry.getAttribute('uv'),
-      trunkUV:!!trunk?.geometry.getAttribute('uv'),
-      rootPainted:root?.material?.userData?.courtyardRetonedBark===true,
-      trunkPainted:trunk?.material?.userData?.courtyardRetonedBark===true,
-      barkMap:!!root?.material?.map && !!trunk?.material?.map,
-      alphaLeaves:leaves?.material?.alphaTest>.4,
-      leavesUV:!!leaves?.geometry.getAttribute('uv'),
-      meshCount:materialCount,
-      seedlings:stage?.getObjectByName('Small 3D shade plants among natural buttress roots')?.count,
-      oldFruitGone:!stage?.getObjectByName('Old fruit tree'),
-      smallerConceptGone:!stage?.getObjectByName('Concept mature shade tree near the garden')
+      renderStyle:tree?.userData?.renderStyle,meshCount,barkUV,leavesUV,leafAlpha,
+      oldLargeGone:!stage?.getObjectByName('Pohon tua di depan rumah'),
+      conceptGone:!stage?.getObjectByName('Concept mature shade tree near the garden'),
+      oldRootsGone:!stage?.getObjectByName('Small 3D shade plants among natural buttress roots')
     };
   });
-  assert.ok(Math.abs(sentinel.x+33.9)<.01 && Math.abs(sentinel.z-8.6)<.01,
-    'single big courtyard tree must remain at approved location');
-  assert.ok(sentinel.meshCount>=3 && sentinel.rootUV && sentinel.trunkUV
-    && sentinel.barkMap && sentinel.rootPainted && sentinel.trunkPainted,
-    'both real 3D trunk/roots must use the original bark UV with aged painterly grading');
-  assert.ok(sentinel.roots>200,'preserve exposed original three-dimensional roots');
-  assert.ok(sentinel.alphaLeaves && sentinel.leavesUV,
-    'keep the authentic UV alpha-cutout foliage');
-  assert.equal(sentinel.seedlings,19,'retain tiny growth by the biggest roots');
-  assert.ok(sentinel.oldFruitGone && sentinel.smallerConceptGone,
-    'remove exactly both visually smaller surrounding courtyard trees');
-  assert.ok(assets.has(prefix+'models/environment/pohon_pekarangan.glb'));
+  assert.equal(orchard.x,-40);
+  assert.equal(orchard.z,8.3);
+  assert.equal(orchard.renderStyle,'textured volumetric alpha-cutout GLB');
+  assert.ok(orchard.meshCount>=2 && orchard.barkUV && orchard.leavesUV && orchard.leafAlpha,
+    'the old orchard tree is a genuine painted 3D asset');
+  assert.ok(orchard.oldLargeGone && orchard.conceptGone && orchard.oldRootsGone,
+    'remove every extra large courtyard tree and its groundcover');
+  assert.ok(assets.has(prefix+'models/environment/pohon_rimbun_orchard.glb'),
+    'the restored orchard GLB is actually loaded, not only the fallback');
   await mkdir('artifacts/creek',{recursive:true});
   await page.waitForFunction(()=>window.__lembahVisualQA.scene
     .getObjectByName('Rumah Masa Kecil / Playable House Garden')?.userData.paintedCreekLoaded);
@@ -263,12 +254,12 @@ try{
   assert.ok(importedHouse.box[1]>5.7 && importedHouse.box[1]<6.1);
   assert.ok(importedHouse.box[2]>8.5 && importedHouse.box[2]<9.7);
   assert.ok([...assets].some(url=>url.includes('rumah_utama_user_pbr.glb')));
-  // Frame the only front-yard 7.5m tree from player height.
-  await shot(-35.7,12.1,-1.13,'artifacts/creek/04-front-courtyard-sentinel.jpg',1.10,28);
+  // Capture the cleared front yard and the restored original fruit tree.
+  await shot(-35.7,12.1,-1.13,'artifacts/creek/04-restored-front-courtyard.jpg',1.10,28);
   // Scenery framing from the west bank of the creek (matches the optional
   // ?view=konsep player entrance), while remaining real interactive 3D.
   await page.waitForFunction(() => window.__lembahVisualQA.scene.getObjectByName('Sumur beratap genteng')
-    && window.__lembahVisualQA.scene.getObjectByName('Pohon tua di depan rumah'));
+    && window.__lembahVisualQA.scene.getObjectByName('Old fruit tree'));
   await shot(-41.3,6.65,-1.60,'artifacts/creek/05-riverside-concept-view.jpg',1.12,32);
   // The raised deck should carry a REAL physics capsule, and the render
   // should show feet resting on timber rather than disappearing into it.
@@ -279,7 +270,7 @@ try{
   assert.ok(assets.has(prefix+'textures/terrain/creek_water_painterly_illustrated.webp'));
   assert.ok(assets.has(prefix+'models/environment/lembah_asri_rocks_original_16.glb'));
   assert.deepEqual(errors,[]);
-  console.log('Rendered courtyard sentinel bark and unchanged creek bridge:',JSON.stringify({bridge:facts,tree:sentinel}));
+  console.log('Rendered restored pre-PR93 orchard and unchanged creek bridge:',JSON.stringify({bridge:facts,tree:orchard}));
 }finally{
   await browser?.close();
   server.closeAllConnections();
