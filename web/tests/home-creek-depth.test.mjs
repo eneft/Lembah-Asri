@@ -44,7 +44,7 @@ test('clear water shows painted silt and local illustrated foam without alphaHas
   const surface=creek.getObjectByName('Shallow stream west of childhood home');
   const bed=creek.getObjectByName('Visible gravel bed below clear creek water');
   assert.equal(surface.material.transparent,true);
-  assert.ok(surface.material.opacity>.87&&surface.material.opacity<.92);
+  assert.ok(surface.material.opacity>.77&&surface.material.opacity<.81);
   assert.equal(surface.material.depthWrite,false);
   assert.notEqual(surface.material.alphaHash,true);
   assert.equal(surface.material.map,makeCreekAlbedo());
@@ -52,6 +52,7 @@ test('clear water shows painted silt and local illustrated foam without alphaHas
   assert.notEqual(bed.material.map,surface.material.map);
   assert.equal(bed.material.depthWrite,true);
   assert.equal(surface.userData.rippleType,'mobile-two-frequency');
+  assert.equal(surface.material.userData.clearWaterStyle,'clear-turquoise-painterly-stage3-v1');
   const map=bed.material.map.image.data;
   assert.ok(map.some((v,i)=>i%4!==3&&v>135),'painted sand wash remains visible');
   assert.equal(CREEK.flowSign,1);
