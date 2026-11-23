@@ -8,7 +8,7 @@ import { chromium } from 'playwright-core';
 
 const root=path.resolve('dist'), prefix='/Lembah-Asri/';
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css',
-  '.webp':'image/webp','.png':'image/png','.glb':'model/gltf-binary',
+  '.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.glb':'model/gltf-binary',
   '.jpg':'image/jpeg','.fbx':'application/octet-stream'};
 const server=createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
