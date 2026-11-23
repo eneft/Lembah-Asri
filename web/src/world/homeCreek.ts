@@ -215,10 +215,12 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
           // no micro-noise here or seams would open between the meshes.
           {dist:.79,y:lip,color:[1,1,1]},
           {dist:.69,y:lip*.79,color:[1,1,1]},
-          {dist:.53,y:-.045,color:[.98,.98,.98]},
-          {dist:.32,y:-.18,color:[.94,.95,.95]},
-          {dist:.11,y:-.35,color:[.89,.91,.92]},
-          {dist:-.10,y:-.52,color:[.86,.88,.89]},
+          // A longer, softer worn-earth middle before the submerged foot;
+          // keep ring 0 welded to grass, ring 6 welded to the riverbed.
+          {dist:.53,y:-.022,color:[.985,.986,.978]},
+          {dist:.32,y:-.145,color:[.96,.961,.955]},
+          {dist:.11,y:-.315,color:[.91,.926,.92]},
+          {dist:-.10,y:-.505,color:[.87,.89,.89]},
           {dist:-.30,y:CREEK.bedY,color:[.82,.85,.86]}
         ];
         const ring=rings[j];
