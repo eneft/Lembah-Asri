@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Game, type PerformanceStats } from '../world/Game';
+import type { SceneEditorSnapshot } from '../world/SceneVisualEditor';
+import SceneEditorPanel from './SceneEditorPanel';
 import type { FarmHUD } from '../world/homeFarm';
 import { farmKeys, farmLabels } from '../world/farmPlots';
 import { CONTROL_MODE_KEY, parseControlPreference, resolveControlMode, type ControlPreference } from './controlMode';
@@ -12,6 +14,10 @@ export default function App() {
   const runActiveRef = useRef(false);
   const [runActive, setRunActive] = useState(false);
   const [ready, setReady] = useState(false);
+  const [sceneEditorOn, setSceneEditorOn] = useState(false);
+  const [sceneEditorState, setSceneEditorState] = useState<SceneEditorSnapshot>({
+    active: false, items: [], selectedId: null, mode: 'translate', message: ''
+  });
   const [farm, setFarm] = useState<FarmHUD | null>(null);
   const [showPerformance, setShowPerformance] = useState(false);
   const [performanceSample, setPerformanceSample] = useState<PerformanceStats>();
@@ -56,6 +62,7 @@ export default function App() {
       gameRef.current = instance;
       instance.setTouchRun(runActiveRef.current);
       instance.setFarmListener(setFarm);
+      instance.setSceneEditorListener(setSceneEditorState);
       setReady(true);
     }).catch(reason => setError(String(reason)));
     return () => { active = false; gameRef.current = undefined; game?.dispose(); };
@@ -110,11 +117,24 @@ export default function App() {
     gameRef.current?.setTouchRun(next);
   };
 
-  return <main className="game-shell" data-control-mode={controlMode}>
+  const toggleSceneEditor = () => {
+    if (!gameRef.current) return;
+    const next = !sceneEditorOn;
+    // Reset the gameplay input state before exposing a separate editing camera.
+    releaseStick();
+    runActiveRef.current = false;
+    setRunActive(false);
+    gameRef.current.setTouchRun(false);
+    gameRef.current.setSceneEditMode(next);
+    setSceneEditorOn(next);
+  };
+
+  return <main className="game-shell" data-control-mode={controlMode}
+    data-scene-edit={sceneEditorOn ? 'on' : 'off'}>
     <div className="game-canvas" ref={host} />
     <header className="brand"><span className="brand-mark">LA</span><div><strong>Lembah Asri</strong><small>RUMAH MASA KECIL · PLAYABLE 0.2</small></div></header>
-    {!farm && <section className="objective"><b>Kembali ke Lembah Asri</b><span>Jelajahi rumah masa kecil</span><span>Dekati bedeng untuk berkebun</span><span>Ikuti jalan menuju desa</span></section>}
-    {farm && <section className="farm-panel" aria-label="Rawat kebun">
+    {!sceneEditorOn && !farm && <section className="objective"><b>Kembali ke Lembah Asri</b><span>Jelajahi rumah masa kecil</span><span>Dekati bedeng untuk berkebun</span><span>Ikuti jalan menuju desa</span></section>}
+    {!sceneEditorOn && farm && <section className="farm-panel" aria-label="Rawat kebun">
       <div className="farm-location">Bedeng {farm.row} · Titik {farm.spot}</div>
       <strong aria-live="polite">{farm.description}</strong>
       {farm.actions.length > 0 && <div className="farm-actions">
@@ -139,6 +159,10 @@ export default function App() {
           <option value="tablet">Tablet</option>
         </select>
       </div>
+      {ready && <button type="button" className="scene-edit-launch"
+        aria-pressed={sceneEditorOn} onClick={toggleSceneEditor}
+        title="Atur tata letak objek 3D langsung dalam game"
+      >{sceneEditorOn ? 'Kembali Bermain' : 'Edit Scene 3D'}</button>}
       <button
         type="button" className="perf-toggle" aria-pressed={showPerformance}
         onClick={togglePerformance} title="Tampilkan FPS untuk pemeriksaan performa"
@@ -146,6 +170,9 @@ export default function App() {
       {showPerformance && performanceSample &&
         <small className="perf-reading">{performanceSample.fps} FPS · {performanceSample.drawCalls} draw · {performanceSample.triangles.toLocaleString('id-ID')} tris</small>}
     </aside>
+    {sceneEditorOn && gameRef.current &&
+      <SceneEditorPanel game={gameRef.current} snapshot={sceneEditorState}
+        onClose={toggleSceneEditor} />}
     {error && <div className="error">{error}</div>}
     <footer className="controls"><b>WASD</b> Bergerak <b>Mouse</b> Putar kamera <b>Shift</b> Lari <b>Space</b> Lompat</footer>
     <div className="mobile-joystick" ref={joystickRef}

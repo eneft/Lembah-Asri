@@ -1,0 +1,40 @@
+.scene-editor{position:absolute;z-index:15;top:90px;left:24px;bottom:26px;width:min(360px,calc(100vw - 44px));display:flex;flex-direction:column;gap:10px;overflow:hidden;padding:15px;border:1px solid #a79772;border-radius:16px;background:rgba(248,240,218,.96);color:#3e3b2d;box-shadow:0 15px 48px #1e291f77;font:13px Nunito,system-ui,sans-serif}
+.scene-editor-header{display:flex;align-items:start;justify-content:space-between;gap:8px}
+.scene-editor-header strong{display:block;font:800 20px 'Playfair Display',serif}
+.scene-editor-header small{display:block;font-size:10px;letter-spacing:.7px;color:#64714d}
+.scene-editor button,.scene-editor input{font:inherit}
+.scene-editor button{cursor:pointer;border:1px solid #ac9f7c;border-radius:7px;padding:7px 10px;background:#eee1c3;color:#3d402e}
+.scene-editor button:hover{background:#e0d2b0}
+.scene-editor button:focus-visible,.scene-editor input:focus-visible{outline:2px solid #5d7946;outline-offset:1px}
+.scene-editor-close{white-space:nowrap}
+.scene-editor-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.scene-editor-tools button.is-active{background:#637f52;color:#fff8e8;border-color:#4b6740}
+.scene-editor-hint{margin:0;line-height:1.42;font-size:11px;color:#68634d}
+.scene-editor-search-label{font-weight:900;color:#545238}
+.scene-editor-search{min-height:36px;box-sizing:border-box;width:100%;padding:7px 9px;background:#fffaf0;border:1px solid #c2b390;border-radius:8px;color:#283a2a}
+.scene-editor-list{flex:1;min-height:70px;overflow-y:auto;border:1px solid #ccbda0;border-radius:8px;background:#fdf7e8}
+.scene-editor-list button{display:flex;align-items:center;justify-content:space-between;text-align:left;gap:6px;width:100%;min-height:32px;padding:6px 8px;border:0;border-bottom:1px solid #e7ddc9;border-radius:0;background:transparent;font-size:11px}
+.scene-editor-list button.is-selected{background:#d6e1cb;color:#2b492d;font-weight:900}
+.scene-editor-list button span:first-child{overflow-wrap:anywhere}
+.scene-editor-lock{flex:none;color:#99886c;font-size:9px}
+.scene-editor-empty{padding:8px;color:#817963}
+.scene-editor-inspector{border-top:1px solid #c6b99d;padding-top:9px}
+.scene-editor-inspector-title{display:flex;align-items:center;justify-content:space-between;gap:9px}
+.scene-editor-inspector-title b{font-size:12px;overflow-wrap:anywhere}
+.scene-editor-inspector-title button{font-size:10px;white-space:nowrap}
+.scene-editor-inspector>p{font-size:10px;color:#68624e;line-height:1.4;margin:7px 0 0}
+.scene-editor-values{display:grid;gap:7px;margin-top:9px}
+.scene-editor-transform-row>span{display:block;font-size:10px;font-weight:900;margin-bottom:4px}
+.scene-editor-axes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.scene-editor-axes label{display:flex;align-items:center;gap:4px;color:#64734d;font-size:10px;font-weight:900}
+.scene-editor-axes input{width:100%;min-width:0;box-sizing:border-box;padding:5px 4px;border-radius:5px;border:1px solid #b7a98d;background:#fffbf0;color:#333}
+.scene-editor-files{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.scene-editor-files button{padding:8px 3px;font-size:10px;font-weight:900}
+.scene-editor-files button:first-child{background:#657e53;color:#fff7e6}
+.scene-editor-warning,.scene-editor-notice{margin:0;font-size:10px;line-height:1.42;color:#74674a}
+.scene-editor-notice{color:#346d3a;font-weight:800}
+.game-shell[data-scene-edit="on"] .mobile-joystick,.game-shell[data-scene-edit="on"] .mobile-run,.game-shell[data-scene-edit="on"] .mobile-jump,.game-shell[data-scene-edit="on"] .controls,.game-shell[data-scene-edit="on"] .crosshair{display:none!important}
+.scene-edit-launch{margin-top:6px;justify-self:end;padding:8px 12px;border:1px solid #5f7953;border-radius:9px;background:#56764e;color:#fffae9;font:800 12px Nunito,system-ui,sans-serif;cursor:pointer}
+.scene-edit-launch[aria-pressed="true"]{background:#cfae72;color:#443b2a}
+@media(max-width:700px){.scene-editor{top:70px;left:8px;bottom:8px;max-height:calc(100% - 80px);width:min(336px,calc(100vw - 16px));padding:10px}.scene-editor-header strong{font-size:16px}.scene-editor-hint{font-size:10px}.scene-editor-warning{font-size:9px}.scene-edit-launch{padding:6px 9px;font-size:11px}}
+@media(max-height:600px){.scene-editor{top:8px;bottom:8px}.scene-editor-hint{display:none}.scene-editor-list{min-height:45px}}
