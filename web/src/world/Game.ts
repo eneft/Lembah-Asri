@@ -114,6 +114,8 @@ export class Game {
   private onKeyDown = (e: KeyboardEvent) => {
     const key = e.key.toLowerCase();
     if (e.ctrlKey || e.altKey || e.metaKey) return;
+    // Menu navigation should never also drive the player.
+    if (e.target instanceof HTMLElement && e.target.closest('select, input, textarea, [contenteditable="true"]')) return;
     if (/^[1-4]$/.test(key)) {
       if (!e.repeat) this.useFarmAction(farmKeys[Number(key) - 1]);
       return;

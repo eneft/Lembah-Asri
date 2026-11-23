@@ -41,6 +41,8 @@ jobs:
         run: npm run test:materials
       - name: Verify camera occlusion and Idle playback
         run: npm run test:camera-idle
+      - name: Verify manual desktop/tablet control-mode resolution
+        run: node --experimental-strip-types --test tests/control-mode.test.mjs
       - name: Generate local alpha-cutout GLB assets
         run: node scripts/build-painted-trees.mjs
       - name: Verify unique bark UV islands and painted albedo atlas
