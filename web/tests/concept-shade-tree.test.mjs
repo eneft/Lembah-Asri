@@ -32,6 +32,9 @@ test('approved old tropical shade tree is real 3D near the RIGHT garden side',as
   assert.equal(sprays.userData.leavesPerSpray,7);
   assert.equal(sprays.geometry.userData.leafSilhouette,
     'curved-oval-3d-with-painted-midrib');
+  assert.ok(sprays.geometry.userData.leafWidthToLength>=.5,
+    'reference foliage must be broad ovate leaves, never narrow grass blades');
+  assert.equal(sprays.geometry.userData.singleLeafBlades,7);
   assert.ok(sprays.geometry.getAttribute('uv').count>300);
   assert.equal(sprays.material.map.colorSpace,THREE.SRGBColorSpace);
   assert.equal(sprays.material.toneMapped,false);
@@ -47,6 +50,9 @@ test('approved old tropical shade tree is real 3D near the RIGHT garden side',as
   assert.ok(roots.castShadow);
   assert.ok(crown.getObjectByName('UV hand-painted tree trunk and branches'));
   assert.ok(crown.getObjectByName('Layered individual UV-painted tree leaves'));
+  const seedlings=tree.getObjectByName('Small 3D shade plants among natural buttress roots');
+  assert.ok(seedlings instanceof THREE.InstancedMesh);
+  assert.equal(seedlings.count,19);
   const bb=new THREE.Box3().setFromObject(tree);
   const dims=bb.getSize(new THREE.Vector3());
   assert.ok(dims.y>6.7&&dims.y<8.5,'tall but still playable');
@@ -75,11 +81,11 @@ test('new tree is collision-aware yet keeps gate, garden, spawn and bridge clear
 
 test('original hand-painted shade GLB remains the asynchronously loaded source',()=>{
   const tree=createReferenceShadeTree();
-  assert.equal(tree.children.length,3,'original 3D tree + 3D roots + leaf sprays');
+  assert.equal(tree.children.length,4,'original 3D tree + softened roots + seedlings + 3D leaf sprays');
   assert.equal(tree.userData.referenceSource,'matching UV-painted 3D fallback');
   let meshCount=0;
   tree.traverse(node=>{if(node instanceof THREE.Mesh)meshCount++;});
-  assert.equal(meshCount,4);
+  assert.equal(meshCount,5);
   const roots=tree.getObjectByName('Exposed hand-painted buttress roots');
   const attr=roots.geometry.getAttribute('uv');
   for(let i=0;i<attr.count;i++){

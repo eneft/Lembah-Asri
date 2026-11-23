@@ -46,12 +46,12 @@ test('approved true-3D shade tree accepts user painterly bark and leaf pigment w
   assert.equal(applyUserReferenceTreeTextures(tree,textures),true);
   assert.equal(roots.material.map,bark);
   assert.equal(sprays.material.map,leaf);
-  assert.equal(sprays.count,96);
+  assert.equal(sprays.count,144);
   assert.equal(sprays.userData.isTrue3D,true);
   assert.equal(sprays.material.vertexColors,false);
   assert.equal(tree.userData.userReferenceBarkMeshes,1);
   assert.equal(tree.userData.userReferenceAtlasLoaded,true);
-  assert.equal(tree.children.length,3);
+  assert.equal(tree.children.length,4);
   const after=new THREE.Box3().setFromObject(tree).getSize(new THREE.Vector3());
   assert.ok(before.distanceTo(after)<1e-5,'texture pass must not move or resize the tree');
   assert.equal(tree.getObjectByName('Exposed hand-painted buttress roots').geometry.userData.buttressRoots,8);

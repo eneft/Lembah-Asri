@@ -3,6 +3,7 @@ import { addUnwrappedBarkTube } from '../../scripts/tree-bark-uv.mjs';
 import { createPaintedStoryTree, makePaintedBarkAtlas } from './paintedTrees.ts';
 import { instantiatePaintedTree } from './treeAsset.ts';
 import { createConceptLeafSprays } from './conceptLeafPass.ts';
+import { makeBroadLeafGeometry, makePaintedLeafAlbedo } from './homeArtPass.ts';
 
 /**
  * The broad, mature tropical shade tree at the RIGHT of the user's home
@@ -19,7 +20,7 @@ export const CONCEPT_SHADE_TREE = Object.freeze({
   height: 7.25,
   yaw: 1.08,
   seed: 110923,
-  rootSpread: 1.55,
+  rootSpread: 1.40,
   buttressCount: 8,
   colliderHalfWidth: 0.69
 });
@@ -40,12 +41,12 @@ function makeButtressRoots(): THREE.BufferGeometry {
     const length=CONCEPT_SHADE_TREE.rootSpread*fan;
     const swing=0.13*Math.sin(k*2.7);
     const positions=[
-      [0.14*c,0.84,0.14*sn],
-      [0.37*c,0.43,0.37*sn],
-      [0.69*c-swing*sn,0.19,0.69*sn+swing*c],
-      [length*c-swing*sn,0.036,length*sn+swing*c]
+      [0.22*c,0.39,0.22*sn],
+      [0.42*c,0.22,0.42*sn],
+      [0.72*c-swing*sn,0.075,0.72*sn+swing*c],
+      [length*c-swing*sn,-0.018,length*sn+swing*c]
     ];
-    addUnwrappedBarkTube(g,positions,[0.275,0.24,0.14,0.047],9,'bough',k%4);
+    addUnwrappedBarkTube(g,positions,[0.34,0.23,0.13,0.023],11,'bough',k%4);
   }
   const geometry=new THREE.BufferGeometry();
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(g.p,3));
@@ -57,6 +58,41 @@ function makeButtressRoots(): THREE.BufferGeometry {
   geometry.userData.buttressRoots=CONCEPT_SHADE_TREE.buttressCount;
   geometry.userData.uvLayout='shared-approved-hand-painted-bark';
   return geometry;
+}
+
+
+/** Tiny 3D leafy undergrowth around the buttress tips. Roots look embedded
+ * in garden soil instead of a sharp star shape on empty grass. These small
+ * ornamental tufts do not receive Rapier collisions or affect farming plots.
+ */
+function makeRootUndergrowth():THREE.InstancedMesh {
+  const count=19,mesh=new THREE.InstancedMesh(
+    makeBroadLeafGeometry(),
+    new THREE.MeshBasicMaterial({
+      map:makePaintedLeafAlbedo(),vertexColors:true,side:THREE.DoubleSide,
+      toneMapped:false,depthWrite:true
+    }),count
+  );
+  mesh.name='Small 3D shade plants among natural buttress roots';
+  const obj=new THREE.Object3D();
+  const colors=['#6f9060','#789661','#819b63','#678957'];
+  for(let i=0;i<count;i++){
+    const angle=i*2.39996323+.16,rad=.81+(i%5)*.23;
+    obj.position.set(Math.cos(angle)*rad,0.035,Math.sin(angle)*rad);
+    obj.rotation.set(0,i*1.71,0);
+    const scale=.19+(i%4)*.037;
+    obj.scale.setScalar(scale);
+    obj.updateMatrix();
+    mesh.setMatrixAt(i,obj.matrix);
+    mesh.setColorAt(i,new THREE.Color(colors[i%colors.length]));
+  }
+  mesh.instanceMatrix.needsUpdate=true;
+  if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+  mesh.frustumCulled=false;
+  mesh.castShadow=false;
+  mesh.receiveShadow=false;
+  mesh.userData.undergrowthCount=count;
+  return mesh;
 }
 
 /** Source is the existing full-volume, local UV-painted shade tree GLB.
@@ -89,6 +125,7 @@ export function createReferenceShadeTree(source?:THREE.Group):THREE.Group {
   buttresses.castShadow=true;
   buttresses.receiveShadow=false;
   root.add(buttresses);
+  root.add(makeRootUndergrowth());
   // Work visual continuation: clustered broad 3D leaves keep the approved
   // original GLB's authored geometry/UV/shadows and clarify its foliage.
   root.add(createConceptLeafSprays(canopy));
