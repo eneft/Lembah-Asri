@@ -69,17 +69,16 @@ const grassPaint = `
   }`;
 
 /**
- * Bring back the warm, painted PR#92 stone language at the WATER FOOT,
- * without restoring its flat 91%-stone skin across the grassy bank.
- * A broken, world-space mask leaves soil visible between clusters and keeps
- * the grass lip continuous. No geometry, depth, collision or decal changes.
+ * Stage 2: stagger the wet stone foot into the exposed bank soil, with a
+ * protected green buffer at the top of the slope. No round-stone wallpaper
+ * above water and no dark straight ribbon. Water, foam and riverbed untouched.
  */
 export const BANK_STONE_RESTORE = Object.freeze({
-  style: 'pr92-inspired-broken-stone-foot-v1',
-  minCover: 0.08,
-  maxCover: 0.78,
-  waterFootHeight: -0.20,
-  upperFadeHeight: 0.09
+  style: 'natural-bank-ecotone-stage2-v1',
+  minCover: 0.0,
+  maxCover: 0.535,
+  waterFootHeight: -0.25,
+  upperFadeHeight: -0.015
 });
 
 const stonePaint = `
@@ -93,14 +92,18 @@ const stonePaint = `
     // Break the repeating oval/cobble pattern without changing source atlas.
     vec2 uvB=vec2(uv.y*.64-uv.x*.36,uv.x*.32+uv.y*.64)+vec2(.13,.37);
     vec3 pebbleB=texture2D(uBankCobbles,uvB).rgb;
-    vec3 stone=mix(pebbleA,pebbleB,.28);
-    float dry=smoothstep(-.23,.045,vRiversidePosition.y);
-    // Earthy moss-grey rather than the old saturated teal/dark wet stripe.
-    vec3 wetStone=stone*mix(vec3(.74,.76,.70),vec3(1.02,.96,.85),dry);
-    float stoneScatter=.50+.28*sin(p.y*.48+p.x*.71)
-                           +.22*sin(p.y*1.23-p.x*.44);
-    float stoneClusters=smoothstep(.20,.79,stoneScatter);
-    float wetFoot=1.0-smoothstep(-.20,.09,vRiversidePosition.y);
+    vec3 stone=mix(pebbleA,pebbleB,.35);
+    float dry=smoothstep(-.24,-.025,vRiversidePosition.y);
+    // Warm grey/moss stone, gently damp near the water; avoid a teal stripe.
+    vec3 wetStone=stone*mix(vec3(.84,.85,.77),vec3(1.02,.97,.87),dry);
+    float stoneScatter=.52+.23*sin(p.y*.46+p.x*.83)
+                           +.18*sin(p.y*1.13-p.x*.31);
+    float stoneClusters=smoothstep(.36,.76,stoneScatter);
+    // World-space wobble breaks both edges without moving the creek mesh.
+    float waterFootHeight=vRiversidePosition.y+.025*sin(p.y*.83+p.x*.41);
+    float wetFoot=1.0-smoothstep(-.25,-.055,waterFootHeight);
+    float upperGrassGuard=smoothstep(-.18,-.015,vRiversidePosition.y+
+      .035*sin(p.y*1.11+p.x*.12));
     float stoneCover=STONE_COVER_EXPRESSION;
     diffuseColor.rgb=mix(diffuseColor.rgb,wetStone,stoneCover);
   }`;
@@ -125,7 +128,7 @@ export function applyRiversidePaint(material: THREE.MeshBasicMaterial, surface: 
       declarations += 'uniform sampler2D uBankCobbles;\nuniform float uCobblesReady;\n';
       // The riverbed retains full cobbles; only the sloped banks are remixed.
       paint += stonePaint.replace('STONE_COVER_EXPRESSION', surface === 'bed'
-        ? '1.0' : '.08+.70*wetFoot*stoneClusters');
+        ? '1.0' : '(.015+.52*wetFoot*stoneClusters)*(1.0-.82*upperGrassGuard)');
     }
     if (surface !== 'bed') {
       shader.uniforms.uBankMeadow = meadow;
@@ -140,7 +143,7 @@ export function applyRiversidePaint(material: THREE.MeshBasicMaterial, surface: 
     shader.fragmentShader = ensureWarmGrassGLSL(declarations + shader.fragmentShader.replace('#include <color_fragment>',
       '{' + paint + '}\n#include <color_fragment>'));
   };
-  material.customProgramCacheKey = () => priorKey + '|riverside-paint-' + surface + '|pr92-broken-stone-foot-v1';
+  material.customProgramCacheKey = () => priorKey + '|riverside-paint-' + surface + '|natural-bank-ecotone-stage2-v1';
   if (surface === 'bank') material.userData.bankStoneRestore = BANK_STONE_RESTORE.style;
   if (surface !== 'bed') material.userData.warmGrassStyle = WARM_GRASS_STYLE.version;
   material.needsUpdate = true;
