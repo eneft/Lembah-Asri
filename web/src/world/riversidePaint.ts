@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { creekCourseGLSL } from './creekCourse.ts';
+import { ensureWarmGrassGLSL, WARM_GRASS_STYLE } from './grassPalette.ts';
 
 const meadow = { value: null as THREE.Texture | null };
 const cobbles = { value: null as THREE.Texture | null };
@@ -47,6 +48,7 @@ const grassPaint = `
       vec3 broad=texture2D(uBankMeadow,mat2(.61,-.79,.79,.61)*uv*.57+.38).rgb;
       float light=.51+.26*sin(p.x*.67+p.y*.31)+.23*sin(p.y*.68-p.x*.49);
       vec3 lawn=mix(blades,broad,.20)*mix(vec3(.71,.81,.77),vec3(1.11,1.04,.91),light);
+      lawn=lembahWarmGrass(lawn);
       // The path keeps the recent curved outline and warm earth pigment.
       float brush=light;
       float pigment=dot(blades,vec3(.23,.65,.12));
@@ -135,10 +137,11 @@ export function applyRiversidePaint(material: THREE.MeshBasicMaterial, surface: 
         : 'float grassCover=1.;';
       paint += grassPaint;
     }
-    shader.fragmentShader = declarations + shader.fragmentShader.replace('#include <color_fragment>',
-      '{' + paint + '}\n#include <color_fragment>');
+    shader.fragmentShader = ensureWarmGrassGLSL(declarations + shader.fragmentShader.replace('#include <color_fragment>',
+      '{' + paint + '}\n#include <color_fragment>'));
   };
   material.customProgramCacheKey = () => priorKey + '|riverside-paint-' + surface + '|pr92-broken-stone-foot-v1';
   if (surface === 'bank') material.userData.bankStoneRestore = BANK_STONE_RESTORE.style;
+  if (surface !== 'bed') material.userData.warmGrassStyle = WARM_GRASS_STYLE.version;
   material.needsUpdate = true;
 }
