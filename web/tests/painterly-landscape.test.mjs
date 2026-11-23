@@ -73,7 +73,9 @@ test('creek uses physical banks with repeated real world UVs, no giant stretched
   }
   const foamUV=foam.geometry.getAttribute('uv');
   assert.ok(Math.max(...Array.from({length:foamUV.count},(_,i)=>foamUV.getY(i)))<=1.00001);
-  const immersed=selectedHomeRocks.filter(rock=>rock.submerge!==undefined);
+  const immersed=selectedHomeRocks.filter(rock=>rock.submerge!==undefined&&rock.submerge<1);
+  const deep=selectedHomeRocks.filter(rock=>(rock.submerge??0)>=1);
+  assert.equal(deep.length,4,'fully submerged stones must not produce white foam rings');
   assert.equal(wakes.count,immersed.length);
   const transform=new THREE.Matrix4(), centre=new THREE.Vector3();
   immersed.forEach((rock,i)=>{
