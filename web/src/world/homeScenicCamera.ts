@@ -6,8 +6,8 @@
  */
 export const HOME_SCENIC_CAMERA = Object.freeze({
   query: 'konsep',
-  x: -41.8,
-  z: 5.8,
-  yaw: -0.94,
+  x: -41.3,
+  z: 6.65,
+  yaw: -1.60,
   distance: 9.2
 });

@@ -8,7 +8,7 @@ import { createHouseGroundTransition, featherMergedHouseGround, createHouseConta
 import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
-import { CONCEPT_SHADE_TREE, createReferenceShadeTree } from './referenceShadeTree.ts';
+import { CONCEPT_SHADE_TREE, createReferenceShadeTree, makeRootUndergrowth } from './referenceShadeTree.ts';
 import { loadUserReferenceTextureSet, applyUserReferenceTreeTextures, applyUserReferenceDryRock } from './userReferenceTextures.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
@@ -288,7 +288,9 @@ function addStoneWell(root: THREE.Object3D, loadTexture: boolean) {
 }
 
 function addWellAndFruitTree(root: THREE.Object3D, loadTexture: boolean) {
-  addStoneWell(root, loadTexture);
+  const fallback = new THREE.Group();
+  addStoneWell(fallback, loadTexture);
+  root.add(fallback);
   // Actual stylized 3D tree with a UV-painted wood trunk and layered,
   // individually shaped textured leaves. No untextured ico-sphere crown.
   const tree = createPaintedStoryTree({
@@ -297,6 +299,16 @@ function addWellAndFruitTree(root: THREE.Object3D, loadTexture: boolean) {
   tree.name = 'Old fruit tree';
   tree.position.set(-40, 0, 8.3);
   root.add(tree);
+  if (!loadTexture) return Promise.resolve();
+  return new GLTFLoader().loadAsync('./models/environment/sumur_pekarangan.glb').then(async ({scene}) => {
+    const { applyHandPaintedMaterials } = await import('./handPaintedMaterials.ts');
+    applyHandPaintedMaterials(scene, 4);
+    scene.name = 'Sumur beratap genteng';
+    scene.position.set(HOME.well.x, 0, HOME.well.z);
+    scene.rotation.y = -1.24;
+    root.add(scene);
+    root.remove(fallback);
+  }).catch(error => console.warn('[LembahAsri] Keeping fallback well', error));
 }
 
 function addWoodenFence(
@@ -412,7 +424,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
 
   const fallback = buildLocalHouseFallback(root);
   addShed(root);
-  addWellAndFruitTree(root, loadApprovedModel);
+  const wellReady = addWellAndFruitTree(root, loadApprovedModel);
   // The tall spreading tree at the right of the approved home illustration.
   // Preserve the established old orchard tree at the well; this is a second,
   // physically separate mature shade tree with real UV-bark buttress roots.
@@ -452,11 +464,17 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   // Keep fallback tree while the 3D GLB downloads. Replace it with the actual
   // voluminous alpha-cutout textured orchard tree when the asset is ready.
   const orchardReady: Promise<boolean> = loadApprovedModel
-    ? loadPaintedTreeSource('orchard')
+    ? loadPaintedTreeSource('courtyard')
       .then(source => {
         const oldTree = root.getObjectByName('Old fruit tree');
         if (oldTree) root.remove(oldTree);
-        const tree = instantiatePaintedTree(source, 3.65, -40, 8.3, 0.21);
+        const tree = instantiatePaintedTree(source, 3.45, -39.6, 9.7, 1.85);
+        const shade = instantiatePaintedTree(source, 7.5, -33.9, 8.6, .08);
+        shade.name = 'Pohon tua di belakang sumur';
+        const seedlings = makeRootUndergrowth();
+        seedlings.position.set(-33.9, 0, 8.6);
+        seedlings.scale.set(1.12, 1.65, 1.12);
+        root.add(shade, seedlings);
         tree.name = 'Old fruit tree';
         root.add(tree);
         return true;
@@ -540,6 +558,8 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     center: [-22, 1.2, -10.4],
     half: [1.75, 1.2, 1.5]
   }, {
+    label: 'Courtyard shade trunk', center: [-33.9, .9, 8.6], half: [.59, .9, .59]
+  }, {
     label: 'Old village well',
     center: [HOME.well.x, 0.55, HOME.well.z],
     half: [0.84, 0.55, 0.84]
@@ -583,5 +603,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, orchardReady, conceptShadeReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, wellReady, orchardReady, conceptShadeReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady]).then(([house]) => house) };
 }

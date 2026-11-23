@@ -65,7 +65,7 @@ function makeButtressRoots(): THREE.BufferGeometry {
  * in garden soil instead of a sharp star shape on empty grass. These small
  * ornamental tufts do not receive Rapier collisions or affect farming plots.
  */
-function makeRootUndergrowth():THREE.InstancedMesh {
+export function makeRootUndergrowth():THREE.InstancedMesh {
   const count=19,mesh=new THREE.InstancedMesh(
     makeBroadLeafGeometry(),
     new THREE.MeshBasicMaterial({
