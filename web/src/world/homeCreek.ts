@@ -17,6 +17,12 @@ export const CREEK_PAINTED_TEXTURES=Object.freeze({
   water:'./textures/terrain/creek_water_painterly_illustrated.webp',
   bank:'./textures/terrain/creek_bank_painted.webp'
 });
+export const CREEK_FOAM_ART='./textures/terrain/creek_foam_painterly_flow.svg';
+// This transparent SVG atlas traces the newly approved foam illustration;
+// a single river-ribbon shader scrolls its twelve hand-painted decals.
+export const CREEK_FOAM_FLOW=Object.freeze({
+  metresPerSecond:.11, intervalMetres:5.5, columns:3, rows:4
+});
 export const CREEK_WATER_UV=Object.freeze({
   // Same 160 m ribbon and existing six-width-row geometry.
   longitudinalTileMetres:14.5,
@@ -278,6 +284,55 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
     mesh.userData.sourcePaintedUV=true;
   }
   mesh.userData.depthProfile='3D-bank-to-bed-0.65m';
+  if(foam){
+    const foamClock={value:0};
+    const atlasReady={value:0};
+    const previous=material.onBeforeCompile;
+    material.onBeforeCompile=(shader,renderer)=>{
+      previous.call(material,shader,renderer);
+      shader.uniforms.uFoamSeconds=foamClock;
+      shader.uniforms.uFoamAtlasReady=atlasReady;
+      shader.vertexShader='varying vec2 vFoamWorldXZ;\nvarying float vFoamAcross;\n'+
+        shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+          vFoamWorldXZ=(modelMatrix*vec4(transformed,1.)).xz;
+          vFoamAcross=uv.x;`);
+      shader.fragmentShader='varying vec2 vFoamWorldXZ;\nvarying float vFoamAcross;\nuniform float uFoamSeconds;\nuniform float uFoamAtlasReady;\n'+
+        shader.fragmentShader.replace('#include <map_fragment>',`
+          #ifdef USE_MAP
+            if(uFoamAtlasReady>.5) {
+              // Drift downstream (+Z), independent of the painted streambed.
+              // Each 5.5m stretch picks one of twelve generated foam sketches.
+              float downstream=vFoamWorldXZ.y+79.5-uFoamSeconds*.11;
+              float section=floor(downstream/5.5);
+              float advance=fract(downstream/5.5);
+              float seed=fract(sin(section*127.1+5.73)*43758.5453);
+              float variant=floor(seed*12.);
+              float col=mod(variant,3.);
+              float row=floor(variant/3.);
+              vec2 local=vec2(clamp(advance,.012,.988),
+                clamp(vFoamAcross*.88+.06+.04*sin(section*2.1),.02,.98));
+              vec2 atlasUV=vec2((col+local.x)/3.,(3.-row+local.y)/4.);
+              vec4 paintedFoam=texture2D(map,atlasUV);
+              float pulse=smoothstep(.04,.22,advance)*
+                (1.-smoothstep(.82,.98,advance));
+              float edge=1.-smoothstep(.78,.98,abs(vFoamAcross*2.-1.));
+              // Sparse foam survives only in occasional stream stretches,
+              // not as uniformly repeated white bands.
+              float breakUp=step(.52,seed)*(.68+.32*sin(section*2.7)*sin(section*2.7));
+              diffuseColor.rgb*=paintedFoam.rgb;
+              diffuseColor.a*=paintedFoam.a*pulse*edge*breakUp;
+            } else {
+              #include <map_fragment>
+            }
+          #endif
+        `);
+    };
+    const cache=material.customProgramCacheKey.bind(material);
+    material.customProgramCacheKey=()=>cache()+'|generated-foam-atlas-flow-v1';
+    mesh.userData.foamTimeUniform=foamClock;
+    mesh.userData.foamAtlasReady=atlasReady;
+    mesh.userData.flowDirection='positive-Z';
+  }
   if(water){
     const uniform={value:0};
     const previous=material.onBeforeCompile;
@@ -395,6 +450,28 @@ export function createRockWaterWakes():THREE.InstancedMesh{
 }
 
 let creekArtLoad:Promise<[THREE.Texture,THREE.Texture]>|undefined;
+async function loadGeneratedCreekFoam(root:THREE.Object3D):Promise<boolean>{
+  const foam=root.getObjectByName('Illustrated river foam and flow trails');
+  if(!(foam instanceof THREE.Mesh))return false;
+  try{
+    const atlas=await new THREE.TextureLoader().loadAsync(CREEK_FOAM_ART);
+    atlas.colorSpace=THREE.SRGBColorSpace;
+    atlas.wrapS=atlas.wrapT=THREE.ClampToEdgeWrapping;
+    atlas.anisotropy=4;
+    atlas.generateMipmaps=true;
+    atlas.needsUpdate=true;
+    const mat=foam.material as THREE.MeshBasicMaterial;
+    mat.map=atlas;
+    mat.needsUpdate=true;
+    (foam.userData.foamAtlasReady as {value:number}).value=1;
+    foam.userData.foamAtlasSource=CREEK_FOAM_ART;
+    root.userData.paintedFoamLoaded=true;
+    return true;
+  }catch(error){
+    console.warn('[LembahAsri] Original creek foam fallback kept',error);
+    return false;
+  }
+}
 /** Swap the lightweight placeholders for UV-painted illustrated textures. */
 export async function loadPaintedCreekTextures(root:THREE.Object3D):Promise<boolean>{
   const water=root.getObjectByName('Shallow stream west of childhood home');
@@ -403,6 +480,8 @@ export async function loadPaintedCreekTextures(root:THREE.Object3D):Promise<bool
   if(!(water instanceof THREE.Mesh)||!(west instanceof THREE.Mesh)||
      !(east instanceof THREE.Mesh))return false;
   const shoreReady=loadRiversidePaint();
+  // Foam is optional: broken SVG requests must never hide the river.
+  const foamReady=loadGeneratedCreekFoam(root);
   if(!creekArtLoad){
     const loader=new THREE.TextureLoader();
     creekArtLoad=Promise.all([
@@ -456,7 +535,7 @@ export async function loadPaintedCreekTextures(root:THREE.Object3D):Promise<bool
     }catch(error){
       console.warn('[LembahAsri] Keeping riverbank lip colour fallback',error);
     }
-    await shoreReady;
+    await Promise.all([shoreReady,foamReady]);
     root.userData.paintedCreekLoaded=true;
     root.userData.paintedWaterAsset=CREEK_PAINTED_TEXTURES.water;
     return true;
@@ -471,6 +550,9 @@ export function updateHomeCreekWater(water:THREE.Object3D|undefined,seconds:numb
   if(!water)return;
   const uniform=water.userData.rippleUniform as {value:number}|undefined;
   if(uniform)uniform.value=seconds;
+  const foam=water.parent?.getObjectByName('Illustrated river foam and flow trails');
+  const foamTime=foam?.userData.foamTimeUniform as {value:number}|undefined;
+  if(foamTime)foamTime.value=seconds;
   // Slow optical flow of the actual authored river albedo downstream (+Z).
   // UV repeats every 11 m; this is a texture scroll, not a geometric move.
   if(water instanceof THREE.Mesh){
