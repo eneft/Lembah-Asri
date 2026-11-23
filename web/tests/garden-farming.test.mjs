@@ -4,9 +4,36 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat/rapier.es.js';
 import { createHomeStage } from '../src/world/homeStage.ts';
-import { gardenUV, gardenProfile, gardenHeightAt, isWorkedGarden, plantingPlaces } from '../src/world/gardenLayout.ts';
+import { GARDEN, gardenUV, gardenProfile, gardenHeightAt, isWorkedGarden, plantingPlaces } from '../src/world/gardenLayout.ts';
 import { GardenSurface, gardenArtURL } from '../src/world/gardenSurface.ts';
 import { FarmPlots, availableActions, reachablePlot, cropStage, GROW_TIME } from '../src/world/farmPlots.ts';
+
+test('vegetable bed axes stay straight and parallel to the neighboring bamboo fence',()=>{
+  // The near east boundary runs north/south (constant X), so each ridge
+  // must follow world Z; only tiny organic meanders are permitted.
+  assert.equal(GARDEN.yaw,0,'bed rows must not be visibly skewed to the fence');
+  assert.equal(plantingPlaces.length,24,'keep every saved farming plot ID');
+  for(let row=0;row<4;row++){
+    const plots=plantingPlaces.filter(p=>p.row===row);
+    assert.equal(plots.length,6);
+    const xs=plots.map(p=>p.x),zs=plots.map(p=>p.z);
+    assert.ok(Math.max(...xs)-Math.min(...xs)<.16,
+      'each row must stay straight along the fence direction');
+    assert.ok(Math.max(...zs)-Math.min(...zs)>4.6,
+      'preserve full bed length and cultivation slots');
+    assert.ok(Math.max(...xs)<-17.5,
+      'rows stay clear of the bamboo fence at x=-16.8');
+  }
+  // Moving the unified transform must also update the raised soil itself,
+  // the UV pigment sampling and the collision used by farming actions.
+  for(const p of plantingPlaces){
+    const uv=gardenUV(p.x,p.z);
+    assert.ok(Math.abs(uv.u-p.u)<1e-9);
+    assert.ok(Math.abs(1-uv.t-p.v)<1e-9);
+    assert.ok(Math.abs(gardenHeightAt(p.x,p.z)-p.height)<1e-6);
+    assert.ok(isWorkedGarden(p.x,p.z));
+  }
+});
 
 test('four relief ridges, painted pigment and walkable triangles register at all 24 planting places', async () => {
   await RAPIER.init();
