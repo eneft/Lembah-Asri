@@ -215,8 +215,8 @@ export function createFineCreekBankGrass():THREE.InstancedMesh{
     transform.updateMatrix();
     mesh.setMatrixAt(i,transform.matrix);
     // Soft green crowns and sparse honey tips as seen in the reference.
-    mesh.setColorAt(i,new THREE.Color(tuft.shade>.78?'#d4d994':
-      tuft.shade<.21?'#7ea967':'#a6cf86'));
+    mesh.setColorAt(i,new THREE.Color(tuft.shade>.78?'#f0e8be':
+      tuft.shade<.21?'#bbd69d':'#d9e6b7'));
   }
   mesh.instanceMatrix.needsUpdate=true;
   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
