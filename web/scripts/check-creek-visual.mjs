@@ -109,6 +109,43 @@ try{
   assert.ok(assets.has(prefix+'models/environment/bridge_user_reference_wood_v2.glb'));
   assert.ok(facts.submerged>=6);
   assert.ok(facts.grass>260&&facts.grass<600,'restore the earlier softer riverside density');
+  // Only approve the game after the actual 3D concept tree and root UVs
+  // render. A fallback or a decorative 2D plane cannot satisfy this check.
+  await page.waitForFunction(()=>{
+    const tree=window.__lembahVisualQA.scene
+      .getObjectByName('Concept mature shade tree near the garden');
+    return tree?.userData.referenceGLBLoaded===true;
+  },null,{timeout:120000});
+  const conceptTree=await page.evaluate(()=>{
+    const tree=window.__lembahVisualQA.scene
+      .getObjectByName('Concept mature shade tree near the garden');
+    const roots=tree?.getObjectByName('Exposed hand-painted buttress roots');
+    const painted=tree?.getObjectByName('Hand-painted old shade tree crown and branches');
+    let meshes=0,uvPainted=false,cutouts=false;
+    painted?.traverse(object=>{
+      if(!object.isMesh)return;
+      meshes++;
+      for(const material of (Array.isArray(object.material)?object.material:[object.material])){
+        uvPainted ||= !!material.map;
+        cutouts ||= material.alphaTest>.4;
+      }
+    });
+    return {
+      loaded:tree?.userData.referenceGLBLoaded,
+      source:tree?.userData.referenceSource,
+      x:tree?.position.x,z:tree?.position.z,
+      meshes,uvPainted,cutouts,
+      roots:roots?.geometry.userData.buttressRoots,
+      barkPainted:!!roots?.material.map
+    };
+  });
+  assert.equal(conceptTree.loaded,true);
+  assert.ok(conceptTree.meshes>=2 && conceptTree.uvPainted && conceptTree.cutouts,
+    'concept shade tree must use actual UV-painted 3D bark and alpha foliage');
+  assert.ok(conceptTree.roots>=8&&conceptTree.barkPainted,
+    'a mature tropical tree needs separate textured exposed roots');
+  assert.ok(Math.abs(conceptTree.x+21.8)<.01&&Math.abs(conceptTree.z-10.8)<.01);
+  assert.ok(assets.has(prefix+'models/environment/pohon_rimbun_shade.glb'));
   await mkdir('artifacts/creek',{recursive:true});
   await page.waitForFunction(()=>window.__lembahVisualQA.scene
     .getObjectByName('Rumah Masa Kecil / Playable House Garden')?.userData.paintedCreekLoaded);
@@ -180,6 +217,9 @@ try{
   };
   await shot(-42.6,7.0,1.12,'artifacts/creek/01-bridge-bank.jpg');
   await shot(-42.25,13.0,.78,'artifacts/creek/02-bridge-upstream.jpg');
+  // The reference tree should sit at the right side of the cultivated yard,
+  // above-ground and visible in a player-height 3/4 framing.
+  await shot(-27.3,11.9,-1.13,'artifacts/creek/04-concept-mature-shade-tree.jpg',1.10,28);
   // The raised deck should carry a REAL physics capsule, and the render
   // should show feet resting on timber rather than disappearing into it.
   await shot(-45.4,8.6,.85,'artifacts/creek/03-character-standing-on-timber.jpg',1.52,90);
@@ -189,7 +229,7 @@ try{
   assert.ok(assets.has(prefix+'textures/terrain/creek_water_painterly_illustrated.webp'));
   assert.ok(assets.has(prefix+'models/environment/lembah_asri_rocks_original_16.glb'));
   assert.deepEqual(errors,[]);
-  console.log('Rendered user-uploaded wooden GLB, raised crossing, eroded banks, fine grass and rocks:',JSON.stringify(facts));
+  console.log('Rendered real 3D concept shade tree and unchanged creek bridge:',JSON.stringify({bridge:facts,tree:conceptTree}));
 }finally{
   await browser?.close();
   server.closeAllConnections();
