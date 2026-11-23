@@ -567,11 +567,11 @@ export function createHomeCreekVegetation(): THREE.Group {
   // A handful of flower patches sit just above the grass line on the shoulders.
   const flowers=new THREE.InstancedMesh(makeBankFlowerGeometry(),
     new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false}),
-    bankGroups.length*2);
+    bankGroups.length*3);
   flowers.name='White wildflowers along the grassy creek';
   let flowerIndex=0;
   for(const [z,side] of bankGroups) {
-    for(const shift of [-.72,.48]) {
+    for(const shift of [-.92,.18,.94]) {
       const zz=z+shift;
       const inland=1.23+rng()*.44;
       instance.position.set(creekCenterX(zz)+side*(creekWidth(zz)*.5+inland),
