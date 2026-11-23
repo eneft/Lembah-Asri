@@ -149,7 +149,7 @@ try{
     'concept shade tree must use actual UV-painted 3D bark and alpha foliage');
   assert.ok(conceptTree.roots>=8&&conceptTree.barkPainted,
     'a mature tropical tree needs separate textured exposed roots');
-  assert.equal(conceptTree.broadSprays,96,'game must display improved broad painterly foliage');
+  assert.equal(conceptTree.broadSprays,144,'game must display improved broad painterly foliage');
   assert.ok(conceptTree.broadUV&&conceptTree.broadPainted&&conceptTree.true3D,
     'Work foliage continuation must be UV-painted 3D geometry, never a 2D billboard');
   assert.ok(Math.abs(conceptTree.x+21.8)<.01&&Math.abs(conceptTree.z-10.8)<.01);

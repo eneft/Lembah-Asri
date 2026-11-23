@@ -11,9 +11,9 @@ import { makeBroadLeafGeometry, makePaintedLeafAlbedo } from './homeArtPass.ts';
  * alpha-cutout canopy and UV bark intact while adding the missing silhouette.
  */
 export const REFERENCE_LEAF_PASS = Object.freeze({
-  sprays: 96,
+  sprays: 144,
   leavesPerSpray: 7,
-  trianglesPerSpray: 112,
+  trianglesPerSpray: 168,
   palette: ['#628c56','#739953','#83a65c','#98b364','#acc174','#638f64'],
   seed: 20261123
 });
@@ -28,6 +28,7 @@ function seeded(seed:number):()=>number{
 
 /** Wider oval lobes for the reference tree only; unchanged thin groundgrass. */
 function makeBroadCrownLeaves():THREE.BufferGeometry{
+  // Use true curved UV leaf blades; no flat back-to-back cards.
   const g=makeBroadLeafGeometry().clone();
   const pos=g.getAttribute('position') as THREE.BufferAttribute;
   const oneLeafVertices=4*4*3; // four sections × four triangles × three vertices
@@ -37,7 +38,7 @@ function makeBroadCrownLeaves():THREE.BufferGeometry{
     const ca=Math.cos(angle),sa=Math.sin(angle);
     const x=pos.getX(i),z=pos.getZ(i);
     const outward=x*ca+z*sa;
-    const side=(-x*sa+z*ca)*1.58;
+    const side=(-x*sa+z*ca)*1.83;
     pos.setXYZ(i,ca*outward-sa*side,pos.getY(i),sa*outward+ca*side);
   }
   pos.needsUpdate=true;
@@ -86,7 +87,7 @@ export function createConceptLeafSprays(
     );
     transform.rotation.set((rand()-.5)*.47,rand()*Math.PI*2,
       (rand()-.5)*.47);
-    const scale=.76+rand()*.53;
+    const scale=.86+rand()*.50;
     transform.scale.set(scale,scale*(.92+rand()*.16),scale);
     transform.updateMatrix();
     mesh.setMatrixAt(i,transform.matrix);
@@ -96,7 +97,7 @@ export function createConceptLeafSprays(
   }
   mesh.instanceMatrix.needsUpdate=true;
   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
-  mesh.castShadow=false; // original GLB already casts detailed canopy shadows
+  mesh.castShadow=true; // visible 3D leaf geometry casts naturally varied canopy shadows
   mesh.receiveShadow=false;
   mesh.frustumCulled=false;
   mesh.userData.painterlyWorkContinuation=true;
