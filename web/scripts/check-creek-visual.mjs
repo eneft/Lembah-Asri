@@ -236,8 +236,14 @@ try{
     const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - user uploaded PBR');
     const model=home.getObjectByName('model');
     const m=model.material;
-    const box=new window.__lembahVisualQA.THREE.Box3().setFromObject(home);
-    const size=box.getSize(new window.__lembahVisualQA.THREE.Vector3());
+    model.geometry.computeBoundingBox();
+    const bounds=model.geometry.boundingBox;
+    const scale=home.scale.x;
+    const size={
+      x:(bounds.max.x-bounds.min.x)*scale,
+      y:(bounds.max.y-bounds.min.y)*scale,
+      z:(bounds.max.z-bounds.min.z)*scale
+    };
     return {
       sourceFile:home.userData.sourceFile,
       triangles:model.geometry.index?.count/3,
