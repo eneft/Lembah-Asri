@@ -80,3 +80,45 @@ export function instantiatePaintedTree(
   root.userData.renderStyle = 'textured volumetric alpha-cutout GLB';
   return root;
 }
+
+
+// The only front-yard sentinel uses the authored GLB UV0 bark image, but the
+// baked orange paint was too saturated on iPhone. Work on cloned materials:
+// the village trees, foliage, and uploaded geometry/UVs must remain identical.
+export function retoneCourtyardBark(tree: THREE.Object3D): number {
+  let repainted=0;
+  tree.traverse(object => {
+    if(!(object instanceof THREE.Mesh))return;
+    if(!/^(Pangkal_akar|Batang_dan_dahan|UV hand-painted tree trunk and branches)$/.test(object.name))return;
+    if(!(object.material instanceof THREE.MeshBasicMaterial) || !object.material.map)return;
+    const bark=object.material.clone();
+    const previous=bark.onBeforeCompile;
+    bark.onBeforeCompile=(shader,renderer)=>{
+      previous.call(bark,shader,renderer);
+      // The UVs still sample the ORIGINAL painterly image; this color-grade
+      // occurs after the baked texel and mesh vertex color, not in the atlas.
+      shader.vertexShader='varying float vCourtyardBarkLocalY;\n'+
+        shader.vertexShader.replace('#include <begin_vertex>',
+          '#include <begin_vertex>\n vCourtyardBarkLocalY=position.y;');
+      shader.fragmentShader='varying float vCourtyardBarkLocalY;\n'+
+        shader.fragmentShader.replace('#include <color_fragment>',`
+          #include <color_fragment>
+          float barkPigment=dot(diffuseColor.rgb,vec3(.25,.62,.13));
+          vec3 agedBrown=vec3(.44,.34,.28)*(.54+1.13*barkPigment);
+          // Preserve the hand-painted fissures, but mute orange highlights.
+          diffuseColor.rgb=mix(diffuseColor.rgb,agedBrown,.69);
+          // Soft shaded, slightly mossy foot; no stripes or black decals.
+          float rooted=1.0-smoothstep(.06,1.18,vCourtyardBarkLocalY);
+          diffuseColor.rgb*=mix(vec3(1.0),vec3(.86,.93,.81),rooted*.33);
+        `);
+    };
+    const oldKey=bark.customProgramCacheKey.bind(bark);
+    bark.customProgramCacheKey=()=>oldKey()+'|courtyard-aged-bark-uv0-v1';
+    bark.userData={...bark.userData,courtyardRetonedBark:true,
+      sourceUV:'original GLB UV0',palette:'aged warm brown, restrained moss'};
+    bark.needsUpdate=true;
+    object.material=bark;
+    repainted++;
+  });
+  return repainted;
+}
