@@ -38,7 +38,7 @@ try{
   });
   page.on('response',response=>{if(response.ok())assets.add(new URL(response.url()).pathname);});
   await page.route('https://fonts.googleapis.com/**',route=>route.abort());
-  await page.goto('http://127.0.0.1:'+server.address().port+prefix,{waitUntil:'domcontentloaded'});
+  await page.goto('http://127.0.0.1:'+server.address().port+prefix+'?view=sungai',{waitUntil:'domcontentloaded'});
   await page.getByText('3D WORLD READY',{exact:true}).waitFor({timeout:150000});
 
   // Inspect React's in-memory ref only inside this disposable QA browser.
@@ -87,6 +87,17 @@ try{
   assert.ok(facts.grass>250);
   assert.equal(facts.rails,2);
   await mkdir('artifacts/creek',{recursive:true});
+  await page.waitForFunction(()=>window.__lembahVisualQA.scene
+    .getObjectByName('Rumah Masa Kecil / Playable House Garden')?.userData.paintedCreekLoaded);
+  for(const file of ['creek_cobbles.webp','creek_meadow.webp']){
+    assert.ok(assets.has(prefix+'textures/terrain/'+file),'missing live creek image '+file);
+  }
+  const arrival=await page.evaluate(()=>window.__lembahVisualQA.player.translation());
+  assert.ok(Math.abs(arrival.x+42.40)<.12 && Math.abs(arrival.z-10.95)<.12,
+    'the riverside link should place the player at the near end of the bridge');
+  await page.setViewportSize({width:540,height:960});
+  await page.screenshot({path:'artifacts/creek/00-riverside-arrival.jpg',type:'jpeg',quality:93});
+  await page.setViewportSize({width:800,height:1000});
   const shot=async(x,z,yaw,file,initialY=1.05,frames=14)=>{
     await page.evaluate(({x,z,yaw,initialY})=>{
       const game=window.__lembahVisualQA;

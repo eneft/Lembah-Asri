@@ -11,6 +11,7 @@ import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
 import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerrain3D.ts';
+import { applyRiversidePaint } from './riversidePaint.ts';
 import { applyCreekCourtyardAlbedo } from './shoreCourtyard.ts';
 import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
@@ -347,6 +348,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   const garden = new GardenSurface();
   sculptGardenGround(clearing);
   garden.bind(clearing.material);
+  applyRiversidePaint(clearing.material,'meadow');
   const gardenGround = gardenCollision(clearing);
   root.add(garden.crops);
   const gardenReady = loadApprovedModel ? garden.loadArt() : Promise.resolve();
@@ -386,6 +388,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
         painted.name = 'Painted childhood courtyard';
         carveVisualCreek(painted);
         garden.bind(material);
+        applyRiversidePaint(material,'meadow');
         painted.rotation.copy(clearing.rotation);
         painted.position.copy(clearing.position);
         painted.renderOrder = clearing.renderOrder;
