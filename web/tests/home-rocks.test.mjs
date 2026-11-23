@@ -171,7 +171,8 @@ test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', 
 
 
 test('creek is truly winding water with softened banks, not a rectangle', () => {
-  assert.ok(creekWidth(1)>2.5&&creekWidth(1)<3.0);
+  assert.ok(creekWidth(8.6)>2.5&&creekWidth(8.6)<3.0);
+  assert.ok(creekWidth(-5.5)>creekWidth(8.6)+1.0);
   assert.notEqual(creekCenterX(-4),creekCenterX(4));
   assert.ok(CREEK.bridgeMin<8.6&&CREEK.bridgeMax>8.6);
   const creek=createHomeCreek();

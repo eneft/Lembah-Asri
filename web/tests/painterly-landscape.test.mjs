@@ -13,6 +13,7 @@ import {
   makePainterlyPlankAlbedo,makeBridgeWalkCollider,bridgeWalkHeightAt,BRIDGE_WALK
 } from '../src/world/paintedBridge.ts';
 import {createHomeStage} from '../src/world/homeStage.ts';
+import {selectedHomeRocks} from '../src/world/homeRocks.ts';
 import {terrainTileRepeat} from '../src/world/terrainMaterials.ts';
 
 function readAsset(path){
@@ -24,6 +25,8 @@ test('real authored village meadow, stream, banks and bridge maps ship with vali
     'textures/terrain/village_grass_painted.webp',
     'textures/terrain/creek_water_painterly_illustrated.webp',
     'textures/terrain/creek_bank_painted.webp',
+    'textures/terrain/creek_cobbles.webp',
+    'textures/terrain/creek_meadow.webp',
     'textures/bridge/bridge_wood_painted.webp'
   ]){
     const bytes=readAsset(name);
@@ -70,7 +73,14 @@ test('creek uses physical banks with repeated real world UVs, no giant stretched
   }
   const foamUV=foam.geometry.getAttribute('uv');
   assert.ok(Math.max(...Array.from({length:foamUV.count},(_,i)=>foamUV.getY(i)))<=1.00001);
-  assert.equal(wakes.count,6);
+  const immersed=selectedHomeRocks.filter(rock=>rock.submerge!==undefined);
+  assert.equal(wakes.count,immersed.length);
+  const transform=new THREE.Matrix4(), centre=new THREE.Vector3();
+  immersed.forEach((rock,i)=>{
+    wakes.getMatrixAt(i,transform);
+    centre.setFromMatrixPosition(transform);
+    assert.ok(Math.hypot(centre.x-rock.x,centre.z-rock.z)<rock.size*.08);
+  });
   assert.equal(wakes.material.depthWrite,false);
   assert.ok(CREEK.waterY<CREEK.bankWidth);
   assert.ok(CREEK.bedY<CREEK.waterY);

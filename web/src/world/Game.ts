@@ -13,6 +13,7 @@ import { farmKeys, type FarmAction } from './farmPlots';
 import { sculptGardenGround, gardenHeightAt, type GardenGround } from './gardenLayout';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 import { bridgeWalkHeightAt, makeBridgeWalkCollider } from './paintedBridge';
+import { applyRiversidePaint } from './riversidePaint';
 import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
 import { applyMeadowAntiTileShader } from './meadowAntiTile';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
@@ -223,12 +224,19 @@ export class Game {
         fixedScenery
       );
     }
-    const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(HOME.spawn.x, HOME.spawn.y, HOME.spawn.z).lockRotations());
+    const riverside = new URLSearchParams(window.location.search).get('view') === 'sungai';
+    const arrival = riverside ? {x:-42.40, y:HOME.spawn.y, z:10.95} : HOME.spawn;
+    if (riverside) {
+      game.yaw = .21;
+      game.cameraDistance = 6.8;
+    }
+    const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(arrival.x, arrival.y, arrival.z).lockRotations());
     game.world.createCollider(RAPIER.ColliderDesc.capsule(0.56, 0.28).setFriction(0.8), body);
     game.player = body;
     try {
       game.playerMesh = await game.loadPlayer();
       game.playerMesh.visible = true;
+      if (riverside) game.playerMesh.rotation.y = Math.PI;
       game.playerMesh.traverse(object => {
         if (object instanceof THREE.Mesh) {
           object.visible = true;
@@ -426,6 +434,7 @@ export class Game {
     // Break distant 3.5-m repeating grass tile grid globally, using the
     // approved painterly albedo without adding dark overlay planes.
     applyMeadowAntiTileShader(ground.material);
+    applyRiversidePaint(ground.material,'meadow');
     this.scene.add(ground);
     // Preserve the painted albedo: a transparent ShadowMaterial layer catches
     // actual character, roof and tree shadows without re-lighting the texture.
@@ -496,7 +505,12 @@ export class Game {
    */
   private async loadEnvironmentTrees() {
     const placements: Array<{ x: number; z: number; height: number; yaw: number; seed: number }> = [
-      { x: -48, z: -8, height: 4.1, yaw: 0.2, seed: 107 },
+      { x: -50.2, z: -6.8, height: 4.9, yaw: 0.2, seed: 107 },
+      { x: -51.7, z: 2.4, height: 4.9, yaw: 2.54, seed: 152 },
+      { x: -53.6, z: -17.8, height: 5.7, yaw: 1.54, seed: 156 },
+      { x: -51, z: -24, height: 4.3, yaw: .31, seed: 159 },
+      { x: -42.9, z: -23.1, height: 5.1, yaw: 1.67, seed: 164 },
+      { x: -56.4, z: 11.2, height: 4.6, yaw: .91, seed: 169 },
       { x: -50, z: 19, height: 3.5, yaw: 1.1, seed: 218 },
       { x: 25, z: 4, height: 4.3, yaw: 2.2, seed: 331 },
       { x: 24, z: -28, height: 4.0, yaw: 0.7, seed: 442 },

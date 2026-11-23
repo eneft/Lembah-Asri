@@ -137,7 +137,9 @@ test('fine creek grass is short, on raised terrain, away from bridge approaches'
   assert.ok(grass instanceof THREE.InstancedMesh);
   assert.equal(grass.name,'Fine soft creek bank grass');
   assert.ok(grass.count>260&&grass.count<600,'mobile-friendly 3D fine tufts');
-  assert.equal(grass.geometry.getAttribute('position').count,36);
+  assert.ok(grass.geometry.index.count/3<=36,'short bent blades stay within the per-tuft mobile budget');
+  grass.geometry.computeBoundingBox();
+  assert.ok(grass.geometry.boundingBox.max.y<.31);
   assert.equal(grass.userData.visualOnly,true);
   const m=new THREE.Matrix4(),point=new THREE.Vector3(),scale=new THREE.Vector3();
   for(let i=0;i<grass.count;i++){

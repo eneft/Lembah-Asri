@@ -1,20 +1,13 @@
 import * as THREE from 'three';
-import { makeLowPolyGrassGeometry } from './lowPolyGrass.ts';
 import { makeBroadLeafGeometry, makePaintedLeafAlbedo } from './homeArtPass.ts';
 import { applyRiverbankPainterlyShader, setRiverbankMeadowTexture } from './riverbankMaterial.ts';
 
-/**
- * Physically recessed VISUAL creek with painted gravel riverbed.
- * Rapier collision stays unchanged for backward compatibility.
- * One cheap fragment ripple, no transmission/refraction or alphaHash.
- */
-export const CREEK=Object.freeze({
-  // River enters from the northern world edge (UPSTREAM, -Z) and exits
-  // at the southern edge (DOWNSTREAM, +Z). It never cuts off inside the yard.
-  start:-79.5,end:79.5,sourceZ:-79.5,mouthZ:79.5,flowSign:1,
-  bridgeMin:7.25,bridgeMax:9.95,
-  waterY:-.20,bedY:-.65,bankWidth:.79
-});
+import { CREEK, creekCenterX, creekWidth, creekCourseGLSL } from './creekCourse.ts';
+import { selectedHomeRocks } from './homeRocks.ts';
+import { applyRiversidePaint, loadRiversidePaint } from './riversidePaint.ts';
+import { makeSedgeGeometry, makeBankFlowerGeometry } from './riversidePlants.ts';
+export { CREEK, creekCenterX, creekWidth, creekOuterMeander } from './creekCourse.ts';
+
 /** Approved image-generated hand-painted creek albedo, with UV edges
  * repaired for seamless +Z flow and 90-degree orientation baked into WebP.
  * The light 1024px asset is the actual water map in Three.js, not concept art.
@@ -31,27 +24,6 @@ export const CREEK_WATER_UV=Object.freeze({
   widthTileCount:1,
   albedoSource:'user-approved-painterly-turquoise-water'
 });
-
-/**
- * Distinctive shallow S-curves in the open countryside, while the childhood
- * garden, bamboo fence and bridge retain their original exact footprint.
- */
-export function creekOuterMeander(z:number):number{
-  const farUpstream=1-THREE.MathUtils.smoothstep(z,-28,-12);
-  const farDownstream=THREE.MathUtils.smoothstep(z,27,43);
-  const strength=Math.max(farUpstream,farDownstream);
-  return strength*(1.25*Math.sin(z*.085+.63)+.4*Math.sin(z*.19-.4));
-}
-export function creekCenterX(z:number):number{
-  return -45.5+.12*Math.sin(z*.37+.2)+.09*Math.sin(z*.82-.7)
-    +creekOuterMeander(z);
-}
-export function creekWidth(z:number):number{
-  // Narrower at the upstream source; progressively opens towards the mouth.
-  // Keep the middle near the existing bridge about 2.7–2.9 m wide.
-  return 2.64+.010*(z+4.5)+.13*Math.sin(z*.29+.8)
-    +.07*Math.cos(z*.69-.3);
-}
 
 /** Shared exact inner bank-crest height for both the organic terrain
  * shoulders and the excavated cross-section. The bridge ramp stays modest.
@@ -76,19 +48,15 @@ export function carveVisualCreek<T extends THREE.Mesh>(mesh:T):T{
     const fragmentCut=[
       'float zC=vCreekWorldXZ.y;',
       'if(zC>=-79.5&&zC<=79.5){',
-      // Keep the flat terrain cutout identical to the CPU river geometry.
-      ' float envelope=max(1.0-smoothstep(-28.0,-12.0,zC),smoothstep(27.0,43.0,zC));',
-      ' float farBend=envelope*(1.25*sin(zC*.085+.63)+.4*sin(zC*.19-.4));',
-      ' float xC=-45.5+.12*sin(zC*.37+.2)+.09*sin(zC*.82-.7)+farBend;',
-      ' float halfC=.5*(2.64+.010*(zC+4.5)+.13*sin(zC*.29+.8)+.07*cos(zC*.69-.3));',
-      ' if(abs(vCreekWorldXZ.x-xC)<halfC+.73)discard;',
+      ' vec2 course=creekCourse(zC);',
+      ' if(abs(vCreekWorldXZ.x-course.x)<course.y+.73)discard;',
       '}'
     ].join('\n');
     shader.vertexShader='varying vec2 vCreekWorldXZ;\n'+
       shader.vertexShader.replace('#include <begin_vertex>',
         '#include <begin_vertex>\n'+
         'vCreekWorldXZ=(modelMatrix*vec4(transformed,1.0)).xz;');
-    shader.fragmentShader='varying vec2 vCreekWorldXZ;\n'+
+    shader.fragmentShader=creekCourseGLSL+'\nvarying vec2 vCreekWorldXZ;\n'+
       shader.fragmentShader.replace('#include <clipping_planes_fragment>',
         '#include <clipping_planes_fragment>\n'+fragmentCut);
   };
@@ -220,7 +188,8 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
       let x=0,y=0;
       let color:[number,number,number]=[1,1,1];
       if(side===0||side===3){
-        x=center+(2*u-1)*(half+.12);
+        // Extend under the dry bank: the bank depth cuts the varying waterline.
+        x=center+(2*u-1)*(half+.51);
         y=CREEK.waterY+(side===3?.012:0);
         const depth=1-Math.pow(Math.abs(2*u-1),1.45);
         color=[1-depth*.17,1-depth*.11,1-depth*.08];
@@ -293,7 +262,9 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
     // 2-scale material removes the 8-metre square repeat in the bank albedo.
     // Material is unique to each bank, so the shader cannot touch water/foam.
     applyRiverbankPainterlyShader(material,'earth-bank');
+    applyRiversidePaint(material,'bank');
   }
+  if(bed)applyRiversidePaint(material,'bed');
   const mesh=new THREE.Mesh(geo,material);
   mesh.name=water?'Shallow stream west of childhood home':bed?
     'Visible gravel bed below clear creek water':foam?
@@ -313,20 +284,36 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
     material.onBeforeCompile=(shader,renderer)=>{
       previous.call(material,shader,renderer);
       shader.uniforms.uCreekTime=uniform;
-      shader.vertexShader='varying vec2 vCreekFlowXZ;\n'+
-        shader.vertexShader.replace('#include <begin_vertex>',
-          '#include <begin_vertex>\n'+
-          'vCreekFlowXZ=(modelMatrix*vec4(transformed,1.0)).xz;');
-      shader.fragmentShader='varying vec2 vCreekFlowXZ;\n'+
-        'uniform float uCreekTime;\n'+
-        shader.fragmentShader.replace('#include <map_fragment>',
-          '#include <map_fragment>\n'+
-          'float flow=sin(vCreekFlowXZ.y*10.8-uCreekTime*2.4+sin(vCreekFlowXZ.x*6.5)*.7);\n'+
-          'float ripple=sin(vCreekFlowXZ.y*17.1-uCreekTime*3.1+vCreekFlowXZ.x*8.3);\n'+
-          'float highlight=smoothstep(.75,.99,flow*.66+ripple*.34);\n'+
-          'diffuseColor.rgb+=vec3(.062,.084,.070)*highlight;');
+      shader.vertexShader='varying vec2 vCreekFlowXZ;\nvarying float vCreekAcross;\n'+
+        shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+          vCreekFlowXZ=(modelMatrix*vec4(transformed,1.)).xz;
+          vCreekAcross=2.*uv.x-1.;`);
+      shader.fragmentShader='varying vec2 vCreekFlowXZ;\nvarying float vCreekAcross;\nuniform float uCreekTime;\n'+
+        shader.fragmentShader.replace('#include <map_fragment>', `
+          vec2 p=vCreekFlowXZ;
+          float shoal=smoothstep(.29,.92,abs(vCreekAcross)+.056*sin(p.y*1.15+p.x*.52));
+          float localTime=uCreekTime*.72;
+          vec2 drift=vec2(.018*sin(p.y*2.3-localTime)+.008*sin(p.y*5.1+localTime*.4),
+                          .014*sin(p.x*2.8+p.y*.8-localTime*.63));
+          float luminance=.23;
+          #ifdef USE_MAP
+            vec2 currentUV=vMapUv+drift;
+            currentUV.x=clamp(currentUV.x,.003,.997);
+            luminance=dot(texture2D(map,currentUV).rgb,vec3(.21,.71,.08));
+          #endif
+          float brush=smoothstep(.065,.52,luminance);
+          vec3 pool=mix(vec3(.012,.068,.082),vec3(.077,.237,.281),brush);
+          vec3 margin=mix(vec3(.046,.135,.119),vec3(.122,.299,.271),brush);
+          // Break the surface light into short strokes; leave the bottom stationary.
+          float flow=sin(vCreekFlowXZ.y*10.8-localTime*1.9+1.65*sin(p.x*4.9+p.y*.7));
+          float crest=sin(p.y*4.7+p.x*6.4-localTime*1.24+1.8*sin(p.x*3.1-p.y*.6));
+          float highlight=smoothstep(.76,.982,flow*.60+crest*.40);
+          float lightPatch=smoothstep(-.15,.82,sin(p.y*1.37+p.x*2.7)+.55*sin(p.x*4.1-p.y*.83));
+          diffuseColor.rgb=mix(pool,margin,shoal)+vec3(.12,.17,.17)*highlight*lightPatch;
+          diffuseColor.a*=mix(.966,.38,shoal);
+        `);
     };
-    material.customProgramCacheKey=()=>'lembah-mobile-ripple-v1';
+    material.customProgramCacheKey=()=>'lembah-depth-current-v2';
     mesh.userData.rippleUniform=uniform;
     mesh.userData.rippleType='mobile-two-frequency';
     mesh.userData.waterAlbedo=CREEK_WATER_UV.albedoSource;
@@ -344,33 +331,30 @@ export function createHomeCreek():THREE.Group{
 
 /**
  * Disconnected illustrative foam arcs hugging the two real mossy boulder
- * clusters. Unlike the old uniform white streaks, these are textured decals
- * placed only where water meets stones. One InstancedMesh / six quads.
+ * clusters. These are textured decals
+ * placed from the submerged GLB footprints in a single instanced draw.
  */
-export const ROCK_WAKES=Object.freeze([
-  {z:.78,side:1}, {z:4.42,side:-1},
-  {z:11.86,side:-1}, {z:14.91,side:1},
-  {z:18.31,side:-1}, {z:22.05,side:1}
-] as const);
+export const ROCK_WAKES=selectedHomeRocks.filter(rock=>rock.submerge!==undefined);
 let wakePainting:THREE.DataTexture|undefined;
 export function makePaintedRockWake():THREE.DataTexture{
   if(wakePainting)return wakePainting;
   const w=128,h=192,rgba=new Uint8Array(w*h*4);
   for(let py=0;py<h;py++)for(let px=0;px<w;px++){
     const u=(px+.5)/w*2-1,v=(py+.5)/h*2-1;
-    const curve=0.55*Math.sin(v*2.4)+.08*Math.sin(v*10);
-    const dist=Math.abs(Math.sqrt((u+curve*.4)*(u+curve*.4)*.95+v*v*.38)-.66);
-    const curved=Math.exp(-Math.pow(dist/.062,2))
-      *THREE.MathUtils.smoothstep(v,-.85,.42)
-      *(1-THREE.MathUtils.smoothstep(v,.64,.95));
-    const trickle=Math.exp(-Math.pow((u-.32*Math.sin(v*3+1.1))/.045,2))
-      *THREE.MathUtils.smoothstep(v,-.65,-.05)*.32;
-    const bubbles=(Math.sin(px*1.23+py*2.14)*Math.cos(px*2.01-py*.92))>.89
-      && Math.abs(u)<.7 && Math.abs(v)<.55 ? .17:0;
-    const strength=THREE.MathUtils.clamp(curved*.72+trickle+bubbles,0,1);
+    const theta=Math.atan2(v,u);
+    const radius=Math.hypot(u*1.04,v*1.19);
+    const outline=.65+.040*Math.sin(theta*3+.85)+.024*Math.sin(theta*7-.42);
+    const facing=.64-.36*v;  // stronger on the upstream face
+    const breakup=.32+.68*THREE.MathUtils.smoothstep(Math.sin(theta*6.1+radius*9),-.62,.29);
+    const rim=Math.exp(-(((radius-outline)/.036)**2))*breakup*facing;
+    const secondary=Math.exp(-(((radius-outline-.13)/.018)**2))*
+      THREE.MathUtils.smoothstep(Math.sin(theta*4+.7),.10,.81)*.54;
+    const trail=Math.exp(-(((Math.abs(u)-.33-.12*Math.sin(v*5))/.033)**2))*
+      THREE.MathUtils.smoothstep(v,.16,.62)*(1-THREE.MathUtils.smoothstep(v,.63,.99));
+    const strength=THREE.MathUtils.clamp(1.24*rim+secondary+.38*trail,0,1);
     const i=(py*w+px)*4;
     rgba[i]=242;rgba[i+1]=250;rgba[i+2]=237;
-    rgba[i+3]=Math.round(strength*197);
+    rgba[i+3]=Math.round(strength*244);
   }
   const texture=new THREE.DataTexture(rgba,w,h,THREE.RGBAFormat);
   texture.colorSpace=THREE.SRGBColorSpace;
@@ -383,7 +367,7 @@ export function makePaintedRockWake():THREE.DataTexture{
   return wakePainting=texture;
 }
 export function createRockWaterWakes():THREE.InstancedMesh{
-  const geometry=new THREE.PlaneGeometry(.90,1.45);
+  const geometry=new THREE.PlaneGeometry(1.60,1.76);
   const material=new THREE.MeshBasicMaterial({
     name:'Hand-painted localized white creek foam',
     map:makePaintedRockWake(),
@@ -395,10 +379,10 @@ export function createRockWaterWakes():THREE.InstancedMesh{
   const object=new THREE.Object3D();
   for(let i=0;i<ROCK_WAKES.length;i++){
     const wake=ROCK_WAKES[i];
-    const c=creekCenterX(wake.z),half=creekWidth(wake.z)*.5;
-    object.position.set(c+wake.side*(half-.18),CREEK.waterY+.021,wake.z+.37);
-    object.rotation.set(-Math.PI/2,0,i%2===0?.16:-.18);
-    object.scale.set(i%2===0?1.0:.87,i%3===0?1.13:.94,1);
+    object.position.set(wake.x,CREEK.waterY+.009,wake.z+.04*wake.size);
+    // Plane V points upstream after rotation, matching the brighter impact rim.
+    object.rotation.set(-Math.PI/2,0,.11*Math.sin(wake.yaw));
+    object.scale.set(wake.size,wake.size,1);
     object.updateMatrix();
     mesh.setMatrixAt(i,object.matrix);
   }
@@ -418,6 +402,7 @@ export async function loadPaintedCreekTextures(root:THREE.Object3D):Promise<bool
   const east=root.getObjectByName('Soft east creek bank');
   if(!(water instanceof THREE.Mesh)||!(west instanceof THREE.Mesh)||
      !(east instanceof THREE.Mesh))return false;
+  const shoreReady=loadRiversidePaint();
   if(!creekArtLoad){
     const loader=new THREE.TextureLoader();
     creekArtLoad=Promise.all([
@@ -471,6 +456,7 @@ export async function loadPaintedCreekTextures(root:THREE.Object3D):Promise<bool
     }catch(error){
       console.warn('[LembahAsri] Keeping riverbank lip colour fallback',error);
     }
+    await shoreReady;
     root.userData.paintedCreekLoaded=true;
     root.userData.paintedWaterAsset=CREEK_PAINTED_TEXTURES.water;
     return true;
@@ -525,7 +511,7 @@ export function createHomeCreekVegetation(): THREE.Group {
       const zz=z+(rng()-.5)*1.60;
       const edge=creekCenterX(zz)+side*creekWidth(zz)/2;
       const x=edge+side*(.70+.65*rng());
-      const scale=(2.25+rng()*2.25)*intensity; // reed height ~0.4–0.9 m
+      const scale=(.60+rng()*.67)*intensity;
       reeds.push({x,z:zz,scale,yaw:rng()*Math.PI*2,tint:rng()});
     }
     const leafCount=Math.round(2.3*intensity);
@@ -539,9 +525,9 @@ export function createHomeCreekVegetation(): THREE.Group {
     }
   }
   const instance=new THREE.Object3D();
-  const reedMesh=new THREE.InstancedMesh(makeLowPolyGrassGeometry(),
+  const reedMesh=new THREE.InstancedMesh(makeSedgeGeometry(true),
     new THREE.MeshBasicMaterial({
-      color:'#a4b784',vertexColors:true,
+      color:'#ffffff',vertexColors:true,
       side:THREE.DoubleSide,toneMapped:false
     }),reeds.length);
   reedMesh.name='Stream clustered bank grasses';
@@ -552,7 +538,7 @@ export function createHomeCreekVegetation(): THREE.Group {
     instance.scale.setScalar(p.scale);
     instance.updateMatrix();
     reedMesh.setMatrixAt(i,instance.matrix);
-    reedMesh.setColorAt(i,new THREE.Color(p.tint>.65?'#82a96b':'#a9bd80'));
+    reedMesh.setColorAt(i,new THREE.Color(p.tint>.65?'#e8edbc':'#f8f0ca'));
   }
   reedMesh.instanceMatrix.needsUpdate=true;
   if(reedMesh.instanceColor)reedMesh.instanceColor.needsUpdate=true;
@@ -578,6 +564,26 @@ export function createHomeCreekVegetation(): THREE.Group {
   if(leafMesh.instanceColor)leafMesh.instanceColor.needsUpdate=true;
   leafMesh.frustumCulled=false;leafMesh.castShadow=false;
   root.add(leafMesh);
+  // A handful of flower patches sit just above the grass line on the shoulders.
+  const flowers=new THREE.InstancedMesh(makeBankFlowerGeometry(),
+    new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false}),
+    bankGroups.length*2);
+  flowers.name='White wildflowers along the grassy creek';
+  let flowerIndex=0;
+  for(const [z,side] of bankGroups) {
+    for(const shift of [-.72,.48]) {
+      const zz=z+shift;
+      const inland=1.23+rng()*.44;
+      instance.position.set(creekCenterX(zz)+side*(creekWidth(zz)*.5+inland),
+        creekBankLipHeight(zz)+.028,zz);
+      instance.rotation.set(0,rng()*6.28,0);
+      instance.scale.setScalar(.87+rng()*.55);
+      instance.updateMatrix();
+      flowers.setMatrixAt(flowerIndex++,instance.matrix);
+    }
+  }
+  flowers.computeBoundingSphere();
+  root.add(flowers);
   root.userData.clusters=bankGroups.length;
   root.userData.reedInstances=reeds.length;
   root.userData.shrubInstances=shrubs.length;

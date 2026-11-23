@@ -147,13 +147,17 @@ test('foam follows downstream direction without modifying character movement',()
 
 
 test('countryside river meanders while the house fence, bridge and creek hole remain aligned',()=>{
-  // Keep the original exact river footprint through the built home.
+  // Both survey points at the bridge and the fenced east bank are fixed.
   for(const z of [-12,-4,0,8.6,14,23,27]){
     assert.ok(Math.abs(creekOuterMeander(z))<1e-10,
       'garden creek must not move the approved bridge/fence');
     const oldCenter=-45.5+.12*Math.sin(z*.37+.2)+.09*Math.sin(z*.82-.7);
-    assert.ok(Math.abs(creekCenterX(z)-oldCenter)<1e-9);
+    const oldHalf=.5*(2.64+.010*(z+4.5)+.13*Math.sin(z*.29+.8)+.07*Math.cos(z*.69-.3));
+    assert.ok(Math.abs(creekCenterX(z)+creekWidth(z)*.5-oldCenter-oldHalf)<1e-9);
+    if(Math.abs(z-8.6)<2) assert.ok(Math.abs(creekCenterX(z)-oldCenter)<1e-9);
   }
+  assert.ok(creekWidth(-5.5)>4.2);
+  assert.ok(creekWidth(18)>4.2);
   assert.ok(Math.abs(creekOuterMeander(-35))>.25,
     'river must actually bend in its scenic background');
   assert.ok(Math.abs(creekOuterMeander(54))>.25,

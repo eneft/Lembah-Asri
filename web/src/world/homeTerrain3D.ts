@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { CREEK, creekCenterX, creekWidth, creekBankLipHeight } from './homeCreek.ts';
 import { createTerrainMaterial } from './terrainMaterials.ts';
 import { applyRiverbankPainterlyShader } from './riverbankMaterial.ts';
-import { makeLowPolyGrassGeometry } from './lowPolyGrass.ts';
+import { applyRiversidePaint } from './riversidePaint.ts';
+import { makeSedgeGeometry } from './riversidePlants.ts';
 import { selectedHomeRocks } from './homeRocks.ts';
 
 /**
@@ -138,6 +139,7 @@ function makeContour(side:-1|1):THREE.Mesh {
   // Two-scale meadow UV breaks the obvious 3.5 m square repetitions right
   // next to the river while leaving the full world grass untouched.
   applyRiverbankPainterlyShader(material,'grassy-shoulder');
+  applyRiversidePaint(material,'meadow');
   if(material.map){
     material.map.wrapS=THREE.MirroredRepeatWrapping;
     material.map.wrapT=THREE.MirroredRepeatWrapping;
@@ -195,9 +197,9 @@ export function createFineCreekBankGrass():THREE.InstancedMesh{
       }
     }
   }
-  const geometry=makeLowPolyGrassGeometry();
+  const geometry=makeSedgeGeometry(false);
   const material=new THREE.MeshBasicMaterial({
-    color:'#a0b679',vertexColors:true,side:THREE.DoubleSide,
+    color:'#ffffff',vertexColors:true,side:THREE.DoubleSide,
     toneMapped:false
   });
   const mesh=new THREE.InstancedMesh(geometry,material,tufts.length);
@@ -210,8 +212,8 @@ export function createFineCreekBankGrass():THREE.InstancedMesh{
     transform.scale.setScalar(tuft.scale);
     transform.updateMatrix();
     mesh.setMatrixAt(i,transform.matrix);
-    mesh.setColorAt(i,new THREE.Color(tuft.shade>.65?'#a2b66f':
-      tuft.shade<.17?'#bac78e':'#b2c68a'));
+    mesh.setColorAt(i,new THREE.Color(tuft.shade>.65?'#e5ebbb':
+      tuft.shade<.17?'#f4de9a':'#f5f0c7'));
   }
   mesh.instanceMatrix.needsUpdate=true;
   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
