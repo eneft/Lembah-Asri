@@ -46,7 +46,7 @@ test('approved true-3D shade tree accepts user painterly bark and leaf pigment w
   assert.equal(applyUserReferenceTreeTextures(tree,textures),true);
   assert.equal(roots.material.map,bark);
   assert.equal(sprays.material.map,leaf);
-  assert.equal(sprays.count,96);
+  assert.equal(sprays.count,144);
   assert.equal(sprays.userData.isTrue3D,true);
   assert.equal(sprays.material.vertexColors,false);
   assert.equal(tree.userData.userReferenceBarkMeshes,1);
