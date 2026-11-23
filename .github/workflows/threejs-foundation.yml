@@ -55,6 +55,8 @@ jobs:
         run: node --experimental-strip-types --test tests/riverbank-painterly-v2.test.mjs
       - name: Verify actual 3D creek terrain geometry, seamless UV and protected walkways
         run: node --experimental-strip-types --test tests/home-terrain3d.test.mjs
+      - name: Guard painterly meadow palette, organic trail and fine riverbank grass
+        run: node --experimental-strip-types --test tests/reference-riverside-grass.test.mjs
       - name: Verify painterly terrain, deep riverbanks, wood bridge UV and foam assets
         run: node --experimental-strip-types --test tests/painterly-landscape.test.mjs
       - name: Validate bridge collision geometry and traversable height profile
