@@ -51,6 +51,8 @@ jobs:
         run: node --experimental-strip-types --test tests/painted-trees.test.mjs
       - name: Validate reference tropical shade tree, buttress roots and safe garden clearing
         run: node --experimental-strip-types --test tests/concept-shade-tree.test.mjs
+      - name: Validate supplied painted material quadrants and volumetric foliage UV
+        run: node --experimental-strip-types --test tests/user-reference-textures.test.mjs
       - name: Verify world grass anti-tile and matching sculpted river meadow UV
         run: node --experimental-strip-types --test tests/meadow-antitile.test.mjs
       - name: Verify two-scale painterly riverbank UV, macro blend and no dark decals
