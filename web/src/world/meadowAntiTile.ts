@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ensureWarmGrassGLSL, WARM_GRASS_STYLE } from './grassPalette.ts';
 
 /**
  * Large-scale meadow anti-tiling, mobile-first.
@@ -43,6 +44,7 @@ const FRAGMENT=[
   ' *sin(pMeadow.y*.063-pMeadow.x*.022);',
   // No splattered dark macro patches — max 2.2 percent variation.
   'paintedMeadow*=1.0+.022*colorWash;',
+  'paintedMeadow=lembahWarmGrass(paintedMeadow);',
   'diffuseColor.rgb*=paintedMeadow;',
   '#endif'
 ].join('\n');
@@ -62,12 +64,13 @@ export function applyMeadowAntiTileShader(
       shader.vertexShader.replace('#include <begin_vertex>',
         '#include <begin_vertex>\n'+
         'vMeadowWorldXZ=(modelMatrix*vec4(transformed,1.0)).xz;');
-    shader.fragmentShader='varying vec2 vMeadowWorldXZ;\n'+
-      shader.fragmentShader.replace('#include <map_fragment>',FRAGMENT);
+    shader.fragmentShader=ensureWarmGrassGLSL('varying vec2 vMeadowWorldXZ;\n'+
+      shader.fragmentShader.replace('#include <map_fragment>',FRAGMENT));
   };
   const oldKey=material.customProgramCacheKey.bind(material);
   material.customProgramCacheKey=()=>oldKey()+'|'+MEADOW_ANTI_TILE.version;
   material.userData.meadowAntiTile=true;
+  material.userData.warmGrassStyle=WARM_GRASS_STYLE.version;
   material.userData.meadowImageSamples=MEADOW_ANTI_TILE.imageSamples;
   material.needsUpdate=true;
   return material;
