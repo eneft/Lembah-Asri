@@ -267,6 +267,20 @@ try{
   const bodyY=await page.evaluate(()=>window.__lembahVisualQA.player.translation().y);
   assert.ok(bodyY>1.09&&bodyY<1.30,
     'character must settle at the physical deck level, not at terrain Y=0: '+bodyY);
+  // Bank materials must be the PR#92-inspired *broken* soil/stone transition
+  // in the actual browser scene; keep the water/foam shaders untouched.
+  const bankRestore=await page.evaluate(()=>{
+    const scene=window.__lembahVisualQA.scene;
+    const west=scene.getObjectByName('Soft west creek bank');
+    const east=scene.getObjectByName('Soft east creek bank');
+    const water=scene.getObjectByName('Shallow stream west of childhood home');
+    return {west:west?.material?.userData?.bankStoneRestore,
+      east:east?.material?.userData?.bankStoneRestore,
+      water:water?.material?.userData?.bankStoneRestore};
+  });
+  assert.equal(bankRestore.west,'pr92-inspired-broken-stone-foot-v1');
+  assert.equal(bankRestore.east,bankRestore.west);
+  assert.equal(bankRestore.water,undefined);
   assert.ok(assets.has(prefix+'textures/terrain/creek_water_painterly_illustrated.webp'));
   assert.ok(assets.has(prefix+'models/environment/lembah_asri_rocks_original_16.glb'));
   assert.deepEqual(errors,[]);

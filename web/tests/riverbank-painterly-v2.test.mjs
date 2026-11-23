@@ -186,3 +186,50 @@ test('house clearing paint and its alpha feather are shared by shore materials a
   assert.ok(Math.abs(((-43.4+29)/32+.5)-.05)<1e-8,'the near river shoulder overlaps the home clearing');
   assert.ok((-49+29)/32+.5<0,'far bank does not receive the home painting');
 });
+
+test('PR92-inspired riverbank gets broken warm stone near water, not a flat oval wall',()=>{
+  const restored=createHomeCreek();
+  for(const side of ['Soft west creek bank','Soft east creek bank']){
+    const bank=restored.getObjectByName(side);
+    assert.equal(bank.material.userData.bankStoneRestore,
+      'pr92-inspired-broken-stone-foot-v1');
+    const shader={
+      vertexShader:'void main(){\n#include <begin_vertex>\n}',
+      fragmentShader:'void main(){\n#include <map_fragment>\n#include <color_fragment>\n}',
+      uniforms:{}
+    };
+    bank.material.onBeforeCompile(shader,{});
+    assert.match(shader.fragmentShader,/float wetFoot=1.0-smoothstep\(-.20,.09,vRiversidePosition.y\)/);
+    assert.match(shader.fragmentShader,/float stoneClusters=smoothstep\(\.20,\.79,stoneScatter\)/);
+    assert.match(shader.fragmentShader,/float stoneCover=\.08\+\.70\*wetFoot\*stoneClusters/);
+    assert.match(shader.fragmentShader,/texture2D\(uBankCobbles,uvB\)/);
+    assert.match(shader.fragmentShader,/grassCover/);
+    assert.match(shader.fragmentShader,/bankPigment/);
+    assert.doesNotMatch(shader.fragmentShader,/float stoneCover=\.91/);
+    assert.match(bank.material.customProgramCacheKey(),/pr92-broken-stone-foot-v1/);
+  }
+  const bed=restored.getObjectByName('Visible gravel bed below clear creek water');
+  assert.equal(bed.material.userData.bankStoneRestore,undefined);
+  const bedShader={
+    vertexShader:'void main(){\n#include <begin_vertex>\n}',
+    fragmentShader:'void main(){\n#include <map_fragment>\n#include <color_fragment>\n}',
+    uniforms:{}
+  };
+  bed.material.onBeforeCompile(bedShader,{});
+  assert.match(bedShader.fragmentShader,/float stoneCover=1.0;/);
+  const water=restored.getObjectByName('Shallow stream west of childhood home');
+  const foam=restored.getObjectByName('Illustrated river foam and flow trails');
+  assert.equal(water.material.userData.bankStoneRestore,undefined);
+  assert.equal(foam.material.userData.bankStoneRestore,undefined);
+  assert.ok(restored.children.length>=5);
+});
+
+test('rock cover fades continuously across foot and keeps a mostly grassy upper bank',()=>{
+  const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+  const cover=(height,pigment)=> .08+.70*(1-smooth(-.20,.09,height))*smooth(.20,.79,pigment);
+  for(const pigment of [.24,.48,.72,.93]){
+    const foot=cover(-.25,pigment),mid=cover(-.08,pigment),lip=cover(.14,pigment);
+    assert.ok(foot>=mid && mid>=lip,'stones should be densest by wet foot');
+    assert.ok(foot<=.781 && lip<=.081,'never turn the whole bank into a cobble wall');
+  }
+});
