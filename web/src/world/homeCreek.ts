@@ -23,7 +23,7 @@ export const CREEK_FOAM_ART='./textures/terrain/creek_foam_painterly_restored_v2
 // This regenerated 3x4 atlas preserves fully opaque original brushwork.
 export const CREEK_FOAM_FLOW=Object.freeze({
   metresPerSecond:.11, intervalMetres:4.3, columns:3, rows:4, lanes:2,
-  longitudinalCoverage:.46, transverseCoverage:.32, opacityFraction:CLEAR_WATER_STAGE3.foamInk
+  longitudinalCoverage:.46, transverseCoverage:.32, opacityFraction:.70
 });
 export const CREEK_WATER_UV=Object.freeze({
   // Same 160 m ribbon and existing six-width-row geometry.
