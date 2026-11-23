@@ -141,7 +141,11 @@ try{
       broadSprays:leafSprays?.count,
       broadUV:!!leafSprays?.geometry?.getAttribute('uv'),
       broadPainted:!!leafSprays?.material?.map,
-      true3D:leafSprays?.userData.isTrue3D
+      true3D:leafSprays?.userData.isTrue3D,
+      userPaintApplied:tree?.userData.userReferenceAtlasLoaded===true,
+      bakeKind:roots?.material?.map?.userData?.kind,
+      leafKind:leafSprays?.material?.map?.userData?.kind,
+      seedlings:tree?.getObjectByName('Small 3D shade plants among natural buttress roots')?.count
     };
   });
   assert.equal(conceptTree.loaded,true);
@@ -150,6 +154,11 @@ try{
   assert.ok(conceptTree.roots>=8&&conceptTree.barkPainted,
     'a mature tropical tree needs separate textured exposed roots');
   assert.equal(conceptTree.broadSprays,144,'game must display improved broad painterly foliage');
+  assert.ok(conceptTree.userPaintApplied,
+    'the user image must be applied to the FINAL GLB and not just the temporary fallback');
+  assert.equal(conceptTree.bakeKind,'user-photo-baked-to-original-1024px-bark-uv-islands');
+  assert.equal(conceptTree.leafKind,'single-leaf-pigment-no-white-paper');
+  assert.equal(conceptTree.seedlings,19);
   assert.ok(conceptTree.broadUV&&conceptTree.broadPainted&&conceptTree.true3D,
     'Work foliage continuation must be UV-painted 3D geometry, never a 2D billboard');
   assert.ok(Math.abs(conceptTree.x+21.8)<.01&&Math.abs(conceptTree.z-10.8)<.01);
