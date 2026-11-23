@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import * as THREE from 'three';
 import {createHomeCreek,CREEK_FOAM_ART,CREEK_FOAM_FLOW,updateHomeCreekWater} from '../src/world/homeCreek.ts';
 
@@ -17,6 +18,9 @@ test('the exact source image is now a real transparent raster atlas, not a trace
   assert.equal(png.readUInt32BE(16),480,'twelve painterly decals in 3 columns');
   assert.equal(png.readUInt32BE(20),480,'twelve painterly decals in 4 rows');
   assert.ok(png.length>24000&&png.length<50000,'mobile-optimized alpha-safe original art');
+  assert.equal(createHash('sha256').update(png).digest('hex'),
+    '46ac9cc335f1c6e4fea7d581106fc01c0b101aaece10755871f09615575a4f76',
+    'GitHub must contain complete original alpha-restored PNG bytes, never a truncated upload');
   const alphaChunk=png.indexOf(Buffer.from('tRNS'));
   assert.ok(alphaChunk>0,'the original transparent brush edge must survive');
   const alphaSize=png.readUInt32BE(alphaChunk-4);
