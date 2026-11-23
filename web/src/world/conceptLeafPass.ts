@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { makeBroadLeafGeometry, makePaintedLeafAlbedo } from './homeArtPass.ts';
+import { makePaintedLeafAlbedo } from './homeArtPass.ts';
 
 /**
  * Broad tropical LEAF SPRAYS on the original volumetric GLB.
@@ -13,7 +13,7 @@ import { makeBroadLeafGeometry, makePaintedLeafAlbedo } from './homeArtPass.ts';
 export const REFERENCE_LEAF_PASS = Object.freeze({
   sprays: 144,
   leavesPerSpray: 7,
-  trianglesPerSpray: 168,
+  trianglesPerSpray: 140,
   palette: ['#628c56','#739953','#83a65c','#98b364','#acc174','#638f64'],
   seed: 20261123
 });
@@ -27,25 +27,71 @@ function seeded(seed:number):()=>number{
 }
 
 /** Wider oval lobes for the reference tree only; unchanged thin groundgrass. */
+/** Create seven individually sculpted tropical oval leaf blades.
+ * Each blade widens at 38–55% of its length, then tapers to a pointed tip.
+ * A raised midrib, gently drooping tip and asymmetric blade halves make the
+ * silhouette readable from any third-person camera angle — never grass fans.
+ * All leaves use UV0 (u: crossblade, v: root→tip) on the user's leaf pigment.
+ */
 function makeBroadCrownLeaves():THREE.BufferGeometry{
-  // Use true curved UV leaf blades; no flat back-to-back cards.
-  const g=makeBroadLeafGeometry().clone();
-  const pos=g.getAttribute('position') as THREE.BufferAttribute;
-  const oneLeafVertices=4*4*3; // four sections × four triangles × three vertices
-  for(let i=0;i<pos.count;i++){
-    const leaf=Math.floor(i/oneLeafVertices);
-    const angle=leaf*Math.PI*2/REFERENCE_LEAF_PASS.leavesPerSpray+(leaf%2)*.085;
-    const ca=Math.cos(angle),sa=Math.sin(angle);
-    const x=pos.getX(i),z=pos.getZ(i);
-    const outward=x*ca+z*sa;
-    const side=(-x*sa+z*ca)*1.83;
-    pos.setXYZ(i,ca*outward-sa*side,pos.getY(i),sa*outward+ca*side);
+  const xyz:number[]=[],uv:number[]=[],shade:number[]=[];
+  const leaves=REFERENCE_LEAF_PASS.leavesPerSpray;
+  const bands=5;
+  const emit=(x:number,y:number,z:number,u:number,v:number,tint:number)=>{
+    xyz.push(x,y,z);
+    uv.push(u,v);
+    shade.push(tint,tint*.99,tint*.95);
+  };
+  for(let leaf=0;leaf<leaves;leaf++){
+    const a=leaf*Math.PI*2/leaves+(leaf%2)*.081;
+    const ca=Math.cos(a),sa=Math.sin(a);
+    const sideX=-sa,sideZ=ca;
+    const length=.56+(leaf%3)*.092;
+    const halfWidth=.172+(leaf%4)*.017;
+    const centerHeight=.125+(leaf%2)*.055;
+    const point=(t:number,side:-1|0|1)=>{
+      // Broad OVATE blade, not a thin tapering grass leaf.
+      const envelope=Math.pow(Math.max(0,Math.sin(Math.PI*t)),.72);
+      const breadth=halfWidth*envelope*(1-.11*t);
+      const asym=side<0?.91:1.0;
+      const sideways=side*breadth*asym;
+      const midrib=side===0?.020*envelope:0;
+      const down=.24*t*t+.07*t*t*t;
+      const lift=centerHeight+.11*Math.sin(Math.PI*t*.95)-down+midrib;
+      const curve=.034*Math.sin(Math.PI*t)*(leaf%2?1:-1);
+      const r=length*t;
+      return [
+        ca*r+sideX*(sideways+curve),
+        lift,
+        sa*r+sideZ*(sideways+curve),
+        side===-1?.025:side===1?.975:.5,
+        .025+.95*t,
+        side===0?1.05:(side===-1?.91:.98)
+      ] as const;
+    };
+    const triangle=(a:ReturnType<typeof point>,b:ReturnType<typeof point>,c:ReturnType<typeof point>)=>{
+      for(const p of [a,b,c])emit(p[0],p[1],p[2],p[3],p[4],p[5]);
+    };
+    for(let i=0;i<bands;i++){
+      const t0=i/bands,t1=(i+1)/bands;
+      const l0=point(t0,-1),c0=point(t0,0),r0=point(t0,1);
+      const l1=point(t1,-1),c1=point(t1,0),r1=point(t1,1);
+      triangle(l0,l1,c0);
+      triangle(c0,l1,c1);
+      triangle(c0,c1,r0);
+      triangle(r0,c1,r1);
+    }
   }
-  pos.needsUpdate=true;
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(xyz,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setAttribute('color',new THREE.Float32BufferAttribute(shade,3));
   g.computeVertexNormals();
   g.computeBoundingSphere();
   g.userData.leafSilhouette='curved-oval-3d-with-painted-midrib';
-  g.userData.uvAtlas='approved-128px-leaf-pigment';
+  g.userData.uvAtlas='user-20261123-single-leaf-pigment';
+  g.userData.leafWidthToLength=.60;
+  g.userData.singleLeafBlades=leaves;
   return g;
 }
 
