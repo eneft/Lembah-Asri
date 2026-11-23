@@ -14,6 +14,7 @@ import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaint
 import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerrain3D.ts';
 import { applyRiversidePaint } from './riversidePaint.ts';
 import { applyCreekCourtyardAlbedo } from './shoreCourtyard.ts';
+import { applyWarmCourtyardGrass } from './grassPalette.ts';
 import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { loadUserSuppliedWoodenBridge } from './uploadedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
@@ -401,6 +402,9 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
         painted.name = 'Painted childhood courtyard';
         carveVisualCreek(painted);
         garden.bind(material);
+        // Only green pigment is softly graded; GardenSurface overrides soil
+        // after the map sample, preserving planting and tilled-earth colors.
+        applyWarmCourtyardGrass(material);
         applyRiversidePaint(material,'meadow');
         painted.rotation.copy(clearing.rotation);
         painted.position.copy(clearing.position);
