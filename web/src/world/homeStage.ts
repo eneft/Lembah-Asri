@@ -9,6 +9,7 @@ import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { CONCEPT_SHADE_TREE, createReferenceShadeTree } from './referenceShadeTree.ts';
+import { loadUserReferenceTextureSet, applyUserReferenceTreeTextures, applyUserReferenceDryRock } from './userReferenceTextures.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
 import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerrain3D.ts';
@@ -422,15 +423,30 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     center:[CONCEPT_SHADE_TREE.x,0.9,CONCEPT_SHADE_TREE.z],
     half:[CONCEPT_SHADE_TREE.colliderHalfWidth,0.9,CONCEPT_SHADE_TREE.colliderHalfWidth]
   });
+  // Load the real GLB and supplied albedo in parallel. Paint the FINAL tree,
+  // not only the temporary fallback that disappears when the GLB resolves.
   const conceptShadeReady:Promise<boolean>=loadApprovedModel
-    ? loadPaintedTreeSource('shade').then(source=>{
-        const realTree=createReferenceShadeTree(source);
-        root.remove(conceptFallback);
-        root.add(realTree);
-        return true;
-      }).catch(error=>{
-        console.warn('[LembahAsri] Keeping 3D painted concept shade tree fallback',error);
-        return false;
+    ? Promise.all([
+        loadPaintedTreeSource('shade').then(source=>{
+          const realTree=createReferenceShadeTree(source);
+          root.remove(conceptFallback);
+          root.add(realTree);
+          return true;
+        }).catch(error=>{
+          console.warn('[LembahAsri] Keeping 3D painted concept shade tree fallback',error);
+          return false;
+        }),
+        loadUserReferenceTextureSet().catch(error=>{
+          console.warn('[LembahAsri] Keeping earlier painted reference atlas',error);
+          return undefined;
+        })
+      ]).then(([glbReady,images])=>{
+        if(images){
+          const finalTree=root.getObjectByName('Concept mature shade tree near the garden');
+          if(finalTree instanceof THREE.Group)
+            applyUserReferenceTreeTextures(finalTree,images);
+        }
+        return glbReady;
       })
     : Promise.resolve(false);
   // Keep fallback tree while the 3D GLB downloads. Replace it with the actual
@@ -458,7 +474,15 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     ? loadUserSuppliedWoodenBridge(root) : Promise.resolve(false);
   // User-approved landscape: exactly two UV-textured rock models.
   const rockReady: Promise<boolean> = loadApprovedModel
-    ? attachCuratedHomeRocks(root).then(() => {
+    ? attachCuratedHomeRocks(root).then(async () => {
+        // Only dry stones inherit the uploaded painted rock albedo; mossy
+        // stream stones retain their original shaded GLB and water shader.
+        try {
+          const images=await loadUserReferenceTextureSet();
+          applyUserReferenceDryRock(root,images);
+        } catch (error) {
+          console.warn('[LembahAsri] Keeping original UV stone paint',error);
+        }
         console.info('[LembahAsri] Rendered 2 rock species: mossy + plain, 19 placements');
         return true;
       }).catch(error => {
