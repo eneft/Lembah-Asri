@@ -22,8 +22,8 @@ export const CREEK_FOAM_ART='./textures/terrain/creek_foam_painterly_restored_v2
 // overflowing and erasing the brightest white paint (most alpha < 130).
 // This regenerated 3x4 atlas preserves fully opaque original brushwork.
 export const CREEK_FOAM_FLOW=Object.freeze({
-  metresPerSecond:.11, intervalMetres:5.9, columns:3, rows:4,
-  longitudinalCoverage:.235, transverseCoverage:.245, opacityFraction:.80
+  metresPerSecond:.11, intervalMetres:4.3, columns:3, rows:4, lanes:2,
+  longitudinalCoverage:.46, transverseCoverage:.32, opacityFraction:.88
 });
 export const CREEK_WATER_UV=Object.freeze({
   // Same 160 m ribbon and existing six-width-row geometry.
@@ -302,35 +302,40 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
         shader.fragmentShader.replace('#include <map_fragment>',`
           #ifdef USE_MAP
             if(uFoamAtlasReady>.5) {
-              // The supplied painted foam must read as little water eddies,
-              // NEVER full-width white patches (as on the rejected iPhone shot).
-              // The stream flows +Z; only the small pocket moves, not its bed.
+              // Two staggered narrow currents make the supplied painterly
+              // foam visible from the player's camera without filling the river.
+              // The underlying brush and true source alpha remain untouched.
               float downstream=vFoamWorldXZ.y+79.5-uFoamSeconds*.11;
-              float section=floor(downstream/5.9);
-              float advance=fract(downstream/5.9);
-              float seed=fract(sin(section*127.1+5.73)*43758.5453);
-              float variant=floor(seed*12.);
-              float col=mod(variant,3.);
-              float row=floor(variant/3.);
-              // Concentrate short foam marks in one side of the current;
-              // bend/rock eddies are reinforced by the existing 7 local wakes.
-              float targetAcross=mix(.25,.75,step(.5,fract(seed*11.71)));
-              // Full painted curls are ~1.4m long and <1m wide, never
-              // stretching to a whole-stream white cloud.
-              vec2 decal=vec2((advance-.52)/.235+.5,
-                (vFoamAcross-targetAcross)/.245+.5);
-              // The user-approved raster already has hand-painted transparent
-              // fringes. Artificial smoothstep feathers destroyed its brushwork.
-              // Keep its ORIGINAL per-pixel alpha, cut only outside this decal.
-              float inside=step(0.,decal.x)*step(decal.x,1.)*
-                step(0.,decal.y)*step(decal.y,1.);
-              vec2 local=clamp(decal,vec2(.004),vec2(.996));
-              vec2 atlasUV=vec2((col+local.x)/3.,(3.-row+local.y)/4.);
-              vec4 paintedFoam=texture2D(map,atlasUV);
-              float sporadic=step(.24,seed);
-              float paintedStroke=paintedFoam.a*inside*sporadic*.80;
-              diffuseColor.rgb*=paintedFoam.rgb;
-              diffuseColor.a*=paintedStroke;
+              float strongest=0.;
+              vec3 paintedColor=vec3(1.);
+              for(int lane=0;lane<2;lane++){
+                float offset=float(lane)*1.85;
+                float section=floor((downstream+offset)/4.3);
+                float advance=fract((downstream+offset)/4.3);
+                float seed=fract(sin(section*127.1+float(lane)*47.33+5.73)*43758.5453);
+                float variant=floor(seed*12.);
+                float col=mod(variant,3.);
+                float row=floor(variant/3.);
+                float targetAcross=lane==0?
+                  (.24+.27*seed):(.57+.22*fract(seed*5.4));
+                // Each painted swirl stays ~2 m long and <=1.3 m wide.
+                // No full-width smoke or square foam texels.
+                vec2 decal=vec2((advance-.5)/.46+.5,
+                  (vFoamAcross-targetAcross)/.32+.5);
+                float inside=step(0.,decal.x)*step(decal.x,1.)*
+                  step(0.,decal.y)*step(decal.y,1.);
+                vec2 local=clamp(decal,vec2(.004),vec2(.996));
+                vec2 atlasUV=vec2((col+local.x)/3.,(3.-row+local.y)/4.);
+                vec4 paintedFoam=texture2D(map,atlasUV);
+                float sporadic=step(.10,seed);
+                float ink=paintedFoam.a*inside*sporadic*.88;
+                if(ink>strongest){
+                  strongest=ink;
+                  paintedColor=paintedFoam.rgb;
+                }
+              }
+              diffuseColor.rgb*=paintedColor;
+              diffuseColor.a*=strongest;
             } else {
               #include <map_fragment>
             }
@@ -338,7 +343,7 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
         `);
     };
     const cache=material.customProgramCacheKey.bind(material);
-    material.customProgramCacheKey=()=>cache()+'|restored-source-alpha-foam-flow-v4';
+    material.customProgramCacheKey=()=>cache()+'|visible-two-lane-foam-flow-v5';
     mesh.userData.foamTimeUniform=foamClock;
     mesh.userData.foamAtlasReady=atlasReady;
     mesh.userData.flowDirection='positive-Z';
