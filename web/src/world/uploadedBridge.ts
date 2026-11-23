@@ -4,15 +4,17 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { BRIDGE_DECK, BRIDGE_WALK } from './paintedBridge.ts';
 
 /** Original user-supplied wooden bridge, packaged with meshopt geometry and
- * WebP emissive atlas without reducing its authored 7,823 triangles.
+ * WebP emissive atlas without reducing its authored 10,000 triangles.
  * Unlike the old 3D approximation, this is the user's actual GLB mesh.
  */
 export const USER_BRIDGE = Object.freeze({
-  asset: './models/environment/bridge_user_reference_wood_v1.glb',
-  sourceTopOfDeck: .3175,
-  verticalScale: 2.2,
-  originalTriangles: 7823,
-  sourceSHA256: '6448dde631fdee64a9f9fc19fdde1293f6acc8a9089fa9e62c7d701cd41b8ec2'
+  asset: './models/environment/bridge_user_reference_wood_v2.glb',
+  sourceFile: 'base_basic_shaded(2).glb',
+  sourceTopOfDeck: .42,
+  verticalScale: 1.4,
+  rotationY: Math.PI/2,
+  originalTriangles: 10000,
+  sourceSHA256: '03ccfdb7b3661e9b9545362c1cd8a824faa9a14a5ec89f5e13de0693c5769531'
 });
 
 /** Size matches the existing physically traversable X crossing.
@@ -48,12 +50,20 @@ export async function loadUserSuppliedWoodenBridge(root:THREE.Object3D):Promise<
     const loader=new GLTFLoader();
     loader.setMeshoptDecoder(MeshoptDecoder);
     const gltf=await loader.loadAsync(USER_BRIDGE.asset);
-    const model=gltf.scene;
+    // V2 GLB runs along local Z. Rotate the child, then scale the parent
+    // in world axes so the long bridge spans X without distortion.
+    const oriented=new THREE.Group();
+    oriented.name='User GLB Z-to-X orientation';
+    oriented.rotation.y=USER_BRIDGE.rotationY;
+    oriented.add(gltf.scene);
+    const model=new THREE.Group();
+    model.name='Uploaded wooden bridge - original GLB';
+    model.add(oriented);
     model.updateMatrixWorld(true);
     const fit=fitUserBridgeBounds(new THREE.Box3().setFromObject(model));
     model.scale.copy(fit.scale);
     model.position.copy(fit.position);
-    model.name='Uploaded wooden bridge - original GLB';
+    model.updateMatrixWorld(true);
     let meshes=0,triangles=0,baked=false;
     model.traverse(object=>{
       if(!(object instanceof THREE.Mesh))return;
@@ -72,7 +82,7 @@ export async function loadUserSuppliedWoodenBridge(root:THREE.Object3D):Promise<
         }
       }
     });
-    if(meshes<1 || triangles<7000 || !baked)
+    if(meshes<1 || triangles!==USER_BRIDGE.originalTriangles || !baked)
       throw new Error('Uploaded GLB lost geometry or its baked wood texture');
     const bounds=new THREE.Box3().setFromObject(model);
     const dimensions=bounds.getSize(new THREE.Vector3());
@@ -89,6 +99,8 @@ export async function loadUserSuppliedWoodenBridge(root:THREE.Object3D):Promise<
     bridge.userData.bridgeUV='user-uploaded-original-baked-UV';
     bridge.userData.userBridgeLoaded=true;
     bridge.userData.bridgeAsset=USER_BRIDGE.asset;
+    bridge.userData.sourceFile=USER_BRIDGE.sourceFile;
+    bridge.userData.modelRotationY=USER_BRIDGE.rotationY;
     bridge.userData.sourceTriangles=triangles;
     bridge.userData.worldDimensions={x:dimensions.x,y:dimensions.y,z:dimensions.z};
     root.userData.userBridgeLoaded=true;
