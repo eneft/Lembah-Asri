@@ -179,16 +179,14 @@ export function createFineCreekBankGrass():THREE.InstancedMesh{
   const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   type Tuft={x:number;y:number;z:number;scale:number;rotation:number;shade:number};
   const tufts:Tuft[]=[];
-  for(let z=-51;z<46;z+=.45){
-    if(z>5.75&&z<11.5)continue; // leave real bridge, approaches and player passage clear
+  for(let z=-51;z<46;z+=.65){
+    if(z>6.15&&z<11.25)continue; // keep bridge and near-bank approaches clear
     for(const side of [-1,1] as const){
-      for(let lane=0;lane<3;lane++){
-        const zz=z+(random()-.5)*.39;
-        const dist=.82+lane*.46+random()*.39;
+      for(let lane=0;lane<2;lane++){
+        const zz=z+(random()-.5)*.48;
+        const dist=.82+lane*.66+random()*.59;
         const x=creekCenterX(zz)+side*(creekWidth(zz)*.5+dist);
-        // More short overlapping green clumps, but intentional irregular
-        // open soil between them; all remain real 3D instanced blades.
-        if(random()>.58+.14*Math.sin(zz*.29+side))continue;
+        if(random()>.74+.14*Math.sin(zz*.29+side))continue;
         if(selectedHomeRocks.some(p=>p.zone==='stream' &&
           Math.hypot(p.x-x,p.z-zz)<p.size*.53+.12))continue;
         tufts.push({
@@ -214,9 +212,8 @@ export function createFineCreekBankGrass():THREE.InstancedMesh{
     transform.scale.setScalar(tuft.scale);
     transform.updateMatrix();
     mesh.setMatrixAt(i,transform.matrix);
-    // Soft green crowns and sparse honey tips as seen in the reference.
-    mesh.setColorAt(i,new THREE.Color(tuft.shade>.78?'#f0e8be':
-      tuft.shade<.21?'#bbd69d':'#d9e6b7'));
+    mesh.setColorAt(i,new THREE.Color(tuft.shade>.65?'#e5ebbb':
+      tuft.shade<.17?'#f4de9a':'#f5f0c7'));
   }
   mesh.instanceMatrix.needsUpdate=true;
   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;

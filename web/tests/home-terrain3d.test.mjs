@@ -136,7 +136,7 @@ test('fine creek grass is short, on raised terrain, away from bridge approaches'
   const grass=createFineCreekBankGrass();
   assert.ok(grass instanceof THREE.InstancedMesh);
   assert.equal(grass.name,'Fine soft creek bank grass');
-  assert.ok(grass.count>550&&grass.count<1100,'denser reference-inspired grass still uses one mobile instanced draw');
+  assert.ok(grass.count>260&&grass.count<600,'mobile-friendly 3D fine tufts');
   assert.ok(grass.geometry.index.count/3<=36,'short bent blades stay within the per-tuft mobile budget');
   grass.geometry.computeBoundingBox();
   assert.ok(grass.geometry.boundingBox.max.y<.31);

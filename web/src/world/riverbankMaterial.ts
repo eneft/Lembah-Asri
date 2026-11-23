@@ -77,7 +77,6 @@ const BANK_FRAGMENT=[
   '  float colorWash=sin(pMeadow.x*.044+pMeadow.y*.031)',
   '    *sin(pMeadow.y*.063-pMeadow.x*.022);',
   '  meadowPigment*=1.0+.022*colorWash;',
-  '  meadowPigment*=vec3(.94,1.085,.83);',
   '  bankPigment=mix(bankPigment,meadowPigment,meadowCover);',
   '}',
   'diffuseColor.rgb*=bankPigment;'
@@ -105,7 +104,6 @@ const SHOULDER_FRAGMENT=[
   'float colorWash=sin(pMeadow.x*.044+pMeadow.y*.031)',
   ' *sin(pMeadow.y*.063-pMeadow.x*.022);',
   'paintedGrass*=1.0+.022*colorWash;',
-  'paintedGrass*=vec3(.94,1.085,.83);',
   '#endif',
   // Only a faint organic green lip; never revive the deleted dark stains.
   'float innerBank=1.0-smoothstep(.02,.44,vRiverGrassAcross);',
