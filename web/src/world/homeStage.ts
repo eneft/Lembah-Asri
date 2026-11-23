@@ -390,7 +390,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   // Await the shared image when attaching the imported building so the seam
   // cannot briefly render black while its map is still downloading.
   const courtyardAlbedo: Promise<THREE.Texture | undefined> = loadApprovedModel
-    ? new THREE.TextureLoader().loadAsync('./textures/terrain/home_courtyard.webp')
+    ? new THREE.TextureLoader().loadAsync('./textures/terrain/home_courtyard.webp?restored=98')
       .then(texture => {
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.anisotropy = 8;
