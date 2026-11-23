@@ -14,6 +14,7 @@ import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerra
 import { applyRiversidePaint } from './riversidePaint.ts';
 import { applyCreekCourtyardAlbedo } from './shoreCourtyard.ts';
 import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
+import { loadUserSuppliedWoodenBridge } from './uploadedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
 
 /**
@@ -324,8 +325,9 @@ function addStreamAndBridge(root: THREE.Object3D) {
   root.add(createFineCreekBankGrass());
   // No fallback row of 52 plain stones. Only the two selected UV GLB rock
   // types are displayed, with natural scale variation.
-  // 12 separate real UV wooden boards, support beams, posts and joinery.
-  // The crossing location/size stays identical to preserve level navigation.
+  // The safe old bridge stays visible during GLB load; on success its
+  // wooden pieces are replaced with the exact user-uploaded 3D bridge.
+  // Crossing position and Rapier surface remain unchanged.
   root.add(createPaintedWoodenBridge());
 }
 
@@ -430,6 +432,8 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     ? loadPaintedCreekTextures(root) : Promise.resolve(false);
   const bridgeArtReady: Promise<boolean> = loadApprovedModel
     ? loadPaintedBridgeTextures() : Promise.resolve(false);
+  const uploadedBridgeReady: Promise<boolean> = loadApprovedModel
+    ? loadUserSuppliedWoodenBridge(root) : Promise.resolve(false);
   // User-approved landscape: exactly two UV-textured rock models.
   const rockReady: Promise<boolean> = loadApprovedModel
     ? attachCuratedHomeRocks(root).then(() => {
@@ -533,5 +537,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, gardenReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady]).then(([house]) => house) };
 }
