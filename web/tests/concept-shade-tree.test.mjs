@@ -32,6 +32,9 @@ test('approved old tropical shade tree is real 3D near the RIGHT garden side',as
   assert.equal(sprays.userData.leavesPerSpray,7);
   assert.equal(sprays.geometry.userData.leafSilhouette,
     'curved-oval-3d-with-painted-midrib');
+  assert.ok(sprays.geometry.userData.leafWidthToLength>=.5,
+    'reference foliage must be broad ovate leaves, never narrow grass blades');
+  assert.equal(sprays.geometry.userData.singleLeafBlades,7);
   assert.ok(sprays.geometry.getAttribute('uv').count>300);
   assert.equal(sprays.material.map.colorSpace,THREE.SRGBColorSpace);
   assert.equal(sprays.material.toneMapped,false);

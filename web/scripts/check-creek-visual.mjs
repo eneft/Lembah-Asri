@@ -145,6 +145,7 @@ try{
       userPaintApplied:tree?.userData.userReferenceAtlasLoaded===true,
       bakeKind:roots?.material?.map?.userData?.kind,
       leafKind:leafSprays?.material?.map?.userData?.kind,
+      ovalRatio:leafSprays?.geometry?.userData?.leafWidthToLength,
       seedlings:tree?.getObjectByName('Small 3D shade plants among natural buttress roots')?.count
     };
   });
@@ -158,6 +159,7 @@ try{
     'the user image must be applied to the FINAL GLB and not just the temporary fallback');
   assert.equal(conceptTree.bakeKind,'user-photo-baked-to-original-1024px-bark-uv-islands');
   assert.equal(conceptTree.leafKind,'single-leaf-pigment-no-white-paper');
+  assert.ok(conceptTree.ovalRatio>=.5,'visible crown leaves must be OVATE, not grass fans');
   assert.equal(conceptTree.seedlings,19);
   assert.ok(conceptTree.broadUV&&conceptTree.broadPainted&&conceptTree.true3D,
     'Work foliage continuation must be UV-painted 3D geometry, never a 2D billboard');
