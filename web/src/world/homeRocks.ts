@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { CREEK, westPoolInset } from './creekCourse.ts';
+import { CREEK, creekCenterX, westPoolInset } from './creekCourse.ts';
 
 /**
  * Curated original rocks supplied for Lembah Asri (base_basic_shaded.glb).
@@ -27,7 +27,7 @@ export type RockPlacement = Readonly<{
   size: number;
   yaw: number;
   zone: RockZone;
-  /** Portion of the original GLB height placed below water (0..1). */
+  /** Fraction of world height below water (0..0.5 exposed anchors, >1 entirely underwater). */
   submerge?: number;
 }>;
 /**
@@ -55,6 +55,15 @@ const rockLayout: readonly RockPlacement[] = [
   // Downstream: progressively fewer rocks, flow becomes open.
   { type:'mossy',x:-47.07,z:18.31,size:.84,yaw:1.90,zone:'stream',submerge:.26 },
   { type:'mossy',x:-43.75,z:22.05,size:1.15,yaw:.98,zone:'stream',submerge:.29 },
+
+  // Small existing UV-painted rocks really UNDER the water surface,
+  // rather than flat stone drawings or extra decal meshes. Same single
+  // InstancedMesh and shader as the exposed mossy rocks.
+  // Leave the bridge/crossing and main swimming-free player route clear.
+  { type:'mossy',x:creekCenterX(-12.6)+.13,z:-12.6,size:.54,yaw:1.02,zone:'stream',submerge:1.07 },
+  { type:'mossy',x:creekCenterX(3.1)-.24,z:3.1,size:.62,yaw:2.22,zone:'stream',submerge:1.08 },
+  { type:'mossy',x:creekCenterX(17.7)+.19,z:17.7,size:.57,yaw:.81,zone:'stream',submerge:1.07 },
+  { type:'mossy',x:creekCenterX(29.4)-.28,z:29.4,size:.50,yaw:1.71,zone:'stream',submerge:1.06 },
 
   // Plain rocks only on dry ground; never inside water or in front of stairs.
   { type:'plain',x:-40.63,z:2.51,size:.59,yaw:.67,zone:'well' },
@@ -199,7 +208,12 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
   if (total !== selectedHomeRocks.length) {
     throw new Error('Original rock pack placement count mismatch: ' + total);
   }
-  group.userData.partiallySubmergedRocks=selectedHomeRocks.filter(p=>p.submerge!==undefined).length;
+  group.userData.partiallySubmergedRocks=selectedHomeRocks.filter(
+    p=>p.submerge!==undefined && p.submerge<1
+  ).length;
+  group.userData.fullySubmergedRocks=selectedHomeRocks.filter(
+    p=>p.submerge!==undefined && p.submerge>=1
+  ).length;
   return group;
 }
 
