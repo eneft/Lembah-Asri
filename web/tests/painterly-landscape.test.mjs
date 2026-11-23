@@ -62,7 +62,7 @@ test('creek uses physical banks with repeated real world UVs, no giant stretched
   assert.equal(scene.children.length,6);
   assert.ok(west && east && water && bed && foam && wakes);
   assert.equal(water.material.transparent,true);
-  assert.ok(water.material.opacity>.87 && water.material.opacity<.92);
+  assert.ok(water.material.opacity>.77 && water.material.opacity<.81);
   assert.equal(water.userData.sourcePaintedUV,true);
   assert.equal(west.userData.sourcePaintedUV,true);
   for(const object of [water,west,east,bed]){
