@@ -12,6 +12,7 @@ import { HomeFarm, type FarmHUD } from './homeFarm';
 import { farmKeys, type FarmAction } from './farmPlots';
 import { sculptGardenGround, gardenHeightAt, type GardenGround } from './gardenLayout';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
+import { HOME_SCENIC_CAMERA } from './homeScenicCamera';
 import { bridgeWalkHeightAt, makeBridgeWalkCollider } from './paintedBridge';
 import { applyRiversidePaint } from './riversidePaint';
 import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
@@ -224,9 +225,18 @@ export class Game {
         fixedScenery
       );
     }
-    const riverside = new URLSearchParams(window.location.search).get('view') === 'sungai';
-    const arrival = riverside ? {x:-42.40, y:HOME.spawn.y, z:10.95} : HOME.spawn;
-    if (riverside) {
+    const view = new URLSearchParams(window.location.search).get('view');
+    const riverside = view === 'sungai';
+    const conceptView = view === HOME_SCENIC_CAMERA.query;
+    const arrival = conceptView
+      ? {x:HOME_SCENIC_CAMERA.x,y:HOME.spawn.y,z:HOME_SCENIC_CAMERA.z}
+      : riverside ? {x:-42.40,y:HOME.spawn.y,z:10.95} : HOME.spawn;
+    if (conceptView) {
+      // Interactive world seen from the river, with the well, raised bank,
+      // trees and homestead all still real 3D and fully walkable.
+      game.yaw = HOME_SCENIC_CAMERA.yaw;
+      game.cameraDistance = HOME_SCENIC_CAMERA.distance;
+    } else if (riverside) {
       game.yaw = .21;
       game.cameraDistance = 6.8;
     }

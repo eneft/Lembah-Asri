@@ -121,6 +121,7 @@ try{
       .getObjectByName('Concept mature shade tree near the garden');
     const roots=tree?.getObjectByName('Exposed hand-painted buttress roots');
     const painted=tree?.getObjectByName('Hand-painted old shade tree crown and branches');
+    const leafSprays=tree?.getObjectByName('Reference broad hand-painted leaf sprays');
     let meshes=0,uvPainted=false,cutouts=false;
     painted?.traverse(object=>{
       if(!object.isMesh)return;
@@ -136,7 +137,11 @@ try{
       x:tree?.position.x,z:tree?.position.z,
       meshes,uvPainted,cutouts,
       roots:roots?.geometry.userData.buttressRoots,
-      barkPainted:!!roots?.material.map
+      barkPainted:!!roots?.material.map,
+      broadSprays:leafSprays?.count,
+      broadUV:!!leafSprays?.geometry?.getAttribute('uv'),
+      broadPainted:!!leafSprays?.material?.map,
+      true3D:leafSprays?.userData.isTrue3D
     };
   });
   assert.equal(conceptTree.loaded,true);
@@ -144,6 +149,9 @@ try{
     'concept shade tree must use actual UV-painted 3D bark and alpha foliage');
   assert.ok(conceptTree.roots>=8&&conceptTree.barkPainted,
     'a mature tropical tree needs separate textured exposed roots');
+  assert.equal(conceptTree.broadSprays,96,'game must display improved broad painterly foliage');
+  assert.ok(conceptTree.broadUV&&conceptTree.broadPainted&&conceptTree.true3D,
+    'Work foliage continuation must be UV-painted 3D geometry, never a 2D billboard');
   assert.ok(Math.abs(conceptTree.x+21.8)<.01&&Math.abs(conceptTree.z-10.8)<.01);
   assert.ok(assets.has(prefix+'models/environment/pohon_rimbun_shade.glb'));
   await mkdir('artifacts/creek',{recursive:true});
@@ -220,6 +228,9 @@ try{
   // The reference tree should sit at the right side of the cultivated yard,
   // above-ground and visible in a player-height 3/4 framing.
   await shot(-27.3,11.9,-1.13,'artifacts/creek/04-concept-mature-shade-tree.jpg',1.10,28);
+  // Scenery framing from the west bank of the creek (matches the optional
+  // ?view=konsep player entrance), while remaining real interactive 3D.
+  await shot(-41.8,5.8,-.94,'artifacts/creek/05-riverside-concept-view.jpg',1.12,32);
   // The raised deck should carry a REAL physics capsule, and the render
   // should show feet resting on timber rather than disappearing into it.
   await shot(-45.4,8.6,.85,'artifacts/creek/03-character-standing-on-timber.jpg',1.52,90);

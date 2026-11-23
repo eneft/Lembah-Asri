@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { addUnwrappedBarkTube } from '../../scripts/tree-bark-uv.mjs';
 import { createPaintedStoryTree, makePaintedBarkAtlas } from './paintedTrees.ts';
 import { instantiatePaintedTree } from './treeAsset.ts';
+import { createConceptLeafSprays } from './conceptLeafPass.ts';
 
 /**
  * The broad, mature tropical shade tree at the RIGHT of the user's home
@@ -88,6 +89,9 @@ export function createReferenceShadeTree(source?:THREE.Group):THREE.Group {
   buttresses.castShadow=true;
   buttresses.receiveShadow=false;
   root.add(buttresses);
+  // Work visual continuation: clustered broad 3D leaves keep the approved
+  // original GLB's authored geometry/UV/shadows and clarify its foliage.
+  root.add(createConceptLeafSprays(canopy));
 
   root.userData.referenceTree='mature tropical shade tree from approved concept';
   root.userData.referenceGLBLoaded=!!source;

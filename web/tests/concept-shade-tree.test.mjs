@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { CONCEPT_SHADE_TREE, createReferenceShadeTree } from '../src/world/referenceShadeTree.ts';
 import { createHomeStage, HOME } from '../src/world/homeStage.ts';
 import { GARDEN, plantingPlaces } from '../src/world/gardenLayout.ts';
+import { HOME_SCENIC_CAMERA } from '../src/world/homeScenicCamera.ts';
+import { REFERENCE_LEAF_PASS } from '../src/world/conceptLeafPass.ts';
 
 function inside(box,x,z,r=.29){
   return Math.abs(x-box.center[0])<box.half[0]+r&&
@@ -23,6 +25,19 @@ test('approved old tropical shade tree is real 3D near the RIGHT garden side',as
   const roots=tree.getObjectByName('Exposed hand-painted buttress roots');
   assert.ok(crown instanceof THREE.Group);
   assert.ok(roots instanceof THREE.Mesh);
+  const sprays=tree.getObjectByName('Reference broad hand-painted leaf sprays');
+  assert.ok(sprays instanceof THREE.InstancedMesh,'curved leaf sprays must be genuine 3D instances');
+  assert.equal(sprays.count,REFERENCE_LEAF_PASS.sprays);
+  assert.equal(sprays.userData.isTrue3D,true);
+  assert.equal(sprays.userData.leavesPerSpray,7);
+  assert.equal(sprays.geometry.userData.leafSilhouette,
+    'curved-oval-3d-with-painted-midrib');
+  assert.ok(sprays.geometry.getAttribute('uv').count>300);
+  assert.equal(sprays.material.map.colorSpace,THREE.SRGBColorSpace);
+  assert.equal(sprays.material.toneMapped,false);
+  assert.equal(sprays.material.side,THREE.DoubleSide);
+  assert.equal(sprays.instanceColor.count,REFERENCE_LEAF_PASS.sprays);
+  assert.ok(sprays.geometry.index===null,'real curved geometry, not a billboard quad');
   assert.equal(roots.geometry.userData.buttressRoots,8);
   assert.equal(roots.material.toneMapped,false);
   assert.equal(roots.material.map.colorSpace,THREE.SRGBColorSpace);
@@ -60,15 +75,28 @@ test('new tree is collision-aware yet keeps gate, garden, spawn and bridge clear
 
 test('original hand-painted shade GLB remains the asynchronously loaded source',()=>{
   const tree=createReferenceShadeTree();
-  assert.equal(tree.children.length,2,'one fallback 3D tree + one root mesh');
+  assert.equal(tree.children.length,3,'original 3D tree + 3D roots + leaf sprays');
   assert.equal(tree.userData.referenceSource,'matching UV-painted 3D fallback');
   let meshCount=0;
   tree.traverse(node=>{if(node instanceof THREE.Mesh)meshCount++;});
-  assert.equal(meshCount,3);
+  assert.equal(meshCount,4);
   const roots=tree.getObjectByName('Exposed hand-painted buttress roots');
   const attr=roots.geometry.getAttribute('uv');
   for(let i=0;i<attr.count;i++){
     assert.ok(attr.getX(i)>=0&&attr.getX(i)<=1);
     assert.ok(attr.getY(i)>=0&&attr.getY(i)<=1);
   }
+});
+
+test('opt-in riverside scene camera frames the real home yard without moving the default spawn',()=>{
+  assert.equal(HOME_SCENIC_CAMERA.query,'konsep');
+  assert.ok(HOME_SCENIC_CAMERA.x>-43.5&&HOME_SCENIC_CAMERA.x<-40.5);
+  assert.ok(HOME_SCENIC_CAMERA.z>4.5&&HOME_SCENIC_CAMERA.z<7.2);
+  assert.ok(HOME_SCENIC_CAMERA.distance>=8.5&&HOME_SCENIC_CAMERA.distance<=11);
+  assert.ok(HOME_SCENIC_CAMERA.yaw<-.65&&HOME_SCENIC_CAMERA.yaw> -1.3);
+  const stage=createHomeStage(false);
+  assert.ok(stage.solids.every(s=>!inside(s,HOME_SCENIC_CAMERA.x,HOME_SCENIC_CAMERA.z,0.3)),
+    'opt-in camera spawns player on clear riverbank, not inside the well or a tree');
+  assert.deepEqual(HOME.spawn,{x:-29.5,y:1.2,z:7.4},
+    'existing standard spawn stays unchanged');
 });
