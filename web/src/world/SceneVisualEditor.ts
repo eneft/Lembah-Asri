@@ -83,6 +83,7 @@ export class SceneVisualEditor {
   private entries = new Map<string, { object: THREE.Object3D; info: SceneEditorItem }>();
   private defaults = new Map<string, { uuid: string; transform: TransformRecord }>();
   private overrides: Record<string, TransformRecord> = {};
+  private published: Record<string, TransformRecord> = {};
   private selectedId: string | null = null;
   private mode: EditorTool = 'translate';
   private message = 'Pilih objek di scene atau daftar kiri.';
@@ -121,6 +122,7 @@ export class SceneVisualEditor {
       this.changed(this.snapshot());
     });
     canvas.addEventListener('pointerdown', this.onPick);
+    void this.loadPublishedLayout();
   }
 
   private allObjects() {
@@ -162,7 +164,8 @@ export class SceneVisualEditor {
       const existing = this.defaults.get(id);
       if (!existing || existing.uuid !== object.uuid) {
         this.defaults.set(id, { uuid: object.uuid, transform: capture(object) });
-        if (!locked && this.overrides[id]) apply(object, this.overrides[id]);
+        const saved = this.overrides[id] || this.published[id];
+        if (!locked && saved) apply(object, saved);
       }
     }
     this.entries = next;
@@ -271,7 +274,7 @@ export class SceneVisualEditor {
     const entry = this.entries.get(this.selectedId);
     const initial = this.defaults.get(this.selectedId);
     if (!entry || !initial || entry.info.locked) return;
-    apply(entry.object, initial.transform);
+    apply(entry.object, this.published[this.selectedId] || initial.transform);
     delete this.overrides[this.selectedId];
     this.persist();
     this.changed(this.snapshot());
@@ -281,14 +284,15 @@ export class SceneVisualEditor {
     this.overrides = {};
     for (const [id, entry] of this.entries) {
       const initial = this.defaults.get(id);
-      if (initial && !entry.info.locked) apply(entry.object, initial.transform);
+      if (initial && !entry.info.locked) apply(entry.object, this.published[id] || initial.transform);
     }
     this.persist();
     this.changed(this.snapshot());
   }
 
   exportLayout() {
-    return JSON.stringify({ format: LAYOUT_FORMAT, version: 1, transforms: this.overrides }, null, 2);
+    return JSON.stringify({ format: LAYOUT_FORMAT, version: 1,
+      transforms: { ...this.published, ...this.overrides } }, null, 2);
   }
 
   importLayout(source: string) {
@@ -300,6 +304,24 @@ export class SceneVisualEditor {
     }
     this.persist();
     this.changed(this.snapshot());
+  }
+
+  private async loadPublishedLayout() {
+    try {
+      const url = import.meta.env.BASE_URL + 'scene-layout.json';
+      const response = await fetch(url, { cache: 'no-cache' });
+      if (!response.ok) return;
+      this.published = parseLayout(await response.text()).transforms;
+      // Local author edits take priority. Reapply the published scene layout
+      // to objects already constructed; late GLB models use refresh().
+      for (const [id, entry] of this.entries) {
+        if (entry.info.locked || this.overrides[id] || !this.published[id]) continue;
+        apply(entry.object, this.published[id]);
+      }
+      this.changed(this.snapshot());
+    } catch (error) {
+      console.warn('[LembahAsri] Published scene layout unavailable', error);
+    }
   }
 
   private recordSelected() {
