@@ -88,6 +88,8 @@ try{
       uploaded:bridge?.userData.userBridgeLoaded,
       asset:bridge?.userData.bridgeAsset,
       triangles:bridge?.userData.sourceTriangles,
+      sourceFile:bridge?.userData.sourceFile,
+      rotationY:bridge?.userData.modelRotationY,
       dimensions:bridge?.userData.worldDimensions,
       meshes,hasUVPaint,
       oldPlanks:scene.getObjectByName('Individual UV-painted timber bridge planks')?.count,
@@ -96,13 +98,15 @@ try{
     };
   });
   assert.equal(facts.uploaded,true);
-  assert.equal(facts.asset,'./models/environment/bridge_user_reference_wood_v1.glb');
-  assert.ok(facts.triangles>=7800,'actual original user GLB geometry must replace placeholder');
+  assert.equal(facts.sourceFile,'base_basic_shaded(2).glb');
+  assert.ok(Math.abs(facts.rotationY-Math.PI/2)<.0001,'the second GLB must be rotated across the river');
+  assert.equal(facts.asset,'./models/environment/bridge_user_reference_wood_v2.glb');
+  assert.equal(facts.triangles,10000,'new uploaded bridge with all authored triangles must replace old');
   assert.ok(facts.meshes>=1&&facts.hasUVPaint,'preserve painted emissive atlas');
   assert.ok(facts.dimensions.x>5.05&&facts.dimensions.x<5.15,'full creek span');
   assert.ok(facts.dimensions.z>2.04&&facts.dimensions.z<2.14,'crossing width matches collider');
   assert.equal(facts.oldPlanks,undefined,'old procedural bridge should be gone');
-  assert.ok(assets.has(prefix+'models/environment/bridge_user_reference_wood_v1.glb'));
+  assert.ok(assets.has(prefix+'models/environment/bridge_user_reference_wood_v2.glb'));
   assert.ok(facts.submerged>=6);
   assert.ok(facts.grass>260&&facts.grass<600,'restore the earlier softer riverside density');
   await mkdir('artifacts/creek',{recursive:true});
