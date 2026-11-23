@@ -89,6 +89,19 @@ try{
   await mkdir('artifacts/creek',{recursive:true});
   await page.waitForFunction(()=>window.__lembahVisualQA.scene
     .getObjectByName('Rumah Masa Kecil / Playable House Garden')?.userData.paintedCreekLoaded);
+  assert.ok(assets.has(prefix+'textures/terrain/creek_foam_painterly_flow.svg'),
+    'the new foam image must actually load in the production browser');
+  const foamState=await page.evaluate(()=>{
+    const stage=window.__lembahVisualQA.scene.getObjectByName('Rumah Masa Kecil / Playable House Garden');
+    const foam=stage.getObjectByName('Illustrated river foam and flow trails');
+    return {loaded:stage.userData.paintedFoamLoaded,
+      atlas:foam.userData.foamAtlasSource,
+      ready:foam.userData.foamAtlasReady.value,
+      clock:foam.userData.foamTimeUniform.value};
+  });
+  assert.equal(foamState.loaded,true,'the generated decal atlas should be active');
+  assert.equal(foamState.ready,1);
+  assert.ok(foamState.clock>0,'foam clock advances with the water animation');
   for(const file of ['creek_cobbles.webp','creek_meadow.webp']){
     assert.ok(assets.has(prefix+'textures/terrain/'+file),'missing live creek image '+file);
   }
