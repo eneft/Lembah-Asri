@@ -13,7 +13,7 @@ test('the exact source image is now a real transparent raster atlas, not a trace
   assert.equal(CREEK_FOAM_FLOW.lanes,2);
   assert.ok(CREEK_FOAM_FLOW.longitudinalCoverage>.44&&CREEK_FOAM_FLOW.longitudinalCoverage<.48);
   assert.ok(CREEK_FOAM_FLOW.transverseCoverage>.31&&CREEK_FOAM_FLOW.transverseCoverage<.34);
-  assert.ok(CREEK_FOAM_FLOW.opacityFraction>=.85&&CREEK_FOAM_FLOW.opacityFraction<=.90);
+  assert.ok(CREEK_FOAM_FLOW.opacityFraction>=.69&&CREEK_FOAM_FLOW.opacityFraction<=.71);
   const png=readFileSync(new URL('../public/textures/terrain/creek_foam_painterly_restored_v2.png',import.meta.url));
   assert.deepEqual([...png.subarray(0,8)],[137,80,78,71,13,10,26,10]);
   assert.equal(png.readUInt32BE(16),480,'twelve painterly decals in 3 columns');
@@ -55,9 +55,9 @@ test('new foam flows downstream while retaining stable old-water fallback',()=>{
   assert.match(shader.fragmentShader,/downstream=vFoamWorldXZ.y\+79.5-uFoamSeconds\*\.11/);
   assert.match(shader.fragmentShader,/texture2D\(map,atlasUV\)/);
   assert.match(shader.fragmentShader,/for\(int lane=0;lane<2;lane\+\+\)/);
-  assert.match(shader.fragmentShader,/step\(\.10,seed\)/);
+  assert.match(shader.fragmentShader,/step\(\.62,seed\)/);
   assert.doesNotMatch(shader.fragmentShader,/float feather=smoothstep/,'keep original painted edges sharp');
-  assert.match(shader.fragmentShader,/float ink=paintedFoam\.a\*inside\*sporadic\*\.88/);
+  assert.match(shader.fragmentShader,/float ink=paintedFoam\.a\*inside\*sporadic\*\.70/);
   assert.match(shader.fragmentShader,/diffuseColor\.a\*=strongest/);
   assert.doesNotMatch(shader.fragmentShader,/local=vec2\(clamp\(advance/,
     'avoid rejected full-width diffuse white smears');
