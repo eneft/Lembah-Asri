@@ -38,6 +38,6 @@ test('previous soft creek grass density and collision-free instancing are restor
   for(let i=0;i<grass.count;i++){
     grass.getMatrixAt(i,matrix);
     pos.setFromMatrixPosition(matrix);
-    assert.ok(pos.z<=5.95||pos.z>=11.30,'bridge area stays vegetation-free');
+    assert.ok(pos.z<6.2||pos.z>11.2,'prior bridge approach grass clearance is preserved');
   }
 });
