@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { ensureWarmGrassGLSL, WARM_GRASS_STYLE } from './grassPalette.ts';
 
 /**
- * Riverbank Painterly V4: visible grass-to-wet-soil ecotone.
+ * Riverbank Painterly V5: soft grass-to-warm-earth-to-wet-foot ecotone.
  * The previous image repeated every 8 metres with visible hard square edges.
  * This is TWO independently scaled samples of the existing approved albedo,
  * macro colour variations, and a continuous soil/grass/wet cross-section.
@@ -12,7 +12,7 @@ import { ensureWarmGrassGLSL, WARM_GRASS_STYLE } from './grassPalette.ts';
 export const RIVERBANK_PAINT=Object.freeze({
   detailMetres:7.7,macroMetres:29.3,
   grassyEdgeWidth:.84,wetEdgeStart:.55,imageSamples:2,
-  shaderVersion:'riverbank-visible-ecotone-v4'
+  shaderVersion:'riverbank-natural-ecotone-v5'
 });
 
 type RiverMaterialStyle='earth-bank'|'grassy-shoulder';
@@ -49,21 +49,26 @@ const BANK_FRAGMENT=[
   '// Continuous grass lip, exposed middle soil, slightly damp foot.',
   // Moss from grassy shoulder spreads unevenly down the earthen slope.
   // No single dark line, no square decals and no repeated stamp pattern.
-  'float mossWave=.085*sin(zBank*.24+sin(zBank*.091)*1.3)',
-  ' +.045*sin(zBank*.55-vRiverBankWorld.x*.24);',
-  'float bankGrass=1.0-smoothstep(.07,.63,crossBank+mossWave);',
-  'vec3 greenLip=vec3(.46,.52,.31);',
-  'bankPigment=mix(bankPigment,greenLip,bankGrass*.58);',
-  'float bankDamp=smoothstep(.64,.97,crossBank);',
-  'bankPigment*=mix(vec3(1.0),vec3(.88,.91,.87),bankDamp*.28);',
+  'float mossWave=.064*sin(zBank*.24+sin(zBank*.091)*1.3)',
+  ' +.031*sin(zBank*.55-vRiverBankWorld.x*.24);',
+  'float bankGrass=1.0-smoothstep(.13,.66,crossBank+mossWave);',
+  'vec3 greenLip=lembahWarmGrass(vec3(.53,.62,.39));',
+  'bankPigment=mix(bankPigment,greenLip,bankGrass*.39);',
+  '// Dampened earth is warm and only slightly darker than the soil above.',
+  'float bankDamp=smoothstep(.69,.97,crossBank);',
+  'bankPigment*=mix(vec3(1.0),vec3(.94,.95,.93),bankDamp*.17);',
   'bankPigment*=1.0+.024*slowBank;',
   '// This bank rises above the water for about half its cross section.',
   '// The old .34-wide lip weld coloured only the hidden crest: the visible',
   '// part remained a uniformly brown stripe. Extend the real meadow over',
   '// the exposed upper slope, irregularly feathering into damp bank soil.',
-  'float edgeFlow=.085*sin(zBank*.43+.5*sin(zBank*.14))',
-  '  +.047*sin(zBank*1.34-vRiverBankWorld.x*.21);',
-  'float meadowCover=1.0-smoothstep(.42,.84,crossBank+edgeFlow);',
+  'float edgeFlow=.074*sin(zBank*.43+.5*sin(zBank*.14))',
+  '  +.039*sin(zBank*1.34-vRiverBankWorld.x*.21);',
+  'float meadowCover=1.0-smoothstep(.37,.83,crossBank+edgeFlow);',
+  '// Irregular middle-earth exposure, but no dark continuous horizontal stripe.',
+  'float earthWindow=smoothstep(.33,.57,crossBank+edgeFlow)',
+  '  *(1.0-smoothstep(.80,.99,crossBank+edgeFlow));',
+  'bankPigment=mix(bankPigment,vec3(.64,.55,.42),earthWindow*.13);',
   'if(uRiverMeadowLoaded>.5 && meadowCover>.001){',
   '  vec2 pMeadow=vRiverBankWorld;',
   '  vec2 waveMeadow=vec2(',
@@ -152,6 +157,7 @@ export function applyRiverbankPainterlyShader(
   material.customProgramCacheKey=()=>
     oldKey()+'|'+RIVERBANK_PAINT.shaderVersion+'|'+style;
   material.userData.riverbankPainterlyStyle=style;
+  if (isBank) material.userData.bankEcotone='natural-riverbank-stage2-v1';
   material.userData.warmGrassStyle=WARM_GRASS_STYLE.version;
   material.userData.riverbankTwoScaleUV=true;
   material.userData.macroVariationMetres=RIVERBANK_PAINT.macroMetres;
