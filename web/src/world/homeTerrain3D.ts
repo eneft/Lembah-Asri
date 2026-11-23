@@ -193,7 +193,7 @@ export function createFineCreekBankGrass():THREE.InstancedMesh{
           Math.hypot(p.x-x,p.z-zz)<p.size*.53+.12))continue;
         tufts.push({
           x,z:zz,y:creekMeadowHeight(zz,dist)+.012,
-          scale:.49+random()*.54,rotation:random()*Math.PI*2,
+          scale:.43+random()*.34,rotation:random()*Math.PI*2,
           shade:random()
         });
       }
