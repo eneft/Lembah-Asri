@@ -183,7 +183,8 @@ test('generated turquoise water concept is shipped as an optimized real painted 
     'paint strokes repeat at approximately 14.5m in +Z rather than stretch 160m');
   const foam=river.getObjectByName('Illustrated river foam and flow trails');
   const wakes=river.getObjectByName('Painted foam breaking against mossy river boulders');
-  assert.ok(foam.material.opacity<.65,'avoid double-bright foam over painted white highlights');
+  assert.ok(foam.material.opacity<=.72&&foam.material.opacity>=.69,
+    'restored white foam may be stronger because its decals are small and alpha-masked, not full-width streaks');
   assert.ok(wakes.material.opacity<.8);
 });
 

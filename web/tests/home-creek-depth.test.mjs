@@ -214,7 +214,8 @@ test('authored turquoise handpainted water scrolls downstream without changing c
   updateHomeCreekWater(surface,20);
   assert.ok(Math.abs(texture.offset.y+.36)<.00001);
   const foam=creek.getObjectByName('Illustrated river foam and flow trails');
-  assert.ok(foam.material.opacity<.65,'existing foam toned down above illustrated water');
+  assert.ok(foam.material.opacity>=.69&&foam.material.opacity<=.72,
+    'small masked raster foam retains white painted cores without filling whole river');
   assert.equal(surface.material.depthWrite,false);
   assert.equal(surface.material.transparent,true);
 });
