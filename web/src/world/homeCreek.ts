@@ -21,7 +21,8 @@ export const CREEK_FOAM_ART='./textures/terrain/creek_foam_painterly_flow.svg';
 // This transparent SVG atlas traces the newly approved foam illustration;
 // a single river-ribbon shader scrolls its twelve hand-painted decals.
 export const CREEK_FOAM_FLOW=Object.freeze({
-  metresPerSecond:.11, intervalMetres:5.5, columns:3, rows:4
+  metresPerSecond:.11, intervalMetres:7.9, columns:3, rows:4,
+  longitudinalCoverage:.155, transverseCoverage:.235, opacityFraction:.32
 });
 export const CREEK_WATER_UV=Object.freeze({
   // Same 160 m ribbon and existing six-width-row geometry.
@@ -261,7 +262,7 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
     map:water?makeCreekAlbedo():bed?makeCreekBedAlbedo():
       foam?makeCreekFoamAlbedo():null,
     vertexColors:true,toneMapped:false,side:THREE.DoubleSide,
-    transparent:water||foam,opacity:water?.90:foam?.60:1,
+    transparent:water||foam,opacity:water?.90:foam?.46:1,
     depthWrite:!water&&!foam
   });
   if(side===-1||side===1){
@@ -300,27 +301,35 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
         shader.fragmentShader.replace('#include <map_fragment>',`
           #ifdef USE_MAP
             if(uFoamAtlasReady>.5) {
-              // Drift downstream (+Z), independent of the painted streambed.
-              // Each 5.5m stretch picks one of twelve generated foam sketches.
+              // The supplied painted foam must read as little water eddies,
+              // NEVER full-width white patches (as on the rejected iPhone shot).
+              // The stream flows +Z; only the small pocket moves, not its bed.
               float downstream=vFoamWorldXZ.y+79.5-uFoamSeconds*.11;
-              float section=floor(downstream/5.5);
-              float advance=fract(downstream/5.5);
+              float section=floor(downstream/7.9);
+              float advance=fract(downstream/7.9);
               float seed=fract(sin(section*127.1+5.73)*43758.5453);
               float variant=floor(seed*12.);
               float col=mod(variant,3.);
               float row=floor(variant/3.);
-              vec2 local=vec2(clamp(advance,.012,.988),
-                clamp(vFoamAcross*.88+.06+.04*sin(section*2.1),.02,.98));
+              float targetAcross=mix(.23,.77,step(.5,fract(seed*11.71)));
+              // A single painterly mark occupies roughly 1.2m along the
+              // flow and 0.5-0.9m across; most of the river stays clear.
+              vec2 decal=vec2((advance-.52)/.155+.5,
+                (vFoamAcross-targetAcross)/.235+.5);
+              float feather=smoothstep(.025,.17,decal.x)*
+                (1.-smoothstep(.83,.975,decal.x))*
+                smoothstep(.025,.17,decal.y)*
+                (1.-smoothstep(.83,.975,decal.y));
+              // Clamp only for sampling. The mask, not clamping, removes
+              // out-of-pocket fragments and prevents atlas tile bleed.
+              vec2 local=clamp(decal,vec2(.012),vec2(.988));
               vec2 atlasUV=vec2((col+local.x)/3.,(3.-row+local.y)/4.);
               vec4 paintedFoam=texture2D(map,atlasUV);
-              float pulse=smoothstep(.04,.22,advance)*
-                (1.-smoothstep(.82,.98,advance));
-              float edge=1.-smoothstep(.78,.98,abs(vFoamAcross*2.-1.));
-              // Sparse foam survives only in occasional stream stretches,
-              // not as uniformly repeated white bands.
-              float breakUp=step(.52,seed)*(.68+.32*sin(section*2.7)*sin(section*2.7));
-              diffuseColor.rgb*=paintedFoam.rgb;
-              diffuseColor.a*=paintedFoam.a*pulse*edge*breakUp;
+              float sporadic=step(.31,seed);
+              // Soft translucent cream-blue strokes, not smoke/paint blobs.
+              float fineFoam=paintedFoam.a*feather*sporadic*.32;
+              diffuseColor.rgb*=mix(vec3(.80,.91,.87),paintedFoam.rgb,.55);
+              diffuseColor.a*=fineFoam;
             } else {
               #include <map_fragment>
             }
@@ -328,7 +337,7 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
         `);
     };
     const cache=material.customProgramCacheKey.bind(material);
-    material.customProgramCacheKey=()=>cache()+'|generated-foam-atlas-flow-v1';
+    material.customProgramCacheKey=()=>cache()+'|generated-foam-atlas-flow-v2';
     mesh.userData.foamTimeUniform=foamClock;
     mesh.userData.foamAtlasReady=atlasReady;
     mesh.userData.flowDirection='positive-Z';
