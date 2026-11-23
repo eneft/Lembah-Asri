@@ -8,6 +8,7 @@ import { createHouseGroundTransition, featherMergedHouseGround, createHouseConta
 import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
+import { CONCEPT_SHADE_TREE, createReferenceShadeTree } from './referenceShadeTree.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
 import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerrain3D.ts';
@@ -411,6 +412,27 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   const fallback = buildLocalHouseFallback(root);
   addShed(root);
   addWellAndFruitTree(root, loadApprovedModel);
+  // The tall spreading tree at the right of the approved home illustration.
+  // Preserve the established old orchard tree at the well; this is a second,
+  // physically separate mature shade tree with real UV-bark buttress roots.
+  const conceptFallback=createReferenceShadeTree();
+  root.add(conceptFallback);
+  solids.push({
+    label:'Mature garden canopy trunk',
+    center:[CONCEPT_SHADE_TREE.x,0.9,CONCEPT_SHADE_TREE.z],
+    half:[CONCEPT_SHADE_TREE.colliderHalfWidth,0.9,CONCEPT_SHADE_TREE.colliderHalfWidth]
+  });
+  const conceptShadeReady:Promise<boolean>=loadApprovedModel
+    ? loadPaintedTreeSource('shade').then(source=>{
+        const realTree=createReferenceShadeTree(source);
+        root.remove(conceptFallback);
+        root.add(realTree);
+        return true;
+      }).catch(error=>{
+        console.warn('[LembahAsri] Keeping 3D painted concept shade tree fallback',error);
+        return false;
+      })
+    : Promise.resolve(false);
   // Keep fallback tree while the 3D GLB downloads. Replace it with the actual
   // voluminous alpha-cutout textured orchard tree when the asset is ready.
   const orchardReady: Promise<boolean> = loadApprovedModel
@@ -537,5 +559,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, orchardReady, conceptShadeReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady]).then(([house]) => house) };
 }
