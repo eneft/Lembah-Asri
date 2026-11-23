@@ -538,7 +538,7 @@ export function createHomeCreekVegetation(): THREE.Group {
     instance.scale.setScalar(p.scale);
     instance.updateMatrix();
     reedMesh.setMatrixAt(i,instance.matrix);
-    reedMesh.setColorAt(i,new THREE.Color(p.tint>.74?'#cbd796':'#86b668'));
+    reedMesh.setColorAt(i,new THREE.Color(p.tint>.65?'#e8edbc':'#f8f0ca'));
   }
   reedMesh.instanceMatrix.needsUpdate=true;
   if(reedMesh.instanceColor)reedMesh.instanceColor.needsUpdate=true;
