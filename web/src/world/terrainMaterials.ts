@@ -22,7 +22,7 @@ type SurfaceStyle = {
   tint: string;
 };
 const STYLES: Record<TerrainSurface, SurfaceStyle> = {
-  grass: { source: 'grass', tileMetres: 3.5, fallback: '#9aad74', tint: '#ffffff' },
+  grass: { source: 'grass', tileMetres: 3.5, fallback: '#9db66a', tint: '#ffffff' },
   // At 20 metres per tile the painted marks stay legible on mobile without
   // obvious 2-metre paving repeats or sharp pixelation close to the camera.
   // All earth surfaces share one world UV scale so roads and yards line up.
