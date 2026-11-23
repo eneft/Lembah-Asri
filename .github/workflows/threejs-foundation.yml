@@ -63,6 +63,8 @@ jobs:
         run: node --experimental-strip-types --test tests/home-terrain3d.test.mjs
       - name: Guard painterly meadow palette, organic trail and fine riverbank grass
         run: node --experimental-strip-types --test tests/reference-riverside-grass.test.mjs
+      - name: Guard shared warm grass finish without changing farmland, rocks or water
+        run: node --experimental-strip-types --test tests/grass-palette-stage1.test.mjs
       - name: Verify generated foam atlas, downstream flow and fallback
         run: node --experimental-strip-types --test tests/foam-flow-atlas.test.mjs
       - name: Verify painterly terrain, deep riverbanks, wood bridge UV and foam assets

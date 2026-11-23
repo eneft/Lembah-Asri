@@ -8,7 +8,7 @@ import {createFineCreekBankGrass} from '../src/world/homeTerrain3D.ts';
 
 // Strict visual-reference guardrails: keep the source painted UV textures,
 // warm green/earth palette and bank grass geometry. No world physics edits.
-test('restored meadow retains the prior approved painted grass atlas without added colour grading',()=>{
+test('restored meadow retains its painted atlas and now uses one subtle warm-green palette',()=>{
   const ground=createTerrainMaterial('grass',160,160,false,true);
   applyMeadowAntiTileShader(ground);
   applyRiversidePaint(ground,'meadow');
@@ -20,6 +20,9 @@ test('restored meadow retains the prior approved painted grass atlas without add
   ground.onBeforeCompile(shader,{});
   assert.match(shader.fragmentShader,/paintedMeadow\*=1\.0\+\.022\*colorWash/);
   assert.doesNotMatch(shader.fragmentShader,/paintedMeadow\*=vec3\(\.94,1\.085,\.83\)/);
+  assert.match(shader.fragmentShader,/paintedMeadow=lembahWarmGrass\(paintedMeadow\)/);
+  assert.match(shader.fragmentShader,/lawn=lembahWarmGrass\(lawn\)/);
+  assert.equal((shader.fragmentShader.match(/vec3 lembahWarmGrass\(/g)||[]).length,1);
   assert.match(shader.fragmentShader,/vec3 lawn=mix\(blades,broad,\.20\)/);
   assert.doesNotMatch(shader.fragmentShader,/vec3 grassShade=vec3/);
   assert.match(shader.fragmentShader,/trailZ=8\.6/);

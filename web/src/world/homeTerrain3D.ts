@@ -212,8 +212,8 @@ export function createFineCreekBankGrass():THREE.InstancedMesh{
     transform.scale.setScalar(tuft.scale);
     transform.updateMatrix();
     mesh.setMatrixAt(i,transform.matrix);
-    mesh.setColorAt(i,new THREE.Color(tuft.shade>.65?'#e5ebbb':
-      tuft.shade<.17?'#f4de9a':'#f5f0c7'));
+    mesh.setColorAt(i,new THREE.Color(tuft.shade>.65?'#c3d58a':
+      tuft.shade<.17?'#8fa863':'#a7be77'));
   }
   mesh.instanceMatrix.needsUpdate=true;
   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;

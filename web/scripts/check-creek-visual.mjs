@@ -254,6 +254,28 @@ try{
   assert.ok(importedHouse.box[1]>5.7 && importedHouse.box[1]<6.1);
   assert.ok(importedHouse.box[2]>8.5 && importedHouse.box[2]<9.7);
   assert.ok([...assets].some(url=>url.includes('rumah_utama_user_pbr.glb')));
+  // Stage 1: compare the actual materials in the production WebGL scene.
+  // Every grass source uses one finish; water is never treated as foliage.
+  const meadowStyle=await page.evaluate(()=>{
+    const scene=window.__lembahVisualQA.scene;
+    const names=[
+      'World painted grass UV terrain',
+      'West bank sculpted meadow terrain',
+      'East bank sculpted meadow terrain',
+      'Soft west creek bank','Soft east creek bank',
+      'Painted childhood courtyard',
+      'Shallow stream west of childhood home'
+    ];
+    return names.map(name=>({
+      name,style:scene.getObjectByName(name)?.material?.userData?.warmGrassStyle||null
+    }));
+  });
+  for(const surface of meadowStyle.slice(0,6))
+    assert.equal(surface.style,'warm-painterly-grass-stage1-v1',
+      'missing shared grass palette: '+surface.name);
+  assert.equal(meadowStyle[6].style,null,
+    'river water must keep its original painterly material');
+
   // Capture the cleared front yard and the restored original fruit tree.
   await shot(-35.7,12.1,-1.13,'artifacts/creek/04-restored-front-courtyard.jpg',1.10,28);
   // Scenery framing from the west bank of the creek (matches the optional

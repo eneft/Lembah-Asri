@@ -231,7 +231,7 @@ export function createHomeGroundDetails(): THREE.Group {
     const points = grass.filter(point => point.dry === dry);
     if (!points.length) continue;
     const material = new THREE.MeshBasicMaterial({
-      color: dry ? '#b1a271' : '#799a64',
+      color: dry ? '#b5aa79' : '#8ead6b',
       vertexColors: true, side: THREE.DoubleSide, toneMapped: false
     });
     const mesh = new THREE.InstancedMesh(blade, material, points.length);

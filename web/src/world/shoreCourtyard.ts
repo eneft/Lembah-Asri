@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ensureWarmGrassGLSL } from './grassPalette.ts';
 
 /**
  * Match the real childhood-courtyard albedo and its irregular alpha feather
@@ -40,7 +41,7 @@ export function applyCreekCourtyardAlbedo(root:THREE.Object3D, painted:THREE.Mes
       'if(homeUv.x>0.0 && homeUv.x<1.0 && homeUv.y>0.0 && homeUv.y<1.0){',
       ' float homeMix=texture2D(uCreekHomeMask,homeUv).g * '+part.mask+';',
       ' if(homeMix>.001){',
-      '  '+part.pigment+'=mix('+part.pigment+',texture2D(uCreekHomePaint,homeUv).rgb,homeMix);',
+      '  '+part.pigment+'=mix('+part.pigment+',lembahWarmGrass(texture2D(uCreekHomePaint,homeUv).rgb),homeMix);',
       ' }',
       '}'
     ].join('\n');
@@ -49,11 +50,11 @@ export function applyCreekCourtyardAlbedo(root:THREE.Object3D, painted:THREE.Mes
       shader.uniforms.uCreekHomePaint={value:image};
       shader.uniforms.uCreekHomeMask={value:alpha};
       shader.uniforms.uCreekHomeRect={value:bounds};
-      shader.fragmentShader=
+      shader.fragmentShader=ensureWarmGrassGLSL(
         'uniform sampler2D uCreekHomePaint;\n'+
         'uniform sampler2D uCreekHomeMask;\n'+
         'uniform vec4 uCreekHomeRect;\n'+
-        shader.fragmentShader.replace(end,injection+'\n'+end);
+        shader.fragmentShader.replace(end,injection+'\n'+end));
     };
     material.customProgramCacheKey=()=>oldKey()+'|shore-shared-courtyard-v5|'+part.pigment;
     material.userData.creekCourtyardAlbedo=true;

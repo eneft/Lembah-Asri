@@ -136,7 +136,7 @@ export function createInstancedGrass(seed = 73137): THREE.Group {
     const selected = points.filter(point => point.kind === kind);
     if (!selected.length) continue;
     const material = new THREE.MeshBasicMaterial({
-      color: kind === 0 ? '#6c965b' : '#aa9f6d',
+      color: kind === 0 ? '#87ab65' : '#a9a47a',
       vertexColors: true,
       side: THREE.DoubleSide,
       toneMapped: false

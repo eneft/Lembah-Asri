@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ensureWarmGrassGLSL, WARM_GRASS_STYLE } from './grassPalette.ts';
 
 /**
  * Riverbank Painterly V4: visible grass-to-wet-soil ecotone.
@@ -77,6 +78,7 @@ const BANK_FRAGMENT=[
   '  float colorWash=sin(pMeadow.x*.044+pMeadow.y*.031)',
   '    *sin(pMeadow.y*.063-pMeadow.x*.022);',
   '  meadowPigment*=1.0+.022*colorWash;',
+  '  meadowPigment=lembahWarmGrass(meadowPigment);',
   '  bankPigment=mix(bankPigment,meadowPigment,meadowCover);',
   '}',
   'diffuseColor.rgb*=bankPigment;'
@@ -101,6 +103,7 @@ const SHOULDER_FRAGMENT=[
   'vec3 grassFine=texture2D(map,uvFine).rgb;',
   'vec3 grassBroad=texture2D(map,uvWide).rgb;',
   'paintedGrass=mix(grassFine,grassBroad,.41);',
+  'paintedGrass=lembahWarmGrass(paintedGrass);',
   'float colorWash=sin(pMeadow.x*.044+pMeadow.y*.031)',
   ' *sin(pMeadow.y*.063-pMeadow.x*.022);',
   'paintedGrass*=1.0+.022*colorWash;',
@@ -139,16 +142,17 @@ export function applyRiverbankPainterlyShader(
       shader.uniforms.uRiverMeadow = meadowUniforms.texture;
       shader.uniforms.uRiverMeadowLoaded = meadowUniforms.loaded;
     }
-    shader.fragmentShader=(isBank
+    shader.fragmentShader=ensureWarmGrassGLSL((isBank
       ? 'uniform sampler2D uRiverMeadow;\nuniform float uRiverMeadowLoaded;\n'
       : '')+'varying vec2 '+world+';\nvarying float '+across+';\n'+
       shader.fragmentShader.replace('#include <map_fragment>',
-        isBank?BANK_FRAGMENT:SHOULDER_FRAGMENT);
+        isBank?BANK_FRAGMENT:SHOULDER_FRAGMENT));
   };
   const oldKey=material.customProgramCacheKey.bind(material);
   material.customProgramCacheKey=()=>
     oldKey()+'|'+RIVERBANK_PAINT.shaderVersion+'|'+style;
   material.userData.riverbankPainterlyStyle=style;
+  material.userData.warmGrassStyle=WARM_GRASS_STYLE.version;
   material.userData.riverbankTwoScaleUV=true;
   material.userData.macroVariationMetres=RIVERBANK_PAINT.macroMetres;
   material.needsUpdate=true;
