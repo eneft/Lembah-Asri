@@ -66,15 +66,40 @@ const grassPaint = `
     }
   }`;
 
+/**
+ * Bring back the warm, painted PR#92 stone language at the WATER FOOT,
+ * without restoring its flat 91%-stone skin across the grassy bank.
+ * A broken, world-space mask leaves soil visible between clusters and keeps
+ * the grass lip continuous. No geometry, depth, collision or decal changes.
+ */
+export const BANK_STONE_RESTORE = Object.freeze({
+  style: 'pr92-inspired-broken-stone-foot-v1',
+  minCover: 0.08,
+  maxCover: 0.78,
+  waterFootHeight: -0.20,
+  upperFadeHeight: 0.09
+});
+
 const stonePaint = `
   if (uCobblesReady>.5) {
     vec2 p=vRiversidePosition.xz;
-    vec2 uv=mat2(.87,-.49,.49,.87)*p*.47+vec2(.072*sin(p.y*.64),.060*sin(p.x*.87));
-    // Project a little of the slope onto its albedo so stones keep their width.
-    uv.y+=vRiversidePosition.y*.42;
-    vec3 stone=texture2D(uBankCobbles,uv).rgb;
+    vec2 meander=vec2(.047*sin(p.y*.61+p.x*.27),
+                       .036*sin(p.y*.41-p.x*.29));
+    vec2 uv=mat2(.87,-.49,.49,.87)*p*.39+meander;
+    uv.y+=vRiversidePosition.y*.23;
+    vec3 pebbleA=texture2D(uBankCobbles,uv).rgb;
+    // Break the repeating oval/cobble pattern without changing source atlas.
+    vec2 uvB=vec2(uv.y*.64-uv.x*.36,uv.x*.32+uv.y*.64)+vec2(.13,.37);
+    vec3 pebbleB=texture2D(uBankCobbles,uvB).rgb;
+    vec3 stone=mix(pebbleA,pebbleB,.28);
     float dry=smoothstep(-.23,.045,vRiversidePosition.y);
-    vec3 wetStone=stone*mix(vec3(.49,.69,.64),vec3(.94,.88,.72),dry);
+    // Earthy moss-grey rather than the old saturated teal/dark wet stripe.
+    vec3 wetStone=stone*mix(vec3(.74,.76,.70),vec3(1.02,.96,.85),dry);
+    float stoneScatter=.50+.28*sin(p.y*.48+p.x*.71)
+                           +.22*sin(p.y*1.23-p.x*.44);
+    float stoneClusters=smoothstep(.20,.79,stoneScatter);
+    float wetFoot=1.0-smoothstep(-.20,.09,vRiversidePosition.y);
+    float stoneCover=STONE_COVER_EXPRESSION;
     diffuseColor.rgb=mix(diffuseColor.rgb,wetStone,stoneCover);
   }`;
 
@@ -96,8 +121,9 @@ export function applyRiversidePaint(material: THREE.MeshBasicMaterial, surface: 
       shader.uniforms.uBankCobbles = cobbles;
       shader.uniforms.uCobblesReady = hasCobbles;
       declarations += 'uniform sampler2D uBankCobbles;\nuniform float uCobblesReady;\n';
-      paint += surface === 'bed' ? 'float stoneCover=1.;' : 'float stoneCover=.13;';
-      paint += stonePaint;
+      // The riverbed retains full cobbles; only the sloped banks are remixed.
+      paint += stonePaint.replace('STONE_COVER_EXPRESSION', surface === 'bed'
+        ? '1.0' : '.08+.70*wetFoot*stoneClusters');
     }
     if (surface !== 'bed') {
       shader.uniforms.uBankMeadow = meadow;
@@ -112,6 +138,7 @@ export function applyRiversidePaint(material: THREE.MeshBasicMaterial, surface: 
     shader.fragmentShader = declarations + shader.fragmentShader.replace('#include <color_fragment>',
       '{' + paint + '}\n#include <color_fragment>');
   };
-  material.customProgramCacheKey = () => priorKey + '|riverside-paint-' + surface;
+  material.customProgramCacheKey = () => priorKey + '|riverside-paint-' + surface + '|pr92-broken-stone-foot-v1';
+  if (surface === 'bank') material.userData.bankStoneRestore = BANK_STONE_RESTORE.style;
   material.needsUpdate = true;
 }
