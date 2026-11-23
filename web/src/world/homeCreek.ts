@@ -371,8 +371,8 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
             currentUV.x=clamp(currentUV.x,.003,.997);
             luminance=dot(texture2D(map,currentUV).rgb,vec3(.21,.71,.08));
           #endif
-          float brush=smoothstep(.065,.52,luminance);
-          vec3 pool=mix(vec3(.012,.068,.082),vec3(.077,.237,.281),brush);
+          float brush=smoothstep(.035,.36,luminance);
+          vec3 pool=mix(vec3(.012,.091,.112),vec3(.091,.35,.42),brush);
           vec3 margin=mix(vec3(.046,.135,.119),vec3(.122,.299,.271),brush);
           // Break the surface light into short strokes; leave the bottom stationary.
           float flow=sin(vCreekFlowXZ.y*10.8-localTime*1.9+1.65*sin(p.x*4.9+p.y*.7));

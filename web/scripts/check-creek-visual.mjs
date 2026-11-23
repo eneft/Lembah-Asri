@@ -241,7 +241,9 @@ try{
   await shot(-27.3,11.9,-1.13,'artifacts/creek/04-concept-mature-shade-tree.jpg',1.10,28);
   // Scenery framing from the west bank of the creek (matches the optional
   // ?view=konsep player entrance), while remaining real interactive 3D.
-  await shot(-41.8,5.8,-.94,'artifacts/creek/05-riverside-concept-view.jpg',1.12,32);
+  await page.waitForFunction(() => window.__lembahVisualQA.scene.getObjectByName('Sumur beratap genteng')
+    && window.__lembahVisualQA.scene.getObjectByName('Pohon tua di belakang sumur'));
+  await shot(-41.3,6.65,-1.60,'artifacts/creek/05-riverside-concept-view.jpg',1.12,32);
   // The raised deck should carry a REAL physics capsule, and the render
   // should show feet resting on timber rather than disappearing into it.
   await shot(-45.4,8.6,.85,'artifacts/creek/03-character-standing-on-timber.jpg',1.52,90);

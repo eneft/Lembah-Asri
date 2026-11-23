@@ -96,7 +96,7 @@ export function applyRiversidePaint(material: THREE.MeshBasicMaterial, surface: 
       shader.uniforms.uBankCobbles = cobbles;
       shader.uniforms.uCobblesReady = hasCobbles;
       declarations += 'uniform sampler2D uBankCobbles;\nuniform float uCobblesReady;\n';
-      paint += surface === 'bed' ? 'float stoneCover=1.;' : 'float stoneCover=.91;';
+      paint += surface === 'bed' ? 'float stoneCover=1.;' : 'float stoneCover=.13;';
       paint += stonePaint;
     }
     if (surface !== 'bed') {

@@ -99,7 +99,7 @@ test('opt-in riverside scene camera frames the real home yard without moving the
   assert.ok(HOME_SCENIC_CAMERA.x>-43.5&&HOME_SCENIC_CAMERA.x<-40.5);
   assert.ok(HOME_SCENIC_CAMERA.z>4.5&&HOME_SCENIC_CAMERA.z<7.2);
   assert.ok(HOME_SCENIC_CAMERA.distance>=8.5&&HOME_SCENIC_CAMERA.distance<=11);
-  assert.ok(HOME_SCENIC_CAMERA.yaw<-.65&&HOME_SCENIC_CAMERA.yaw> -1.3);
+  assert.ok(Math.abs(HOME_SCENIC_CAMERA.yaw + Math.PI/2)<.2);
   const stage=createHomeStage(false);
   assert.ok(stage.solids.every(s=>!inside(s,HOME_SCENIC_CAMERA.x,HOME_SCENIC_CAMERA.z,0.3)),
     'opt-in camera spawns player on clear riverbank, not inside the well or a tree');

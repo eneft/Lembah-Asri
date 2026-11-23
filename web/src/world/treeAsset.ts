@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { applyHandPaintedMaterials } from './handPaintedMaterials.ts';
 
-export type TreeAssetKind = 'shade' | 'orchard';
+export type TreeAssetKind = 'shade' | 'orchard' | 'courtyard';
 
 const sourceCache = new Map<TreeAssetKind, Promise<THREE.Group>>();
 const urls: Record<TreeAssetKind, string> = {
   // Bump query when changing the generated GLB's geometry/atlas. iOS Safari
   // may otherwise retain the previous model despite a fresh JS bundle.
+  courtyard: './models/environment/pohon_pekarangan.glb',
   shade: './models/environment/pohon_rimbun_shade.glb?canopy=3&bark=uv3',
   orchard: './models/environment/pohon_rimbun_orchard.glb?canopy=3&bark=uv3'
 };
