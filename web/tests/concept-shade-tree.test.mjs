@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { CONCEPT_SHADE_TREE, createReferenceShadeTree } from '../src/world/referenceShadeTree.ts';
-import { createHomeStage, HOME, FRONT_YARD_SENTINEL } from '../src/world/homeStage.ts';
+import { createHomeStage, HOME, ORIGINAL_COURTYARD_FRUIT_TREE } from '../src/world/homeStage.ts';
 import { GARDEN, plantingPlaces } from '../src/world/gardenLayout.ts';
 import { HOME_SCENIC_CAMERA } from '../src/world/homeScenicCamera.ts';
 import { REFERENCE_LEAF_PASS } from '../src/world/conceptLeafPass.ts';
@@ -12,43 +12,45 @@ function inside(box,x,z,r=.29){
     Math.abs(z-box.center[2])<box.half[2]+r;
 }
 
-test('one biggest courtyard sentinel remains and both neighbouring yard trees are gone', async()=>{
+test('restored pre-PR#93 yard has only the modest fruit tree beside well', async()=>{
   const stage=createHomeStage(false);
   await stage.ready;
-  const tree=stage.root.getObjectByName('Pohon tua di depan rumah');
+  const tree=stage.root.getObjectByName('Old fruit tree');
   assert.ok(tree instanceof THREE.Group);
-  assert.equal(tree.position.x,FRONT_YARD_SENTINEL.x);
-  assert.equal(tree.position.z,FRONT_YARD_SENTINEL.z);
-  assert.equal(FRONT_YARD_SENTINEL.height,7.5);
-  assert.equal(stage.root.getObjectByName('Old fruit tree'),undefined,
-    'small orchard tree next to well removed even during loading');
-  assert.equal(stage.root.getObjectByName('Concept mature shade tree near the garden'),undefined,
-    'visually smaller second courtyard shade removed, not just hidden');
-  const smallPlants=stage.root.getObjectByName('Small 3D shade plants among natural buttress roots');
-  assert.ok(smallPlants instanceof THREE.InstancedMesh);
-  assert.equal(smallPlants.count,19,'retain living groundcover by the big roots');
-  const bark=tree.getObjectByName('UV hand-painted tree trunk and branches');
-  assert.ok(bark instanceof THREE.Mesh);
-  assert.equal(bark.material.userData.courtyardRetonedBark,true);
-  const size=new THREE.Box3().setFromObject(tree).getSize(new THREE.Vector3());
-  assert.ok(size.y>6.7&&size.y<8.5);
-  assert.ok(size.x>3.5&&size.z>3.5);
+  assert.equal(tree.position.x,-40);
+  assert.equal(tree.position.z,8.3);
+  assert.deepEqual(ORIGINAL_COURTYARD_FRUIT_TREE,{
+    x:-40,z:8.3,height:3.65,yaw:.21,seed:210917
+  });
+  assert.equal(stage.root.getObjectByName('Pohon tua di depan rumah'),undefined);
+  assert.equal(stage.root.getObjectByName('Concept mature shade tree near the garden'),undefined);
+  assert.equal(stage.root.getObjectByName('Small 3D shade plants among natural buttress roots'),undefined);
+  const trunk=tree.getObjectByName('UV hand-painted tree trunk and branches');
+  const leaves=tree.getObjectByName('Layered individual UV-painted tree leaves');
+  assert.ok(trunk instanceof THREE.Mesh);
+  assert.ok(leaves instanceof THREE.Mesh);
+  assert.ok(trunk.material.map && leaves.material.map, 'retain hand-painted atlas');
+  const bounds=new THREE.Box3().setFromObject(tree).getSize(new THREE.Vector3());
+  assert.ok(bounds.y>3.2 && bounds.y<4.2,'return to a modest 3.65 m fruit tree');
 });
 
-test('new sentinel collider stays away from farm, spawn, well and river crossing',()=>{
+test('pre-PR#93 removes obsolete big tree colliders, preserves farming and all access',()=>{
   const stage=createHomeStage(false);
-  const trunk=stage.solids.find(x=>x.label==='Front courtyard sentinel trunk');
-  assert.ok(trunk);
-  assert.equal(trunk.center[0],FRONT_YARD_SENTINEL.x);
-  assert.equal(trunk.center[2],FRONT_YARD_SENTINEL.z);
-  assert.ok(!inside(trunk,HOME.spawn.x,HOME.spawn.z));
-  assert.ok(!inside(trunk,HOME.gate.x,HOME.gate.z));
-  assert.ok(!inside(trunk,HOME.well.x,HOME.well.z));
-  assert.ok(!inside(trunk,-45.5,8.6));
-  assert.ok(plantingPlaces.every(p=>!inside(trunk,p.x,p.z,.5)));
+  assert.ok(!stage.solids.some(s=>/sentinel|shade trunk/i.test(s.label)),
+    'do not leave invisible walls where the big tree used to be');
+  for(const spot of [
+    [HOME.spawn.x,HOME.spawn.z],[HOME.gate.x,HOME.gate.z],
+    [ORIGINAL_COURTYARD_FRUIT_TREE.x,ORIGINAL_COURTYARD_FRUIT_TREE.z],
+    [-33.9,8.6],[-45.5,8.6]
+  ]){
+    assert.ok(stage.solids.every(s=>!inside(s,spot[0],spot[1],.28)),
+      'tree restoration cannot block walking at '+spot.join(','));
+  }
   assert.equal(plantingPlaces.length,24);
+  assert.ok(plantingPlaces.every(p=>stage.solids.every(s=>!inside(s,p.x,p.z,.5))));
   assert.ok(stage.root.getObjectByName('West wooden bridge walkway'));
   assert.ok(stage.root.getObjectByName('Fine soft creek bank grass'));
+  assert.ok(stage.root.getObjectByName('Old village well stone rim'));
 });
 
 test('original hand-painted shade GLB remains the asynchronously loaded source',()=>{

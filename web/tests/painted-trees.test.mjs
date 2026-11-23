@@ -83,18 +83,18 @@ test('tree is actual densely layered 3D leaf geometry and textured branching bar
   }
 });
 
-test('only the painted landmark tree remains in the home scene',()=>{
+test('original hand-painted orchard is restored without affecting current house',()=>{
   const stage=createHomeStage(false);
-  const tree=stage.root.getObjectByName('Pohon tua di depan rumah');
+  const tree=stage.root.getObjectByName('Old fruit tree');
   assert.ok(tree instanceof THREE.Group);
   assert.ok(tree.getObjectByName('UV hand-painted tree trunk and branches'));
   assert.ok(tree.getObjectByName('Layered individual UV-painted tree leaves'));
-  assert.equal(stage.root.getObjectByName('Old fruit tree'),undefined);
+  assert.equal(stage.root.getObjectByName('Pohon tua di depan rumah'),undefined);
   assert.equal(stage.root.getObjectByName('Concept mature shade tree near the garden'),undefined);
   assert.ok(stage.root.getObjectByName('Old village well stone rim'));
   assert.ok(stage.solids.find(s=>s.label==='Childhood home walls'));
   assert.ok(stage.solids.find(s=>s.label==='Old village well'));
-  assert.ok(stage.solids.find(s=>s.label==='Front courtyard sentinel trunk'));
+  assert.ok(!stage.solids.some(s=>/shade trunk|sentinel/i.test(s.label)));
 });
 
 test('village uses locally built UV-painted trees, never a remote CDN dependency', () => {

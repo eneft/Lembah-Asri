@@ -7,8 +7,7 @@ import { createHomeGroundDetails } from './homeGroundDetails.ts';
 import { createHouseGroundTransition, featherMergedHouseGround, createHouseContactShadow } from './houseTerrainSeam.ts';
 import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
-import { loadPaintedTreeSource, instantiatePaintedTree, retoneCourtyardBark } from './treeAsset.ts';
-import { makeRootUndergrowth } from './referenceShadeTree.ts';
+import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { loadUserReferenceTextureSet, applyUserReferenceDryRock } from './userReferenceTextures.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
@@ -36,10 +35,10 @@ export const HOME = {
   stream: { x: -45.5, z: 9 }
 } as const;
 
-// Keep the largest 7.5m real 3D tree as the single focal tree at the house.
-// The two neighbouring decorative trees are intentionally not instantiated.
-export const FRONT_YARD_SENTINEL = Object.freeze({
-  x:-33.9,z:8.6,height:7.5,yaw:.08,colliderHalfWidth:.72
+// Restore ONLY the courtyard tree placement from the verified pre-PR#93
+// baseline. Preserve newer house PBR, terrain, creek, bridge and game logic.
+export const ORIGINAL_COURTYARD_FRUIT_TREE = Object.freeze({
+  x: -40, z: 8.3, height: 3.65, yaw: 0.21, seed: 210917
 });
 
 /**
@@ -423,41 +422,33 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   const fallback = buildLocalHouseFallback(root);
   addShed(root);
   const wellReady = addWellOnly(root, loadApprovedModel);
-  // One landmark-sized tropical tree in front of the childhood house.
-  // No old fruit tree by the well and no second mature tree at the garden:
-  // keep the surrounding scene clear, preserving roots and low undergrowth.
-  const shadeFallback=createPaintedStoryTree({
-    kind:'shade',height:FRONT_YARD_SENTINEL.height,seed:110923
+  // Pre-PR#93 courtyard: the original modest orchard tree beside the well.
+  // Replace its UV-painted procedural fallback with the old orchard GLB when
+  // loaded, without reintroducing the large tree, exposed roots or collider.
+  const oldFruitFallback = createPaintedStoryTree({
+    kind: 'orchard',
+    seed: ORIGINAL_COURTYARD_FRUIT_TREE.seed,
+    height: ORIGINAL_COURTYARD_FRUIT_TREE.height
   });
-  shadeFallback.name='Pohon tua di depan rumah';
-  shadeFallback.position.set(FRONT_YARD_SENTINEL.x,0,FRONT_YARD_SENTINEL.z);
-  shadeFallback.rotation.y=FRONT_YARD_SENTINEL.yaw;
-  retoneCourtyardBark(shadeFallback);
-  root.add(shadeFallback);
-  const rootPlants=makeRootUndergrowth();
-  rootPlants.position.set(FRONT_YARD_SENTINEL.x,0,FRONT_YARD_SENTINEL.z);
-  rootPlants.scale.set(1.12,1.65,1.12);
-  root.add(rootPlants);
-  solids.push({
-    label:'Front courtyard sentinel trunk',
-    center:[FRONT_YARD_SENTINEL.x,.9,FRONT_YARD_SENTINEL.z],
-    half:[FRONT_YARD_SENTINEL.colliderHalfWidth,.9,FRONT_YARD_SENTINEL.colliderHalfWidth]
-  });
-  const mainShadeReady:Promise<boolean>=loadApprovedModel
-    ? loadPaintedTreeSource('courtyard').then(source=>{
-        const shade=instantiatePaintedTree(
-          source,FRONT_YARD_SENTINEL.height,
-          FRONT_YARD_SENTINEL.x,FRONT_YARD_SENTINEL.z,
-          FRONT_YARD_SENTINEL.yaw
+  oldFruitFallback.name = 'Old fruit tree';
+  oldFruitFallback.position.set(
+    ORIGINAL_COURTYARD_FRUIT_TREE.x, 0, ORIGINAL_COURTYARD_FRUIT_TREE.z
+  );
+  root.add(oldFruitFallback);
+  const orchardReady: Promise<boolean> = loadApprovedModel
+    ? loadPaintedTreeSource('orchard').then(source => {
+        const restoredTree = instantiatePaintedTree(
+          source, ORIGINAL_COURTYARD_FRUIT_TREE.height,
+          ORIGINAL_COURTYARD_FRUIT_TREE.x,
+          ORIGINAL_COURTYARD_FRUIT_TREE.z,
+          ORIGINAL_COURTYARD_FRUIT_TREE.yaw
         );
-        shade.name='Pohon tua di depan rumah';
-        const repainted=retoneCourtyardBark(shade);
-        if(repainted!==2)console.warn('[LembahAsri] Expected two courtyard bark meshes, found',repainted);
-        root.remove(shadeFallback);
-        root.add(shade);
+        restoredTree.name = 'Old fruit tree';
+        root.add(restoredTree);
+        root.remove(oldFruitFallback);
         return true;
-      }).catch(error=>{
-        console.warn('[LembahAsri] Keeping aged-bark 3D courtyard sentinel fallback',error);
+      }).catch(error => {
+        console.warn('[LembahAsri] Keeping the original fruit tree fallback', error);
         return false;
       })
     : Promise.resolve(false);
@@ -536,8 +527,6 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     center: [-22, 1.2, -10.4],
     half: [1.75, 1.2, 1.5]
   }, {
-    label: 'Courtyard shade trunk', center: [-33.9, .9, 8.6], half: [.59, .9, .59]
-  }, {
     label: 'Old village well',
     center: [HOME.well.x, 0.55, HOME.well.z],
     half: [0.84, 0.55, 0.84]
@@ -612,5 +601,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, wellReady, mainShadeReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, wellReady, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady]).then(([house]) => house) };
 }
