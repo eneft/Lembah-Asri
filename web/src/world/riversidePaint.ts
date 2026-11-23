@@ -45,17 +45,28 @@ const grassPaint = `
       vec2 uv=mat2(.93,.37,-.37,.93)*p*.255+.095*bend;
       vec3 blades=texture2D(uBankMeadow,uv).rgb;
       vec3 broad=texture2D(uBankMeadow,mat2(.61,-.79,.79,.61)*uv*.57+.38).rgb;
-      float light=.51+.26*sin(p.x*.67+p.y*.31)+.23*sin(p.y*.68-p.x*.49);
-      vec3 lawn=mix(blades,broad,.20)*mix(vec3(.71,.81,.77),vec3(1.11,1.04,.91),light);
+      // Match the reference: layered spring greens with warm sunlit tips,
+      // not the old grey-olive wash. Preserve the actual painted brushwork.
+      vec3 painted=mix(blades,broad,.27);
+      float brush=.54*sin(p.x*.46+p.y*.22)+.32*sin(p.y*.71-p.x*.37)
+        +.14*sin(p.x*1.61+p.y*.91);
+      float pigment=dot(painted,vec3(.23,.65,.12));
+      vec3 grassShade=vec3(.29,.45,.16);
+      vec3 grassSun=vec3(.67,.73,.31);
+      vec3 tonalWash=mix(grassShade,grassSun,clamp(.53+.21*brush+.24*pigment,0.,1.));
+      vec3 lawn=mix(painted*vec3(.94,1.12,.82),tonalWash,.34);
+      lawn*=.92+.16*brush+.13*pigment;
       // A worn walk winds from the courtyard to the bridge. Individual grass
       // strokes and irregular edges show through instead of a rectangular decal.
       float east=p.x-course.x;
       float trailZ=8.6+.52*sin(max(east-1.,0.)*.83)+.16*sin(p.x*3.+p.y*1.7);
-      float pigment=dot(blades,vec3(.23,.65,.12));
-      float wear=(1.-smoothstep(.17,.92,abs(p.y-trailZ)+pigment*.48))
-                 *smoothstep(1.5,2.8,abs(east))*(1.-smoothstep(6.8,10.,abs(east)));
-      vec3 earth=mix(vec3(.27,.165,.075),vec3(.61,.41,.205),clamp(pigment*2.3+.18*light,0.,1.));
-      lawn=mix(lawn,earth,wear*.85);
+      float wear=(1.-smoothstep(.19,1.14,abs(p.y-trailZ)+pigment*.32))
+                 *smoothstep(1.35,2.6,abs(east))*(1.-smoothstep(6.8,10.,abs(east)));
+      // Narrow worn earth curls from bridge into the yard, with irregular,
+      // feathered edges; soil is warm tan rather than a dark brown rectangle.
+      float pathBrush=.77+.13*sin(p.x*3.1-p.y*2.7)+.10*sin(p.y*8.+p.x*1.6);
+      vec3 earth=mix(vec3(.36,.245,.115),vec3(.73,.55,.315),clamp(.32+.93*pigment+.12*brush,0.,1.));
+      lawn=mix(lawn,earth,clamp(wear*pathBrush,0.,.94));
       diffuseColor.rgb=mix(diffuseColor.rgb,lawn,reach*grassCover);
     }
   }`;
@@ -99,7 +110,7 @@ export function applyRiversidePaint(material: THREE.MeshBasicMaterial, surface: 
       declarations += creekCourseGLSL + '\nuniform sampler2D uBankMeadow;\nuniform float uMeadowReady;\n';
       // Grassy overhangs give way to a broken stone/soil face at the water.
       paint += surface === 'bank'
-        ? 'float grassCover=smoothstep(-.13,.065,vRiversidePosition.y+.057*sin(vRiversidePosition.z*2.1)+.022*sin(vRiversidePosition.z*6.3));'
+        ? 'float grassCover=smoothstep(-.22,.044,vRiversidePosition.y+.041*sin(vRiversidePosition.z*2.1)+.019*sin(vRiversidePosition.z*6.3));'
         : 'float grassCover=1.;';
       paint += grassPaint;
     }

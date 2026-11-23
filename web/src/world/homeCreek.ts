@@ -538,7 +538,7 @@ export function createHomeCreekVegetation(): THREE.Group {
     instance.scale.setScalar(p.scale);
     instance.updateMatrix();
     reedMesh.setMatrixAt(i,instance.matrix);
-    reedMesh.setColorAt(i,new THREE.Color(p.tint>.65?'#e8edbc':'#f8f0ca'));
+    reedMesh.setColorAt(i,new THREE.Color(p.tint>.74?'#cbd796':'#86b668'));
   }
   reedMesh.instanceMatrix.needsUpdate=true;
   if(reedMesh.instanceColor)reedMesh.instanceColor.needsUpdate=true;
@@ -558,7 +558,7 @@ export function createHomeCreekVegetation(): THREE.Group {
     instance.scale.setScalar(p.scale);
     instance.updateMatrix();
     leafMesh.setMatrixAt(i,instance.matrix);
-    leafMesh.setColorAt(i,new THREE.Color(p.tint>.65?'#6c9658':'#7fa261'));
+    leafMesh.setColorAt(i,new THREE.Color(p.tint>.65?'#77a75d':'#91b86b'));
   }
   leafMesh.instanceMatrix.needsUpdate=true;
   if(leafMesh.instanceColor)leafMesh.instanceColor.needsUpdate=true;

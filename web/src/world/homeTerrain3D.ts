@@ -179,19 +179,21 @@ export function createFineCreekBankGrass():THREE.InstancedMesh{
   const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   type Tuft={x:number;y:number;z:number;scale:number;rotation:number;shade:number};
   const tufts:Tuft[]=[];
-  for(let z=-51;z<46;z+=.65){
-    if(z>6.15&&z<11.25)continue; // keep bridge and near-bank approaches clear
+  for(let z=-51;z<46;z+=.45){
+    if(z>5.75&&z<11.5)continue; // leave real bridge, approaches and player passage clear
     for(const side of [-1,1] as const){
-      for(let lane=0;lane<2;lane++){
-        const zz=z+(random()-.5)*.48;
-        const dist=.82+lane*.66+random()*.59;
+      for(let lane=0;lane<3;lane++){
+        const zz=z+(random()-.5)*.39;
+        const dist=.82+lane*.46+random()*.39;
         const x=creekCenterX(zz)+side*(creekWidth(zz)*.5+dist);
-        if(random()>.74+.14*Math.sin(zz*.29+side))continue;
+        // More short overlapping green clumps, but intentional irregular
+        // open soil between them; all remain real 3D instanced blades.
+        if(random()>.58+.14*Math.sin(zz*.29+side))continue;
         if(selectedHomeRocks.some(p=>p.zone==='stream' &&
           Math.hypot(p.x-x,p.z-zz)<p.size*.53+.12))continue;
         tufts.push({
           x,z:zz,y:creekMeadowHeight(zz,dist)+.012,
-          scale:.43+random()*.34,rotation:random()*Math.PI*2,
+          scale:.49+random()*.54,rotation:random()*Math.PI*2,
           shade:random()
         });
       }
@@ -212,8 +214,9 @@ export function createFineCreekBankGrass():THREE.InstancedMesh{
     transform.scale.setScalar(tuft.scale);
     transform.updateMatrix();
     mesh.setMatrixAt(i,transform.matrix);
-    mesh.setColorAt(i,new THREE.Color(tuft.shade>.65?'#e5ebbb':
-      tuft.shade<.17?'#f4de9a':'#f5f0c7'));
+    // Soft green crowns and sparse honey tips as seen in the reference.
+    mesh.setColorAt(i,new THREE.Color(tuft.shade>.78?'#d4d994':
+      tuft.shade<.21?'#7ea967':'#a6cf86'));
   }
   mesh.instanceMatrix.needsUpdate=true;
   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;

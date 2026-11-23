@@ -43,6 +43,10 @@ const FRAGMENT=[
   ' *sin(pMeadow.y*.063-pMeadow.x*.022);',
   // No splattered dark macro patches — max 2.2 percent variation.
   'paintedMeadow*=1.0+.022*colorWash;',
+  // Golden-green reference grade, kept light to preserve the actual UV art.
+  // Shore overlays fade into this exact shared base meadow rather than
+  // introducing a grey/olive halo beyond the river corridor.
+  'paintedMeadow*=vec3(.94,1.085,.83);',
   'diffuseColor.rgb*=paintedMeadow;',
   '#endif'
 ].join('\n');
