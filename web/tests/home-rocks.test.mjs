@@ -56,18 +56,25 @@ test('all 16 rock meshes preserve uploaded original UV texture, not untextured g
 
 test('rock placement is curated by environment, not randomly thrown into player paths',()=>{
   assert.match(rockFile,/lembah_asri_rocks_original_16\.glb/);
-  assert.equal(selectedHomeRocks.length,19);
+  assert.equal(selectedHomeRocks.length,23);
   const zones=new Set(selectedHomeRocks.map(p=>p.zone));
   assert.deepEqual([...zones].sort(),
     ['foundation','garden','path-edge','stream','well'].sort());
-  const submerged=selectedHomeRocks.filter(p=>p.submerge!==undefined);
-  assert.ok(submerged.length>=6,'use the uploaded mossy GLBs partly inside water');
-  for(const p of submerged){
+  const submerged=selectedHomeRocks.filter(p=>p.submerge!==undefined&&p.submerge<1);
+  const underwater=selectedHomeRocks.filter(p=>p.submerge!==undefined&&p.submerge>=1);
+  assert.ok(submerged.length>=6,'keep original mossy boulders partly inside water');
+  assert.equal(underwater.length,4,'four small real GLB rocks should be wholly underwater');
+  for(const p of [...submerged,...underwater]){
     assert.equal(p.type,'mossy');
-    assert.ok(p.submerge>0&&p.submerge<.5);
+    assert.ok(p.submerge>0);
     assert.ok(Math.abs(p.x-creekCenterX(p.z)) <
       creekWidth(p.z)*.5+p.size*.55,
       'rock footprint should actually intersect the creek water');
+  }
+  for(const p of underwater){
+    assert.ok(p.submerge>=1.05 && p.submerge<=1.10);
+    assert.ok(Math.abs(p.x-creekCenterX(p.z))<.36,'underwater rock is in the actual stream');
+    assert.ok(p.size<=.65,'underwater stones stay modest in size');
   }
   const large=selectedHomeRocks.filter(p=>p.zone==='stream'&&p.size>=.95);
   assert.ok(large.length>=6&&large.length<=8,'6–8 mossy anchor boulders');
@@ -82,7 +89,13 @@ test('rock placement is curated by environment, not randomly thrown into player 
     assert.ok(p.size>=.45&&p.size<=1.30,'metre-sized stones, no pebbles');
     assert.ok(p.yaw>=0&&p.yaw<2*Math.PI);
     if(p.zone==='stream'){
-      assert.ok(Math.abs(p.x+45.5)>1.3, 'not in the middle of shallow water');
+      if((p.submerge??0)>=1){
+        assert.ok(Math.abs(p.x-creekCenterX(p.z))<.36,
+          'real underwater bed stones may sit within the creek centre');
+      }else{
+        assert.ok(Math.abs(p.x+45.5)>1.3,
+          'original exposed rocks stay on bank margins, not mid-stream');
+      }
       assert.ok(p.z<7.15 || p.z>10.05,'bridge remains walkable');
     } else {
       assert.ok(Math.hypot(p.x+39,p.z-4)>1.2,'well rim not blocked');
@@ -139,7 +152,7 @@ test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', 
   assert.equal(installed.children.length,2,'exactly two rock InstancedMesh draws');
   const placed=installed.children.reduce((count,child)=>count+child.count,0);
   assert.equal(placed,selectedHomeRocks.length);
-  assert.equal(placed,19);
+  assert.equal(placed,23);
   const variant=installed.getObjectByName('UV mossy rock variant 00');
   assert.ok(installed.getObjectByName('UV plain rock variant 02'));
   assert.ok(variant instanceof THREE.InstancedMesh);
@@ -159,6 +172,15 @@ test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', 
   const actualSize=.3*scale.x;
   assert.ok(Math.abs(actualSize-first.size)<.005);
   assert.ok(installed.userData.partiallySubmergedRocks>=6);
+  assert.equal(installed.userData.fullySubmergedRocks,4);
+  const underwaterIndex=selectedHomeRocks.filter(p=>p.type==='mossy')
+    .findIndex(p=>p.submerge!==undefined&&p.submerge>=1);
+  assert.ok(underwaterIndex>=0);
+  variant.getMatrixAt(underwaterIndex,matrix);
+  const fullyUnder=new THREE.Vector3().setFromMatrixPosition(matrix);
+  const fullyScale=new THREE.Vector3().setFromMatrixScale(matrix);
+  assert.ok(fullyUnder.y+.15*fullyScale.y<CREEK.waterY,
+    'uploaded rock mesh remains under clear water instead of poking out');
   const mossIndex=selectedHomeRocks.filter(p=>p.type==='mossy')
     .findIndex(p=>p.submerge!==undefined);
   variant.getMatrixAt(mossIndex,matrix);
