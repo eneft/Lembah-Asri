@@ -226,6 +226,43 @@ try{
   };
   await shot(-42.6,7.0,1.12,'artifacts/creek/01-bridge-bank.jpg');
   await shot(-42.25,13.0,.78,'artifacts/creek/02-bridge-upstream.jpg');
+  // The replacement house must be the actual uploaded binary, not the
+  // safe procedural fallback. Verify PBR maps survived conversion.
+  await page.waitForFunction(()=>{
+    const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - user uploaded PBR');
+    return !!(home && home.getObjectByName('model'));
+  },null,{timeout:120000});
+  const importedHouse=await page.evaluate(()=>{
+    const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - user uploaded PBR');
+    const model=home.getObjectByName('model');
+    const m=model.material;
+    model.geometry.computeBoundingBox();
+    const bounds=model.geometry.boundingBox;
+    const scale=home.scale.x;
+    const size={
+      x:(bounds.max.x-bounds.min.x)*scale,
+      y:(bounds.max.y-bounds.min.y)*scale,
+      z:(bounds.max.z-bounds.min.z)*scale
+    };
+    return {
+      sourceFile:home.userData.sourceFile,
+      triangles:model.geometry.index?.count/3,
+      hasUV:!!model.geometry.getAttribute('uv'),
+      standardPBR:m.isMeshStandardMaterial===true,
+      baseColor:!!m.map,normal:!!m.normalMap,
+      rough:!!m.roughnessMap,metal:!!m.metalnessMap,
+      box:[size.x,size.y,size.z]
+    };
+  });
+  assert.equal(importedHouse.sourceFile,'base_basic_pbr.glb');
+  assert.equal(importedHouse.triangles,100000);
+  assert.ok(importedHouse.hasUV && importedHouse.standardPBR
+    && importedHouse.baseColor && importedHouse.normal
+    && importedHouse.rough && importedHouse.metal,'user PBR materials and UVs remain intact');
+  assert.ok(importedHouse.box[0]>7.2 && importedHouse.box[0]<9.7);
+  assert.ok(importedHouse.box[1]>5.7 && importedHouse.box[1]<6.1);
+  assert.ok(importedHouse.box[2]>8.5 && importedHouse.box[2]<9.7);
+  assert.ok([...assets].some(url=>url.includes('rumah_utama_user_pbr.glb')));
   // Frame the only front-yard 7.5m tree from player height.
   await shot(-35.7,12.1,-1.13,'artifacts/creek/04-front-courtyard-sentinel.jpg',1.10,28);
   // Scenery framing from the west bank of the creek (matches the optional
