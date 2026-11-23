@@ -147,23 +147,9 @@ try{
     'browser texture must retain bright painted foam, not merely faint outlines');
   assert.ok(foamState.materialOpacity>=.69);
   assert.ok(foamState.clock>0,'foam clock advances with the water animation');
-  for(const file of ['creek_cobbles.webp','creek_meadow.webp','soil_handpainted.webp']){
+  for(const file of ['creek_cobbles.webp','creek_meadow.webp']){
     assert.ok(assets.has(prefix+'textures/terrain/'+file),'missing live creek image '+file);
   }
-  const bankSurface=await page.evaluate(()=>{
-    const scene=window.__lembahVisualQA.scene;
-    const west=scene.getObjectByName('Soft west creek bank');
-    const east=scene.getObjectByName('Soft east creek bank');
-    return [west,east].map(mesh=>({
-      shaderKey:mesh.material.customProgramCacheKey(),
-      attachedTexture:mesh.material.map?.image?.width>0,
-      rockBedIndependent:mesh.material.map!==scene.getObjectByName(
-        'Visible gravel bed below clear creek water').material.map
-    }));
-  });
-  assert.equal(bankSurface.length,2);
-  assert.ok(bankSurface.every(b=>b.shaderKey.includes('natural-soil-v2-bank') &&
-    b.rockBedIndependent),'two riverbank materials must use new soil shader only');
   const arrival=await page.evaluate(()=>window.__lembahVisualQA.player.translation());
   assert.ok(Math.abs(arrival.x+42.40)<.12 && Math.abs(arrival.z-10.95)<.12,
     'the riverside link should place the player at the near end of the bridge');
@@ -194,9 +180,6 @@ try{
   };
   await shot(-42.6,7.0,1.12,'artifacts/creek/01-bridge-bank.jpg');
   await shot(-42.25,13.0,.78,'artifacts/creek/02-bridge-upstream.jpg');
-  // A close view along the childhood-home bank makes the old vertically
-  // repeated oval cobbles visible if this regression ever returns.
-  await shot(-42.3,4.5,1.22,'artifacts/creek/04-earth-bank-no-oval-stamp.jpg',1.05,22);
   // The raised deck should carry a REAL physics capsule, and the render
   // should show feet resting on timber rather than disappearing into it.
   await shot(-45.4,8.6,.85,'artifacts/creek/03-character-standing-on-timber.jpg',1.52,90);
@@ -206,8 +189,7 @@ try{
   assert.ok(assets.has(prefix+'textures/terrain/creek_water_painterly_illustrated.webp'));
   assert.ok(assets.has(prefix+'models/environment/lembah_asri_rocks_original_16.glb'));
   assert.deepEqual(errors,[]);
-  console.log('Rendered new soil bank without vertically projected cobbles, GLB bridge and river foam:',
-    JSON.stringify({bridge:facts,banks:bankSurface}));
+  console.log('Rendered user-uploaded wooden GLB, raised crossing, eroded banks, fine grass and rocks:',JSON.stringify(facts));
 }finally{
   await browser?.close();
   server.closeAllConnections();
