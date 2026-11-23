@@ -75,7 +75,8 @@ const rockLayout: readonly RockPlacement[] = [
   { type:'plain',x:-21.75,z:12.18,size:.47,yaw:2.88,zone:'path-edge' }
 ] as const;
 export const selectedHomeRocks: readonly RockPlacement[] = rockLayout.map(p=>
-  p.zone==='stream' && p.x < -45.5 ? {...p,x:p.x-2*westPoolInset(p.z)} : p
+  p.zone==='stream' && p.x < -45.5 && (p.submerge??0)<1
+    ? {...p,x:p.x-2*westPoolInset(p.z)} : p
 );
 export const rockFile = './models/environment/lembah_asri_rocks_original_16.glb?rocks=4-two-kinds';
 /**
