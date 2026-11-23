@@ -109,62 +109,52 @@ try{
   assert.ok(assets.has(prefix+'models/environment/bridge_user_reference_wood_v2.glb'));
   assert.ok(facts.submerged>=6);
   assert.ok(facts.grass>260&&facts.grass<600,'restore the earlier softer riverside density');
-  // Only approve the game after the actual 3D concept tree and root UVs
-  // render. A fallback or a decorative 2D plane cannot satisfy this check.
+  // Only the 7.5m front-yard sentinel remains; wait for the REAL new 3D
+  // model, not the temporary UV fallback. Both smaller trees are removed.
   await page.waitForFunction(()=>{
     const tree=window.__lembahVisualQA.scene
-      .getObjectByName('Concept mature shade tree near the garden');
-    return tree?.userData.referenceGLBLoaded===true;
+      .getObjectByName('Pohon tua di depan rumah');
+    return !!(tree?.getObjectByName('Pangkal_akar')
+      && tree?.getObjectByName('Batang_dan_dahan')
+      && tree?.getObjectByName('Tajuk_Alpha'));
   },null,{timeout:120000});
-  const conceptTree=await page.evaluate(()=>{
-    const tree=window.__lembahVisualQA.scene
-      .getObjectByName('Concept mature shade tree near the garden');
-    const roots=tree?.getObjectByName('Exposed hand-painted buttress roots');
-    const painted=tree?.getObjectByName('Hand-painted old shade tree crown and branches');
-    const leafSprays=tree?.getObjectByName('Reference broad hand-painted leaf sprays');
-    let meshes=0,uvPainted=false,cutouts=false;
-    painted?.traverse(object=>{
-      if(!object.isMesh)return;
-      meshes++;
-      for(const material of (Array.isArray(object.material)?object.material:[object.material])){
-        uvPainted ||= !!material.map;
-        cutouts ||= material.alphaTest>.4;
-      }
-    });
+  const sentinel=await page.evaluate(()=>{
+    const stage=window.__lembahVisualQA.scene
+      .getObjectByName('Rumah Masa Kecil / Playable House Garden');
+    const tree=stage?.getObjectByName('Pohon tua di depan rumah');
+    const root=tree?.getObjectByName('Pangkal_akar');
+    const trunk=tree?.getObjectByName('Batang_dan_dahan');
+    const leaves=tree?.getObjectByName('Tajuk_Alpha');
+    let materialCount=0;
+    tree?.traverse(object=>{if(object.isMesh)materialCount++;});
     return {
-      loaded:tree?.userData.referenceGLBLoaded,
-      source:tree?.userData.referenceSource,
       x:tree?.position.x,z:tree?.position.z,
-      meshes,uvPainted,cutouts,
-      roots:roots?.geometry.userData.buttressRoots,
-      barkPainted:!!roots?.material.map,
-      broadSprays:leafSprays?.count,
-      broadUV:!!leafSprays?.geometry?.getAttribute('uv'),
-      broadPainted:!!leafSprays?.material?.map,
-      true3D:leafSprays?.userData.isTrue3D,
-      userPaintApplied:tree?.userData.userReferenceAtlasLoaded===true,
-      bakeKind:roots?.material?.map?.userData?.kind,
-      leafKind:leafSprays?.material?.map?.userData?.kind,
-      ovalRatio:leafSprays?.geometry?.userData?.leafWidthToLength,
-      seedlings:tree?.getObjectByName('Small 3D shade plants among natural buttress roots')?.count
+      roots:root?.geometry.getAttribute('position')?.count,
+      rootUV:!!root?.geometry.getAttribute('uv'),
+      trunkUV:!!trunk?.geometry.getAttribute('uv'),
+      rootPainted:root?.material?.userData?.courtyardRetonedBark===true,
+      trunkPainted:trunk?.material?.userData?.courtyardRetonedBark===true,
+      barkMap:!!root?.material?.map && !!trunk?.material?.map,
+      alphaLeaves:leaves?.material?.alphaTest>.4,
+      leavesUV:!!leaves?.geometry.getAttribute('uv'),
+      meshCount:materialCount,
+      seedlings:stage?.getObjectByName('Small 3D shade plants among natural buttress roots')?.count,
+      oldFruitGone:!stage?.getObjectByName('Old fruit tree'),
+      smallerConceptGone:!stage?.getObjectByName('Concept mature shade tree near the garden')
     };
   });
-  assert.equal(conceptTree.loaded,true);
-  assert.ok(conceptTree.meshes>=2 && conceptTree.uvPainted && conceptTree.cutouts,
-    'concept shade tree must use actual UV-painted 3D bark and alpha foliage');
-  assert.ok(conceptTree.roots>=8&&conceptTree.barkPainted,
-    'a mature tropical tree needs separate textured exposed roots');
-  assert.equal(conceptTree.broadSprays,144,'game must display improved broad painterly foliage');
-  assert.ok(conceptTree.userPaintApplied,
-    'the user image must be applied to the FINAL GLB and not just the temporary fallback');
-  assert.equal(conceptTree.bakeKind,'user-photo-baked-to-original-1024px-bark-uv-islands');
-  assert.equal(conceptTree.leafKind,'single-leaf-pigment-no-white-paper');
-  assert.ok(conceptTree.ovalRatio>=.5,'visible crown leaves must be OVATE, not grass fans');
-  assert.equal(conceptTree.seedlings,19);
-  assert.ok(conceptTree.broadUV&&conceptTree.broadPainted&&conceptTree.true3D,
-    'Work foliage continuation must be UV-painted 3D geometry, never a 2D billboard');
-  assert.ok(Math.abs(conceptTree.x+21.8)<.01&&Math.abs(conceptTree.z-10.8)<.01);
-  assert.ok(assets.has(prefix+'models/environment/pohon_rimbun_shade.glb'));
+  assert.ok(Math.abs(sentinel.x+33.9)<.01 && Math.abs(sentinel.z-8.6)<.01,
+    'single big courtyard tree must remain at approved location');
+  assert.ok(sentinel.meshCount>=3 && sentinel.rootUV && sentinel.trunkUV
+    && sentinel.barkMap && sentinel.rootPainted && sentinel.trunkPainted,
+    'both real 3D trunk/roots must use the original bark UV with aged painterly grading');
+  assert.ok(sentinel.roots>200,'preserve exposed original three-dimensional roots');
+  assert.ok(sentinel.alphaLeaves && sentinel.leavesUV,
+    'keep the authentic UV alpha-cutout foliage');
+  assert.equal(sentinel.seedlings,19,'retain tiny growth by the biggest roots');
+  assert.ok(sentinel.oldFruitGone && sentinel.smallerConceptGone,
+    'remove exactly both visually smaller surrounding courtyard trees');
+  assert.ok(assets.has(prefix+'models/environment/pohon_pekarangan.glb'));
   await mkdir('artifacts/creek',{recursive:true});
   await page.waitForFunction(()=>window.__lembahVisualQA.scene
     .getObjectByName('Rumah Masa Kecil / Playable House Garden')?.userData.paintedCreekLoaded);
@@ -236,13 +226,12 @@ try{
   };
   await shot(-42.6,7.0,1.12,'artifacts/creek/01-bridge-bank.jpg');
   await shot(-42.25,13.0,.78,'artifacts/creek/02-bridge-upstream.jpg');
-  // The reference tree should sit at the right side of the cultivated yard,
-  // above-ground and visible in a player-height 3/4 framing.
-  await shot(-27.3,11.9,-1.13,'artifacts/creek/04-concept-mature-shade-tree.jpg',1.10,28);
+  // Frame the only front-yard 7.5m tree from player height.
+  await shot(-35.7,12.1,-1.13,'artifacts/creek/04-front-courtyard-sentinel.jpg',1.10,28);
   // Scenery framing from the west bank of the creek (matches the optional
   // ?view=konsep player entrance), while remaining real interactive 3D.
   await page.waitForFunction(() => window.__lembahVisualQA.scene.getObjectByName('Sumur beratap genteng')
-    && window.__lembahVisualQA.scene.getObjectByName('Pohon tua di belakang sumur'));
+    && window.__lembahVisualQA.scene.getObjectByName('Pohon tua di depan rumah'));
   await shot(-41.3,6.65,-1.60,'artifacts/creek/05-riverside-concept-view.jpg',1.12,32);
   // The raised deck should carry a REAL physics capsule, and the render
   // should show feet resting on timber rather than disappearing into it.
@@ -253,7 +242,7 @@ try{
   assert.ok(assets.has(prefix+'textures/terrain/creek_water_painterly_illustrated.webp'));
   assert.ok(assets.has(prefix+'models/environment/lembah_asri_rocks_original_16.glb'));
   assert.deepEqual(errors,[]);
-  console.log('Rendered real 3D concept shade tree and unchanged creek bridge:',JSON.stringify({bridge:facts,tree:conceptTree}));
+  console.log('Rendered courtyard sentinel bark and unchanged creek bridge:',JSON.stringify({bridge:facts,tree:sentinel}));
 }finally{
   await browser?.close();
   server.closeAllConnections();
