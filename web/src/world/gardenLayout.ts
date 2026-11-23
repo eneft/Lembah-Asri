@@ -8,7 +8,10 @@ const rows = [
   { center: .585, top: .165, bottom: .821, radius: .073, height: .235 },
   { center: .774, top: .191, bottom: .851, radius: .078, height: .25 }
 ];
-export const GARDEN = { x: -22.05, z: -.58, width: 9.1, depth: 9.8, yaw: -.27 } as const;
+// Keep the four ridges parallel to the adjacent East bamboo fence (world Z).
+// All garden UVs, planting slots, soil elevations and Rapier collision read
+// this single transform, so the visible beds and gameplay stay aligned.
+export const GARDEN = { x: -22.05, z: -.58, width: 9.1, depth: 9.8, yaw: 0 } as const;
 const cos = Math.cos(GARDEN.yaw), sin = Math.sin(GARDEN.yaw);
 const smooth = THREE.MathUtils.smoothstep;
 
