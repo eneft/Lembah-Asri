@@ -73,19 +73,38 @@ try{
       !!scene?.getObjectByName('Fine soft creek bank grass') &&
       !!scene?.getObjectByName('Painted childhood courtyard');
   },null,{timeout:120000});
+  await page.waitForFunction(()=>window.__lembahVisualQA.scene
+    .getObjectByName('West wooden bridge walkway')?.userData.userBridgeLoaded===true,
+    null,{timeout:120000});
   const facts=await page.evaluate(()=>{
     const scene=window.__lembahVisualQA.scene;
+    const bridge=scene.getObjectByName('West wooden bridge walkway');
+    const imported=scene.getObjectByName('Uploaded wooden bridge - original GLB');
+    let meshes=0,hasUVPaint=false;
+    imported?.traverse(object=>{
+      if(object.isMesh){meshes++;hasUVPaint ||= !!object.material.emissiveMap;}
+    });
     return {
-      planks:scene.getObjectByName('Individual UV-painted timber bridge planks')?.count,
+      uploaded:bridge?.userData.userBridgeLoaded,
+      asset:bridge?.userData.bridgeAsset,
+      triangles:bridge?.userData.sourceTriangles,
+      dimensions:bridge?.userData.worldDimensions,
+      meshes,hasUVPaint,
+      oldPlanks:scene.getObjectByName('Individual UV-painted timber bridge planks')?.count,
       submerged:scene.getObjectByName('Curated original UV textured rock placements')?.userData.partiallySubmergedRocks,
-      grass:scene.getObjectByName('Fine soft creek bank grass')?.count,
-      rails:scene.getObjectByName('Two painted side handrails')?.count
+      grass:scene.getObjectByName('Fine soft creek bank grass')?.count
     };
   });
-  assert.equal(facts.planks,16);
+  assert.equal(facts.uploaded,true);
+  assert.equal(facts.asset,'./models/environment/bridge_user_reference_wood_v1.glb');
+  assert.ok(facts.triangles>=7800,'actual original user GLB geometry must replace placeholder');
+  assert.ok(facts.meshes>=1&&facts.hasUVPaint,'preserve painted emissive atlas');
+  assert.ok(facts.dimensions.x>5.05&&facts.dimensions.x<5.15,'full creek span');
+  assert.ok(facts.dimensions.z>2.04&&facts.dimensions.z<2.14,'crossing width matches collider');
+  assert.equal(facts.oldPlanks,undefined,'old procedural bridge should be gone');
+  assert.ok(assets.has(prefix+'models/environment/bridge_user_reference_wood_v1.glb'));
   assert.ok(facts.submerged>=6);
   assert.ok(facts.grass>260&&facts.grass<600,'restore the earlier softer riverside density');
-  assert.equal(facts.rails,2);
   await mkdir('artifacts/creek',{recursive:true});
   await page.waitForFunction(()=>window.__lembahVisualQA.scene
     .getObjectByName('Rumah Masa Kecil / Playable House Garden')?.userData.paintedCreekLoaded);
@@ -166,7 +185,7 @@ try{
   assert.ok(assets.has(prefix+'textures/terrain/creek_water_painterly_illustrated.webp'));
   assert.ok(assets.has(prefix+'models/environment/lembah_asri_rocks_original_16.glb'));
   assert.deepEqual(errors,[]);
-  console.log('Rendered and captured actual bridge, eroded banks, fine grass and immersed GLB rocks:',JSON.stringify(facts));
+  console.log('Rendered user-uploaded wooden GLB, raised crossing, eroded banks, fine grass and rocks:',JSON.stringify(facts));
 }finally{
   await browser?.close();
   server.closeAllConnections();
