@@ -84,7 +84,7 @@ try{
   });
   assert.equal(facts.planks,16);
   assert.ok(facts.submerged>=6);
-  assert.ok(facts.grass>250);
+  assert.ok(facts.grass>550&&facts.grass<1100,'reference grass should be dense but mobile-bounded');
   assert.equal(facts.rails,2);
   await mkdir('artifacts/creek',{recursive:true});
   await page.waitForFunction(()=>window.__lembahVisualQA.scene
