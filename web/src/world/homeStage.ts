@@ -123,7 +123,7 @@ function floorPatch(
 
 function buildLocalHouseFallback(root: THREE.Object3D): THREE.Group {
   // Stylized one-storey Indonesian village house, kept as a genuine 3D backup.
-  // Replaced by the original approved GLB once downloaded and decoded.
+  // Replaced by the uploaded house PBR GLB once downloaded and decoded.
   const group = new THREE.Group();
   group.name = 'Rumah Masa Kecil - fallback geometry';
   group.position.set(HOME.house.x, 0, HOME.house.z);
@@ -551,7 +551,10 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   cameraProxy.visible = false;
   cameraBlockers.push(cameraProxy);
 
-  const loaded = !loadApprovedModel ? Promise.resolve(false) : new GLTFLoader().loadAsync('./models/environment/rumah_utama.glb').then(async gltf => {
+  // The supplied PBR house replaces the previous approved house GLB.
+  // Keep the old 3D fallback only until the new asset finishes loading.
+  const uploadedHouseUrl='./models/environment/rumah_utama_user_pbr.glb?house=pbr-v1';
+  const loaded = !loadApprovedModel ? Promise.resolve(false) : new GLTFLoader().loadAsync(uploadedHouseUrl).then(async gltf => {
     const scene = gltf.scene;
     scene.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(scene);
@@ -566,13 +569,41 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     const center = bounds.getCenter(new THREE.Vector3());
     scene.position.set(HOME.house.x - center.x * scale, -bounds.min.y * scale,
       HOME.house.z - center.z * scale);
-    scene.name = 'Approved original rumah_utama.glb';
-    const { applyHandPaintedMaterials } = await import('./handPaintedMaterials');
-    applyHandPaintedMaterials(scene, 8);
+    scene.name = 'Rumah utama - user uploaded PBR';
+    scene.userData.sourceFile='base_basic_pbr.glb';
+    scene.userData.uvPreserved=true;
+    scene.userData.pbrPreserved=true;
+    // Do NOT apply the unlit MeshBasicMaterial helper: it would silently
+    // discard this house's authored normal and metallic-roughness maps.
+    let houseMeshes=0;
+    scene.traverse(obj=>{
+      if(!(obj instanceof THREE.Mesh))return;
+      const materials=Array.isArray(obj.material)?obj.material:[obj.material];
+      for(const material of materials){
+        if(!(material instanceof THREE.MeshStandardMaterial)
+          || !material.map || !material.normalMap
+          || !material.roughnessMap || !material.metalnessMap){
+          throw new Error('Uploaded house lost one of its three original PBR maps');
+        }
+        material.map.colorSpace=THREE.SRGBColorSpace;
+        material.map.anisotropy=8;
+        for(const map of [material.normalMap,material.roughnessMap,material.metalnessMap]){
+          map.colorSpace=THREE.NoColorSpace;
+          map.anisotropy=4;
+        }
+        material.needsUpdate=true;
+      }
+      obj.castShadow=true;
+      obj.receiveShadow=true;
+      houseMeshes++;
+    });
+    if(houseMeshes!==1)throw new Error('Unexpected imported house mesh count');
     scene.updateMatrixWorld(true);
     // Keep the authored courtyard painting loaded before the visible GLB.
     await courtyardAlbedo;
-    featherMergedHouseGround(scene, new THREE.Box3().setFromObject(scene));
+    // The old house used a custom MeshBasic ground shader. The new file
+    // already contains its own exterior details and real PBR materials:
+    // leave those intact and use only the existing separate soil underlay.
     fallback.visible = false;
     root.add(scene);
     return true;

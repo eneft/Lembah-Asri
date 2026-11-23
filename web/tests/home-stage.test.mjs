@@ -13,9 +13,9 @@ function insideSolid(x, z, solid, radius = 0.30) {
   return Math.abs(cx - x) < hx + radius && Math.abs(cz - z) < hz + radius;
 }
 
-test('approved original house GLB is a valid binary glTF 2.0 with actual meshes', () => {
+test('uploaded user house is a true PBR binary glTF with original 3D mesh', () => {
   const filename = fileURLToPath(
-    new URL('../public/models/environment/rumah_utama.glb', import.meta.url)
+    new URL('../public/models/environment/rumah_utama_user_pbr.glb', import.meta.url)
   );
   const bytes = readFileSync(filename);
   assert.ok(bytes.length > 500_000, 'expected real house model, not a placeholder');
@@ -32,6 +32,20 @@ test('approved original house GLB is a valid binary glTF 2.0 with actual meshes'
     .map(primitive => gltf.accessors[primitive.attributes?.POSITION])
     .filter(Boolean);
   assert.ok(positions.length > 0);
+  const primitive=gltf.meshes[0].primitives[0];
+  assert.equal(gltf.meshes.length,1);
+  assert.equal(gltf.images.length,3);
+  assert.equal(gltf.textures.length,3);
+  assert.equal(gltf.accessors[primitive.indices].count,300000,
+    'preserve all 100,000 original triangles');
+  assert.equal(gltf.accessors[primitive.attributes.POSITION].count,155436);
+  assert.ok(primitive.attributes.NORMAL !== undefined);
+  assert.ok(primitive.attributes.TEXCOORD_0 !== undefined);
+  assert.ok(gltf.materials[0].pbrMetallicRoughness.baseColorTexture);
+  assert.ok(gltf.materials[0].pbrMetallicRoughness.metallicRoughnessTexture);
+  assert.ok(gltf.materials[0].normalTexture);
+  assert.ok(gltf.images.every(image=>image.mimeType==='image/jpeg'));
+  assert.ok(bytes.length<9_000_000, 'optimized for mobile transfer without reducing geometry');
   console.log('Home GLB metadata', JSON.stringify({
     meshes: gltf.meshes.length,
     nodes: gltf.nodes.length,
@@ -103,34 +117,30 @@ test('scene is genuine 3D meshes and respects cleared-earth yard layout', () => 
   assert.ok(stage.solids.every(solid => solid.half.every(v => v > 0)));
 });
 
-test('Option B enlarges the original approved GLB significantly without stretching it', () => {
-  const filename = fileURLToPath(
-    new URL('../public/models/environment/rumah_utama.glb', import.meta.url)
+test('uploaded PBR home fits existing height and plot with uniform scaling',()=>{
+  const filename=fileURLToPath(
+    new URL('../public/models/environment/rumah_utama_user_pbr.glb',import.meta.url)
   );
-  const bytes = readFileSync(filename);
-  const jsonLen = bytes.readUInt32LE(12);
-  const gltf = JSON.parse(bytes.subarray(20, 20 + jsonLen).toString('utf8'));
-  const primitive = gltf.meshes[0].primitives[0];
-  const position = gltf.accessors[primitive.attributes.POSITION];
-  const source = {
-    x: position.max[0] - position.min[0],
-    y: position.max[1] - position.min[1],
-    z: position.max[2] - position.min[2]
+  const bytes=readFileSync(filename);
+  const jsonLen=bytes.readUInt32LE(12);
+  const gltf=JSON.parse(bytes.subarray(20,20+jsonLen).toString('utf8'));
+  const primitive=gltf.meshes[0].primitives[0];
+  const pos=gltf.accessors[primitive.attributes.POSITION];
+  const source={
+    x:pos.max[0]-pos.min[0],
+    y:pos.max[1]-pos.min[1],
+    z:pos.max[2]-pos.min[2]
   };
-  const previousScale = Math.min(7.5 / source.x, 5.5 / source.z, 5.2 / source.y);
-  const actualScale = computeHouseScale(source);
-  const ratio = actualScale / previousScale;
-  const finalSize = {
-    width: actualScale * source.x,
-    height: actualScale * source.y,
-    depth: actualScale * source.z
-  };
-  assert.ok(ratio >= 1.65, 'Option B must be unmistakably larger than the original');
-  assert.ok(finalSize.width >= 9.0 && finalSize.width <= HOME.house.width + 0.001);
-  assert.ok(finalSize.depth >= 9.0 && finalSize.depth <= HOME.house.depth + 0.001);
-  assert.ok(finalSize.height >= 5.5 && finalSize.height <= HOME.house.height + 0.001);
-  assert.throws(() => computeHouseScale({x: 0, y: 1, z: 1}));
-  console.log('Large house footprint', JSON.stringify({finalSize,ratio:Number(ratio.toFixed(3))}));
+  const s=computeHouseScale(source);
+  const size={width:s*source.x,height:s*source.y,depth:s*source.z};
+  // The original model has a taller roof and narrower facade than the old
+  // placeholder. Never nonuniformly stretch it just to fill the whole plot.
+  assert.ok(size.width>=7.2 && size.width<=HOME.house.width+.001);
+  assert.ok(size.depth>=8.5 && size.depth<=HOME.house.depth+.001);
+  assert.ok(size.height>=5.7 && size.height<=HOME.house.height+.001);
+  assert.ok(size.depth<HOME.house.depth-.1, 'allow a margin for entrance');
+  assert.throws(()=>computeHouseScale({x:0,y:1,z:1}));
+  console.log('Uploaded house fitted meters',JSON.stringify({size,uniformScale:s}));
 });
 
 test('enlarged house, porch, roof, colliders and fences maintain clearance', () => {
