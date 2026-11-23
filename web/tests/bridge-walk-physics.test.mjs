@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import RAPIER from '@dimforge/rapier3d-compat';
+import * as RAPIER from '@dimforge/rapier3d-compat';
 import {BRIDGE_DECK,BRIDGE_WALK,bridgeWalkHeightAt,makeBridgeWalkCollider}
   from '../src/world/paintedBridge.ts';
 
