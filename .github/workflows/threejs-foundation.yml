@@ -49,6 +49,8 @@ jobs:
         run: node --test tests/painted-tree-glb.test.mjs
       - name: Verify volumetric UV-painted tree foliage and bark in actual 3D game
         run: node --experimental-strip-types --test tests/painted-trees.test.mjs
+      - name: Validate reference tropical shade tree, buttress roots and safe garden clearing
+        run: node --experimental-strip-types --test tests/concept-shade-tree.test.mjs
       - name: Verify world grass anti-tile and matching sculpted river meadow UV
         run: node --experimental-strip-types --test tests/meadow-antitile.test.mjs
       - name: Verify two-scale painterly riverbank UV, macro blend and no dark decals
