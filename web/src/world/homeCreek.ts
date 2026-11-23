@@ -23,7 +23,7 @@ export const CREEK_FOAM_ART='./textures/terrain/creek_foam_painterly_restored_v2
 // This regenerated 3x4 atlas preserves fully opaque original brushwork.
 export const CREEK_FOAM_FLOW=Object.freeze({
   metresPerSecond:.11, intervalMetres:4.3, columns:3, rows:4, lanes:2,
-  longitudinalCoverage:.46, transverseCoverage:.32, opacityFraction:.88
+  longitudinalCoverage:.46, transverseCoverage:.32, opacityFraction:CLEAR_WATER_STAGE3.foamInk
 });
 export const CREEK_WATER_UV=Object.freeze({
   // Same 160 m ribbon and existing six-width-row geometry.
@@ -31,6 +31,20 @@ export const CREEK_WATER_UV=Object.freeze({
   flowUvUnitsPerSecond:.018,
   widthTileCount:1,
   albedoSource:'user-approved-painterly-turquoise-water'
+});
+
+/** Stage 3: clear, brush-painted teal water above the actual 3D riverbed.
+ * We keep the supplied texture, real river depth, sunlight ripple and foam
+ * atlas. Reduced surface coverage lets the GLB rocks below the water show.
+ */
+export const CLEAR_WATER_STAGE3=Object.freeze({
+  style:'clear-turquoise-painterly-stage3-v1',
+  surfaceOpacity:.79,
+  centreAlpha:.92,
+  shallowAlpha:.46,
+  foamInk:.70,
+  foamSeedThreshold:.62,
+  underwaterStones:4
 });
 
 /** Shared exact inner bank-crest height for both the organic terrain
@@ -265,7 +279,7 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
     map:water?makeCreekAlbedo():bed?makeCreekBedAlbedo():
       foam?makeCreekFoamAlbedo():null,
     vertexColors:true,toneMapped:false,side:THREE.DoubleSide,
-    transparent:water||foam,opacity:water?.90:foam?.70:1,
+    transparent:water||foam,opacity:water?CLEAR_WATER_STAGE3.surfaceOpacity:foam?.70:1,
     depthWrite:!water&&!foam
   });
   if(side===-1||side===1){
@@ -318,8 +332,10 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
                 float variant=floor(seed*12.);
                 float col=mod(variant,3.);
                 float row=floor(variant/3.);
+                // Keep drifting ink near the two banks and out of the
+                // transparent central channel; stone wakes supply splash.
                 float targetAcross=lane==0?
-                  (.24+.27*seed):(.57+.22*fract(seed*5.4));
+                  (.16+.13*seed):(.73+.12*fract(seed*5.4));
                 // Each painted swirl stays ~2 m long and <=1.3 m wide.
                 // No full-width smoke or square foam texels.
                 vec2 decal=vec2((advance-.5)/.46+.5,
@@ -329,8 +345,8 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
                 vec2 local=clamp(decal,vec2(.004),vec2(.996));
                 vec2 atlasUV=vec2((col+local.x)/3.,(3.-row+local.y)/4.);
                 vec4 paintedFoam=texture2D(map,atlasUV);
-                float sporadic=step(.10,seed);
-                float ink=paintedFoam.a*inside*sporadic*.88;
+                float sporadic=step(.62,seed);
+                float ink=paintedFoam.a*inside*sporadic*.70;
                 if(ink>strongest){
                   strongest=ink;
                   paintedColor=paintedFoam.rgb;
@@ -374,18 +390,25 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
             luminance=dot(texture2D(map,currentUV).rgb,vec3(.21,.71,.08));
           #endif
           float brush=smoothstep(.035,.36,luminance);
-          vec3 pool=mix(vec3(.012,.091,.112),vec3(.091,.35,.42),brush);
-          vec3 margin=mix(vec3(.046,.135,.119),vec3(.122,.299,.271),brush);
+          // Gentle hand-painted turquoise replaces the old near-black pool.
+          // Color values are linear RGB, from shallow yellow-green to teal.
+          vec3 pool=mix(vec3(.055,.24,.25),vec3(.13,.365,.36),brush);
+          vec3 margin=mix(vec3(.12,.33,.295),vec3(.19,.455,.405),brush);
           // Break the surface light into short strokes; leave the bottom stationary.
           float flow=sin(vCreekFlowXZ.y*10.8-localTime*1.9+1.65*sin(p.x*4.9+p.y*.7));
           float crest=sin(p.y*4.7+p.x*6.4-localTime*1.24+1.8*sin(p.x*3.1-p.y*.6));
-          float highlight=smoothstep(.76,.982,flow*.60+crest*.40);
-          float lightPatch=smoothstep(-.15,.82,sin(p.y*1.37+p.x*2.7)+.55*sin(p.x*4.1-p.y*.83));
-          diffuseColor.rgb=mix(pool,margin,shoal)+vec3(.12,.17,.17)*highlight*lightPatch;
-          diffuseColor.a*=mix(.966,.38,shoal);
+          // Small broken sun glints. Do not create a continuous white band.
+          float highlight=smoothstep(.89,.992,flow*.62+crest*.38);
+          float lightPatch=smoothstep(.12,.91,sin(p.y*1.37+p.x*2.7)+.55*sin(p.x*4.1-p.y*.83));
+          vec3 clearWater=mix(pool,margin,shoal);
+          clearWater*=1.0+.018*sin(p.y*.49+p.x*.27);
+          diffuseColor.rgb=clearWater+vec3(.12,.17,.16)*highlight*lightPatch;
+          // Shallow water reveals real GLB riverbed stones and cobbles.
+          diffuseColor.a*=mix(.92,.46,shoal);
         `);
     };
-    material.customProgramCacheKey=()=>'lembah-depth-current-v2';
+    material.customProgramCacheKey=()=>'lembah-clear-turquoise-water-stage3-v1';
+    material.userData.clearWaterStyle=CLEAR_WATER_STAGE3.style;
     mesh.userData.rippleUniform=uniform;
     mesh.userData.rippleType='mobile-two-frequency';
     mesh.userData.waterAlbedo=CREEK_WATER_UV.albedoSource;
@@ -406,7 +429,11 @@ export function createHomeCreek():THREE.Group{
  * clusters. These are textured decals
  * placed from the submerged GLB footprints in a single instanced draw.
  */
-export const ROCK_WAKES=selectedHomeRocks.filter(rock=>rock.submerge!==undefined);
+// Only exposed boulders form surface wake rings. Fully submerged rocks
+// remain visible through clear water but do not generate white foam halos.
+export const ROCK_WAKES=selectedHomeRocks.filter(
+  rock=>rock.submerge!==undefined && rock.submerge<1
+);
 let wakePainting:THREE.DataTexture|undefined;
 export function makePaintedRockWake():THREE.DataTexture{
   if(wakePainting)return wakePainting;
