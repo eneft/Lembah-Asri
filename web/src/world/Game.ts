@@ -321,6 +321,13 @@ export class Game {
       game.dispose();
       throw new Error(`Gagal memuat karakter 3D dan animasinya: ${String(error)}`);
     }
+    // The saved visual layout must apply even when the editor is closed.
+    // Non-editable collision and farming geometry are intentionally excluded.
+    game.sceneEditor = new SceneVisualEditor(
+      game.scene, game.camera, game.renderer.domElement, game.playerMesh,
+      state => game.sceneEditorListener?.(state)
+    );
+    game.sceneEditor.refresh();
     return game;
   }
 
@@ -596,7 +603,8 @@ export class Game {
   private onWheel=(e:WheelEvent)=>{if(this.sceneEditor?.active)return;this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
-    if(this.sceneEditor?.active){this.sceneEditor.tick(now);this.renderer.render(this.scene,this.camera);return;}
+    this.sceneEditor?.tick(now);
+    if(this.sceneEditor?.active){this.renderer.render(this.scene,this.camera);return;}
     this.creekElapsedSeconds+=dt;
     updateHomeCreekWater(this.flowingCreekWater,this.creekElapsedSeconds);
     // The render loop starts during construction, before async FBX + texture loading finishes.
