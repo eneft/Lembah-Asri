@@ -21,7 +21,8 @@ export const CREEK_FOAM_ART='./textures/terrain/creek_foam_painterly_flow.svg';
 // This transparent SVG atlas traces the newly approved foam illustration;
 // a single river-ribbon shader scrolls its twelve hand-painted decals.
 export const CREEK_FOAM_FLOW=Object.freeze({
-  metresPerSecond:.11, intervalMetres:7.9, columns:3, rows:4,\n  longitudinalCoverage:.155, transverseCoverage:.235, opacityFraction:.32
+  metresPerSecond:.11, intervalMetres:7.9, columns:3, rows:4,
+  longitudinalCoverage:.155, transverseCoverage:.235, opacityFraction:.32
 });
 export const CREEK_WATER_UV=Object.freeze({
   // Same 160 m ribbon and existing six-width-row geometry.
