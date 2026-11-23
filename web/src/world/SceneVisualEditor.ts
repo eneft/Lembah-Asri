@@ -308,7 +308,7 @@ export class SceneVisualEditor {
 
   private async loadPublishedLayout() {
     try {
-      const url = import.meta.env.BASE_URL + 'scene-layout.json';
+      const url = './scene-layout.json';
       const response = await fetch(url, { cache: 'no-cache' });
       if (!response.ok) return;
       this.published = parseLayout(await response.text()).transforms;
