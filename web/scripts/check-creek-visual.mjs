@@ -94,6 +94,7 @@ try{
       meshes,hasUVPaint,
       oldPlanks:scene.getObjectByName('Individual UV-painted timber bridge planks')?.count,
       submerged:scene.getObjectByName('Curated original UV textured rock placements')?.userData.partiallySubmergedRocks,
+      underwater:scene.getObjectByName('Curated original UV textured rock placements')?.userData.fullySubmergedRocks,
       grass:scene.getObjectByName('Fine soft creek bank grass')?.count
     };
   });
@@ -108,6 +109,7 @@ try{
   assert.equal(facts.oldPlanks,undefined,'old procedural bridge should be gone');
   assert.ok(assets.has(prefix+'models/environment/bridge_user_reference_wood_v2.glb'));
   assert.ok(facts.submerged>=6);
+  assert.equal(facts.underwater,4,'four true 3D rocks must be under the transparent water');
   assert.ok(facts.grass>260&&facts.grass<600,'restore the earlier softer riverside density');
   // Restore the real 3.65m orchard GLB from the pre-PR#93 layout,
   // not the temporary fallback. The former 7.5m sentinel must be absent.
@@ -289,6 +291,33 @@ try{
   const bodyY=await page.evaluate(()=>window.__lembahVisualQA.player.translation().y);
   assert.ok(bodyY>1.09&&bodyY<1.30,
     'character must settle at the physical deck level, not at terrain Y=0: '+bodyY);
+  // Stage 3: check the published water surface itself, not only a shader
+  // unit test. Verify real 3D submerged stones and retained painted art.
+  const clearRiver=await page.evaluate(()=>{
+    const scene=window.__lembahVisualQA.scene;
+    const water=scene.getObjectByName('Shallow stream west of childhood home');
+    const foam=scene.getObjectByName('Illustrated river foam and flow trails');
+    const rocks=scene.getObjectByName('Curated original UV textured rock placements');
+    const bed=scene.getObjectByName('Visible gravel bed below clear creek water');
+    return {
+      style:water?.material?.userData?.clearWaterStyle,
+      opacity:water?.material?.opacity,
+      transparent:water?.material?.transparent,
+      depthWrite:water?.material?.depthWrite,
+      textured:!!water?.material?.map,
+      submergedRocks:rocks?.userData?.fullySubmergedRocks,
+      bedDepthWrite:bed?.material?.depthWrite,
+      foamAtlas:foam?.userData?.foamAtlasSource,
+      foamOpacity:foam?.material?.opacity
+    };
+  });
+  assert.equal(clearRiver.style,'clear-turquoise-painterly-stage3-v1');
+  assert.ok(clearRiver.opacity>=.77&&clearRiver.opacity<=.81);
+  assert.ok(clearRiver.transparent && !clearRiver.depthWrite);
+  assert.ok(clearRiver.textured && clearRiver.bedDepthWrite);
+  assert.equal(clearRiver.submergedRocks,4);
+  assert.equal(clearRiver.foamAtlas,'./textures/terrain/creek_foam_painterly_restored_v2.png');
+  assert.ok(clearRiver.foamOpacity>=.69&&clearRiver.foamOpacity<=.71);
   // Stage 2: the grassy lip, exposed earth and intermittent stone foot must
   // all be live on both 3D banks; never alter the water/foam shaders.
   const bankRestore=await page.evaluate(()=>{

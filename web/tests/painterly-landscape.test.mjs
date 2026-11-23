@@ -62,7 +62,7 @@ test('creek uses physical banks with repeated real world UVs, no giant stretched
   assert.equal(scene.children.length,6);
   assert.ok(west && east && water && bed && foam && wakes);
   assert.equal(water.material.transparent,true);
-  assert.ok(water.material.opacity>.87 && water.material.opacity<.92);
+  assert.ok(water.material.opacity>.77 && water.material.opacity<.81);
   assert.equal(water.userData.sourcePaintedUV,true);
   assert.equal(west.userData.sourcePaintedUV,true);
   for(const object of [water,west,east,bed]){
@@ -73,7 +73,9 @@ test('creek uses physical banks with repeated real world UVs, no giant stretched
   }
   const foamUV=foam.geometry.getAttribute('uv');
   assert.ok(Math.max(...Array.from({length:foamUV.count},(_,i)=>foamUV.getY(i)))<=1.00001);
-  const immersed=selectedHomeRocks.filter(rock=>rock.submerge!==undefined);
+  const immersed=selectedHomeRocks.filter(rock=>rock.submerge!==undefined&&rock.submerge<1);
+  const deep=selectedHomeRocks.filter(rock=>(rock.submerge??0)>=1);
+  assert.equal(deep.length,4,'fully submerged stones must not produce white foam rings');
   assert.equal(wakes.count,immersed.length);
   const transform=new THREE.Matrix4(), centre=new THREE.Vector3();
   immersed.forEach((rock,i)=>{
