@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SceneVisualEditor, type EditorTool, type SceneEditorSnapshot } from './SceneVisualEditor';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { createPaintedStoryTree } from './paintedTrees';
@@ -37,6 +38,8 @@ export class Game {
   private flowingCreekWater?: THREE.Object3D;
   private creekElapsedSeconds = 0;
   private scene = new THREE.Scene();
+  private sceneEditor?: SceneVisualEditor;
+  private sceneEditorListener?: (state: SceneEditorSnapshot) => void;
   private camera = new THREE.PerspectiveCamera(48, 1, 0.1, 500);
   private world!: RAPIER.World;
   private player!: RAPIER.RigidBody;
@@ -58,6 +61,34 @@ export class Game {
   private gardenGround!: GardenGround;
 
   setFarmListener(fn?: (hud: FarmHUD | null) => void) { this.farm.setListener(fn); }
+
+  setSceneEditorListener(listener?: (state: SceneEditorSnapshot) => void) {
+    this.sceneEditorListener = listener;
+    if (listener && this.sceneEditor) listener(this.sceneEditor.snapshot());
+  }
+  setSceneEditMode(active: boolean) {
+    if (!this.sceneEditor) {
+      this.sceneEditor = new SceneVisualEditor(
+        this.scene, this.camera, this.renderer.domElement, this.playerMesh,
+        state => this.sceneEditorListener?.(state)
+      );
+    }
+    this.keys.clear();
+    this.touchMove = { x: 0, y: 0 };
+    this.touchRun = false;
+    this.dragging = false;
+    this.sceneEditor.setActive(active);
+  }
+  setSceneEditTool(mode: EditorTool) { this.sceneEditor?.setMode(mode); }
+  selectSceneObject(id: string | null) { this.sceneEditor?.select(id); }
+  focusSceneObject() { this.sceneEditor?.focusSelected(); }
+  setSceneObjectComponent(kind: 'position' | 'rotation' | 'scale', axis: number, value: number) {
+    this.sceneEditor?.setComponent(kind, axis, value);
+  }
+  resetSceneObject() { this.sceneEditor?.resetSelected(); }
+  clearSceneLayout() { this.sceneEditor?.clearLayout(); }
+  exportSceneLayout() { return this.sceneEditor?.exportLayout() || ''; }
+  importSceneLayout(source: string) { this.sceneEditor?.importLayout(source); }
 
   useFarmAction(action: FarmAction, id?: number) {
     if (!this.playerMesh) return false;
@@ -112,6 +143,7 @@ export class Game {
   private host: HTMLElement;
   private resizeObserver: ResizeObserver;
   private onKeyDown = (e: KeyboardEvent) => {
+    if (this.sceneEditor?.active) return;
     const key = e.key.toLowerCase();
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     // Menu navigation should never also drive the player.
@@ -559,11 +591,12 @@ export class Game {
   }
   private pointerX=0;
   private dragging=false;
-  private onPointerDown=(e:PointerEvent)=>{this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
-  private onPointerMove=(e:PointerEvent)=>{if(!this.dragging)return;this.yaw-=(e.clientX-this.pointerX)*.006;this.pointerX=e.clientX;};
-  private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
+  private onPointerDown=(e:PointerEvent)=>{if(this.sceneEditor?.active)return;this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
+  private onPointerMove=(e:PointerEvent)=>{if(this.sceneEditor?.active||!this.dragging)return;this.yaw-=(e.clientX-this.pointerX)*.006;this.pointerX=e.clientX;};
+  private onWheel=(e:WheelEvent)=>{if(this.sceneEditor?.active)return;this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
+    if(this.sceneEditor?.active){this.sceneEditor.tick(now);this.renderer.render(this.scene,this.camera);return;}
     this.creekElapsedSeconds+=dt;
     updateHomeCreekWater(this.flowingCreekWater,this.creekElapsedSeconds);
     // The render loop starts during construction, before async FBX + texture loading finishes.
@@ -692,5 +725,5 @@ export class Game {
       this.lastPerfTick = now;
     }
   };
-  dispose(){this.running=false;this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
+  dispose(){this.sceneEditor?.dispose();this.running=false;this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }
