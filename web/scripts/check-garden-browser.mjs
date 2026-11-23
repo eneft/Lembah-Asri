@@ -39,6 +39,24 @@ try {
   await page.goto(url, {waitUntil:'domcontentloaded'});
   const ready = page.getByText('3D WORLD READY',{exact:true});
   await ready.waitFor({timeout:150_000});
+  const modeChoice = page.getByRole('combobox',{name:'Mode kontrol'});
+  const controlMode = () => page.locator('.game-shell').getAttribute('data-control-mode');
+  assert.equal(await modeChoice.inputValue(),'auto','first visit uses automatic mode');
+  assert.equal(await controlMode(),'tablet','touch device defaults to touch HUD');
+  await modeChoice.selectOption('desktop');
+  assert.equal(await controlMode(),'desktop','explicit desktop must override touch device');
+  assert.equal(await page.locator('.mobile-joystick').evaluate(el=>getComputedStyle(el).display),'none');
+  await modeChoice.selectOption('tablet');
+  assert.equal(await controlMode(),'tablet','tablet mode must show touch HUD at desktop-width viewport');
+  assert.notEqual(await page.locator('.mobile-joystick').evaluate(el=>getComputedStyle(el).display),'none');
+  assert.notEqual(await page.locator('.mobile-run').evaluate(el=>getComputedStyle(el).display),'none');
+  assert.notEqual(await page.locator('.mobile-jump').evaluate(el=>getComputedStyle(el).display),'none');
+  await page.reload({waitUntil:'domcontentloaded'});
+  await ready.waitFor({timeout:150_000});
+  assert.equal(await modeChoice.inputValue(),'tablet','mode must persist across reload');
+  assert.equal(await controlMode(),'tablet');
+  await modeChoice.selectOption('auto');
+  assert.equal(await controlMode(),'tablet','auto restores device-dependent behavior');
   const hud = page.getByRole('region',{name:'Rawat kebun'});
   // Walk diagonally across the open courtyard from the normal spawn until a
   // place actually comes within reach (independent of software renderer FPS).

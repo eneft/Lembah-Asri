@@ -16,23 +16,24 @@
 .mobile-joystick{display:none}
 .mobile-jump,.mobile-run{display:none}
 @media(max-width:700px){.brand{top:10px;left:10px;padding:8px}.brand strong{font-size:18px}.objective{top:86px;left:10px;min-width:175px;padding:10px}.status{top:10px;right:10px;padding:9px}.controls{bottom:10px;font-size:10px}.controls b{margin-left:4px}}
-@media (pointer:coarse), (max-width:700px){
-  .mobile-joystick{display:block;position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));width:154px;height:154px;z-index:5;touch-action:none;user-select:none;-webkit-user-select:none}
-  .joystick-ring{position:absolute;inset:8px;border-radius:50%;border:2px solid #f4e8c9a8;background:radial-gradient(circle,#f4e8c92b 0 38%,#26372b55 70%);box-shadow:0 5px 18px #17271c55,inset 0 0 0 7px #f4e8c91a}
-  .joystick-thumb{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);will-change:transform;width:56px;height:56px;border-radius:50%;background:linear-gradient(145deg,#f7e9c9,#c6ad79);border:2px solid #fff2d1;box-shadow:0 4px 12px #18271988,inset 0 -4px 0 #8e7954;pointer-events:none}
-  .joystick-direction{position:absolute;color:#f7edda99;font-size:12px;line-height:1;pointer-events:none}
-  .joystick-direction.up{top:9px;left:50%;transform:translateX(-50%)}
-  .joystick-direction.down{bottom:9px;left:50%;transform:translateX(-50%)}
-  .joystick-direction.left{left:9px;top:50%;transform:translateY(-50%)}
-  .joystick-direction.right{right:9px;top:50%;transform:translateY(-50%)}
-  .controls{display:none}
-  .game-canvas canvas{touch-action:none}
-  .mobile-run{display:grid;place-items:center;position:absolute;right:max(33px,env(safe-area-inset-right));bottom:max(148px,calc(env(safe-area-inset-bottom) + 125px));width:66px;height:66px;border-radius:50%;border:2px solid #f4e7bf;background:#334d38e8;color:#f9ecd2;font:900 13px Nunito,sans-serif;letter-spacing:1px;box-shadow:0 5px 15px #18271988;z-index:6;touch-action:none;user-select:none;-webkit-user-select:none}
-  .mobile-run.is-running{background:#d2a058;color:#293e2b;border-color:#fff6d6;box-shadow:0 0 0 4px #f5e1a65c,0 5px 15px #18271988}
-  .mobile-run:focus-visible,.mobile-jump:focus-visible{outline:3px solid #fff2c0;outline-offset:4px}
-  .mobile-jump{display:grid;place-items:center;position:absolute;right:max(26px,env(safe-area-inset-right));bottom:max(52px,env(safe-area-inset-bottom));width:76px;height:76px;border-radius:50%;border:2px solid #fff0cf;background:linear-gradient(145deg,#d7a65e,#91613d);color:#fff8e7;font:900 13px Nunito,sans-serif;letter-spacing:1px;box-shadow:0 5px 16px #18271988;z-index:6;touch-action:none;user-select:none;-webkit-user-select:none}
-}
-@media(max-width:380px){.mobile-joystick{width:136px;height:136px;left:12px;bottom:14px}.joystick-thumb{width:50px;height:50px}.mobile-jump{width:66px;height:66px;right:16px;bottom:34px}.mobile-run{width:59px;height:59px;right:20px;bottom:116px}}
+/* Explicit tablet HUD works on desktop PCs even with a fine mouse pointer. */
+
+  .game-shell[data-control-mode="tablet"] .mobile-joystick{display:block;position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));width:154px;height:154px;z-index:5;touch-action:none;user-select:none;-webkit-user-select:none}
+  .game-shell[data-control-mode="tablet"] .joystick-ring{position:absolute;inset:8px;border-radius:50%;border:2px solid #f4e8c9a8;background:radial-gradient(circle,#f4e8c92b 0 38%,#26372b55 70%);box-shadow:0 5px 18px #17271c55,inset 0 0 0 7px #f4e8c91a}
+  .game-shell[data-control-mode="tablet"] .joystick-thumb{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);will-change:transform;width:56px;height:56px;border-radius:50%;background:linear-gradient(145deg,#f7e9c9,#c6ad79);border:2px solid #fff2d1;box-shadow:0 4px 12px #18271988,inset 0 -4px 0 #8e7954;pointer-events:none}
+  .game-shell[data-control-mode="tablet"] .joystick-direction{position:absolute;color:#f7edda99;font-size:12px;line-height:1;pointer-events:none}
+  .game-shell[data-control-mode="tablet"] .joystick-direction.up{top:9px;left:50%;transform:translateX(-50%)}
+  .game-shell[data-control-mode="tablet"] .joystick-direction.down{bottom:9px;left:50%;transform:translateX(-50%)}
+  .game-shell[data-control-mode="tablet"] .joystick-direction.left{left:9px;top:50%;transform:translateY(-50%)}
+  .game-shell[data-control-mode="tablet"] .joystick-direction.right{right:9px;top:50%;transform:translateY(-50%)}
+  .game-shell[data-control-mode="tablet"] .controls{display:none}
+  .game-shell[data-control-mode="tablet"] .game-canvas canvas{touch-action:none}
+  .game-shell[data-control-mode="tablet"] .mobile-run{display:grid;place-items:center;position:absolute;right:max(33px,env(safe-area-inset-right));bottom:max(148px,calc(env(safe-area-inset-bottom) + 125px));width:66px;height:66px;border-radius:50%;border:2px solid #f4e7bf;background:#334d38e8;color:#f9ecd2;font:900 13px Nunito,sans-serif;letter-spacing:1px;box-shadow:0 5px 15px #18271988;z-index:6;touch-action:none;user-select:none;-webkit-user-select:none}
+  .game-shell[data-control-mode="tablet"] .mobile-run.is-running{background:#d2a058;color:#293e2b;border-color:#fff6d6;box-shadow:0 0 0 4px #f5e1a65c,0 5px 15px #18271988}
+  .game-shell[data-control-mode="tablet"] .mobile-run:focus-visible,.mobile-jump:focus-visible{outline:3px solid #fff2c0;outline-offset:4px}
+  .game-shell[data-control-mode="tablet"] .mobile-jump{display:grid;place-items:center;position:absolute;right:max(26px,env(safe-area-inset-right));bottom:max(52px,env(safe-area-inset-bottom));width:76px;height:76px;border-radius:50%;border:2px solid #fff0cf;background:linear-gradient(145deg,#d7a65e,#91613d);color:#fff8e7;font:900 13px Nunito,sans-serif;letter-spacing:1px;box-shadow:0 5px 16px #18271988;z-index:6;touch-action:none;user-select:none;-webkit-user-select:none}
+
+@media(max-width:380px){.game-shell[data-control-mode="tablet"] .mobile-joystick{width:136px;height:136px;left:12px;bottom:14px}.game-shell[data-control-mode="tablet"] .joystick-thumb{width:50px;height:50px}.game-shell[data-control-mode="tablet"] .mobile-jump{width:66px;height:66px;right:16px;bottom:34px}.game-shell[data-control-mode="tablet"] .mobile-run{width:59px;height:59px;right:20px;bottom:116px}}
 
 /* Optional diagnostics: refreshes once per second instead of per animation frame. */
 .perf-toggle{justify-self:end;padding:3px 9px;border:1px solid #ad966f;border-radius:7px;background:#7d8f69;color:#fff8e6;font:800 10px Nunito,system-ui,sans-serif;letter-spacing:.6px;cursor:pointer;touch-action:manipulation}
@@ -73,10 +74,19 @@
 }
 .farm-actions kbd { margin-left: 4px; opacity: .85; }
 .farm-actions button:focus-visible { outline: 3px solid #835f35; outline-offset: 2px; }
-@media (pointer: coarse), (max-width: 760px) {
-  .farm-panel { left: max(14px, env(safe-area-inset-left)); bottom: max(184px, calc(env(safe-area-inset-bottom) + 160px)); transform: none; }
-  .farm-actions kbd { display: none; }
+.game-shell[data-control-mode="tablet"] .farm-panel {
+  left: max(14px, env(safe-area-inset-left));
+  bottom: max(184px, calc(env(safe-area-inset-bottom) + 160px));
+  transform: none;
 }
+.game-shell[data-control-mode="tablet"] .farm-actions kbd { display: none; }
 @media (max-height: 500px) and (orientation: landscape) {
-  .farm-panel { left: 50%; bottom: 12px; transform: translateX(-50%); }
+  .game-shell[data-control-mode="tablet"] .farm-panel { left: 50%; bottom: 12px; transform: translateX(-50%); }
 }
+
+/* Compact, explicit control choice: auto, keyboard/mouse or virtual touch. */
+.control-mode-picker{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin-top:5px;min-width:152px}
+.control-mode-picker label{font:800 11px Nunito,system-ui,sans-serif;color:#5f5844;white-space:nowrap}
+.control-mode-picker select{max-width:120px;min-height:32px;padding:4px 22px 4px 8px;border:1px solid #aa9970;border-radius:8px;background:#fff6df;color:#3d432b;font:800 12px Nunito,system-ui,sans-serif;cursor:pointer;touch-action:manipulation}
+.control-mode-picker select:focus-visible{outline:3px solid #607a4d;outline-offset:2px}
+@media(max-width:700px){.control-mode-picker{min-width:0;gap:5px}.control-mode-picker label{font-size:10px}.control-mode-picker select{max-width:100px;padding-left:5px;font-size:11px}}
