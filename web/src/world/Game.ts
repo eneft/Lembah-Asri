@@ -12,6 +12,7 @@ import { HomeFarm, type FarmHUD } from './homeFarm';
 import { farmKeys, type FarmAction } from './farmPlots';
 import { sculptGardenGround, gardenHeightAt, type GardenGround } from './gardenLayout';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
+import { bridgeWalkHeightAt, makeBridgeWalkCollider } from './paintedBridge';
 import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
 import { applyMeadowAntiTileShader } from './meadowAntiTile';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
@@ -65,12 +66,14 @@ export class Game {
 
   private onWalkingGround() {
     const p = this.player.translation(), velocity = this.player.linvel();
-    const height = gardenHeightAt(p.x, p.z);
-    // Remove the vertical component of walking along a raised bed from the
-    // jump/landing check. On the flat yard this reduces to the usual check.
+    const ground=(x:number,z:number)=>
+      Math.max(gardenHeightAt(x,z),bridgeWalkHeightAt(x,z));
+    const height = ground(p.x, p.z);
+    // Raised soil and the timber bridge share the same real physical contact
+    // height. Otherwise running/jumping on the bridge is classified airborne.
     const step = .06;
-    const slopeX = (gardenHeightAt(p.x + step, p.z) - gardenHeightAt(p.x - step, p.z)) / (2 * step);
-    const slopeZ = (gardenHeightAt(p.x, p.z + step) - gardenHeightAt(p.x, p.z - step)) / (2 * step);
+    const slopeX = (ground(p.x + step, p.z) - ground(p.x - step, p.z)) / (2 * step);
+    const slopeZ = (ground(p.x, p.z + step) - ground(p.x, p.z - step)) / (2 * step);
     return isPlayerGrounded(p.y - height, velocity.y - slopeX * velocity.x - slopeZ * velocity.z);
   }
   private performanceListener?: (stats: PerformanceStats) => void;
@@ -202,6 +205,13 @@ export class Game {
     game.world.createCollider(RAPIER.ColliderDesc.cuboid(80, 0.25, 80).setTranslation(0, -0.25, 0), floor);
     const { vertices, indices } = game.gardenGround;
     game.world.createCollider(RAPIER.ColliderDesc.trimesh(vertices, indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES), floor);
+    // Bridge deck + its long gentle approach ramps use a real collision
+    // surface, not a render-only wooden slab that swallows the player's feet.
+    const bridgeWalk=makeBridgeWalkCollider();
+    game.world.createCollider(
+      RAPIER.ColliderDesc.trimesh(bridgeWalk.vertices,bridgeWalk.indices).setFriction(.92),
+      floor
+    );
     // Distinct static colliders for the house, empty storage shed and fences.
     // Paths and the open gate remain physically traversable.
     const fixedScenery = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());

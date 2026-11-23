@@ -9,7 +9,8 @@ import {
 } from '../src/world/homeCreek.ts';
 import {
   BRIDGE_TEXTURES, BRIDGE_DECK, createPaintedWoodenBridge,
-  paintedBridgeMaterial
+  paintedBridgeMaterial,paintedBridgePlankMaterial,
+  makePainterlyPlankAlbedo,makeBridgeWalkCollider,bridgeWalkHeightAt,BRIDGE_WALK
 } from '../src/world/paintedBridge.ts';
 import {createHomeStage} from '../src/world/homeStage.ts';
 import {terrainTileRepeat} from '../src/world/terrainMaterials.ts';
@@ -116,7 +117,11 @@ test('bridge uses properly transverse boards, beams, posts and two slim rails',(
   assert.equal(posts.count,4);
   assert.equal(nails.count,32);
   assert.equal(rails.count,2);
-  assert.equal(planks.material,paintedBridgeMaterial);
+  assert.equal(planks.material,paintedBridgePlankMaterial,
+    'new deck uses hand-painted wood grain, not woven map atlas');
+  assert.equal(rails.material,paintedBridgeMaterial);
+  assert.equal(paintedBridgePlankMaterial.normalMap,null);
+  assert.equal(paintedBridgePlankMaterial.roughnessMap,null);
   assert.equal(bridge.userData.walkAxis,'X');
   assert.equal(bridge.userData.boardGrainAxis,'Z');
   const plankSize=new THREE.Box3().setFromBufferAttribute(
@@ -170,4 +175,48 @@ test('generated turquoise water concept is shipped as an optimized real painted 
   const wakes=river.getObjectByName('Painted foam breaking against mossy river boulders');
   assert.ok(foam.material.opacity<.65,'avoid double-bright foam over painted white highlights');
   assert.ok(wakes.material.opacity<.8);
+});
+
+test('bridge has real raised deck physics, two gentle ramps and no drop at walkable edges',()=>{
+  const {vertices,indices}=makeBridgeWalkCollider();
+  assert.equal(vertices.length,24);
+  assert.equal(indices.length,18);
+  assert.equal(bridgeWalkHeightAt(BRIDGE_DECK.x,BRIDGE_DECK.z),BRIDGE_WALK.top);
+  assert.equal(bridgeWalkHeightAt(BRIDGE_WALK.startX-BRIDGE_WALK.ramp,BRIDGE_DECK.z),0);
+  assert.equal(bridgeWalkHeightAt(BRIDGE_WALK.endX+BRIDGE_WALK.ramp,BRIDGE_DECK.z),0);
+  assert.equal(bridgeWalkHeightAt(BRIDGE_DECK.x,BRIDGE_DECK.z+2),0,
+    'off-bridge terrain height stays unchanged');
+  const xL=BRIDGE_WALK.startX-.5*BRIDGE_WALK.ramp;
+  const xR=BRIDGE_WALK.endX+.5*BRIDGE_WALK.ramp;
+  assert.ok(Math.abs(bridgeWalkHeightAt(xL,BRIDGE_DECK.z)-BRIDGE_WALK.top*.5)<1e-8);
+  assert.ok(Math.abs(bridgeWalkHeightAt(xR,BRIDGE_DECK.z)-BRIDGE_WALK.top*.5)<1e-8);
+  for(let i=0;i<indices.length;i+=3){
+    const a=indices[i]*3,b=indices[i+1]*3,c=indices[i+2]*3;
+    const ab=[vertices[b]-vertices[a],vertices[b+1]-vertices[a+1],vertices[b+2]-vertices[a+2]];
+    const ac=[vertices[c]-vertices[a],vertices[c+1]-vertices[a+1],vertices[c+2]-vertices[a+2]];
+    const ny=ab[2]*ac[0]-ab[0]*ac[2];
+    assert.ok(ny>0,'all walkway triangles face upward for Rapier');
+  }
+});
+
+test('longitudinal painterly wood albedo has organic streaks and stays lightweight',()=>{
+  const texture=makePainterlyPlankAlbedo();
+  assert.ok(texture instanceof THREE.DataTexture);
+  assert.equal(texture.colorSpace,THREE.SRGBColorSpace);
+  assert.equal(texture.image.width,256);
+  assert.equal(texture.image.height,512);
+  assert.equal(texture.image.data.length,256*512*4);
+  assert.equal(texture.wrapS,THREE.ClampToEdgeWrapping);
+  assert.equal(texture.generateMipmaps,true);
+  assert.ok(paintedBridgePlankMaterial.map instanceof THREE.DataTexture);
+  // The old densely tiled 256px bridge atlas should not be stretched over
+  // the deck: grain runs predominantly along the plank's long Z axis.
+  let across=0,along=0;
+  const bytes=texture.image.data;
+  const val=(x,y)=>bytes[(y*256+x)*4];
+  for(let x=12;x<243;x+=7){
+    across+=Math.abs(val(x,180)-val(x+3,180));
+    along+=Math.abs(val(x,180)-val(x,183));
+  }
+  assert.ok(across>along*1.4,'grain varies mainly ACROSS, not along plank length');
 });

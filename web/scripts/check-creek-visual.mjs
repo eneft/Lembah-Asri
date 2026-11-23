@@ -87,10 +87,10 @@ try{
   assert.ok(facts.grass>250);
   assert.equal(facts.rails,2);
   await mkdir('artifacts/creek',{recursive:true});
-  const shot=async(x,z,yaw,file)=>{
-    await page.evaluate(({x,z,yaw})=>{
+  const shot=async(x,z,yaw,file,initialY=1.05,frames=14)=>{
+    await page.evaluate(({x,z,yaw,initialY})=>{
       const game=window.__lembahVisualQA;
-      const p={x,y:1.05,z};
+      const p={x,y:initialY,z};
       game.player.setTranslation(p,true);
       game.player.setLinvel({x:0,y:0,z:0},true);
       game.currentPhysicsPosition.set(x,p.y,z);
@@ -101,16 +101,22 @@ try{
       game.camera.position.set(x+Math.sin(yaw)*10.5,p.y+6.2,z+Math.cos(yaw)*10.5);
       game.cameraFocus.set(x,1.35,z);
       game.camera.lookAt(game.cameraFocus);
-    },{x,z,yaw});
-    await page.evaluate(()=>new Promise(resolve=>{
+    },{x,z,yaw,initialY});
+    await page.evaluate(count=>new Promise(resolve=>{
       let frames=0;
-      const tick=()=>{if(++frames>=14)resolve();else requestAnimationFrame(tick);};
+      const tick=()=>{if(++frames>=count)resolve();else requestAnimationFrame(tick);};
       requestAnimationFrame(tick);
-    }));
+    }),frames);
     await page.screenshot({path:file,type:'jpeg',quality:87});
   };
   await shot(-42.6,7.0,1.12,'artifacts/creek/01-bridge-bank.jpg');
   await shot(-42.25,13.0,.78,'artifacts/creek/02-bridge-upstream.jpg');
+  // The raised deck should carry a REAL physics capsule, and the render
+  // should show feet resting on timber rather than disappearing into it.
+  await shot(-45.4,8.6,.85,'artifacts/creek/03-character-standing-on-timber.jpg',1.52,90);
+  const bodyY=await page.evaluate(()=>window.__lembahVisualQA.player.translation().y);
+  assert.ok(bodyY>1.09&&bodyY<1.30,
+    'character must settle at the physical deck level, not at terrain Y=0: '+bodyY);
   assert.ok(assets.has(prefix+'textures/terrain/creek_water_painterly_illustrated.webp'));
   assert.ok(assets.has(prefix+'models/environment/lembah_asri_rocks_original_16.glb'));
   assert.deepEqual(errors,[]);
