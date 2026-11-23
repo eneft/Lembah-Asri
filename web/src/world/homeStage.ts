@@ -7,9 +7,9 @@ import { createHomeGroundDetails } from './homeGroundDetails.ts';
 import { createHouseGroundTransition, featherMergedHouseGround, createHouseContactShadow } from './houseTerrainSeam.ts';
 import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
-import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
-import { CONCEPT_SHADE_TREE, createReferenceShadeTree, makeRootUndergrowth } from './referenceShadeTree.ts';
-import { loadUserReferenceTextureSet, applyUserReferenceTreeTextures, applyUserReferenceDryRock } from './userReferenceTextures.ts';
+import { loadPaintedTreeSource, instantiatePaintedTree, retoneCourtyardBark } from './treeAsset.ts';
+import { makeRootUndergrowth } from './referenceShadeTree.ts';
+import { loadUserReferenceTextureSet, applyUserReferenceDryRock } from './userReferenceTextures.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
 import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerrain3D.ts';
@@ -35,6 +35,12 @@ export const HOME = {
   well: { x: -39, z: 4 },
   stream: { x: -45.5, z: 9 }
 } as const;
+
+// Keep the largest 7.5m real 3D tree as the single focal tree at the house.
+// The two neighbouring decorative trees are intentionally not instantiated.
+export const FRONT_YARD_SENTINEL = Object.freeze({
+  x:-33.9,z:8.6,height:7.5,yaw:.08,colliderHalfWidth:.72
+});
 
 /**
  * Fit the approved house to the larger Option-B footprint *uniformly*.
@@ -287,18 +293,10 @@ function addStoneWell(root: THREE.Object3D, loadTexture: boolean) {
   beam('Well crossbar', 2.05, HOME.well.x, 2.18).rotation.z = Math.PI / 2;
 }
 
-function addWellAndFruitTree(root: THREE.Object3D, loadTexture: boolean) {
+function addWellOnly(root: THREE.Object3D, loadTexture: boolean) {
   const fallback = new THREE.Group();
   addStoneWell(fallback, loadTexture);
   root.add(fallback);
-  // Actual stylized 3D tree with a UV-painted wood trunk and layered,
-  // individually shaped textured leaves. No untextured ico-sphere crown.
-  const tree = createPaintedStoryTree({
-    kind: 'orchard', seed: 210917, height: 3.65
-  });
-  tree.name = 'Old fruit tree';
-  tree.position.set(-40, 0, 8.3);
-  root.add(tree);
   if (!loadTexture) return Promise.resolve();
   return new GLTFLoader().loadAsync('./models/environment/sumur_pekarangan.glb').then(async ({scene}) => {
     const { applyHandPaintedMaterials } = await import('./handPaintedMaterials.ts');
@@ -424,62 +422,42 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
 
   const fallback = buildLocalHouseFallback(root);
   addShed(root);
-  const wellReady = addWellAndFruitTree(root, loadApprovedModel);
-  // The tall spreading tree at the right of the approved home illustration.
-  // Preserve the established old orchard tree at the well; this is a second,
-  // physically separate mature shade tree with real UV-bark buttress roots.
-  const conceptFallback=createReferenceShadeTree();
-  root.add(conceptFallback);
-  solids.push({
-    label:'Mature garden canopy trunk',
-    center:[CONCEPT_SHADE_TREE.x,0.9,CONCEPT_SHADE_TREE.z],
-    half:[CONCEPT_SHADE_TREE.colliderHalfWidth,0.9,CONCEPT_SHADE_TREE.colliderHalfWidth]
+  const wellReady = addWellOnly(root, loadApprovedModel);
+  // One landmark-sized tropical tree in front of the childhood house.
+  // No old fruit tree by the well and no second mature tree at the garden:
+  // keep the surrounding scene clear, preserving roots and low undergrowth.
+  const shadeFallback=createPaintedStoryTree({
+    kind:'shade',height:FRONT_YARD_SENTINEL.height,seed:110923
   });
-  // Load the real GLB and supplied albedo in parallel. Paint the FINAL tree,
-  // not only the temporary fallback that disappears when the GLB resolves.
-  const conceptShadeReady:Promise<boolean>=loadApprovedModel
-    ? Promise.all([
-        loadPaintedTreeSource('shade').then(source=>{
-          const realTree=createReferenceShadeTree(source);
-          root.remove(conceptFallback);
-          root.add(realTree);
-          return true;
-        }).catch(error=>{
-          console.warn('[LembahAsri] Keeping 3D painted concept shade tree fallback',error);
-          return false;
-        }),
-        loadUserReferenceTextureSet().catch(error=>{
-          console.warn('[LembahAsri] Keeping earlier painted reference atlas',error);
-          return undefined;
-        })
-      ]).then(([glbReady,images])=>{
-        if(images){
-          const finalTree=root.getObjectByName('Concept mature shade tree near the garden');
-          if(finalTree instanceof THREE.Group)
-            applyUserReferenceTreeTextures(finalTree,images);
-        }
-        return glbReady;
-      })
-    : Promise.resolve(false);
-  // Keep fallback tree while the 3D GLB downloads. Replace it with the actual
-  // voluminous alpha-cutout textured orchard tree when the asset is ready.
-  const orchardReady: Promise<boolean> = loadApprovedModel
-    ? loadPaintedTreeSource('courtyard')
-      .then(source => {
-        const oldTree = root.getObjectByName('Old fruit tree');
-        if (oldTree) root.remove(oldTree);
-        const tree = instantiatePaintedTree(source, 3.45, -39.6, 9.7, 1.85);
-        const shade = instantiatePaintedTree(source, 7.5, -33.9, 8.6, .08);
-        shade.name = 'Pohon tua di belakang sumur';
-        const seedlings = makeRootUndergrowth();
-        seedlings.position.set(-33.9, 0, 8.6);
-        seedlings.scale.set(1.12, 1.65, 1.12);
-        root.add(shade, seedlings);
-        tree.name = 'Old fruit tree';
-        root.add(tree);
+  shadeFallback.name='Pohon tua di depan rumah';
+  shadeFallback.position.set(FRONT_YARD_SENTINEL.x,0,FRONT_YARD_SENTINEL.z);
+  shadeFallback.rotation.y=FRONT_YARD_SENTINEL.yaw;
+  retoneCourtyardBark(shadeFallback);
+  root.add(shadeFallback);
+  const rootPlants=makeRootUndergrowth();
+  rootPlants.position.set(FRONT_YARD_SENTINEL.x,0,FRONT_YARD_SENTINEL.z);
+  rootPlants.scale.set(1.12,1.65,1.12);
+  root.add(rootPlants);
+  solids.push({
+    label:'Front courtyard sentinel trunk',
+    center:[FRONT_YARD_SENTINEL.x,.9,FRONT_YARD_SENTINEL.z],
+    half:[FRONT_YARD_SENTINEL.colliderHalfWidth,.9,FRONT_YARD_SENTINEL.colliderHalfWidth]
+  });
+  const mainShadeReady:Promise<boolean>=loadApprovedModel
+    ? loadPaintedTreeSource('courtyard').then(source=>{
+        const shade=instantiatePaintedTree(
+          source,FRONT_YARD_SENTINEL.height,
+          FRONT_YARD_SENTINEL.x,FRONT_YARD_SENTINEL.z,
+          FRONT_YARD_SENTINEL.yaw
+        );
+        shade.name='Pohon tua di depan rumah';
+        const repainted=retoneCourtyardBark(shade);
+        if(repainted!==2)console.warn('[LembahAsri] Expected two courtyard bark meshes, found',repainted);
+        root.remove(shadeFallback);
+        root.add(shade);
         return true;
-      }).catch(error => {
-        console.warn('[LembahAsri] Keeping orchard tree fallback', error);
+      }).catch(error=>{
+        console.warn('[LembahAsri] Keeping aged-bark 3D courtyard sentinel fallback',error);
         return false;
       })
     : Promise.resolve(false);
@@ -603,5 +581,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, wellReady, orchardReady, conceptShadeReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, wellReady, mainShadeReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady]).then(([house]) => house) };
 }

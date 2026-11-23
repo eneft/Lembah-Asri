@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { CONCEPT_SHADE_TREE, createReferenceShadeTree } from '../src/world/referenceShadeTree.ts';
-import { createHomeStage, HOME } from '../src/world/homeStage.ts';
+import { createHomeStage, HOME, FRONT_YARD_SENTINEL } from '../src/world/homeStage.ts';
 import { GARDEN, plantingPlaces } from '../src/world/gardenLayout.ts';
 import { HOME_SCENIC_CAMERA } from '../src/world/homeScenicCamera.ts';
 import { REFERENCE_LEAF_PASS } from '../src/world/conceptLeafPass.ts';
@@ -12,69 +12,41 @@ function inside(box,x,z,r=.29){
     Math.abs(z-box.center[2])<box.half[2]+r;
 }
 
-test('approved old tropical shade tree is real 3D near the RIGHT garden side',async()=>{
+test('one biggest courtyard sentinel remains and both neighbouring yard trees are gone', async()=>{
   const stage=createHomeStage(false);
   await stage.ready;
-  const tree=stage.root.getObjectByName('Concept mature shade tree near the garden');
+  const tree=stage.root.getObjectByName('Pohon tua di depan rumah');
   assert.ok(tree instanceof THREE.Group);
-  assert.equal(tree.position.x,CONCEPT_SHADE_TREE.x);
-  assert.equal(tree.position.z,CONCEPT_SHADE_TREE.z);
-  assert.ok(CONCEPT_SHADE_TREE.height>=7,'the concept tree must be noticeably larger');
-  assert.equal(tree.userData.referenceGLBLoaded,false,'safe local 3D placeholder');
-  const crown=tree.getObjectByName('Hand-painted old shade tree crown and branches');
-  const roots=tree.getObjectByName('Exposed hand-painted buttress roots');
-  assert.ok(crown instanceof THREE.Group);
-  assert.ok(roots instanceof THREE.Mesh);
-  const sprays=tree.getObjectByName('Reference broad hand-painted leaf sprays');
-  assert.ok(sprays instanceof THREE.InstancedMesh,'curved leaf sprays must be genuine 3D instances');
-  assert.equal(sprays.count,REFERENCE_LEAF_PASS.sprays);
-  assert.equal(sprays.userData.isTrue3D,true);
-  assert.equal(sprays.userData.leavesPerSpray,7);
-  assert.equal(sprays.geometry.userData.leafSilhouette,
-    'curved-oval-3d-with-painted-midrib');
-  assert.ok(sprays.geometry.userData.leafWidthToLength>=.5,
-    'reference foliage must be broad ovate leaves, never narrow grass blades');
-  assert.equal(sprays.geometry.userData.singleLeafBlades,7);
-  assert.ok(sprays.geometry.getAttribute('uv').count>300);
-  assert.equal(sprays.material.map.colorSpace,THREE.SRGBColorSpace);
-  assert.equal(sprays.material.toneMapped,false);
-  assert.equal(sprays.material.side,THREE.DoubleSide);
-  assert.equal(sprays.instanceColor.count,REFERENCE_LEAF_PASS.sprays);
-  assert.ok(sprays.geometry.index===null,'real curved geometry, not a billboard quad');
-  assert.equal(roots.geometry.userData.buttressRoots,8);
-  assert.equal(roots.material.toneMapped,false);
-  assert.equal(roots.material.map.colorSpace,THREE.SRGBColorSpace);
-  assert.ok(roots.material.vertexColors);
-  assert.ok(roots.geometry.getAttribute('uv').count>150);
-  assert.ok(roots.geometry.getAttribute('position').count>150);
-  assert.ok(roots.castShadow);
-  assert.ok(crown.getObjectByName('UV hand-painted tree trunk and branches'));
-  assert.ok(crown.getObjectByName('Layered individual UV-painted tree leaves'));
-  const seedlings=tree.getObjectByName('Small 3D shade plants among natural buttress roots');
-  assert.ok(seedlings instanceof THREE.InstancedMesh);
-  assert.equal(seedlings.count,19);
-  const bb=new THREE.Box3().setFromObject(tree);
-  const dims=bb.getSize(new THREE.Vector3());
-  assert.ok(dims.y>6.7&&dims.y<8.5,'tall but still playable');
-  assert.ok(dims.x>5.0&&dims.z>5.0,'a wide lush shade crown, not a pole');
-  assert.ok(dims.y>HOME.house.height,'concept tree canopy over roof height');
+  assert.equal(tree.position.x,FRONT_YARD_SENTINEL.x);
+  assert.equal(tree.position.z,FRONT_YARD_SENTINEL.z);
+  assert.equal(FRONT_YARD_SENTINEL.height,7.5);
+  assert.equal(stage.root.getObjectByName('Old fruit tree'),undefined,
+    'small orchard tree next to well removed even during loading');
+  assert.equal(stage.root.getObjectByName('Concept mature shade tree near the garden'),undefined,
+    'visually smaller second courtyard shade removed, not just hidden');
+  const smallPlants=stage.root.getObjectByName('Small 3D shade plants among natural buttress roots');
+  assert.ok(smallPlants instanceof THREE.InstancedMesh);
+  assert.equal(smallPlants.count,19,'retain living groundcover by the big roots');
+  const bark=tree.getObjectByName('UV hand-painted tree trunk and branches');
+  assert.ok(bark instanceof THREE.Mesh);
+  assert.equal(bark.material.userData.courtyardRetonedBark,true);
+  const size=new THREE.Box3().setFromObject(tree).getSize(new THREE.Vector3());
+  assert.ok(size.y>6.7&&size.y<8.5);
+  assert.ok(size.x>3.5&&size.z>3.5);
 });
 
-test('new tree is collision-aware yet keeps gate, garden, spawn and bridge clear',()=>{
+test('new sentinel collider stays away from farm, spawn, well and river crossing',()=>{
   const stage=createHomeStage(false);
-  const trunk=stage.solids.find(x=>x.label==='Mature garden canopy trunk');
-  assert.ok(trunk,'trunk should be solid, not an invisible walk-through');
-  assert.ok(trunk.half[0]>=.65&&trunk.half[0]<=.75);
-  assert.equal(trunk.center[0],CONCEPT_SHADE_TREE.x);
-  assert.equal(trunk.center[2],CONCEPT_SHADE_TREE.z);
+  const trunk=stage.solids.find(x=>x.label==='Front courtyard sentinel trunk');
+  assert.ok(trunk);
+  assert.equal(trunk.center[0],FRONT_YARD_SENTINEL.x);
+  assert.equal(trunk.center[2],FRONT_YARD_SENTINEL.z);
   assert.ok(!inside(trunk,HOME.spawn.x,HOME.spawn.z));
   assert.ok(!inside(trunk,HOME.gate.x,HOME.gate.z));
-  assert.ok(!inside(trunk,-20.5,8.3),'do not block route to the village');
-  assert.ok(!inside(trunk,-45.5,8.6),'do not block river bridge');
-  assert.ok(Math.abs(CONCEPT_SHADE_TREE.z-GARDEN.z)>GARDEN.depth/2+1.0);
-  assert.ok(plantingPlaces.length===24);
-  assert.ok(!plantingPlaces.some(p=>inside(trunk,p.x,p.z,0.5)));
-  assert.ok(stage.root.getObjectByName('Old fruit tree'),'old fruit tree preserved');
+  assert.ok(!inside(trunk,HOME.well.x,HOME.well.z));
+  assert.ok(!inside(trunk,-45.5,8.6));
+  assert.ok(plantingPlaces.every(p=>!inside(trunk,p.x,p.z,.5)));
+  assert.equal(plantingPlaces.length,24);
   assert.ok(stage.root.getObjectByName('West wooden bridge walkway'));
   assert.ok(stage.root.getObjectByName('Fine soft creek bank grass'));
 });
