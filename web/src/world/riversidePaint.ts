@@ -54,12 +54,23 @@ const grassPaint = `
       vec3 grassShade=vec3(.29,.45,.16);
       vec3 grassSun=vec3(.67,.73,.31);
       vec3 tonalWash=mix(grassShade,grassSun,clamp(.53+.21*brush+.24*pigment,0.,1.));
-      vec3 lawn=mix(painted*vec3(.94,1.12,.82),tonalWash,.34);
-      lawn*=.92+.16*brush+.13*pigment;
+      vec3 lawn=mix(painted*vec3(.94,1.12,.82),tonalWash,.46);
+      lawn*=.93+.13*brush+.12*pigment;
+      // Tiny broken pigment marks keep the foreground close to the painterly
+      // reference while the original meadow WebP remains the actual albedo.
+      // Offset each cell to avoid a regular stamped square texture.
+      vec2 cellUV=p*3.4+vec2(.27*sin(p.y*.89),.23*sin(p.x*.73));
+      vec2 cell=floor(cellUV);
+      float stipple=fract(sin(dot(cell,vec2(127.1,311.7)))*43758.5453);
+      vec2 dab=fract(cellUV)-vec2(.23+.49*stipple,.51);
+      float stroke=1.-smoothstep(.075,.24,length(vec2(dab.x*.73,dab.y*1.4)));
+      vec3 accent=mix(vec3(.34,.49,.18),vec3(.78,.80,.36),stipple);
+      lawn=mix(lawn,accent,stroke*(.07+.07*stipple));
       // A worn walk winds from the courtyard to the bridge. Individual grass
       // strokes and irregular edges show through instead of a rectangular decal.
       float east=p.x-course.x;
-      float trailZ=8.6+.52*sin(max(east-1.,0.)*.83)+.16*sin(p.x*3.+p.y*1.7);
+      float trailZ=8.6+.72*sin(max(east-1.,0.)*.37)
+        +1.35*smoothstep(4.,10.,east)+.16*sin(p.x*3.+p.y*1.7);
       float wear=(1.-smoothstep(.19,1.14,abs(p.y-trailZ)+pigment*.32))
                  *smoothstep(1.35,2.6,abs(east))*(1.-smoothstep(6.8,10.,abs(east)));
       // Narrow worn earth curls from bridge into the yard, with irregular,
