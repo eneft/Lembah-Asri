@@ -42,7 +42,7 @@ test('both riverbanks use real two-scale UV samples and non-square macro tint',(
     assert.equal((shader.fragmentShader.match(/texture2D\(/g)||[]).length,4);
     assert.match(shader.fragmentShader,/uRiverMeadowLoaded/);
     assert.match(shader.fragmentShader,/bankPigment=mix\(bankPigment,meadowPigment,meadowCover\)/);
-    assert.match(mat.customProgramCacheKey(),/riverbank-visible-ecotone-v4/);
+    assert.match(mat.customProgramCacheKey(),/riverbank-natural-ecotone-v5/);
     assert.equal(mat.map,null,'material has fallback before asynchronous painted texture load');
     assert.equal(mesh.geometry.getAttribute('uv').count,mesh.geometry.getAttribute('position').count);
   }
@@ -105,9 +105,11 @@ test('soil-to-grass boundary changes organically without past dark moss stains',
     const mesh=river.getObjectByName(name);
     const shader=compiled(mesh.material);
     assert.match(shader.fragmentShader,/mossWave/);
-    assert.match(shader.fragmentShader,/greenLip=vec3\(\.46,\.52,\.31\)/);
-    assert.match(shader.fragmentShader,/bankGrass\*\.58/);
-    assert.match(shader.fragmentShader,/bankDamp\*\.28/);
+    assert.match(shader.fragmentShader,/greenLip=lembahWarmGrass\(vec3\(\.53,\.62,\.39\)\)/);
+    assert.match(shader.fragmentShader,/bankGrass\*\.39/);
+    assert.match(shader.fragmentShader,/bankDamp\*\.17/);
+    assert.match(shader.fragmentShader,/earthWindow\*\.13/);
+    assert.equal(mesh.material.userData.bankEcotone,'natural-riverbank-stage2-v1');
     assert.doesNotMatch(shader.fragmentShader,/greenLip=vec3\(\.26,\.37,\.16\)/,
       'old nearly black moss lip must not return');
   }
@@ -123,7 +125,7 @@ test('bank lip shares world UV meadow albedo after load and keeps fallback befor
   assert.equal(shader.uniforms.uRiverMeadow.value,meadow);
   assert.equal(shader.uniforms.uRiverMeadowLoaded.value,1);
   assert.match(shader.fragmentShader,/pMeadow\/3\.5\+waveMeadow/);
-  assert.match(shader.fragmentShader,/meadowCover=1\.0-smoothstep\(\.42,\.84,crossBank\+edgeFlow\)/);
+  assert.match(shader.fragmentShader,/meadowCover=1\.0-smoothstep\(\.37,\.83,crossBank\+edgeFlow\)/);
   assert.match(shader.fragmentShader,/uvFine\.x\*\.52-uvFine\.y\*\.27\+1\.23/);
   assert.match(shader.fragmentShader,/colorWash=sin\(pMeadow\.x\*\.044\+pMeadow\.y\*\.031\)/);
   assert.equal(setRiverbankMeadowTexture(new THREE.MeshBasicMaterial(),meadow),false);
@@ -134,7 +136,7 @@ test('most of the visible above-water riverbank uses meadow rather than a brown 
   const sampleCover=(cross,z,x=0)=>{
     const wave=.085*Math.sin(z*.43+.5*Math.sin(z*.14))
       +.047*Math.sin(z*1.34-x*.21);
-    const v=Math.max(0,Math.min(1,(cross+wave-.42)/(.84-.42)));
+    const v=Math.max(0,Math.min(1,(cross+wave-.37)/(.83-.37)));
     return 1-v*v*(3-2*v);
   };
   // Existing river geometry has its waterline around the third/fourth
@@ -192,21 +194,22 @@ test('PR92-inspired riverbank gets broken warm stone near water, not a flat oval
   for(const side of ['Soft west creek bank','Soft east creek bank']){
     const bank=restored.getObjectByName(side);
     assert.equal(bank.material.userData.bankStoneRestore,
-      'pr92-inspired-broken-stone-foot-v1');
+      'natural-bank-ecotone-stage2-v1');
     const shader={
       vertexShader:'void main(){\n#include <begin_vertex>\n}',
       fragmentShader:'void main(){\n#include <map_fragment>\n#include <color_fragment>\n}',
       uniforms:{}
     };
     bank.material.onBeforeCompile(shader,{});
-    assert.match(shader.fragmentShader,/float wetFoot=1.0-smoothstep\(-.20,.09,vRiversidePosition.y\)/);
-    assert.match(shader.fragmentShader,/float stoneClusters=smoothstep\(\.20,\.79,stoneScatter\)/);
-    assert.match(shader.fragmentShader,/float stoneCover=\.08\+\.70\*wetFoot\*stoneClusters/);
+    assert.match(shader.fragmentShader,/float wetFoot=1.0-smoothstep\(-.25,-.055,waterFootHeight\)/);
+    assert.match(shader.fragmentShader,/float upperGrassGuard=smoothstep\(-.18,-.015,vRiversidePosition.y/);
+    assert.match(shader.fragmentShader,/float stoneClusters=smoothstep\(\.36,\.76,stoneScatter\)/);
+    assert.match(shader.fragmentShader,/float stoneCover=\(\.015\+\.52\*wetFoot\*stoneClusters\)\*\(1\.0-\.82\*upperGrassGuard\)/);
     assert.match(shader.fragmentShader,/texture2D\(uBankCobbles,uvB\)/);
     assert.match(shader.fragmentShader,/grassCover/);
     assert.match(shader.fragmentShader,/bankPigment/);
     assert.doesNotMatch(shader.fragmentShader,/float stoneCover=\.91/);
-    assert.match(bank.material.customProgramCacheKey(),/pr92-broken-stone-foot-v1/);
+    assert.match(bank.material.customProgramCacheKey(),/natural-bank-ecotone-stage2-v1/);
   }
   const bed=restored.getObjectByName('Visible gravel bed below clear creek water');
   assert.equal(bed.material.userData.bankStoneRestore,undefined);
@@ -226,10 +229,36 @@ test('PR92-inspired riverbank gets broken warm stone near water, not a flat oval
 
 test('rock cover fades continuously across foot and keeps a mostly grassy upper bank',()=>{
   const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
-  const cover=(height,pigment)=> .08+.70*(1-smooth(-.20,.09,height))*smooth(.20,.79,pigment);
+  const cover=(height,pigment)=>{
+    const wetFoot=1-smooth(-.25,-.055,height);
+    const grassGuard=smooth(-.18,-.015,height);
+    return (.015+.52*wetFoot*smooth(.36,.76,pigment))*(1-.82*grassGuard);
+  };
   for(const pigment of [.24,.48,.72,.93]){
     const foot=cover(-.25,pigment),mid=cover(-.08,pigment),lip=cover(.14,pigment);
     assert.ok(foot>=mid && mid>=lip,'stones should be densest by wet foot');
-    assert.ok(foot<=.781 && lip<=.081,'never turn the whole bank into a cobble wall');
+    assert.ok(foot<=.536 && lip<=.003,'never turn the whole bank into a cobble wall');
   }
+});
+
+test('stage 2 gentler bank ring profile keeps top seam and riverbed welded',()=>{
+  const river=createHomeCreek();
+  for(const name of ['Soft west creek bank','Soft east creek bank']){
+    const mesh=river.getObjectByName(name);
+    const position=mesh.geometry.getAttribute('position');
+    const span=7,at=Math.floor((position.count/span-1)*.6);
+    const ys=Array.from({length:span},(_,j)=>position.getY(at*span+j));
+    for(let j=1;j<span;j++){
+      assert.ok(ys[j]<ys[j-1]+.015,'bank surface must descend toward water');
+    }
+    assert.ok(ys[2]>-.05 && ys[2]<.02,'warm soil shelf begins near ground');
+    assert.ok(ys[3]>-.20 && ys[3]<-.09,'earth middle is gently sloped');
+    assert.ok(ys[4]>-.37 && ys[4]<-.27,'damp foot is beneath water edge');
+    assert.ok(ys[5]>-.52 && ys[5]<-.48,'last ledge remains above gravel bed');
+    assert.ok(Math.abs(ys[6]-CREEK.bedY)<1e-5,'bed contact is never changed');
+  }
+  const water=river.getObjectByName('Shallow stream west of childhood home');
+  const bed=river.getObjectByName('Visible gravel bed below clear creek water');
+  assert.equal(water.material.userData.bankEcotone,undefined);
+  assert.equal(bed.material.userData.bankEcotone,undefined);
 });
