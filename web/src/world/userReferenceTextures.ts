@@ -212,7 +212,7 @@ export function applyUserReferenceTreeTextures(
   // Keep the imported 3D branches and alpha-cutout leaves, but mute the
   // busy inner canopy. The larger curved leaf sprays provide the silhouette.
   crown.traverse(obj=>{
-    if(!(obj instanceof THREE.Mesh)||!/leaf|canopy|crown/i.test(obj.name))return;
+    if(!(obj instanceof THREE.Mesh)||!/leaf|leav|alpha|canopy|crown/i.test(obj.name))return;
     const mats=Array.isArray(obj.material)?obj.material:[obj.material];
     const corrected=mats.map(material=>{
       if(!(material instanceof THREE.MeshBasicMaterial))return material;
