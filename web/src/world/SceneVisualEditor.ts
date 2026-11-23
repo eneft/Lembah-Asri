@@ -115,7 +115,6 @@ export class SceneVisualEditor {
     this.transform.addEventListener('dragging-changed', event => {
       this.orbit.enabled = this.active && !event.value;
     });
-    this.transform.addEventListener('objectChange', () => this.changed(this.snapshot()));
     this.transform.addEventListener('mouseUp', () => {
       this.recordSelected();
       this.persist();
@@ -157,7 +156,7 @@ export class SceneVisualEditor {
       const ordinal = (siblings.get(keyBase) || 0) + 1;
       siblings.set(keyBase, ordinal);
       const id = keyBase + '#' + ordinal;
-      const locked = LOCKED.test(label + ' ' + group) || object instanceof THREE.InstancedMesh;
+      const locked = LOCKED.test(label) || object instanceof THREE.InstancedMesh;
       const info = { id, label, locked, group };
       next.set(id, { object, info });
       const existing = this.defaults.get(id);
@@ -206,8 +205,7 @@ export class SceneVisualEditor {
   }
 
   tick(now: number) {
-    if (!this.active) return;
-    this.orbit.update();
+    if (this.active) this.orbit.update();
     if (now - this.lastScan > 1800) {
       this.lastScan = now;
       this.refresh();
