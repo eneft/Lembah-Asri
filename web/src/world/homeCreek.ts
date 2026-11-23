@@ -17,13 +17,13 @@ export const CREEK_PAINTED_TEXTURES=Object.freeze({
   water:'./textures/terrain/creek_water_painterly_illustrated.webp',
   bank:'./textures/terrain/creek_bank_painted.webp'
 });
-export const CREEK_FOAM_ART='./textures/terrain/creek_foam_original_painterly_atlas.png';
-// TRUE alpha raster pixels extracted from the user's original generated foam sheet,
-// not the traced SVG approximation. Twelve individually isolated hand-painted
-// eddies and stream-strokes occupy a 3×4 packed RGBA atlas for mobile rendering.
+export const CREEK_FOAM_ART='./textures/terrain/creek_foam_painterly_restored_v2.png';
+// Corrected source-image alpha. Earlier atlas construction multiplied int16*255,
+// overflowing and erasing the brightest white paint (most alpha < 130).
+// This regenerated 3x4 atlas preserves fully opaque original brushwork.
 export const CREEK_FOAM_FLOW=Object.freeze({
-  metresPerSecond:.11, intervalMetres:7.9, columns:3, rows:4,
-  longitudinalCoverage:.155, transverseCoverage:.215, opacityFraction:.62
+  metresPerSecond:.11, intervalMetres:5.9, columns:3, rows:4,
+  longitudinalCoverage:.235, transverseCoverage:.245, opacityFraction:.80
 });
 export const CREEK_WATER_UV=Object.freeze({
   // Same 160 m ribbon and existing six-width-row geometry.
@@ -263,7 +263,7 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
     map:water?makeCreekAlbedo():bed?makeCreekBedAlbedo():
       foam?makeCreekFoamAlbedo():null,
     vertexColors:true,toneMapped:false,side:THREE.DoubleSide,
-    transparent:water||foam,opacity:water?.90:foam?.59:1,
+    transparent:water||foam,opacity:water?.90:foam?.70:1,
     depthWrite:!water&&!foam
   });
   if(side===-1||side===1){
@@ -306,8 +306,8 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
               // NEVER full-width white patches (as on the rejected iPhone shot).
               // The stream flows +Z; only the small pocket moves, not its bed.
               float downstream=vFoamWorldXZ.y+79.5-uFoamSeconds*.11;
-              float section=floor(downstream/7.9);
-              float advance=fract(downstream/7.9);
+              float section=floor(downstream/5.9);
+              float advance=fract(downstream/5.9);
               float seed=fract(sin(section*127.1+5.73)*43758.5453);
               float variant=floor(seed*12.);
               float col=mod(variant,3.);
@@ -315,10 +315,10 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
               // Concentrate short foam marks in one side of the current;
               // bend/rock eddies are reinforced by the existing 7 local wakes.
               float targetAcross=mix(.25,.75,step(.5,fract(seed*11.71)));
-              // Small readable swirls and broken ripples, ~1.2m long and
-              // <1m wide. Never spread an atlas cell over the entire stream.
-              vec2 decal=vec2((advance-.52)/.155+.5,
-                (vFoamAcross-targetAcross)/.215+.5);
+              // Full painted curls are ~1.4m long and <1m wide, never
+              // stretching to a whole-stream white cloud.
+              vec2 decal=vec2((advance-.52)/.235+.5,
+                (vFoamAcross-targetAcross)/.245+.5);
               // The user-approved raster already has hand-painted transparent
               // fringes. Artificial smoothstep feathers destroyed its brushwork.
               // Keep its ORIGINAL per-pixel alpha, cut only outside this decal.
@@ -327,8 +327,8 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
               vec2 local=clamp(decal,vec2(.004),vec2(.996));
               vec2 atlasUV=vec2((col+local.x)/3.,(3.-row+local.y)/4.);
               vec4 paintedFoam=texture2D(map,atlasUV);
-              float sporadic=step(.31,seed);
-              float paintedStroke=paintedFoam.a*inside*sporadic*.62;
+              float sporadic=step(.24,seed);
+              float paintedStroke=paintedFoam.a*inside*sporadic*.80;
               diffuseColor.rgb*=paintedFoam.rgb;
               diffuseColor.a*=paintedStroke;
             } else {
@@ -338,7 +338,7 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
         `);
     };
     const cache=material.customProgramCacheKey.bind(material);
-    material.customProgramCacheKey=()=>cache()+'|original-raster-foam-flow-v3';
+    material.customProgramCacheKey=()=>cache()+'|restored-source-alpha-foam-flow-v4';
     mesh.userData.foamTimeUniform=foamClock;
     mesh.userData.foamAtlasReady=atlasReady;
     mesh.userData.flowDirection='positive-Z';

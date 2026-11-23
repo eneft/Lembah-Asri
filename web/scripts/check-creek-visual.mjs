@@ -89,19 +89,40 @@ try{
   await mkdir('artifacts/creek',{recursive:true});
   await page.waitForFunction(()=>window.__lembahVisualQA.scene
     .getObjectByName('Rumah Masa Kecil / Playable House Garden')?.userData.paintedCreekLoaded);
-  assert.ok(assets.has(prefix+'textures/terrain/creek_foam_original_painterly_atlas.png'),
+  assert.ok(assets.has(prefix+'textures/terrain/creek_foam_painterly_restored_v2.png'),
     'the new foam image must actually load in the production browser');
   const foamState=await page.evaluate(()=>{
     const stage=window.__lembahVisualQA.scene.getObjectByName('Rumah Masa Kecil / Playable House Garden');
     const foam=stage.getObjectByName('Illustrated river foam and flow trails');
+    const image=foam.material.map?.image;
+    const cvs=document.createElement('canvas');
+    cvs.width=image?.naturalWidth??image?.width??0;
+    cvs.height=image?.naturalHeight??image?.height??0;
+    const ctx=cvs.getContext('2d',{willReadFrequently:true});
+    if(ctx && cvs.width && cvs.height)ctx.drawImage(image,0,0);
+    const rgba=ctx&&cvs.width&&cvs.height?ctx.getImageData(0,0,cvs.width,cvs.height).data:[];
+    let maxAlpha=0,strongCount=0;
+    for(let i=3;i<rgba.length;i+=4){
+      maxAlpha=Math.max(maxAlpha,rgba[i]);
+      if(rgba[i]>200)strongCount++;
+    }
     return {loaded:stage.userData.paintedFoamLoaded,
       atlas:foam.userData.foamAtlasSource,
       ready:foam.userData.foamAtlasReady.value,
-      clock:foam.userData.foamTimeUniform.value};
+      clock:foam.userData.foamTimeUniform.value,
+      imageWidth:cvs.width,imageHeight:cvs.height,
+      maxAlpha,strongCount,
+      materialOpacity:foam.material.opacity};
   });
   assert.equal(foamState.loaded,true,'the generated decal atlas should be active');
   assert.equal(foamState.ready,1);
-  assert.equal(foamState.atlas,'./textures/terrain/creek_foam_original_painterly_atlas.png');
+  assert.equal(foamState.atlas,'./textures/terrain/creek_foam_painterly_restored_v2.png');
+  assert.equal(foamState.imageWidth,480);
+  assert.equal(foamState.imageHeight,480);
+  assert.ok(foamState.maxAlpha>=240,'foam sprite bright cores must not disappear');
+  assert.ok(foamState.strongCount>15000,
+    'browser texture must retain bright painted foam, not merely faint outlines');
+  assert.ok(foamState.materialOpacity>=.69);
   assert.ok(foamState.clock>0,'foam clock advances with the water animation');
   for(const file of ['creek_cobbles.webp','creek_meadow.webp']){
     assert.ok(assets.has(prefix+'textures/terrain/'+file),'missing live creek image '+file);
