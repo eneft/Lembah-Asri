@@ -15,7 +15,7 @@ import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerra
 import { applyRiversidePaint } from './riversidePaint.ts';
 import { applyCreekCourtyardAlbedo } from './shoreCourtyard.ts';
 import { applyWarmCourtyardGrass } from './grassPalette.ts';
-import { softenPaintedPBR } from './sceneArtDirection.ts';
+import { createHousePainterlyMaterial } from './housePainterlyMaterial.ts';
 import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { loadUserSuppliedWoodenBridge } from './uploadedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
@@ -28,7 +28,7 @@ import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
 export const HOME = {
   // Option B: ~74% larger linear footprint than the previously rendered
   // 5.5 m imported GLB. Keep X/Z scale uniform to preserve the approved art.
-  house: { x: -32.5, z: -9.4, width: 9.6, depth: 9.6, height: 5.85 },
+  house: { x: -32.5, z: -8.45, width: 12, depth: 12, height: 7.3125 },
   spawn: { x: -29.5, y: 1.2, z: 7.4 },
   gate: { x: -16.5, z: 9 },
   villageRoad: { x: 0, z: 9 },
@@ -131,7 +131,7 @@ function buildLocalHouseFallback(root: THREE.Object3D): THREE.Group {
   // The original FBX-independent fallback was smaller than the approved GLB.
   // Increase its footprint, veranda and roof as one coherent backup building.
   // Leave the approved imported GLB unchanged.
-  group.scale.set(1.28, 1.38, 1.15);
+  group.scale.set(1.6, 1.725, 1.4375);
   root.add(group);
 
   const plaster = mat('#e7ddbc');
@@ -567,14 +567,14 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     scene.name = 'Rumah utama - user uploaded PBR';
     scene.userData.sourceFile='base_basic_pbr.glb';
     scene.userData.uvPreserved=true;
-    scene.userData.pbrPreserved=true;
-    // Do NOT apply the unlit MeshBasicMaterial helper: it would silently
-    // discard this house's authored normal and metallic-roughness maps.
+    scene.userData.pbrPreserved=false;
+    scene.userData.painterlyShader=true;
+    // Use a non-PBR diffuse shader; retain source GLB and authored albedo UVs.
     let houseMeshes=0;
     scene.traverse(obj=>{
       if(!(obj instanceof THREE.Mesh))return;
       const materials=Array.isArray(obj.material)?obj.material:[obj.material];
-      for(const material of materials){
+      const painted = materials.map(material=>{
         if(!(material instanceof THREE.MeshStandardMaterial)
           || !material.map || !material.normalMap
           || !material.roughnessMap || !material.metalnessMap){
@@ -588,8 +588,9 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
         }
         // Retain the exact GLB textures and UVs, but reduce hard PBR
         // highlights to match surrounding soft hand-painted objects.
-        softenPaintedPBR(material, 'house');
-      }
+        return createHousePainterlyMaterial(material);
+      });
+      obj.material=Array.isArray(obj.material)?painted:painted[0];
       obj.castShadow=true;
       obj.receiveShadow=true;
       houseMeshes++;

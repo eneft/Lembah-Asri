@@ -195,13 +195,25 @@ try{
   for(const file of ['creek_cobbles.webp','creek_meadow.webp']){
     assert.ok(assets.has(prefix+'textures/terrain/'+file),'missing live creek image '+file);
   }
+  await page.waitForFunction(()=>{
+    const scene=window.__lembahVisualQA.scene;
+    return ['Island horizon - north sea, east village, south forest, west mountain',
+      'Rolling meadow outside playable ground','Middle-distance orchard, forest and coastal palms']
+      .every(name=>scene.getObjectByName(name)?.material?.map?.image?.width>0);
+  },null,{timeout:120000});
   const vista=await page.evaluate(()=>{
-    const root=window.__lembahVisualQA.scene.getObjectByName('Distant Lembah Asri landscape 360');
-    return root?.userData;
+    const scene=window.__lembahVisualQA.scene;
+    const horizon=scene.getObjectByName('Island horizon - north sea, east village, south forest, west mountain');
+    const meadow=scene.getObjectByName('Rolling meadow outside playable ground');
+    const groves=scene.getObjectByName('Middle-distance orchard, forest and coastal palms');
+    const p=horizon.geometry.getAttribute('position'), uv=horizon.geometry.getAttribute('uv');
+    return {width:horizon.material.map.image.width,height:horizon.material.map.image.height,
+      seam:[p.getX(0),p.getY(0),p.getZ(0)].every((v,i)=>v===[p.getX(p.count-7),p.getY(p.count-7),p.getZ(p.count-7)][i]),
+      uvClosed:uv.getX(0)===0 && uv.getX(p.count-7)===1,
+      meadow:!!meadow.material.map.image,groves:!!groves.material.map.image};
   });
-  assert.equal(vista?.style,'layered-painterly-javanese-valley-v1');
-  assert.equal(vista.trees,460);
-  assert.equal(vista.houses,14);
+  assert.ok(vista.width>=6000 && vista.height>=178 && vista.seam && vista.uvClosed);
+  assert.ok(vista.meadow && vista.groves,'all landscape layers must load in the production browser');
   const arrival=await page.evaluate(()=>window.__lembahVisualQA.player.translation());
   assert.ok(Math.abs(arrival.x+42.40)<.12 && Math.abs(arrival.z-10.95)<.12,
     'the riverside link should place the player at the near end of the bridge');
@@ -255,6 +267,7 @@ try{
       triangles:model.geometry.index?.count/3,
       hasUV:!!model.geometry.getAttribute('uv'),
       standardPBR:m.isMeshStandardMaterial===true,
+      painterly:m.userData.housePainterlyShader,
       baseColor:!!m.map,normal:!!m.normalMap,
       rough:!!m.roughnessMap,metal:!!m.metalnessMap,
       box:[size.x,size.y,size.z]
@@ -262,12 +275,11 @@ try{
   });
   assert.equal(importedHouse.sourceFile,'base_basic_pbr.glb');
   assert.equal(importedHouse.triangles,100000);
-  assert.ok(importedHouse.hasUV && importedHouse.standardPBR
-    && importedHouse.baseColor && importedHouse.normal
-    && importedHouse.rough && importedHouse.metal,'user PBR materials and UVs remain intact');
-  assert.ok(importedHouse.box[0]>7.2 && importedHouse.box[0]<9.7);
-  assert.ok(importedHouse.box[1]>5.7 && importedHouse.box[1]<6.1);
-  assert.ok(importedHouse.box[2]>8.5 && importedHouse.box[2]<9.7);
+  assert.ok(importedHouse.hasUV && !importedHouse.standardPBR && importedHouse.baseColor);
+  assert.equal(importedHouse.painterly,'house-diffuse-painterly-v1');
+  assert.ok(importedHouse.box[0]>9 && importedHouse.box[0]<12.1);
+  assert.ok(importedHouse.box[1]>7.1 && importedHouse.box[1]<7.5);
+  assert.ok(importedHouse.box[2]>10.6 && importedHouse.box[2]<12.1);
   assert.ok([...assets].some(url=>url.includes('rumah_utama_user_pbr.glb')));
   // Stage 5: inspect the actual WebGL scene after the imported 100k-triangle
   // PBR house finishes loading. Do not infer successful rendering from source.
@@ -289,7 +301,7 @@ try{
       fogNear:scene.fog?.near,fogFar:scene.fog?.far,
       envIntensity:scene.environmentIntensity,
       housePBR:material?.isMeshStandardMaterial===true,
-      houseStyle:material?.userData?.painterlyPBR,
+      houseStyle:material?.userData?.housePainterlyShader,
       houseMaps:[material?.map,material?.normalMap,
         material?.roughnessMap,material?.metalnessMap].every(Boolean),
       roughness:material?.roughness,metalness:material?.metalness,
@@ -305,10 +317,8 @@ try{
   assert.equal(daylight.envIntensity,.3);
   assert.equal(daylight.fogNear,38);
   assert.equal(daylight.fogFar,115);
-  assert.ok(daylight.housePBR&&daylight.houseMaps);
-  assert.equal(daylight.houseStyle,daylight.style);
-  assert.ok(daylight.roughness>=.82 && daylight.metalness<=.22);
-  assert.ok(Math.abs(daylight.normalScale)<=.62);
+  assert.equal(daylight.housePBR,false);
+  assert.equal(daylight.houseStyle,'house-diffuse-painterly-v1');
   assert.equal(daylight.shadowOpacity,.34);
   // Stage 1: compare the actual materials in the production WebGL scene.
   // Every grass source uses one finish; water is never treated as foliage.

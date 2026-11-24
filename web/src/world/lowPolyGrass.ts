@@ -62,7 +62,7 @@ export function isGrassAllowed(x: number, z: number): boolean {
   // Main home-to-village dirt route
   if (x >= -20 && x <= 3 && Math.abs(z - 9) < 2.55) return false;
   // Protagonist's home footprint and expanded front entry
-  if (Math.abs(x + 32.5) < 6 && Math.abs(z + 9.4) < 6.2) return false;
+  if (Math.abs(x + 32.5) < 7.2 && Math.abs(z + 8.45) < 7.4) return false;
   if (Math.abs(x + 32.5) < 3.0 && z > -4.8 && z < 10.4) return false;
   // The central childhood earth courtyard is worn/bare, not a meadow. Keep
   // growth mainly at the edges near the fence and on the grass beyond.
