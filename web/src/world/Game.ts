@@ -23,7 +23,7 @@ import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrain
 import { createInstancedGrass } from './lowPolyGrass';
 import { applyLembahDaylight, LEMBAH_DAYLIGHT } from './sceneArtDirection';
 import { createOutskirts } from './islandOutskirts';
-import { createDistantValley } from './distantValley';
+import { createDistantValley, createNorthHomePanorama } from './distantValley';
 import { createWarungStage } from './warungStage';
 import {
   configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
@@ -534,6 +534,7 @@ export class Game {
       loadWorldTexture('textures/terrain/island-groves.webp'));
     this.scene.add(...this.outskirts);
     this.panorama = createDistantValley(horizon);
+    this.panorama.add(createNorthHomePanorama(loadWorldTexture('textures/terrain/north-home-panorama.webp?v=1')));
     this.scene.add(this.panorama);
   }
   private addBuilding(x:number,z:number,name:string,walls:string,roofColor:string) {
@@ -737,6 +738,13 @@ export class Game {
       layer.material.dispose();
     }
     if (this.panorama) {
+      for (const child of this.panorama.children) {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
+          child.material.map?.dispose();
+          child.material.dispose();
+          child.geometry.dispose();
+        }
+      }
       this.panorama.material.map?.dispose();
       this.panorama.material.dispose();
       this.panorama.geometry.dispose();
