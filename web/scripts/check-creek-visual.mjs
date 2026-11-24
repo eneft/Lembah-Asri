@@ -223,25 +223,35 @@ try{
   await page.waitForFunction(()=>!!window.__lembahVisualQA.scene.getObjectByName('Home fence — uploaded GLB'),null,{timeout:120000});
   const fence=await page.evaluate(()=>{
     const group=window.__lembahVisualQA.scene.getObjectByName('Home fence — uploaded GLB');
-    return group.children.map(mesh=>{
-      const m=mesh.instanceMatrix.array;
-      const size=mesh.geometry.boundingBox;
+    return group.children.map(run=>{
+      const wood=run.getObjectByName('Continuous authored bamboo');
+      const vines=run.getObjectByName('Climbing vines — painted 3D');
+      const meshes=wood.children;
       let uniform=true;
-      for(let i=0;i<mesh.count;i++){
-        const o=i*16;
-        const x=Math.hypot(m[o],m[o+1],m[o+2]);
-        const y=Math.hypot(m[o+4],m[o+5],m[o+6]);
-        const z=Math.hypot(m[o+8],m[o+9],m[o+10]);
-        uniform &&= Math.abs(x-y)<1e-5 && Math.abs(y-z)<1e-5;
+      for(const mesh of meshes){
+        const m=mesh.instanceMatrix.array;
+        for(let i=0;i<mesh.count;i++){
+          const o=i*16;
+          const x=Math.hypot(m[o],m[o+1],m[o+2]);
+          const y=Math.hypot(m[o+4],m[o+5],m[o+6]);
+          const z=Math.hypot(m[o+8],m[o+9],m[o+10]);
+          uniform &&= Math.abs(x-y)<1e-5 && Math.abs(y-z)<1e-5;
+        }
       }
-      return {uniform,count:mesh.count,depth:mesh.userData.moduleDepth,length:mesh.userData.runLength,
-        source:mesh.userData.sourceFile,hasUV:!!mesh.geometry.getAttribute('uv'),
-        hasMap:!!mesh.material.map?.image,hasBounds:!!size};
+      const count=meshes.reduce((n,m)=>n+m.count,0);
+      return {uniform,count,depth:run.userData.moduleDepth,length:run.userData.runLength,
+        source:run.userData.sourceFile,hasUV:meshes.every(m=>!!m.geometry.getAttribute('uv')),
+        hasMap:meshes.every(m=>!!m.material.map?.image),hasBounds:meshes.every(m=>!!m.geometry.boundingBox),
+        singleSeam:count===1||(meshes.length===2&&meshes[0].count===1&&meshes[1].geometry.boundingBox.min.x>meshes[0].geometry.boundingBox.min.x),
+        leaves:vines.userData.leafCount,clusters:vines.userData.clusters,
+        realLeaves:vines.userData.leafCount===0||vines.getObjectByName('Climbing vine leaves')?.count===vines.userData.leafCount};
     });
   });
   assert.equal(fence.length,6);
   assert.ok(fence.every(f=>f.uniform && f.count>0 && f.source==='base_basic_shaded (1).glb' && f.hasUV && f.hasMap && f.hasBounds));
   assert.ok(fence.filter(f=>f.length>=19).every(f=>f.depth>.4),'long fences preserve their original 3D depth');
+  assert.ok(fence.every(f=>f.singleSeam),'interior joins must omit duplicated end posts');
+  assert.ok(fence.every(f=>f.realLeaves && (f.length<4?f.clusters===0:f.leaves>=f.clusters*12 && f.clusters>0)),'sparse volumetric climbing leaves on long fence runs');
   assert.ok(assets.has(prefix+'models/environment/home-fence-module.glb'));
   const arrival=await page.evaluate(()=>window.__lembahVisualQA.player.translation());
   assert.ok(Math.abs(arrival.x+42.40)<.12 && Math.abs(arrival.z-10.95)<.12,
