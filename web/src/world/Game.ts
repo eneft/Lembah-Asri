@@ -14,7 +14,7 @@ import { sculptGardenGround, gardenHeightAt, type GardenGround } from './gardenL
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 import { HOME_SCENIC_CAMERA } from './homeScenicCamera';
 import { bridgeWalkHeightAt, makeBridgeWalkCollider } from './paintedBridge';
-import { installCreekCollision } from './creekCollision';
+import { installCreekCollision, guardCreekPlayerMovement } from './creekCollision';
 import { applyRiversidePaint } from './riversidePaint';
 import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
 import { applyMeadowAntiTileShader } from './meadowAntiTile';
@@ -604,9 +604,16 @@ export class Game {
       while(this.accumulator>=fixedStep){
         this.previousPhysicsPosition.copy(this.currentPhysicsPosition);
         this.world.timestep=fixedStep;
+        const before=this.player.translation();
         this.world.step();
         const stepped=this.player.translation();
-        this.currentPhysicsPosition.set(stepped.x,stepped.y,stepped.z);
+        const safe=guardCreekPlayerMovement(before,stepped);
+        if(safe.blocked){
+          const v=this.player.linvel();
+          this.player.setTranslation({x:safe.x,y:stepped.y,z:safe.z},true);
+          this.player.setLinvel({x:Math.abs(safe.x-stepped.x)>1e-5?0:v.x,y:v.y,z:Math.abs(safe.z-stepped.z)>1e-5?0:v.z},true);
+        }
+        this.currentPhysicsPosition.set(safe.x,stepped.y,safe.z);
         this.accumulator-=fixedStep;
       }
       const p=this.player.translation();

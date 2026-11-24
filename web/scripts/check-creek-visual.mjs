@@ -422,6 +422,45 @@ try{
   assert.equal(bankRestore.bed,undefined);
   assert.ok(assets.has(prefix+'textures/terrain/creek_water_painterly_illustrated.webp'));
   assert.ok(assets.has(prefix+'models/environment/lembah_asri_rocks_original_16.glb'));
+  // Drive the actual game controller with the same input methods as the mobile
+  // joystick. This is not a separately constructed test physics world.
+  console.log('Starting live mobile controller collision verification after visual captures');
+  const motion=await page.evaluate(async()=>{
+    const game=window.__lembahVisualQA;
+    const frame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+    async function run(x,z,direction,frames,jump=false){
+      game.setTouchMove(0,0);game.setTouchRun(false);
+      game.player.setTranslation({x,y:.86,z},true);
+      game.player.setLinvel({x:0,y:0,z:0},true);
+      game.currentPhysicsPosition.set(x,.86,z);game.previousPhysicsPosition.copy(game.currentPhysicsPosition);
+      game.yaw=0;
+      for(let i=0;i<15;i++)await frame();
+      game.setTouchRun(true);game.setTouchMove(direction,0);
+      if(jump)game.triggerJump();
+      for(let i=0;i<frames;i++)await frame();
+      game.setTouchMove(0,0);game.setTouchRun(false);
+      const p=game.player.translation();return {x:p.x,y:p.y,z:p.z};
+    }
+    // Visual QA above already exercised the real renderer and captured all
+    // requested views. Software WebGL in CI can take seconds per frame; for
+    // input-only verification suppress drawing, not the game loop, Rapier
+    // steps, input processing, animations or runtime movement guard.
+    const render=game.renderer.render;
+    game.renderer.render=()=>{};
+    try {
+      const west=await run(-50,0,1,120,true);
+      const east=await run(-41.6,0,-1,120);
+      const bridge=await run(-49.4,8.6,1,180);
+      return {west,east,bridge};
+    } finally {
+      game.setTouchMove(0,0);game.setTouchRun(false);
+      game.renderer.render=render;
+    }
+  });
+  assert.ok(motion.west.x<-47.1,'live mobile run+jump cannot enter west bank: '+JSON.stringify(motion));
+  assert.ok(motion.east.x>-43.7,'live mobile run cannot enter east bank: '+JSON.stringify(motion));
+  assert.ok(motion.bridge.x>-42.8,'live controller must still cross the real bridge: '+JSON.stringify(motion));
+  console.log('Live bridge-only creek collision verified',JSON.stringify(motion));
   assert.deepEqual(errors,[]);
   console.log('Rendered restored pre-PR93 orchard and unchanged creek bridge:',JSON.stringify({bridge:facts,tree:orchard}));
 }finally{

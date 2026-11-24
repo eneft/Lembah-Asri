@@ -46,7 +46,7 @@ test('the real static collision surface uses upward triangles welded to ramps',(
 // Load the same ES build that Vite uses, without changing production imports.
 const RAPIER = await import(new URL('rapier.es.js',import.meta.resolve('@dimforge/rapier3d-compat')).href);
 import { CREEK, creekCenterX } from '../src/world/creekCourse.ts';
-import { CREEK_COLLISION, creekCollisionBanks, makeCreekCollisionVolumes, installCreekCollision } from '../src/world/creekCollision.ts';
+import { CREEK_COLLISION, creekCollisionBanks, makeCreekCollisionVolumes, installCreekCollision, creekPlayerForbidden, guardCreekPlayerMovement, CREEK_PLAYER_RADIUS } from '../src/world/creekCollision.ts';
 
 test('solid creek follows both meandering banks and stops exactly at bridge deck edges',()=>{
   const volumes=makeCreekCollisionVolumes(),cfg=CREEK_COLLISION;
@@ -118,4 +118,26 @@ test('Rapier stops walking, sprinting and jumping across the creek on either ban
     }
     assert.ok(player.translation().z< CREEK_COLLISION.bridgeMax,'bridge side also blocks entry into water');
   } finally { world.free(); }
+});
+
+test('runtime guard rejects swept crossings, keeps dry feet and preserves the real bridge opening',()=>{
+  for(const z of [-79,-50,-5.5,0,18,50,79]){
+    const [west,east]=creekCollisionBanks(z);
+    const a={x:west-1,z},b={x:east+1,z};
+    assert.equal(creekPlayerForbidden(creekCenterX(z),z),true);
+    const left=guardCreekPlayerMovement(a,b),right=guardCreekPlayerMovement(b,a);
+    assert.ok(left.blocked&&left.x<=west-CREEK_PLAYER_RADIUS+1e-5);
+    assert.ok(right.blocked&&right.x>=east+CREEK_PLAYER_RADIUS-1e-5);
+    assert.equal(creekPlayerForbidden(left.x,left.z),false);
+    assert.equal(creekPlayerForbidden(right.x,right.z),false);
+    const recovery=guardCreekPlayerMovement({x:creekCenterX(z),z},{x:creekCenterX(z),z});
+    assert.ok(recovery.blocked&&!creekPlayerForbidden(recovery.x,recovery.z));
+  }
+  const z=BRIDGE_DECK.z;
+  const crossing=guardCreekPlayerMovement({x:BRIDGE_WALK.startX-1,z},{x:BRIDGE_WALK.endX+1,z});
+  assert.equal(crossing.blocked,false);
+  const flank=guardCreekPlayerMovement({x:BRIDGE_DECK.x,z},{x:BRIDGE_DECK.x,z:z+2});
+  assert.ok(flank.blocked&&flank.z<=CREEK_COLLISION.bridgeMax-CREEK_PLAYER_RADIUS+1e-5);
+  const diagonal=guardCreekPlayerMovement({x:-50,z:6.4},{x:-40,z:10.5});
+  assert.ok(diagonal.blocked,'diagonal shortcuts cannot skip the banks');
 });
