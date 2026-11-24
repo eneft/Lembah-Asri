@@ -243,7 +243,7 @@ try{
         source:run.userData.sourceFile,hasUV:meshes.every(m=>!!m.geometry.getAttribute('uv')),
         hasMap:meshes.every(m=>!!m.material.map?.image),hasBounds:meshes.every(m=>!!m.geometry.boundingBox),
         singleSeam:count===1||(meshes.length===2&&meshes[0].count===1&&meshes[1].geometry.boundingBox.min.x>meshes[0].geometry.boundingBox.min.x),
-        leaves:vines.userData.leafCount,clusters:vines.userData.clusters,
+        leaves:vines.userData.leafCount,clusters:vines.userData.clusters,branches:vines.userData.branches,rootGrass:vines.userData.rootGrass,
         realLeaves:vines.userData.leafCount===0||vines.getObjectByName('Climbing vine leaves')?.count===vines.userData.leafCount};
     });
   });
@@ -251,7 +251,7 @@ try{
   assert.ok(fence.every(f=>f.uniform && f.count>0 && f.source==='base_basic_shaded (1).glb' && f.hasUV && f.hasMap && f.hasBounds));
   assert.ok(fence.filter(f=>f.length>=19).every(f=>f.depth>.4),'long fences preserve their original 3D depth');
   assert.ok(fence.every(f=>f.singleSeam),'interior joins must omit duplicated end posts');
-  assert.ok(fence.every(f=>f.realLeaves && (f.length<4?f.clusters===0:f.leaves>=f.clusters*12 && f.clusters>0)),'sparse volumetric climbing leaves on long fence runs');
+  assert.ok(fence.every(f=>f.realLeaves && (f.length<4?f.clusters===0:f.leaves>=f.clusters*31 && f.clusters>0 && f.branches===f.clusters*3 && f.rootGrass===f.clusters*10)),'sparse volumetric climbing leaves on long fence runs');
   assert.ok(assets.has(prefix+'models/environment/home-fence-module.glb'));
   const arrival=await page.evaluate(()=>window.__lembahVisualQA.player.translation());
   assert.ok(Math.abs(arrival.x+42.40)<.12 && Math.abs(arrival.z-10.95)<.12,
@@ -354,11 +354,11 @@ try{
   assert.equal(daylight.fill,.3);
   assert.equal(daylight.exposure,1);
   assert.equal(daylight.envIntensity,.3);
-  assert.equal(daylight.fogNear,38);
-  assert.equal(daylight.fogFar,115);
+  assert.equal(daylight.fogNear,64);
+  assert.equal(daylight.fogFar,190);
   assert.equal(daylight.housePBR,false);
   assert.equal(daylight.houseStyle,'house-diffuse-painterly-v1');
-  assert.equal(daylight.shadowOpacity,.34);
+  assert.equal(daylight.shadowOpacity,.43);
   // Stage 1: compare the actual materials in the production WebGL scene.
   // Every grass source uses one finish; water is never treated as foliage.
   const meadowStyle=await page.evaluate(()=>{
