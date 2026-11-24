@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { serializeWorldScene } from './worldExport';
+import { serializeWorldProject } from './worldExport';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { createPaintedStoryTree } from './paintedTrees';
@@ -69,7 +69,7 @@ export class Game {
 
   async exportWorldJSON(): Promise<string> {
     await Promise.all(this.worldExportAssets);
-    return serializeWorldScene(this.scene, new Set([this.playerMesh, this.characterContactShadow]));
+    return serializeWorldProject(this.scene, new Set([this.playerMesh, this.characterContactShadow]));
   }
 
   setFarmListener(fn?: (hud: FarmHUD | null) => void) { this.farm.setListener(fn); }
