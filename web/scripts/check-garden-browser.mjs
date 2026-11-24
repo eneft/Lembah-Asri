@@ -95,10 +95,13 @@ try {
   const downloadPromise=page.waitForEvent('download',{timeout:150_000});
   await page.getByRole('button',{name:'Export World JSON',exact:true}).click();
   const download=await downloadPromise;
-  assert.equal(download.suggestedFilename(),'Lembah-Asri-World.json');
-  const worldPath='artifacts/world/Lembah-Asri-World.json';
+  assert.equal(download.suggestedFilename(),'Lembah-Asri-World-Editor.json');
+  const worldPath='artifacts/world/Lembah-Asri-World-Editor.json';
   await download.saveAs(worldPath);
-  const exported=JSON.parse(await readFile(worldPath,'utf8'));
+  const project=JSON.parse(await readFile(worldPath,'utf8'));
+  assert.equal(project.metadata.type,'App');
+  assert.ok(project.camera.object.type==='PerspectiveCamera');
+  const exported=project.scene;
   assert.equal(exported.object.type,'Scene');
   assert.equal(exported.metadata.type,'Object');
   const names=new Set();
