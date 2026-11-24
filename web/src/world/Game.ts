@@ -14,6 +14,7 @@ import { sculptGardenGround, gardenHeightAt, type GardenGround } from './gardenL
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 import { HOME_SCENIC_CAMERA } from './homeScenicCamera';
 import { bridgeWalkHeightAt, makeBridgeWalkCollider } from './paintedBridge';
+import { installCreekCollision } from './creekCollision';
 import { applyRiversidePaint } from './riversidePaint';
 import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
 import { applyMeadowAntiTileShader } from './meadowAntiTile';
@@ -217,6 +218,9 @@ export class Game {
       RAPIER.ColliderDesc.trimesh(bridgeWalk.vertices,bridgeWalk.indices).setFriction(.92),
       floor
     );
+    // Invisible solid volumes follow the actual watercourse. The only opening
+    // is the existing raised bridge; its deck and ramps stay unchanged.
+    installCreekCollision(game.world, floor, RAPIER);
     // Distinct static colliders for the house, empty storage shed and fences.
     // Paths and the open gate remain physically traversable.
     const fixedScenery = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
@@ -243,7 +247,7 @@ export class Game {
       game.yaw = .21;
       game.cameraDistance = 6.8;
     }
-    const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(arrival.x, arrival.y, arrival.z).lockRotations());
+    const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(arrival.x, arrival.y, arrival.z).lockRotations().setCcdEnabled(true));
     game.world.createCollider(RAPIER.ColliderDesc.capsule(0.56, 0.28).setFriction(0.8), body);
     game.player = body;
     try {
