@@ -3,7 +3,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export const UPLOADED_FENCE_URL = './models/environment/home-fence-module.glb?v=1';
-export const FENCE_HEIGHT = 1.10;
+// Preserve the authored XYZ proportions and the minimum 40 cm long-run depth.
+// Lower prominence through the weathered pigment, not by shrinking the mesh.
+export const FENCE_HEIGHT = 1.45;
 
 type FenceRun = { label: string; center: [number, number, number]; half: [number, number, number] };
 

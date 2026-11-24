@@ -209,7 +209,7 @@ test('uploaded fence GLB keeps uniform XYZ proportions and exact endpoints on al
     }
     if (length >= 19) {
       assert.ok(Math.abs(actual.y - FENCE_HEIGHT) < .1);
-      assert.ok(actualDepth > .4 * FENCE_HEIGHT / 1.45, 'long fences must retain full 3D thickness');
+      assert.ok(actualDepth > .4, 'long fences must retain full 3D thickness');
     }
     assert.ok(Math.abs(bounds.min.y) < .001);
     assert.ok(Math.abs(bounds.getCenter(new THREE.Vector3()).x - run.center[0]) < .001);
