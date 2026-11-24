@@ -113,6 +113,18 @@ jobs:
         run: test -s dist/index.html
       - name: Play the farming loop in the production browser build
         run: npm run test:farm-browser
+      - name: Checkout pinned upstream Three.js Editor
+        uses: actions/checkout@v4
+        with:
+          repository: mrdoob/three.js
+          ref: 78b89c03a0cc6f118c0ae2b0b9622b7327bc7310
+          path: web/.editor-upstream
+          sparse-checkout: |
+            editor
+            build
+            examples/jsm
+      - name: Open downloaded world with official editor and render it
+        run: node scripts/check-official-editor-import.mjs
       - name: Render and capture the 3D creek, immersed mossy GLBs and timber bridge
         run: node scripts/check-creek-visual.mjs
       - name: Save scenic creek screenshots
@@ -136,6 +148,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Lembah-Asri-World-JSON
-          path: web/artifacts/world/Lembah-Asri-World.json
+          path: |
+            web/artifacts/world/Lembah-Asri-World-Editor.json
+            web/artifacts/world/editor-import.jpg
           if-no-files-found: ignore
           retention-days: 7

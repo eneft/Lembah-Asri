@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bakeCreekOpening, createEditorGarden } from './editorTerrainBake.ts';
 
 /**
  * Produce the native Three.js Object/Scene JSON format, not a layout-only file.
@@ -6,10 +7,11 @@ import * as THREE from 'three';
  * embedded image sources and actual buffer attributes (including sculpted
  * parametric meshes whose original constructor parameters are no longer valid).
  */
-export function serializeWorldScene(
+function buildWorldSceneJSON(
   scene: THREE.Scene,
   excluded: ReadonlySet<THREE.Object3D> = new Set()
-): string {
+) {
+  scene.updateMatrixWorld(true);
   const snapshot = new THREE.Scene();
   snapshot.name = 'Lembah Asri - World';
   snapshot.background = scene.background instanceof THREE.Color ? scene.background.clone() : null;
@@ -24,6 +26,7 @@ export function serializeWorldScene(
   const visit = (source: THREE.Object3D, parent: THREE.Object3D) => {
     if (excluded.has(source) || !source.visible) return;
     const copy = source.clone(false);
+    let garden: THREE.Mesh | undefined;
     // Shader injection callbacks are deliberately not transferred to editor JSON.
     if (copy instanceof THREE.Mesh) {
       const original = copy.geometry;
@@ -35,7 +38,15 @@ export function serializeWorldScene(
         geometries.set(original, baked);
       }
       copy.geometry = baked;
-      const materials = Array.isArray(copy.material) ? copy.material : [copy.material];
+      if (source instanceof THREE.Mesh) {
+        if (source.userData.creekVisualCutout || (!Array.isArray(source.material) && source.material.userData.creekVisualCutout)) {
+          copy.geometry = bakeCreekOpening(source);
+        }
+        garden = createEditorGarden(source);
+        if (garden) copy.add(garden);
+      }
+      const materials = Array.isArray(copy.material) ? [...copy.material] : [copy.material];
+      if (garden && !Array.isArray(garden.material)) materials.push(garden.material);
       for (const material of materials) {
         for (const value of Object.values(material)) {
           if (value instanceof THREE.Texture && !value.isRenderTargetTexture) {
@@ -66,7 +77,7 @@ export function serializeWorldScene(
   }
   snapshot.updateMatrixWorld(true);
   snapshot.userData = {
-    exportFormat: 'lembah-asri-world-v1',
+    exportFormat: 'lembah-asri-world-v2',
     notes: 'Visual scene snapshot; runtime physics, gameplay and onBeforeCompile shaders are not included.'
   };
   const json = snapshot.toJSON() as ReturnType<THREE.Scene['toJSON']> & {
@@ -90,14 +101,38 @@ export function serializeWorldScene(
       canvas.width = canvas.height = 0;
     }
   }
-  return JSON.stringify(json);
+  return json;
+}
+
+export function serializeWorldScene(scene: THREE.Scene, excluded: ReadonlySet<THREE.Object3D> = new Set()): string {
+  return JSON.stringify(buildWorldSceneJSON(scene, excluded));
+}
+
+/** The official editor's File/Open and File/Import app contract. */
+export function serializeWorldProject(scene: THREE.Scene, excluded: ReadonlySet<THREE.Object3D> = new Set()): string {
+  const center = new THREE.Vector3(-30, 0, 0);
+  const camera = new THREE.PerspectiveCamera(48, 1.6, 0.1, 1500);
+  camera.name = 'Lembah Asri - Editor Camera';
+  camera.position.set(-6, 45, 53);
+  camera.lookAt(center);
+  camera.updateMatrixWorld(true);
+  return JSON.stringify({
+    metadata: { type: 'App', version: 1, generator: 'Lembah Asri World Export' },
+    project: { renderer: 'WebGLRenderer', shadows: true, shadowType: THREE.PCFSoftShadowMap,
+      toneMapping: THREE.NoToneMapping, toneMappingExposure: 1 },
+    camera: camera.toJSON(),
+    controls: { center: center.toArray() },
+    scene: buildWorldSceneJSON(scene, excluded),
+    scripts: {}, history: { undos: [], redos: [] },
+    backgroundType: 'Color', environmentType: 'Default'
+  });
 }
 
 export function downloadWorldJSON(json: string): void {
   const url = URL.createObjectURL(new Blob([json], {type:'application/json'}));
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = 'Lembah-Asri-World.json';
+  anchor.download = 'Lembah-Asri-World-Editor.json';
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
