@@ -95,14 +95,12 @@ function applyLoadedTexture(binding: Binding, source: THREE.Texture): void {
   // different UV repeat for grass, courtyard, paths and small garden plots.
   const texture = source.clone();
   const repeat = terrainTileRepeat(binding.surface, binding.width, binding.depth);
-  // The whole grass world AND the sculpted grassy bank shoulders must use
-  // identical texture addressing. Previously the world used Repeat but the
-  // bank used MirroredRepeat, producing a seam even with matching UV.
-  // The illustrated grass is non-seamless, so mirror its boundaries to remove
-  // square tile edges without altering earth, road or plaza samplers.
-  const worldPaintedGrass = binding.surface === 'grass' && binding.worldUV;
-  texture.wrapS = worldPaintedGrass ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
-  texture.wrapT = worldPaintedGrass ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
+  // The matched gouache tiles are painted images, not periodic procedural
+  // noise. Mirroring makes both earth and grass meet without a hard tile seam.
+  // Keep this consistent with the sculpted bank and riverside samplers.
+  const worldGrass = binding.surface === 'grass' && binding.worldUV;
+  const mirrorEdges = worldGrass || STYLES[binding.surface].source === 'earth';
+  texture.wrapS = texture.wrapT = mirrorEdges ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
   // Dedicated UV1 is in metres and warped in world space; UV0 is reserved
   // for the edge mask. Independent sets prevent the mask from tiling.
   texture.channel = binding.worldUV ? 1 : 0;

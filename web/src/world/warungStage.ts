@@ -1,3 +1,4 @@
+import { createHousePainterlyMaterial } from './housePainterlyMaterial.ts';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { SolidCollider } from './homeStage';
@@ -177,7 +178,9 @@ export function createWarungStage(loadAuthoredModel = true): WarungStage {
         if (!(child instanceof THREE.Mesh)) return;
         child.castShadow = true;
         child.receiveShadow = true;
-        // No texture generation/replacement: preserve the original materials.
+        const paint = (source: THREE.Material) => source instanceof THREE.MeshStandardMaterial
+          ? createHousePainterlyMaterial(source) : source;
+        child.material = Array.isArray(child.material) ? child.material.map(paint) : paint(child.material);
       });
       mount.add(asset);
       root.add(mount);

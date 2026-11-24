@@ -1,3 +1,4 @@
+import { applyPaintedPigment } from './paintedPigment.ts';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -71,16 +72,15 @@ export async function loadUserSuppliedWoodenBridge(root:THREE.Object3D):Promise<
       triangles+=(object.geometry.index?.count??object.geometry.attributes.position.count)/3;
       object.castShadow=true;
       object.receiveShadow=true;
-      const mats=Array.isArray(object.material)?object.material:[object.material];
-      for(const mat of mats){
-        // The source uses emissive-textured hand-painted wood with baked
-        // highlights/shadows. Do not reset its black diffuse base factor.
-        if(mat instanceof THREE.MeshStandardMaterial){
-          mat.metalness=0;
-          mat.roughness=.94;
-          baked ||= !!mat.emissiveMap;
-        }
-      }
+      const paint = (source: THREE.Material) => {
+        if (!(source instanceof THREE.MeshStandardMaterial) || !source.emissiveMap) return source;
+        baked = true;
+        return applyPaintedPigment(new THREE.MeshBasicMaterial({
+          map: source.emissiveMap, side: source.side, toneMapped: false,
+          transparent: source.transparent, opacity: source.opacity, alphaTest: source.alphaTest
+        }));
+      };
+      object.material = Array.isArray(object.material) ? object.material.map(paint) : paint(object.material);
     });
     if(meshes<1 || triangles!==USER_BRIDGE.originalTriangles || !baked)
       throw new Error('Uploaded GLB lost geometry or its baked wood texture');

@@ -1,3 +1,4 @@
+import { applyPaintedPigment } from './paintedPigment.ts';
 import * as THREE from 'three';
 import { serializeWorldScene } from './worldExport';
 import RAPIER from '@dimforge/rapier3d-compat';
@@ -341,11 +342,9 @@ export class Game {
   }
 
   private makeAlbedoMaterial(color: string) {
-    return new THREE.MeshStandardMaterial({
-      color: new THREE.Color(color),
-      roughness: 0.88,
-      metalness: 0
-    });
+    return applyPaintedPigment(new THREE.MeshLambertMaterial({
+      color: new THREE.Color(color), toneMapped: false
+    }));
   }
 
   private async loadPlayer(): Promise<THREE.Group> {

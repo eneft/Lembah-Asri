@@ -1,3 +1,4 @@
+import { applyPaintedPigment } from './paintedPigment.ts';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { CREEK, creekCenterX, westPoolInset } from './creekCourse.ts';
@@ -156,7 +157,7 @@ function mossyRiverStone(base: THREE.MeshBasicMaterial): THREE.MeshBasicMaterial
   };
   material.customProgramCacheKey=()=>'river-stone-moss-cap-v2-stage4';
   material.userData.shoreStoneStyle='warm-grey-soft-moss-stage4-v1';
-  return material;
+  return applyPaintedPigment(material);
 }
 
 export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
@@ -174,6 +175,7 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
     color: '#ffffff', map: originalMap, toneMapped: false,
     transparent: false, depthWrite: true, side: THREE.DoubleSide
   });
+  applyPaintedPigment(material);
   for (const [type, id] of Object.entries(ROCK_MODELS) as Array<[RockType, number]>) {
     const placements = selectedHomeRocks.filter(p=>p.type===type);
     if (!placements.length) continue;
