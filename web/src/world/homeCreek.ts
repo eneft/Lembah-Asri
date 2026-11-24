@@ -624,7 +624,8 @@ export function createHomeCreekVegetation(): THREE.Group {
     // Alternating shores create asymmetric, organic planted reaches.
     [-43,-1,.68],[-37,1,.60],[-28,-1,.81],[-21,1,.74],
     [-14,-1,.78],[-8,1,.61],
-    [-3.0,-1,1.0],[.9,1,1.08],[4.3,-1,1.05],
+    // Follow the exposed west/east boulder clusters; leave bridge approach open.
+    [-3.0,-1,1.0],[.9,1,1.08],[4.3,1,1.05],
     [6.1,1,.72],[11.9,-1,.98],[14.8,1,1.15],
     [18.2,-1,.9],[21.0,1,1.2],[23.1,-1,.78],
     [33,1,.66],[42,-1,.57]
