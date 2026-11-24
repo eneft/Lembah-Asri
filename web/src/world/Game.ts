@@ -21,6 +21,7 @@ import { applyMeadowAntiTileShader } from './meadowAntiTile';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
 import { applyLembahDaylight, LEMBAH_DAYLIGHT } from './sceneArtDirection';
+import { createOutskirts } from './islandOutskirts';
 import { createDistantValley } from './distantValley';
 import { createWarungStage } from './warungStage';
 import {
@@ -35,6 +36,7 @@ const CAMERA_HEIGHT_RATIO = 0.34;
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
+  private outskirts: ReturnType<typeof createOutskirts> = [];
   private panorama?: ReturnType<typeof createDistantValley>;
   private environmentTarget?: THREE.WebGLRenderTarget;
   private characterBaseColor?: THREE.Texture;
@@ -512,7 +514,11 @@ export class Game {
     const water = new THREE.Mesh(new THREE.BoxGeometry(48,.12,2.6),this.mat('#5bafc2'));
     water.position.set(0,-.02,17); this.scene.add(water);
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(5,.35,4),this.mat('#8b6242')); bridge.position.set(0,.35,17); bridge.castShadow=true; this.scene.add(bridge);
-    const horizon = new THREE.TextureLoader().load('textures/terrain/island-horizon.webp?v=2');
+    const loader = new THREE.TextureLoader();
+    const horizon = loader.load('textures/terrain/island-horizon.webp?v=3');
+    this.outskirts = createOutskirts(loader.load('textures/terrain/creek_meadow.webp'),
+      loader.load('textures/terrain/island-groves.webp'));
+    this.scene.add(...this.outskirts);
     this.panorama = createDistantValley(horizon);
     this.scene.add(this.panorama);
   }
@@ -711,6 +717,11 @@ export class Game {
     }
   };
   dispose(){this.running=false;this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);
+    for (const layer of this.outskirts) {
+      layer.geometry.dispose();
+      layer.material.map?.dispose();
+      layer.material.dispose();
+    }
     if (this.panorama) {
       this.panorama.material.map?.dispose();
       this.panorama.material.dispose();

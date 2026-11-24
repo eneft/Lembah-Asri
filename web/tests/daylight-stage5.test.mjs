@@ -151,6 +151,23 @@ test('painted horizon texels retain square proportions on a vertical surface',()
   for (const [lower,upper] of [[2,3],[3,4]]) {
     assert.equal(p.getZ(lower),p.getZ(upper));
     const heightPerV=(p.getY(upper)-p.getY(lower))/(uv.getY(upper)-uv.getY(lower));
-    assert.ok(Math.abs(heightPerV / (2*Math.PI*radius) - 138/4096)<1e-6);
+    assert.ok(Math.abs(heightPerV / (2*Math.PI*radius) - 178/6000)<1e-6);
   }
+});
+
+import { createOutskirts } from '../src/world/islandOutskirts.ts';
+test('textured foothills and groves sit between the playable square and the distant painting',()=>{
+  const [ground, groves]=createOutskirts(new THREE.Texture(),new THREE.Texture());
+  const p=groves.geometry.getAttribute('position');
+  let nearest=Infinity, farthest=0;
+  for(let i=0;i<p.count;i+=4) {
+    const x=(p.getX(i)+p.getX(i+1))/2, z=(p.getZ(i)+p.getZ(i+1))/2;
+    assert.ok(Math.max(Math.abs(x),Math.abs(z))>80);
+    const r=Math.hypot(x,z);
+    nearest=Math.min(nearest,r);
+    farthest=Math.max(farthest,r);
+  }
+  assert.ok(farthest-nearest>30 && farthest<230);
+  assert.equal(ground.material.map.wrapS,THREE.RepeatWrapping);
+  assert.ok(groves.material.alphaTest>0);
 });

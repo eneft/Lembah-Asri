@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 
-// Each row shares its position with the adjacent strip. The first two rows
-// follow the square meadow outline, the remaining rows curve around the map.
+// Continuous cylindrical mapping preserves the painted horizon aspect ratio.
 export function createDistantValley(texture: THREE.Texture) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.RepeatWrapping;
@@ -12,21 +11,18 @@ export function createDistantValley(texture: THREE.Texture) {
     const u = i / segments;
     const theta = (i % segments) * 2 * Math.PI / segments;
     const x = Math.sin(theta), z = -Math.cos(theta);
-    const square = Math.max(Math.abs(x), Math.abs(z));
-    // The illustrated strip lives on a vertical cylinder. Its world height
-    // follows the texture aspect so one texel has equal width and height.
-    // Only the solid-colour bleed touches the sloping ground transition.
     const radius = 230;
-    const height = 2 * Math.PI * radius * 138 / 4096;
-    const bleed = 24 / 202;
+    const height = 2 * Math.PI * radius * 178 / 6000;
+    // Let the rolling meadow occlude the base of the illustration.
+    const base = -2;
     const rows = [
-      [64 / square, .13, 0, 0],
-      [80 / square, .20, 0, 1],
-      [radius, .20, 0, 1],
-      [radius, .20 + height * bleed, bleed, 1],
-      [radius, .20 + height, 1, 1],
-      [radius, .20 + height + 20, 1, .65],
-      [radius, .20 + height + 65, 1, 0]
+      [radius, base - 1, 0, 0],
+      [radius, base, 0, 1],
+      [radius, base + height * .1, .1, 1],
+      [radius, base + height * .5, .5, 1],
+      [radius, base + height, 1, 1],
+      [radius, base + height + 20, 1, .65],
+      [radius, base + height + 65, 1, 0]
     ];
     rows.forEach(([radius, height, v, opacity], j) => {
       positions.push(x * radius, height, z * radius);
