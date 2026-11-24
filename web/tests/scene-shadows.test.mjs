@@ -39,7 +39,7 @@ test('transparent shadow receivers preserve textured terrain color and depth', (
   assert.equal(world.castShadow,false);
   assert.equal(world.material.transparent,true);
   assert.equal(world.material.depthWrite,false);
-  assert.equal(world.material.opacity,0.42);
+  assert.equal(world.material.opacity,0.34);
   assert.equal(world.material.toneMapped,false);
   assert.equal(world.rotation.x,-Math.PI/2);
   assert.equal(world.renderOrder,6);
@@ -68,9 +68,9 @@ test('contact shadow is a tiny feathered alpha texture below the moving characte
   assert.equal(shadow.visible,true);
   assert.equal(shadow.position.x,ground.x);
   assert.equal(shadow.position.z,ground.z);
-  assert.equal(shadow.material.opacity,0.4);
+  assert.equal(shadow.material.opacity,0.35);
   updateCharacterContactShadow(shadow, new THREE.Vector3(-28.5,2,6));
-  assert.ok(shadow.material.opacity<0.4, 'jump softens rather than removes contact shadow');
+  assert.ok(shadow.material.opacity<0.35, 'jump softens rather than removes contact shadow');
   assert.ok(shadow.scale.x>1, 'jump expands shadow softly');
 });
 
