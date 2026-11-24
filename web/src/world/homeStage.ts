@@ -10,7 +10,7 @@ import { createPaintedStoryTree } from './paintedTrees.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { loadUserReferenceTextureSet, applyUserReferenceDryRock } from './userReferenceTextures.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
-import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures } from './homeCreek.ts';
+import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures, installRockContactFoam } from './homeCreek.ts';
 import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerrain3D.ts';
 import { applyRiversidePaint } from './riversidePaint.ts';
 import { applyCreekCourtyardAlbedo } from './shoreCourtyard.ts';
@@ -467,6 +467,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   // User-approved landscape: exactly two UV-textured rock models.
   const rockReady: Promise<boolean> = loadApprovedModel
     ? attachCuratedHomeRocks(root).then(async () => {
+        installRockContactFoam(root);
         // Only dry stones inherit the uploaded painted rock albedo; mossy
         // stream stones retain their original shaded GLB and water shader.
         try {
@@ -475,7 +476,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
         } catch (error) {
           console.warn('[LembahAsri] Keeping original UV stone paint',error);
         }
-        console.info('[LembahAsri] Rendered 2 rock species: mossy + plain, 19 placements');
+        console.info('[LembahAsri] Rendered 2 rock species: mossy + plain, 27 placements');
         return true;
       }).catch(error => {
         console.warn('[LembahAsri] Original UV rock asset unavailable', error);

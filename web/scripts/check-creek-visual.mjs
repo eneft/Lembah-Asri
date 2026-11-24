@@ -108,7 +108,7 @@ try{
   assert.ok(facts.dimensions.z>2.04&&facts.dimensions.z<2.14,'crossing width matches collider');
   assert.equal(facts.oldPlanks,undefined,'old procedural bridge should be gone');
   assert.ok(assets.has(prefix+'models/environment/bridge_user_reference_wood_v2.glb'));
-  assert.ok(facts.submerged>=6);
+  assert.equal(facts.submerged,11);
   assert.equal(facts.underwater,4,'four true 3D rocks must be under the transparent water');
   assert.ok(facts.grass>260&&facts.grass<600,'restore the earlier softer riverside density');
   // Restore the real 3.65m orchard GLB from the pre-PR#93 layout,
@@ -176,6 +176,12 @@ try{
       maxAlpha,strongCount,
       materialOpacity:foam.material.opacity};
   });
+  const contact=await page.evaluate(()=>{
+    const stage=window.__lembahVisualQA.scene.getObjectByName('Rumah Masa Kecil / Playable House Garden');
+    const wake=stage?.getObjectByName('Painted foam breaking against mossy river boulders');
+    return wake ? {contacts:wake.userData.waterlineContacts,vertices:wake.geometry.attributes.position.count} : null;
+  });
+  assert.ok(contact&&contact.contacts>=4&&contact.vertices>100,'real rock-water intersections render in the production scene');
   assert.equal(foamState.loaded,true,'the generated decal atlas should be active');
   assert.equal(foamState.ready,1);
   assert.equal(foamState.atlas,'./textures/terrain/creek_foam_painterly_restored_v2.png');

@@ -39,10 +39,10 @@ test('Stage 4 groups low sedges along scattered banks, with tall plants only by 
   assert.ok(dryOpen>30,'do not repeat flowers uniformly on both banks');
 
   const boulders=selectedHomeRocks.filter(p=>
-    p.zone==='stream' && p.submerge!==undefined && p.submerge<1
+    p.zone==='stream' && !p.midstream && p.submerge!==undefined && p.submerge<1
   );
   assert.equal(boulders.length,7);
-  assert.equal(ROCK_WAKES.length,boulders.length,'do not alter Stage 3 rock wake composition');
+  assert.equal(ROCK_WAKES.length,boulders.length+4,'preserve bank anchors and add four central current breakers');
   assert.equal(CLEAR_WATER_STAGE3.style,'clear-turquoise-painterly-stage3-v1');
   for(const mesh of [grass,leaves,flowers]){
     assert.ok(mesh.count>0);
@@ -93,7 +93,8 @@ test('existing UV mossy river stones keep size, source textures and low-key grey
   assert.match(shader.fragmentShader,/rock\*=mix\(vec3\(\.79,\.86,\.80\)/);
   assert.match(shader.fragmentShader,/vec3 green=mix\(vec3\(\.15,\.23,\.10\)/);
   assert.match(shader.fragmentShader,/moss\*\.72/);
-  assert.equal(rocks.userData.partiallySubmergedRocks,7);
+  assert.equal(rocks.userData.partiallySubmergedRocks,11);
+  assert.equal(rocks.userData.midstreamBreakers,4);
   assert.equal(rocks.userData.fullySubmergedRocks,4);
 });
 

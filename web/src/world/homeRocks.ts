@@ -29,6 +29,8 @@ export type RockPlacement = Readonly<{
   zone: RockZone;
   /** Fraction of world height below water (0..0.5 exposed anchors, >1 entirely underwater). */
   submerge?: number;
+  /** Centre-channel current breaker, not a shoreline plant anchor. */
+  midstream?: boolean;
 }>;
 /**
  * Curated natural clusters, no tiny scattered pebbles or stone border.
@@ -65,6 +67,12 @@ const rockLayout: readonly RockPlacement[] = [
   { type:'mossy',x:creekCenterX(17.7)+.19,z:17.7,size:.57,yaw:.81,zone:'stream',submerge:1.07 },
   { type:'mossy',x:creekCenterX(29.4)-.28,z:29.4,size:.50,yaw:1.71,zone:'stream',submerge:1.06 },
 
+  // Four emerged current breakers, separate from the four submerged bed stones.
+  { type:'mossy',x:creekCenterX(-7.6)+.10,z:-7.6,size:.77,yaw:.67,zone:'stream',submerge:.40,midstream:true },
+  { type:'mossy',x:creekCenterX(-.8)-.31,z:-.8,size:.70,yaw:1.91,zone:'stream',submerge:.34,midstream:true },
+  { type:'mossy',x:creekCenterX(5.1)+.08,z:5.1,size:.84,yaw:.52,zone:'stream',submerge:.36,midstream:true },
+  { type:'mossy',x:creekCenterX(16.1)-.22,z:16.1,size:.79,yaw:2.32,zone:'stream',submerge:.39,midstream:true },
+
   // Plain rocks only on dry ground; never inside water or in front of stairs.
   { type:'plain',x:-40.63,z:2.51,size:.59,yaw:.67,zone:'well' },
   { type:'plain',x:-40.60,z:5.91,size:.49,yaw:1.34,zone:'well' },
@@ -75,7 +83,7 @@ const rockLayout: readonly RockPlacement[] = [
   { type:'plain',x:-21.75,z:12.18,size:.47,yaw:2.88,zone:'path-edge' }
 ] as const;
 export const selectedHomeRocks: readonly RockPlacement[] = rockLayout.map(p=>
-  p.zone==='stream' && p.x < -45.5 && (p.submerge??0)<1
+  p.zone==='stream' && !p.midstream && p.x < -45.5 && (p.submerge??0)<1
     ? {...p,x:p.x-2*westPoolInset(p.z)} : p
 );
 export const rockFile = './models/environment/lembah_asri_rocks_original_16.glb?rocks=4-two-kinds';
@@ -215,6 +223,7 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
   group.userData.partiallySubmergedRocks=selectedHomeRocks.filter(
     p=>p.submerge!==undefined && p.submerge<1
   ).length;
+  group.userData.midstreamBreakers=selectedHomeRocks.filter(p=>p.midstream).length;
   group.userData.fullySubmergedRocks=selectedHomeRocks.filter(
     p=>p.submerge!==undefined && p.submerge>=1
   ).length;

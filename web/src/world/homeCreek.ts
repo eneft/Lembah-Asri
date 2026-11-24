@@ -4,6 +4,7 @@ import { applyRiverbankPainterlyShader, setRiverbankMeadowTexture } from './rive
 
 import { CREEK, creekCenterX, creekWidth, creekCourseGLSL } from './creekCourse.ts';
 import { selectedHomeRocks } from './homeRocks.ts';
+import { buildContactFoam } from './rockContactFoam.ts';
 import { applyRiversidePaint, loadRiversidePaint } from './riversidePaint.ts';
 import { makeSedgeGeometry, makeBankFlowerGeometry } from './riversidePlants.ts';
 export { CREEK, creekCenterX, creekWidth, creekOuterMeander } from './creekCourse.ts';
@@ -217,7 +218,7 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
         color=[1-depth*.17,1-depth*.11,1-depth*.08];
       }else if(side===2){
         x=center+(2*u-1)*(half-.30);
-        y=CREEK.bedY+.012*Math.cos(z*.72+u*9);
+        y=CREEK.bedY-.075*Math.sin(Math.PI*u)**2+.012*Math.cos(z*.72+u*9);
       }else{
         // Soil is no longer a solid brown wall. Its top has a mossy edge,
         // shallow natural undulation, exposed soil and a damp darker foot.
@@ -405,6 +406,7 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
           diffuseColor.rgb=clearWater+vec3(.12,.17,.16)*highlight*lightPatch;
           // Shallow water reveals real GLB riverbed stones and cobbles.
           diffuseColor.a*=mix(.92,.46,shoal);
+          diffuseColor.a*=mix(1.,.86,shoal);
         `);
     };
     material.customProgramCacheKey=()=>'lembah-clear-turquoise-water-stage3-v1';
@@ -485,12 +487,26 @@ export function createRockWaterWakes():THREE.InstancedMesh{
     object.updateMatrix();
     mesh.setMatrixAt(i,object.matrix);
   }
+  // Do not show an estimated halo while the actual rock geometry is loading.
+  material.visible=false;
   mesh.instanceMatrix.needsUpdate=true;
   mesh.frustumCulled=false;
   mesh.renderOrder=6;
   mesh.castShadow=false;
   mesh.receiveShadow=false;
   return mesh;
+}
+
+/** Replace the invisible layout placeholder only when the original GLB is loaded. */
+export function installRockContactFoam(root:THREE.Object3D):void {
+  const old=root.getObjectByName('Painted foam breaking against mossy river boulders');
+  const rocks=root.getObjectByName('UV mossy rock variant 00');
+  if(!(old instanceof THREE.InstancedMesh)||!(rocks instanceof THREE.InstancedMesh)||!old.parent)return;
+  const foam=buildContactFoam(rocks,CREEK.waterY);
+  old.parent.add(foam);
+  old.removeFromParent();
+  old.geometry.dispose();
+  (old.material as THREE.Material).dispose();
 }
 
 let creekArtLoad:Promise<[THREE.Texture,THREE.Texture]>|undefined;
@@ -639,7 +655,7 @@ export function createHomeCreekVegetation(): THREE.Group {
     // A tall reed is justified ONLY when a real mossy rock emerges from
     // the water on this shore. Fully submerged stones must not grow reeds.
     const rockAnchor=selectedHomeRocks.some(rock=>
-      rock.zone==='stream' && rock.submerge!==undefined && rock.submerge<1
+      rock.zone==='stream' && !rock.midstream && rock.submerge!==undefined && rock.submerge<1
       && Math.abs(rock.z-z)<1.2
       && (rock.x<creekCenterX(rock.z)?-1:1)===side
     );
@@ -709,7 +725,7 @@ export function createHomeCreekVegetation(): THREE.Group {
   // Small flowers stay beside landmark rock clusters instead of being
   // repeated mechanically at every segment of the river.
   const floweringGroups=bankGroups.filter(([z,side])=>selectedHomeRocks.some(
-    rock=>rock.zone==='stream' && rock.submerge!==undefined && rock.submerge<1
+    rock=>rock.zone==='stream' && !rock.midstream && rock.submerge!==undefined && rock.submerge<1
       && Math.abs(rock.z-z)<1.2
       && (rock.x<creekCenterX(rock.z)?-1:1)===side
   ));
