@@ -65,3 +65,38 @@ test('world editor project includes App metadata, scene, camera and orbit center
   assert.ok(Math.abs(point.x)<1 && Math.abs(point.y)<1 && Math.abs(point.z)<1);
   assert.deepEqual(project.controls.center,[-30,0,0]);
 });
+
+test('editor geometry physically opens creek and preserves adjacent terrain', async () => {
+  const {bakeCreekOpening}=await import('../src/world/editorTerrainBake.ts');
+  const {creekCenterX}=await import('../src/world/creekCourse.ts');
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(160,160),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
+  ground.rotation.x=-Math.PI/2;ground.updateMatrixWorld(true);
+  const cut=new THREE.Mesh(bakeCreekOpening(ground),ground.material);
+  cut.rotation.copy(ground.rotation);cut.updateMatrixWorld(true);
+  const hits=(x,z)=>new THREE.Raycaster(new THREE.Vector3(x,5,z),new THREE.Vector3(0,-1,0)).intersectObject(cut).length;
+  for(const z of [-70,-25,-5.5,0,8.6,18,60]){
+    const x=creekCenterX(z);
+    assert.equal(hits(x,z),0,'creek center must be open at '+z);
+    assert.ok(hits(x+5,z)>0,'land must remain at '+z);
+  }
+  assert.ok(cut.geometry.getAttribute('uv'));
+  assert.equal(ground.geometry.getAttribute('position').count,4);
+});
+
+test('garden pigment and raised bed geometry survive native scene import', async () => {
+  const {GardenSurface}=await import('../src/world/gardenSurface.ts');
+  const {GARDEN,sculptGardenGround}=await import('../src/world/gardenLayout.ts');
+  const scene=new THREE.Scene(), garden=new GardenSurface();
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(32,29),new THREE.MeshBasicMaterial());
+  ground.rotation.x=-Math.PI/2;ground.position.set(-29,.028,.4);
+  sculptGardenGround(ground);garden.bind(ground.material);scene.add(ground);
+  const restored=new THREE.ObjectLoader().parse(JSON.parse(serializeWorldScene(scene)));
+  const soil=restored.getObjectByName('Bedengan kebun - editor baked soil');
+  assert.ok(soil?.material.map?.image.data);
+  assert.equal(soil.geometry.getAttribute('color').itemSize,4);
+  assert.ok(soil.geometry.index.count>100);
+  const positions=soil.geometry.getAttribute('position');
+  assert.ok(Array.from({length:positions.count},(_,i)=>positions.getZ(i)).some(h=>h>.2));
+  assert.equal(ground.children.length,0,'runtime scene stays unchanged');
+  garden.dispose();
+});
