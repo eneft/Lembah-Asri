@@ -13,15 +13,20 @@ export function createDistantValley(texture: THREE.Texture) {
     const theta = (i % segments) * 2 * Math.PI / segments;
     const x = Math.sin(theta), z = -Math.cos(theta);
     const square = Math.max(Math.abs(x), Math.abs(z));
+    // The illustrated strip lives on a vertical cylinder. Its world height
+    // follows the texture aspect so one texel has equal width and height.
+    // Only the solid-colour bleed touches the sloping ground transition.
+    const radius = 230;
+    const height = 2 * Math.PI * radius * 138 / 4096;
+    const bleed = 24 / 202;
     const rows = [
-      // radius, height, texture V (from bottom), opacity
-      [64 / square, .13, .02, 0],
-      [80 / square, 1.65, .09, 1],
-      [122, 3.4, .20, 1],
-      [145, 5.2, .34, 1],
-      [155, 9, .54, 1],
-      [155, 36, 1, 1],
-      [150, 65, 1, 0]
+      [64 / square, .13, 0, 0],
+      [80 / square, .20, 0, 1],
+      [radius, .20, 0, 1],
+      [radius, .20 + height * bleed, bleed, 1],
+      [radius, .20 + height, 1, 1],
+      [radius, .20 + height + 20, 1, .65],
+      [radius, .20 + height + 65, 1, 0]
     ];
     rows.forEach(([radius, height, v, opacity], j) => {
       positions.push(x * radius, height, z * radius);

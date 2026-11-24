@@ -142,3 +142,15 @@ test('island panorama closes its north seam and turns clockwise from sea to vill
   assert.equal(mesh.material.map.wrapS,THREE.RepeatWrapping);
   assert.equal(mesh.geometry.getAttribute('color').getW(0),0);
 });
+
+test('painted horizon texels retain square proportions on a vertical surface',()=>{
+  const mesh=createDistantValley(new THREE.Texture());
+  const p=mesh.geometry.getAttribute('position');
+  const uv=mesh.geometry.getAttribute('uv');
+  const radius=Math.abs(p.getZ(2));
+  for (const [lower,upper] of [[2,3],[3,4]]) {
+    assert.equal(p.getZ(lower),p.getZ(upper));
+    const heightPerV=(p.getY(upper)-p.getY(lower))/(uv.getY(upper)-uv.getY(lower));
+    assert.ok(Math.abs(heightPerV / (2*Math.PI*radius) - 138/4096)<1e-6);
+  }
+});
