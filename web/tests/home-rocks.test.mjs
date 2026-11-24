@@ -56,7 +56,7 @@ test('all 16 rock meshes preserve uploaded original UV texture, not untextured g
 
 test('rock placement is curated by environment, not randomly thrown into player paths',()=>{
   assert.match(rockFile,/lembah_asri_rocks_original_16\.glb/);
-  assert.equal(selectedHomeRocks.length,23);
+  assert.equal(selectedHomeRocks.length,27);
   const zones=new Set(selectedHomeRocks.map(p=>p.zone));
   assert.deepEqual([...zones].sort(),
     ['foundation','garden','path-edge','stream','well'].sort());
@@ -92,6 +92,8 @@ test('rock placement is curated by environment, not randomly thrown into player 
       if((p.submerge??0)>=1){
         assert.ok(Math.abs(p.x-creekCenterX(p.z))<.36,
           'real underwater bed stones may sit within the creek centre');
+      }else if(p.midstream){
+        assert.ok(Math.abs(p.x-creekCenterX(p.z))<.36,'current breakers stay in the channel');
       }else{
         assert.ok(Math.abs(p.x+45.5)>1.3,
           'original exposed rocks stay on bank margins, not mid-stream');
@@ -152,7 +154,7 @@ test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', 
   assert.equal(installed.children.length,2,'exactly two rock InstancedMesh draws');
   const placed=installed.children.reduce((count,child)=>count+child.count,0);
   assert.equal(placed,selectedHomeRocks.length);
-  assert.equal(placed,23);
+  assert.equal(placed,27);
   const variant=installed.getObjectByName('UV mossy rock variant 00');
   assert.ok(installed.getObjectByName('UV plain rock variant 02'));
   assert.ok(variant instanceof THREE.InstancedMesh);

@@ -65,5 +65,5 @@ test('new foam flows downstream while retaining stable old-water fallback',()=>{
   updateHomeCreekWater(water,12.5);
   assert.equal(foam.userData.foamTimeUniform.value,12.5);
   assert.equal(water.userData.rippleUniform.value,12.5);
-  assert.equal(group.getObjectByName('Painted foam breaking against mossy river boulders').count,7);
+  assert.equal(group.getObjectByName('Painted foam breaking against mossy river boulders').count,11);
 });

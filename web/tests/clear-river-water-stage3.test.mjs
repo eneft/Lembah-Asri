@@ -54,7 +54,8 @@ test('true submerged mossy GLBs are centred under stream, not on the bridge',()=
   const underwater=selectedHomeRocks.filter(p=>(p.submerge??0)>=1);
   const bankRocks=selectedHomeRocks.filter(p=>p.submerge!==undefined&&p.submerge<1);
   assert.equal(underwater.length,CLEAR_WATER_STAGE3.underwaterStones);
-  assert.equal(bankRocks.length,7,'preserve all previously approved rock clusters');
+  assert.equal(bankRocks.length,11,'seven bank anchors and four midstream current breakers');
+  assert.equal(bankRocks.filter(p=>p.midstream).length,4);
   for(const p of underwater){
     assert.equal(p.type,'mossy');
     assert.ok(p.size<=.65);
@@ -88,4 +89,29 @@ test('illustrated foam remains in sparse bank-side paths; waterbed and banks sta
   }
   assert.equal(bed.material.userData.clearWaterStyle,undefined);
   assert.equal(foam.material.userData.clearWaterStyle,undefined);
+});
+
+import { buildContactFoam, waterlineSegments } from '../src/world/rockContactFoam.ts';
+test('contact foam uses actual rotated mesh waterline and excludes dry or submerged stones',()=>{
+  const g=new THREE.BoxGeometry(.8,.6,.4);
+  const rocks=new THREE.InstancedMesh(g,new THREE.MeshBasicMaterial(),3);
+  const transform=new THREE.Object3D();
+  for(let i=0;i<3;i++){
+    transform.position.set(i*3,CREEK.waterY+(i===1?1:i===2?-1:0),0);
+    transform.rotation.y=.7;
+    transform.updateMatrix();rocks.setMatrixAt(i,transform.matrix);
+  }
+  const matrix=new THREE.Matrix4();rocks.getMatrixAt(0,matrix);
+  assert.ok(waterlineSegments(g,matrix,CREEK.waterY).length>=4);
+  rocks.getMatrixAt(1,matrix);assert.equal(waterlineSegments(g,matrix,CREEK.waterY).length,0);
+  rocks.getMatrixAt(2,matrix);assert.equal(waterlineSegments(g,matrix,CREEK.waterY).length,0);
+  const foam=buildContactFoam(rocks,CREEK.waterY);
+  assert.equal(foam.userData.waterlineContacts,1);
+  const p=foam.geometry.getAttribute('position');
+  assert.ok(p.count>100);
+  for(let i=0;i<p.count;i++){
+    assert.ok(Math.abs(p.getY(i)-CREEK.waterY-.006)<1e-6);
+    assert.ok(Math.abs(p.getX(i))<1,'no foam at the dry or underwater instances');
+  }
+  assert.equal(foam.material.depthWrite,false);
 });
