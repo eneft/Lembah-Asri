@@ -5,6 +5,7 @@ import * as THREE from 'three';
 export function createDistantValley(texture: THREE.Texture) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.RepeatWrapping;
+  texture.anisotropy = 4;
   const segments = 128;
   const positions: number[] = [], uvs: number[] = [], colors: number[] = [], indices: number[] = [];
   for (let i = 0; i <= segments; i++) {
@@ -14,13 +15,13 @@ export function createDistantValley(texture: THREE.Texture) {
     const square = Math.max(Math.abs(x), Math.abs(z));
     const rows = [
       // radius, height, texture V (from bottom), opacity
-      [68 / square, .13, 0, 0],
-      [80 / square, .15, .065, 1],
-      [128, .8, .20, 1],
-      [150, 3, .34, 1],
-      [155, 17, .54, 1],
-      [155, 68, 1, 1],
-      [150, 88, 1, 0]
+      [64 / square, .13, .02, 0],
+      [80 / square, 1.65, .09, 1],
+      [122, 3.4, .20, 1],
+      [145, 5.2, .34, 1],
+      [155, 9, .54, 1],
+      [155, 36, 1, 1],
+      [150, 65, 1, 0]
     ];
     rows.forEach(([radius, height, v, opacity], j) => {
       positions.push(x * radius, height, z * radius);
