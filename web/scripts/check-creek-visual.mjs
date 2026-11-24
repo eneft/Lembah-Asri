@@ -318,6 +318,30 @@ try{
   assert.equal(clearRiver.submergedRocks,4);
   assert.equal(clearRiver.foamAtlas,'./textures/terrain/creek_foam_painterly_restored_v2.png');
   assert.ok(clearRiver.foamOpacity>=.69&&clearRiver.foamOpacity<=.71);
+  // Stage 4: actual browser scene has breathing space on both banks,
+  // only sparse tall sedges around emerged boulders, and warm-grey rock paint.
+  const shoreline=await page.evaluate(()=>{
+    const scene=window.__lembahVisualQA.scene;
+    const group=scene.getObjectByName('Curated creek bank reeds and leafy clumps');
+    const rocks=scene.getObjectByName('UV mossy rock variant 00');
+    const flowers=group?.getObjectByName('White wildflowers along the grassy creek');
+    return {
+      style:group?.userData?.shoreStyle,
+      low:group?.userData?.lowGrassInstances,
+      tall:group?.userData?.tallAccentInstances,
+      flowers:flowers?.count,
+      plantDraws:group?.children?.length,
+      stoneStyle:rocks?.material?.userData?.shoreStoneStyle,
+      originalStoneTexture:!!rocks?.material?.map
+    };
+  });
+  assert.equal(shoreline.style,'localized-boulder-sedge-stage4-v1');
+  assert.ok(shoreline.low>=75 && shoreline.low>shoreline.tall*10);
+  assert.equal(shoreline.tall,7);
+  assert.equal(shoreline.flowers,14);
+  assert.equal(shoreline.plantDraws,3,'no new draw calls for plant variants');
+  assert.equal(shoreline.stoneStyle,'warm-grey-soft-moss-stage4-v1');
+  assert.ok(shoreline.originalStoneTexture,'real uploaded UV rock texture remains');
   // Stage 2: the grassy lip, exposed earth and intermittent stone foot must
   // all be live on both 3D banks; never alter the water/foam shaders.
   const bankRestore=await page.evaluate(()=>{

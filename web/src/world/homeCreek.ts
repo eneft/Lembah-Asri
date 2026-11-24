@@ -609,11 +609,12 @@ export function updateHomeCreekWater(water:THREE.Object3D|undefined,seconds:numb
   }
 }
 
-type BankClump={x:number;z:number;scale:number;yaw:number;tint:number};
+type BankClump={x:number;z:number;scale:number;yaw:number;tint:number;tall?:boolean};
 /**
- * Bank greenery is grouped around boulders, with quiet breaks between.
- * Grass is volumetric low-poly geometry, leafy shrubs use authored leaf UV.
- * Only two InstancedMesh draws, no new colliders or sprites.
+ * Stage 4: small painted sedges dominate, while tall foliage and flowers
+ * punctuate only real, above-water boulder groups. Most banks stay open.
+ * Reuse existing three InstancedMesh draws (sedges, leaves, flower patches);
+ * there are no new materials, billboards, colliders or creek geometry.
  */
 export function createHomeCreekVegetation(): THREE.Group {
   const root=new THREE.Group();
@@ -623,7 +624,8 @@ export function createHomeCreekVegetation(): THREE.Group {
     // Alternating shores create asymmetric, organic planted reaches.
     [-43,-1,.68],[-37,1,.60],[-28,-1,.81],[-21,1,.74],
     [-14,-1,.78],[-8,1,.61],
-    [-3.0,-1,1.0],[.9,1,1.08],[4.3,-1,1.05],
+    // Follow the exposed west/east boulder clusters; leave bridge approach open.
+    [-3.0,-1,1.0],[.9,1,1.08],[4.3,1,1.05],
     [6.1,1,.72],[11.9,-1,.98],[14.8,1,1.15],
     [18.2,-1,.9],[21.0,1,1.2],[23.1,-1,.78],
     [33,1,.66],[42,-1,.57]
@@ -632,22 +634,32 @@ export function createHomeCreekVegetation(): THREE.Group {
   const rng=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
   const reeds: BankClump[]=[];
   const shrubs: BankClump[]=[];
+  let tallAccents=0;
   for(const [z,side,intensity] of bankGroups) {
-    // Create localized asymmetrical vegetation clumps, not a uniform border.
+    // A tall reed is justified ONLY when a real mossy rock emerges from
+    // the water on this shore. Fully submerged stones must not grow reeds.
+    const rockAnchor=selectedHomeRocks.some(rock=>
+      rock.zone==='stream' && rock.submerge!==undefined && rock.submerge<1
+      && Math.abs(rock.z-z)<1.2
+      && (rock.x<creekCenterX(rock.z)?-1:1)===side
+    );
+    // Preserve the low meadow density, but no continuous tall reed fence.
     const count=Math.round(7*intensity);
     for(let i=0;i<count;i++){
       const zz=z+(rng()-.5)*1.60;
       const edge=creekCenterX(zz)+side*creekWidth(zz)/2;
       const x=edge+side*(.70+.65*rng());
-      const scale=(.60+rng()*.67)*intensity;
-      reeds.push({x,z:zz,scale,yaw:rng()*Math.PI*2,tint:rng()});
+      const tall=rockAnchor&&i===0;
+      const scale=(tall ? .72+.16*rng() : .30+.24*rng())*intensity;
+      if(tall)tallAccents++;
+      reeds.push({x,z:zz,scale,yaw:rng()*Math.PI*2,tint:rng(),tall});
     }
     const leafCount=Math.round(2.3*intensity);
     for(let i=0;i<leafCount;i++){
       const zz=z+(rng()-.5)*1.25;
       const x=creekCenterX(zz)+side*(creekWidth(zz)/2+.83+.44*rng());
       shrubs.push({
-        x,z:zz,scale:.43+rng()*.40,
+        x,z:zz,scale:.35+rng()*.31,
         yaw:rng()*Math.PI*2,tint:rng()
       });
     }
@@ -666,7 +678,9 @@ export function createHomeCreekVegetation(): THREE.Group {
     instance.scale.setScalar(p.scale);
     instance.updateMatrix();
     reedMesh.setMatrixAt(i,instance.matrix);
-    reedMesh.setColorAt(i,new THREE.Color(p.tint>.65?'#e8edbc':'#f8f0ca'));
+    reedMesh.setColorAt(i,new THREE.Color(
+      p.tall?'#bfca88':p.tint>.65?'#c7d69b':'#a7c37c'
+    ));
   }
   reedMesh.instanceMatrix.needsUpdate=true;
   if(reedMesh.instanceColor)reedMesh.instanceColor.needsUpdate=true;
@@ -686,26 +700,32 @@ export function createHomeCreekVegetation(): THREE.Group {
     instance.scale.setScalar(p.scale);
     instance.updateMatrix();
     leafMesh.setMatrixAt(i,instance.matrix);
-    leafMesh.setColorAt(i,new THREE.Color(p.tint>.65?'#77a75d':'#91b86b'));
+    leafMesh.setColorAt(i,new THREE.Color(p.tint>.65?'#87a967':'#a0bb7d'));
   }
   leafMesh.instanceMatrix.needsUpdate=true;
   if(leafMesh.instanceColor)leafMesh.instanceColor.needsUpdate=true;
   leafMesh.frustumCulled=false;leafMesh.castShadow=false;
   root.add(leafMesh);
-  // A handful of flower patches sit just above the grass line on the shoulders.
+  // Small flowers stay beside landmark rock clusters instead of being
+  // repeated mechanically at every segment of the river.
+  const floweringGroups=bankGroups.filter(([z,side])=>selectedHomeRocks.some(
+    rock=>rock.zone==='stream' && rock.submerge!==undefined && rock.submerge<1
+      && Math.abs(rock.z-z)<1.2
+      && (rock.x<creekCenterX(rock.z)?-1:1)===side
+  ));
   const flowers=new THREE.InstancedMesh(makeBankFlowerGeometry(),
     new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,toneMapped:false}),
-    bankGroups.length*3);
+    floweringGroups.length*2);
   flowers.name='White wildflowers along the grassy creek';
   let flowerIndex=0;
-  for(const [z,side] of bankGroups) {
-    for(const shift of [-.92,.18,.94]) {
+  for(const [z,side] of floweringGroups) {
+    for(const shift of [-.48,.69]) {
       const zz=z+shift;
-      const inland=1.23+rng()*.44;
+      const inland=1.18+rng()*.42;
       instance.position.set(creekCenterX(zz)+side*(creekWidth(zz)*.5+inland),
         creekBankLipHeight(zz)+.028,zz);
       instance.rotation.set(0,rng()*6.28,0);
-      instance.scale.setScalar(.87+rng()*.55);
+      instance.scale.setScalar(.75+rng()*.42);
       instance.updateMatrix();
       flowers.setMatrixAt(flowerIndex++,instance.matrix);
     }
@@ -715,5 +735,9 @@ export function createHomeCreekVegetation(): THREE.Group {
   root.userData.clusters=bankGroups.length;
   root.userData.reedInstances=reeds.length;
   root.userData.shrubInstances=shrubs.length;
+  root.userData.lowGrassInstances=reeds.length-tallAccents;
+  root.userData.tallAccentInstances=tallAccents;
+  root.userData.flowerInstances=flowerIndex;
+  root.userData.shoreStyle='localized-boulder-sedge-stage4-v1';
   return root;
 }

@@ -6,8 +6,8 @@ export function makeSedgeGeometry(tall: boolean): THREE.BufferGeometry {
   const count = tall ? 11 : 6;
   const rows = tall ? 4 : 3;
   const lanes = tall ? [-1, 0, 1] : [-1, 1];
-  const root = new THREE.Color(tall ? '#526328' : '#627934');
-  const sun = new THREE.Color(tall ? '#d1cb61' : '#c7c963');
+  const root = new THREE.Color(tall ? '#657947' : '#739052');
+  const sun = new THREE.Color(tall ? '#b2bf75' : '#bccb82');
   const shade = new THREE.Color();
   for (let leaf = 0; leaf < count; leaf++) {
     const angle = leaf * 2.39996 + .42 * Math.sin(leaf * 2.2);
@@ -48,8 +48,8 @@ export function makeSedgeGeometry(tall: boolean): THREE.BufferGeometry {
 /** Four small, open wildflowers with warm centres, clustered on one stem patch. */
 export function makeBankFlowerGeometry(): THREE.BufferGeometry {
   const positions: number[] = [], colors: number[] = [];
-  const petal = new THREE.Color('#f3edcf'), centre = new THREE.Color('#d6a441');
-  const green = new THREE.Color('#76883d');
+  const petal = new THREE.Color('#f2efda'), centre = new THREE.Color('#d7b456');
+  const green = new THREE.Color('#839c58');
   type Point = [number, number, number];
   function triangle(a: Point, b: Point, c: Point, color: THREE.Color) {
     positions.push(...a, ...b, ...c);
