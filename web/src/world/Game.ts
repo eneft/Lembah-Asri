@@ -33,6 +33,7 @@ export type PerformanceStats = { fps: number; drawCalls: number; triangles: numb
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
+  private panorama?: ReturnType<typeof createDistantValley>;
   private environmentTarget?: THREE.WebGLRenderTarget;
   private characterBaseColor?: THREE.Texture;
   private sunLight!: THREE.DirectionalLight;
@@ -509,9 +510,9 @@ export class Game {
     const water = new THREE.Mesh(new THREE.BoxGeometry(48,.12,2.6),this.mat('#5bafc2'));
     water.position.set(0,-.02,17); this.scene.add(water);
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(5,.35,4),this.mat('#8b6242')); bridge.position.set(0,.35,17); bridge.castShadow=true; this.scene.add(bridge);
-    // One continuous 360-degree scenic 3D landscape outside the playable map.
-    // Do not change the home terrain, fog, camera, or physics.
-    this.scene.add(createDistantValley());
+    const horizon = new THREE.TextureLoader().load('textures/terrain/island-horizon.webp');
+    this.panorama = createDistantValley(horizon);
+    this.scene.add(this.panorama);
   }
   private addBuilding(x:number,z:number,name:string,walls:string,roofColor:string) {
     const g=new THREE.Group(); g.position.set(x,0,z); this.scene.add(g);
@@ -707,5 +708,5 @@ export class Game {
       this.lastPerfTick = now;
     }
   };
-  dispose(){this.running=false;this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
+  dispose(){this.running=false;this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.panorama?.material.map?.dispose();this.panorama?.material.dispose();this.panorama?.geometry.dispose();this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }

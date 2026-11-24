@@ -126,28 +126,19 @@ test('stage 5 is scoped to PBR/light/shadows and preserves the 4 earlier landsca
   assert.doesNotMatch(gameSource,/EffectComposer|OutlinePass|UnrealBloomPass/);
 });
 
-import { createDistantValley,DISTANT_VALLEY,distantValleyHeight } from '../src/world/distantValley.ts';
-test('distant valley is actual 360 degree low-cost 3D scenery beyond the playable floor',()=>{
-  const group=createDistantValley();
-  assert.equal(group.userData.scenicOnly,true);
-  assert.equal(group.userData.style,DISTANT_VALLEY.style);
-  assert.equal(group.userData.trees,460);
-  assert.equal(group.userData.houses,14);
-  const terrain=group.getObjectByName('Distant valley continuous hills and terraced fields');
-  const p=terrain.geometry.getAttribute('position'),idx=terrain.geometry.index;
-  assert.ok(terrain.material.vertexColors&&!terrain.material.fog);
-  assert.ok(terrain.geometry.getAttribute('color'));
-  assert.ok(idx.count/3<24000);
-  let highest=0;
-  for(let i=0;i<idx.count;i++){
-    const k=idx.getX(i),x=p.getX(k),z=p.getZ(k);
-    assert.ok(Math.max(Math.abs(x),Math.abs(z))>=80,'no terrain inside playable map');
-    highest=Math.max(highest,p.getY(k));
+import { createDistantValley } from '../src/world/distantValley.ts';
+test('island panorama closes its north seam and turns clockwise from sea to village',()=>{
+  const mesh=createDistantValley(new THREE.Texture());
+  const p=mesh.geometry.getAttribute('position'), uv=mesh.geometry.getAttribute('uv');
+  const rows=7, segments=p.count/rows-1;
+  for(let row=0;row<rows;row++){
+    const last=segments*rows+row;
+    assert.deepEqual([p.getX(row),p.getY(row),p.getZ(row)],[p.getX(last),p.getY(last),p.getZ(last)]);
+    assert.equal(uv.getX(row),0);
+    assert.equal(uv.getX(last),1);
   }
-  assert.ok(highest>65,'layered real mountains');
-  for(const [x,z] of [[80,0],[-80,0],[0,80],[0,-80]])assert.equal(distantValleyHeight(x,z),-.035);
-  let draws=0;group.traverse(o=>{if(o.isMesh){draws++;assert.equal(o.castShadow,false);}});
-  assert.equal(draws,6,'six batched scenery draws only');
-  assert.ok(group.getObjectByName('Distant creek winding into valley'));
-  assert.ok(group.getObjectByName('Distant village terracotta roofs'));
+  assert.ok(p.getZ(0)<0 && p.getX(segments/4*rows)>0);
+  assert.ok(p.getZ(segments/2*rows)>0 && p.getX(segments*3/4*rows)<0);
+  assert.equal(mesh.material.map.wrapS,THREE.RepeatWrapping);
+  assert.equal(mesh.geometry.getAttribute('color').getW(0),0);
 });
