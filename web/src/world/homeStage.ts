@@ -19,6 +19,7 @@ import { createHousePainterlyMaterial } from './housePainterlyMaterial.ts';
 import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { loadUserSuppliedWoodenBridge } from './uploadedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
+import { loadUploadedHomeFence } from './uploadedHomeFence.ts';
 
 /**
  * The player's childhood home in the same continuous 3D world as the village.
@@ -520,8 +521,9 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   addWoodenFence(root, solids, 'West side fence south', -43.8, 13.7, 2.6, 'z');
   // Asset loading is async: colored bamboo geometry is visible immediately.
   // The approved illustration's albedo/normal/roughness maps arrive together.
+  const fenceRuns = solids.filter(solid => solid.label.includes('fence'));
   const fencePBRReady: Promise<boolean> = loadApprovedModel
-    ? loadBambooFencePBR() : Promise.resolve(false);
+    ? loadUploadedHomeFence(root, fenceRuns).then(ok => ok || loadBambooFencePBR()) : Promise.resolve(false);
 
   // Player cannot walk through house walls or the storage structure.
   solids.push({

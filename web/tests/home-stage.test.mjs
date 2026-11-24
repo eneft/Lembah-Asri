@@ -172,3 +172,33 @@ test('enlarged house, porch, roof, colliders and fences maintain clearance', () 
   assert.equal(approach.position.x, HOME.house.x);
   assert.ok(approach.geometry.parameters.width >= 3.8, 'large house needs broad approach');
 });
+
+test('uploaded fence GLB preserves authored geometry and fits all six existing runs exactly', async () => {
+  const { createUploadedFenceRun, FENCE_HEIGHT, FENCE_DEPTH } = await import('../src/world/uploadedHomeFence.ts');
+  const bytes = readFileSync(fileURLToPath(new URL('../public/models/environment/home-fence-module.glb', import.meta.url)));
+  assert.equal(bytes.subarray(0, 4).toString('ascii'), 'glTF');
+  assert.equal(bytes.readUInt32LE(8), bytes.length);
+  const gltf = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)).toString('utf8'));
+  assert.equal(gltf.accessors[0].count, 9467);
+  assert.equal(gltf.accessors[3].count, 24696);
+  assert.equal(gltf.materials[0].emissiveTexture.index, 0);
+  const size = new THREE.Vector3().fromArray(gltf.accessors[0].max).sub(new THREE.Vector3().fromArray(gltf.accessors[0].min));
+  const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+  geometry.translate(0, size.y / 2, 0);
+  const stage = createHomeStage(false);
+  const runs = stage.solids.filter(s => s.label.includes('fence'));
+  assert.equal(runs.length, 6);
+  for (const run of runs) {
+    const mesh = createUploadedFenceRun(geometry, new THREE.MeshBasicMaterial(), run);
+    mesh.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(mesh);
+    const actual = bounds.getSize(new THREE.Vector3());
+    assert.ok(Math.abs(actual.x - 2 * run.half[0]) < .001);
+    assert.ok(Math.abs(actual.z - 2 * run.half[2]) < .001);
+    assert.ok(Math.abs(actual.y - FENCE_HEIGHT) < .001);
+    assert.ok(Math.abs(bounds.min.y) < .001);
+    assert.ok(Math.abs(bounds.getCenter(new THREE.Vector3()).x - run.center[0]) < .001);
+    assert.ok(Math.abs(bounds.getCenter(new THREE.Vector3()).z - run.center[2]) < .001);
+    assert.equal(FENCE_DEPTH, .24);
+  }
+});
