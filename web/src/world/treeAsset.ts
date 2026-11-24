@@ -45,6 +45,18 @@ export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group>
           material.transparent = false;
           material.alphaToCoverage = true; // MSAA softens the cut edge on iPhone
           material.side = THREE.DoubleSide;
+          const painted = material.onBeforeCompile;
+          material.onBeforeCompile = (shader, renderer) => {
+            painted.call(material, shader, renderer);
+            shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+              #include <map_fragment>
+              #ifdef USE_MAP
+                vec3 leafWash = texture2D(map, vMapUv, 1.7).rgb;
+                diffuseColor.rgb = mix(diffuseColor.rgb, leafWash, .52) * vec3(.91,.88,.73);
+              #endif
+            `);
+          };
+          material.customProgramCacheKey = () => 'soft-olive-leaf-pigment-v1';
           leafFound = true;
         }
         if (material.map) {

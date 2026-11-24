@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export const UPLOADED_FENCE_URL = './models/environment/home-fence-module.glb?v=1';
+// Preserve the authored XYZ proportions and the minimum 40 cm long-run depth.
+// Lower prominence through the weathered pigment, not by shrinking the mesh.
 export const FENCE_HEIGHT = 1.45;
 
 type FenceRun = { label: string; center: [number, number, number]; half: [number, number, number] };
@@ -66,6 +68,17 @@ export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[])
     map.colorSpace = THREE.SRGBColorSpace;
     map.anisotropy = 4;
     const material = applyPaintedPigment(new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide, toneMapped: false }));
+    const painted = material.onBeforeCompile;
+    material.onBeforeCompile = (shader, renderer) => {
+      painted.call(material, shader, renderer);
+      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+        #include <map_fragment>
+        float bambooValue = dot(diffuseColor.rgb, vec3(.25,.60,.15));
+        vec3 weathered = vec3(.073,.067,.044) + bambooValue * vec3(.51,.48,.36);
+        diffuseColor.rgb = mix(diffuseColor.rgb, weathered, .78);
+      `);
+    };
+    material.customProgramCacheKey = () => 'weathered-bamboo-pigment-v1';
     const replacement = new THREE.Group();
     replacement.name = 'Home fence — uploaded GLB';
     for (const run of runs) replacement.add(createUploadedFenceRun(geometry, material, run));
