@@ -195,13 +195,25 @@ try{
   for(const file of ['creek_cobbles.webp','creek_meadow.webp']){
     assert.ok(assets.has(prefix+'textures/terrain/'+file),'missing live creek image '+file);
   }
+  await page.waitForFunction(()=>{
+    const scene=window.__lembahVisualQA.scene;
+    return ['Island horizon - north sea, east village, south forest, west mountain',
+      'Rolling meadow outside playable ground','Middle-distance orchard, forest and coastal palms']
+      .every(name=>scene.getObjectByName(name)?.material?.map?.image?.width>0);
+  },null,{timeout:120000});
   const vista=await page.evaluate(()=>{
-    const root=window.__lembahVisualQA.scene.getObjectByName('Distant Lembah Asri landscape 360');
-    return root?.userData;
+    const scene=window.__lembahVisualQA.scene;
+    const horizon=scene.getObjectByName('Island horizon - north sea, east village, south forest, west mountain');
+    const meadow=scene.getObjectByName('Rolling meadow outside playable ground');
+    const groves=scene.getObjectByName('Middle-distance orchard, forest and coastal palms');
+    const p=horizon.geometry.getAttribute('position'), uv=horizon.geometry.getAttribute('uv');
+    return {width:horizon.material.map.image.width,height:horizon.material.map.image.height,
+      seam:[p.getX(0),p.getY(0),p.getZ(0)].every((v,i)=>v===[p.getX(p.count-7),p.getY(p.count-7),p.getZ(p.count-7)][i]),
+      uvClosed:uv.getX(0)===0 && uv.getX(p.count-7)===1,
+      meadow:!!meadow.material.map.image,groves:!!groves.material.map.image};
   });
-  assert.equal(vista?.style,'layered-painterly-javanese-valley-v1');
-  assert.equal(vista.trees,460);
-  assert.equal(vista.houses,14);
+  assert.ok(vista.width>=6000 && vista.height>=178 && vista.seam && vista.uvClosed);
+  assert.ok(vista.meadow && vista.groves,'all landscape layers must load in the production browser');
   const arrival=await page.evaluate(()=>window.__lembahVisualQA.player.translation());
   assert.ok(Math.abs(arrival.x+42.40)<.12 && Math.abs(arrival.z-10.95)<.12,
     'the riverside link should place the player at the near end of the bridge');
