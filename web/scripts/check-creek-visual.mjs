@@ -267,6 +267,7 @@ try{
       triangles:model.geometry.index?.count/3,
       hasUV:!!model.geometry.getAttribute('uv'),
       standardPBR:m.isMeshStandardMaterial===true,
+      painterly:m.userData.housePainterlyShader,
       baseColor:!!m.map,normal:!!m.normalMap,
       rough:!!m.roughnessMap,metal:!!m.metalnessMap,
       box:[size.x,size.y,size.z]
@@ -274,12 +275,11 @@ try{
   });
   assert.equal(importedHouse.sourceFile,'base_basic_pbr.glb');
   assert.equal(importedHouse.triangles,100000);
-  assert.ok(importedHouse.hasUV && importedHouse.standardPBR
-    && importedHouse.baseColor && importedHouse.normal
-    && importedHouse.rough && importedHouse.metal,'user PBR materials and UVs remain intact');
-  assert.ok(importedHouse.box[0]>7.2 && importedHouse.box[0]<9.7);
-  assert.ok(importedHouse.box[1]>5.7 && importedHouse.box[1]<6.1);
-  assert.ok(importedHouse.box[2]>8.5 && importedHouse.box[2]<9.7);
+  assert.ok(importedHouse.hasUV && !importedHouse.standardPBR && importedHouse.baseColor);
+  assert.equal(importedHouse.painterly,'house-diffuse-painterly-v1');
+  assert.ok(importedHouse.box[0]>9 && importedHouse.box[0]<12.1);
+  assert.ok(importedHouse.box[1]>7.1 && importedHouse.box[1]<7.5);
+  assert.ok(importedHouse.box[2]>10.6 && importedHouse.box[2]<12.1);
   assert.ok([...assets].some(url=>url.includes('rumah_utama_user_pbr.glb')));
   // Stage 5: inspect the actual WebGL scene after the imported 100k-triangle
   // PBR house finishes loading. Do not infer successful rendering from source.
@@ -301,7 +301,7 @@ try{
       fogNear:scene.fog?.near,fogFar:scene.fog?.far,
       envIntensity:scene.environmentIntensity,
       housePBR:material?.isMeshStandardMaterial===true,
-      houseStyle:material?.userData?.painterlyPBR,
+      houseStyle:material?.userData?.housePainterlyShader,
       houseMaps:[material?.map,material?.normalMap,
         material?.roughnessMap,material?.metalnessMap].every(Boolean),
       roughness:material?.roughness,metalness:material?.metalness,
@@ -317,10 +317,8 @@ try{
   assert.equal(daylight.envIntensity,.3);
   assert.equal(daylight.fogNear,38);
   assert.equal(daylight.fogFar,115);
-  assert.ok(daylight.housePBR&&daylight.houseMaps);
-  assert.equal(daylight.houseStyle,daylight.style);
-  assert.ok(daylight.roughness>=.82 && daylight.metalness<=.22);
-  assert.ok(Math.abs(daylight.normalScale)<=.62);
+  assert.equal(daylight.housePBR,false);
+  assert.equal(daylight.houseStyle,'house-diffuse-painterly-v1');
   assert.equal(daylight.shadowOpacity,.34);
   // Stage 1: compare the actual materials in the production WebGL scene.
   // Every grass source uses one finish; water is never treated as foliage.
