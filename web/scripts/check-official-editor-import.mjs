@@ -51,6 +51,7 @@ try {
     const house=editor.scene.getObjectByName('Rumah utama - user uploaded PBR');
     const terrain=editor.scene.getObjectByName('World painted grass UV terrain');
     const creek=editor.scene.getObjectByName('Shallow stream west of childhood home');
+    const garden=editor.scene.getObjectByName('Bedengan kebun - editor baked soil');
     editor.scene.updateMatrixWorld(true);
     editor.camera.updateMatrixWorld(true);
     const center=new THREE.Box3().setFromObject(house).getCenter(new THREE.Vector3());
@@ -64,12 +65,16 @@ try {
     gl.readPixels(0,0,900,560,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
     const colors=new Set();
     for(let i=0;i<pixels.length;i+=64)colors.add((pixels[i]<<16)|(pixels[i+1]<<8)|pixels[i+2]);
+    const centerVertex=new THREE.Vector3().fromBufferAttribute(creek.geometry.getAttribute('position'),142*6+2).applyMatrix4(creek.matrixWorld);
+    const ray=new THREE.Raycaster(new THREE.Vector3(centerVertex.x,5,centerVertex.z),new THREE.Vector3(0,-1,0));
     return {meshes,terrain:!!terrain,creek:!!creek,
+      creekOpen:ray.intersectObject(terrain).length===0,
+      gardenVisible:!!garden?.material?.map?.image && garden.geometry.index.count>100,
       houseMap:!!house.getObjectByName('model')?.material?.map?.image,
       houseOnScreen:Math.abs(screen.x)<1&&Math.abs(screen.y)<1&&Math.abs(screen.z)<1,
       colors:colors.size,triangles:renderer.info.render.triangles};
   });
-  assert.ok(facts.meshes>30 && facts.terrain && facts.creek && facts.houseMap,JSON.stringify(facts));
+  assert.ok(facts.meshes>30 && facts.terrain && facts.creek && facts.creekOpen && facts.gardenVisible && facts.houseMap,JSON.stringify(facts));
   assert.ok(facts.houseOnScreen && facts.colors>100 && facts.triangles>10000,JSON.stringify(facts));
   await mkdir('artifacts/world',{recursive:true});
   await page.locator('canvas').last().screenshot({path:'artifacts/world/editor-import.jpg',type:'jpeg',quality:90});
