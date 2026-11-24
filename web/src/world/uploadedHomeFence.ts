@@ -3,7 +3,6 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export const UPLOADED_FENCE_URL = './models/environment/home-fence-module.glb?v=1';
 export const FENCE_HEIGHT = 1.45;
-export const FENCE_DEPTH = 0.24;
 
 type FenceRun = { label: string; center: [number, number, number]; half: [number, number, number] };
 
@@ -16,14 +15,19 @@ export function createUploadedFenceRun(geometry: THREE.BufferGeometry, material:
   if (![size.x, size.y, size.z].every(v => Number.isFinite(v) && v > .001)) throw new Error('Invalid fence module bounds');
   const alongX = run.half[0] > run.half[2];
   const length = 2 * (alongX ? run.half[0] : run.half[2]);
-  const count = Math.max(1, Math.round(length / (size.x * FENCE_HEIGHT / size.y)));
+  // Pick the module count closest to the nominal height, then fit the run
+  // with one scalar on XYZ. Exact endpoints keep every existing gate open.
+  const idealCount = length / (size.x * FENCE_HEIGHT / size.y);
+  const candidates = [Math.max(1, Math.floor(idealCount)), Math.max(1, Math.ceil(idealCount))];
+  const heightError = (n: number) => Math.abs(length * size.y / (n * size.x) - FENCE_HEIGHT);
+  const count = heightError(candidates[0]) <= heightError(candidates[1]) ? candidates[0] : candidates[1];
   const step = length / count;
-  const scale = new THREE.Vector3(step / size.x, FENCE_HEIGHT / size.y, FENCE_DEPTH / size.z);
+  const scale = step / size.x;
   const mesh = new THREE.InstancedMesh(geometry, material, count);
   const marker = new THREE.Object3D();
   for (let i = 0; i < count; i++) {
-    marker.scale.copy(scale);
-    marker.position.set(-length / 2 + (i + .5) * step - center.x * scale.x, -bounds.min.y * scale.y, -center.z * scale.z);
+    marker.scale.setScalar(scale);
+    marker.position.set(-length / 2 + (i + .5) * step - center.x * scale, -bounds.min.y * scale, -center.z * scale);
     marker.updateMatrix();
     mesh.setMatrixAt(i, marker.matrix);
   }
@@ -36,6 +40,9 @@ export function createUploadedFenceRun(geometry: THREE.BufferGeometry, material:
   mesh.userData.sourceFile = 'base_basic_shaded (1).glb';
   mesh.userData.moduleCount = count;
   mesh.userData.runLength = length;
+  mesh.userData.uniformScale = scale;
+  mesh.userData.moduleHeight = size.y * scale;
+  mesh.userData.moduleDepth = size.z * scale;
   mesh.position.set(run.center[0], 0, run.center[2]);
   if (!alongX) mesh.rotation.y = -Math.PI / 2;
   return mesh;
