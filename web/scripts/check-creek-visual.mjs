@@ -256,6 +256,47 @@ try{
   assert.ok(importedHouse.box[1]>5.7 && importedHouse.box[1]<6.1);
   assert.ok(importedHouse.box[2]>8.5 && importedHouse.box[2]<9.7);
   assert.ok([...assets].some(url=>url.includes('rumah_utama_user_pbr.glb')));
+  // Stage 5: inspect the actual WebGL scene after the imported 100k-triangle
+  // PBR house finishes loading. Do not infer successful rendering from source.
+  const daylight=await page.evaluate(()=>{
+    const game=window.__lembahVisualQA;
+    const scene=game.scene;
+    const hemi=scene.children.find(o=>o.isHemisphereLight);
+    const sun=game.sunLight;
+    const skyFill=scene.children.find(o=>o.isDirectionalLight&&o!==sun);
+    const house=scene.getObjectByName('Rumah utama - user uploaded PBR');
+    const material=house?.getObjectByName('model')?.material;
+    const shadow=scene.getObjectByName('World painted-terrain real shadows');
+    return {
+      style:scene.userData.painterlyLightingStyle,
+      colorSpace:game.renderer.outputColorSpace,
+      toneMapping:game.renderer.toneMapping,
+      exposure:game.renderer.toneMappingExposure,
+      sun:sun?.intensity,hemi:hemi?.intensity,fill:skyFill?.intensity,
+      fogNear:scene.fog?.near,fogFar:scene.fog?.far,
+      envIntensity:scene.environmentIntensity,
+      housePBR:material?.isMeshStandardMaterial===true,
+      houseStyle:material?.userData?.painterlyPBR,
+      houseMaps:[material?.map,material?.normalMap,
+        material?.roughnessMap,material?.metalnessMap].every(Boolean),
+      roughness:material?.roughness,metalness:material?.metalness,
+      normalScale:material?.normalScale?.x,
+      shadowOpacity:shadow?.material?.opacity
+    };
+  });
+  assert.equal(daylight.style,'lembah-painterly-daylight-stage5-v1');
+  assert.equal(daylight.sun,1.55);
+  assert.equal(daylight.hemi,1.1);
+  assert.equal(daylight.fill,.3);
+  assert.equal(daylight.exposure,1);
+  assert.equal(daylight.envIntensity,.3);
+  assert.equal(daylight.fogNear,38);
+  assert.equal(daylight.fogFar,115);
+  assert.ok(daylight.housePBR&&daylight.houseMaps);
+  assert.equal(daylight.houseStyle,daylight.style);
+  assert.ok(daylight.roughness>=.82 && daylight.metalness<=.22);
+  assert.ok(Math.abs(daylight.normalScale)<=.62);
+  assert.equal(daylight.shadowOpacity,.34);
   // Stage 1: compare the actual materials in the production WebGL scene.
   // Every grass source uses one finish; water is never treated as foliage.
   const meadowStyle=await page.evaluate(()=>{

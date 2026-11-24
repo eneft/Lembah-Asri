@@ -79,6 +79,8 @@ jobs:
         run: npm run test:home
       - name: Verify real moving shadows on painted terrain, house and character
         run: node --experimental-strip-types --test tests/scene-shadows.test.mjs
+      - name: Verify Stage 5 unified soft daylight, house/fence PBR texture preservation and warm shadows
+        run: node --experimental-strip-types --test tests/daylight-stage5.test.mjs
       - name: Verify imported GLB ground feather blends seamlessly with home terrain
         run: node --experimental-strip-types --test tests/house-terrain-seam.test.mjs
       - name: Verify user-provided UV rock pack and safe environmental placements

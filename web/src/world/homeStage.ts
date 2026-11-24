@@ -15,6 +15,7 @@ import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerra
 import { applyRiversidePaint } from './riversidePaint.ts';
 import { applyCreekCourtyardAlbedo } from './shoreCourtyard.ts';
 import { applyWarmCourtyardGrass } from './grassPalette.ts';
+import { softenPaintedPBR } from './sceneArtDirection.ts';
 import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { loadUserSuppliedWoodenBridge } from './uploadedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
@@ -584,7 +585,9 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
           map.colorSpace=THREE.NoColorSpace;
           map.anisotropy=4;
         }
-        material.needsUpdate=true;
+        // Retain the exact GLB textures and UVs, but reduce hard PBR
+        // highlights to match surrounding soft hand-painted objects.
+        softenPaintedPBR(material, 'house');
       }
       obj.castShadow=true;
       obj.receiveShadow=true;

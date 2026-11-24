@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { gardenHeightAt } from './gardenLayout.ts';
+import { LEMBAH_DAYLIGHT } from './sceneArtDirection.ts';
 
 /**
  * The terrain and character use MeshBasicMaterial to keep the authored
@@ -16,8 +17,8 @@ export function createPaintedShadowReceiver(
     throw new Error('Invalid shadow receiver footprint');
   }
   const material = new THREE.ShadowMaterial({
-    color: 0x51473c,
-    opacity: 0.42,
+    color: 0x615746,
+    opacity: LEMBAH_DAYLIGHT.shadowOpacity,
     transparent: true,
     depthWrite: false
   });
@@ -93,7 +94,7 @@ export function createCharacterContactShadow(): THREE.Mesh<THREE.PlaneGeometry, 
   map.needsUpdate = true;
   const material = new THREE.MeshBasicMaterial({
     map, color: '#ffffff', transparent: true,
-    depthWrite: false, opacity: 0.40, toneMapped: false
+    depthWrite: false, opacity: LEMBAH_DAYLIGHT.contactShadowOpacity, toneMapped: false
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.08, 0.77), material);
   mesh.name = 'Character soft painted contact shadow';
@@ -120,5 +121,5 @@ export function updateCharacterContactShadow(
   shadow.visible = true;
   const factor = 1 + Math.min(air, 4) * 0.17;
   shadow.scale.set(factor, factor, 1);
-  shadow.material.opacity = 0.40 / (1 + air * 0.8);
+  shadow.material.opacity = LEMBAH_DAYLIGHT.contactShadowOpacity / (1 + air * 0.8);
 }

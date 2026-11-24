@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { softenPaintedPBR } from './sceneArtDirection.ts';
 
 /**
  * Lembah Asri bamboo fence — true low-poly 3D with four UV islands sampled
@@ -69,7 +70,9 @@ export function loadBambooFencePBR():Promise<boolean> {
     map.colorSpace=THREE.SRGBColorSpace;
     normal.colorSpace=THREE.NoColorSpace;
     roughness.colorSpace=THREE.NoColorSpace;
-    bambooPBRMaterial.map=map;
+    // Match the house's matte PBR daylight while retaining each UV atlas.
+  softenPaintedPBR(bambooPBRMaterial, 'bamboo');
+  bambooPBRMaterial.map=map;
     bambooPBRMaterial.normalMap=normal;
     bambooPBRMaterial.roughnessMap=roughness;
     bambooPBRMaterial.color.set('#ffffff');
