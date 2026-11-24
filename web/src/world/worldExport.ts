@@ -69,7 +69,9 @@ export function serializeWorldScene(
     exportFormat: 'lembah-asri-world-v1',
     notes: 'Visual scene snapshot; runtime physics, gameplay and onBeforeCompile shaders are not included.'
   };
-  const json = snapshot.toJSON();
+  const json = snapshot.toJSON() as ReturnType<THREE.Scene['toJSON']> & {
+    images?: Array<{ uuid: string; url: unknown }>;
+  };
   // Three's default serializer uses JPEG for large images. Preserve alpha in
   // large authored foliage/atlas images by replacing that encoding with PNG.
   for (const entry of (json.images ?? []) as Array<{uuid:string;url:unknown}>) {
