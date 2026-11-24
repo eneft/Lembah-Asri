@@ -87,6 +87,8 @@ jobs:
         run: node --experimental-strip-types --test tests/home-creek-depth.test.mjs
       - name: Verify Stage 3 clear turquoise water, authentic submerged GLBs and localized foam
         run: node --experimental-strip-types --test tests/clear-river-water-stage3.test.mjs
+      - name: Verify Stage 4 low grassy banks, boulder-only plant accents and warm mossy rock UV
+        run: node --experimental-strip-types --test tests/shore-plants-stage4.test.mjs
       - name: Verify 3D painterly courtyard vegetation and textured stepping stones
         run: node --experimental-strip-types --test tests/home-art-pass.test.mjs
       - name: Verify hand-painted home terrain details and path clearance
