@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bakeCreekOpening, createEditorGarden } from './editorTerrainBake.ts';
 
 /**
  * Produce the native Three.js Object/Scene JSON format, not a layout-only file.
@@ -10,6 +11,7 @@ function buildWorldSceneJSON(
   scene: THREE.Scene,
   excluded: ReadonlySet<THREE.Object3D> = new Set()
 ) {
+  scene.updateMatrixWorld(true);
   const snapshot = new THREE.Scene();
   snapshot.name = 'Lembah Asri - World';
   snapshot.background = scene.background instanceof THREE.Color ? scene.background.clone() : null;
@@ -24,6 +26,7 @@ function buildWorldSceneJSON(
   const visit = (source: THREE.Object3D, parent: THREE.Object3D) => {
     if (excluded.has(source) || !source.visible) return;
     const copy = source.clone(false);
+    let garden: THREE.Mesh | undefined;
     // Shader injection callbacks are deliberately not transferred to editor JSON.
     if (copy instanceof THREE.Mesh) {
       const original = copy.geometry;
@@ -35,7 +38,15 @@ function buildWorldSceneJSON(
         geometries.set(original, baked);
       }
       copy.geometry = baked;
-      const materials = Array.isArray(copy.material) ? copy.material : [copy.material];
+      if (source instanceof THREE.Mesh) {
+        if (source.userData.creekVisualCutout || (!Array.isArray(source.material) && source.material.userData.creekVisualCutout)) {
+          copy.geometry = bakeCreekOpening(source);
+        }
+        garden = createEditorGarden(source);
+        if (garden) copy.add(garden);
+      }
+      const materials = Array.isArray(copy.material) ? [...copy.material] : [copy.material];
+      if (garden && !Array.isArray(garden.material)) materials.push(garden.material);
       for (const material of materials) {
         for (const value of Object.values(material)) {
           if (value instanceof THREE.Texture && !value.isRenderTargetTexture) {
@@ -66,7 +77,7 @@ function buildWorldSceneJSON(
   }
   snapshot.updateMatrixWorld(true);
   snapshot.userData = {
-    exportFormat: 'lembah-asri-world-v1',
+    exportFormat: 'lembah-asri-world-v2',
     notes: 'Visual scene snapshot; runtime physics, gameplay and onBeforeCompile shaders are not included.'
   };
   const json = snapshot.toJSON() as ReturnType<THREE.Scene['toJSON']> & {
