@@ -82,7 +82,12 @@ try{
     const imported=scene.getObjectByName('Uploaded wooden bridge - original GLB');
     let meshes=0,hasUVPaint=false;
     imported?.traverse(object=>{
-      if(object.isMesh){meshes++;hasUVPaint ||= !!object.material.emissiveMap;}
+      if (!object.isMesh) return;
+      meshes++;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      hasUVPaint ||= !!object.geometry.attributes.uv && materials.some(material =>
+        material.isMeshBasicMaterial && material.map?.image?.width > 0
+      );
     });
     return {
       uploaded:bridge?.userData.userBridgeLoaded,
@@ -103,7 +108,7 @@ try{
   assert.ok(Math.abs(facts.rotationY-Math.PI/2)<.0001,'the second GLB must be rotated across the river');
   assert.equal(facts.asset,'./models/environment/bridge_user_reference_wood_v2.glb');
   assert.equal(facts.triangles,10000,'new uploaded bridge with all authored triangles must replace old');
-  assert.ok(facts.meshes>=1&&facts.hasUVPaint,'preserve painted emissive atlas');
+  assert.ok(facts.meshes>=1&&facts.hasUVPaint,'render the baked bridge atlas on its matte UV material');
   assert.ok(facts.dimensions.x>5.05&&facts.dimensions.x<5.15,'full creek span');
   assert.ok(facts.dimensions.z>2.04&&facts.dimensions.z<2.14,'crossing width matches collider');
   assert.equal(facts.oldPlanks,undefined,'old procedural bridge should be gone');
