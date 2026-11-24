@@ -137,14 +137,17 @@ function mossyRiverStone(base: THREE.MeshBasicMaterial): THREE.MeshBasicMaterial
       vec2 face=vRiverStone.xz;
       float brush=.51*sin(face.x*11.+face.y*7.)+.29*sin(face.x*19.-face.y*23.)+.20*sin(face.y*51.+face.x*33.);
       float value=dot(diffuseColor.rgb,vec3(.22,.66,.12));
-      vec3 rock=mix(vec3(.16,.145,.135),vec3(.63,.59,.53),smoothstep(.09,.76,value));
+      // Same UV paint and shape, muted warm grey like the reference.
+      vec3 rock=mix(vec3(.18,.175,.165),vec3(.62,.60,.55),smoothstep(.09,.76,value));
       float wet=smoothstep(-.22,-.04,vRiverStone.y);
-      rock*=mix(vec3(.62,.76,.81),vec3(1.),wet);
+      // Previously the wet face became conspicuously blue/dark.
+      rock*=mix(vec3(.79,.86,.80),vec3(1.),wet);
       float moss=smoothstep(.36,.75,vStoneUp+.35*brush)*smoothstep(-.25,.44,brush+.30*sin(face.y*3.1))*smoothstep(-.18,.055,vRiverStone.y);
-      vec3 green=mix(vec3(.095,.154,.042),vec3(.45,.49,.085),clamp(value*1.10+brush*.21,0.,1.));
-      diffuseColor.rgb=mix(rock,green,moss);`);
+      vec3 green=mix(vec3(.15,.23,.10),vec3(.40,.51,.30),clamp(value*1.10+brush*.21,0.,1.));
+      diffuseColor.rgb=mix(rock,green,moss*.72);`);
   };
-  material.customProgramCacheKey=()=>'river-stone-moss-cap-v1';
+  material.customProgramCacheKey=()=>'river-stone-moss-cap-v2-stage4';
+  material.userData.shoreStoneStyle='warm-grey-soft-moss-stage4-v1';
   return material;
 }
 
