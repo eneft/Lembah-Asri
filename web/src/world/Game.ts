@@ -512,7 +512,7 @@ export class Game {
     const water = new THREE.Mesh(new THREE.BoxGeometry(48,.12,2.6),this.mat('#5bafc2'));
     water.position.set(0,-.02,17); this.scene.add(water);
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(5,.35,4),this.mat('#8b6242')); bridge.position.set(0,.35,17); bridge.castShadow=true; this.scene.add(bridge);
-    const horizon = new THREE.TextureLoader().load('textures/terrain/island-horizon.webp');
+    const horizon = new THREE.TextureLoader().load('textures/terrain/island-horizon.webp?v=2');
     this.panorama = createDistantValley(horizon);
     this.scene.add(this.panorama);
   }
