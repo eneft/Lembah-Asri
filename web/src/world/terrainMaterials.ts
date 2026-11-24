@@ -98,8 +98,9 @@ function applyLoadedTexture(binding: Binding, source: THREE.Texture): void {
   // The matched gouache tiles are painted images, not periodic procedural
   // noise. Mirroring makes both earth and grass meet without a hard tile seam.
   // Keep this consistent with the sculpted bank and riverside samplers.
-  texture.wrapS = THREE.MirroredRepeatWrapping;
-  texture.wrapT = THREE.MirroredRepeatWrapping;
+  const worldGrass = binding.surface === 'grass' && binding.worldUV;
+  const mirrorEdges = worldGrass || STYLES[binding.surface].source === 'earth';
+  texture.wrapS = texture.wrapT = mirrorEdges ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
   // Dedicated UV1 is in metres and warped in world space; UV0 is reserved
   // for the edge mask. Independent sets prevent the mask from tiling.
   texture.channel = binding.worldUV ? 1 : 0;
