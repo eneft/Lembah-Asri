@@ -56,6 +56,14 @@ function leafySawi(): THREE.BufferGeometry {
   return g;
 }
 
+// Export-only access to the actual authored pigment and current soil state.
+const gardenExportBindings = new WeakMap<THREE.Material, {
+  pigment: { value: THREE.Texture }; state: THREE.DataTexture
+}>();
+export function getGardenExportBinding(material: THREE.Material) {
+  return gardenExportBindings.get(material);
+}
+
 export class GardenSurface {
   readonly crops = new THREE.Group();
   private readonly pigment = { value: fallbackGarden() as THREE.Texture };
@@ -91,6 +99,7 @@ export class GardenSurface {
 
   /** Extend the existing painted courtyard material, including its creek cutout and outer alpha. */
   bind(material: THREE.MeshBasicMaterial) {
+    gardenExportBindings.set(material, { pigment: this.pigment, state: this.state });
     const previous = material.onBeforeCompile;
     const previousKey = material.customProgramCacheKey();
     material.onBeforeCompile = (shader, renderer) => {
