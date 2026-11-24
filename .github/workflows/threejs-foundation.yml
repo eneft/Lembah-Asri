@@ -20,7 +20,7 @@ jobs:
   build:
     name: Type-check and build Three.js app
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: web

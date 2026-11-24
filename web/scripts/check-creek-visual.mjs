@@ -424,6 +424,7 @@ try{
   assert.ok(assets.has(prefix+'models/environment/lembah_asri_rocks_original_16.glb'));
   // Drive the actual game controller with the same input methods as the mobile
   // joystick. This is not a separately constructed test physics world.
+  console.log('Starting live mobile controller collision verification after visual captures');
   const motion=await page.evaluate(async()=>{
     const game=window.__lembahVisualQA;
     const frame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
@@ -440,10 +441,21 @@ try{
       game.setTouchMove(0,0);game.setTouchRun(false);
       const p=game.player.translation();return {x:p.x,y:p.y,z:p.z};
     }
-    const west=await run(-50,0,1,100,true);
-    const east=await run(-41.6,0,-1,100);
-    const bridge=await run(-49.4,8.6,1,145);
-    return {west,east,bridge};
+    // Visual QA above already exercised the real renderer and captured all
+    // requested views. Software WebGL in CI can take seconds per frame; for
+    // input-only verification suppress drawing, not the game loop, Rapier
+    // steps, input processing, animations or runtime movement guard.
+    const render=game.renderer.render;
+    game.renderer.render=()=>{};
+    try {
+      const west=await run(-50,0,1,120,true);
+      const east=await run(-41.6,0,-1,120);
+      const bridge=await run(-49.4,8.6,1,180);
+      return {west,east,bridge};
+    } finally {
+      game.setTouchMove(0,0);game.setTouchRun(false);
+      game.renderer.render=render;
+    }
   });
   assert.ok(motion.west.x<-47.1,'live mobile run+jump cannot enter west bank: '+JSON.stringify(motion));
   assert.ok(motion.east.x>-43.7,'live mobile run cannot enter east bank: '+JSON.stringify(motion));
