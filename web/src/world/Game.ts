@@ -19,6 +19,7 @@ import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
 import { applyMeadowAntiTileShader } from './meadowAntiTile';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
+import { applyLembahDaylight, LEMBAH_DAYLIGHT } from './sceneArtDirection';
 import { createWarungStage } from './warungStage';
 import {
   configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
@@ -140,9 +141,8 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1.25 : 1.5));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.NeutralToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    // Color management is configured together with the outdoor light rig
+    // below, preserving NeutralToneMapping rather than switching to toon.
     // Outdoor sky environment: use a daylight sky instead of the previous
     // indoor RoomEnvironment so PBR albedo receives natural open-air lighting.
     const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -159,15 +159,14 @@ export class Game {
     skyScene.add(sky);
     this.environmentTarget = pmrem.fromScene(skyScene);
     this.scene.environment = this.environmentTarget.texture;
-    this.scene.environmentIntensity = 0.28;
+    this.scene.environmentIntensity = LEMBAH_DAYLIGHT.environmentIntensity;
     sky.geometry.dispose();
     sky.material.dispose();
     pmrem.dispose();
     host.appendChild(this.renderer.domElement);
-    this.scene.background = new THREE.Color('#a9d4e9');
-    this.scene.fog = new THREE.Fog('#c8dfcf', 38, 115);
     this.camera.position.set(0, 6, -9);
-    this.scene.add(new THREE.HemisphereLight('#e9f5ff', '#82775f', 1.15));
+    const hemisphere = new THREE.HemisphereLight('#e9f5ff', '#82775f', 1.15);
+    this.scene.add(hemisphere);
     const sun = new THREE.DirectionalLight('#fff0d8', 2.1);
     this.sunLight = sun;
     configureSunShadows(sun, mobile);
@@ -175,10 +174,12 @@ export class Game {
     // the childhood home from falling off the edge of the shadow frustum.
     focusSunShadows(sun, HOME.spawn.x, HOME.spawn.z);
     this.scene.add(sun, sun.target);
-    // Camera-side sky fill lifts dark leaf undersides without flattening the sun direction.
+    // Keep a soft sky-side fill for matte PBR surfaces. Hand-painted
+    // MeshBasicMaterial UV art never gets a second lighting pass.
     const skyFill = new THREE.DirectionalLight('#c7e5f4', 0.42);
     skyFill.position.set(12, 9, 18);
     this.scene.add(skyFill);
+    applyLembahDaylight(this.scene, this.renderer, sun, hemisphere, skyFill);
     this.addEnvironment();
     // Texture-load after all terrain surfaces have registered their UV scale.
     // A failed image request keeps the existing fallback color, not a blank map.
