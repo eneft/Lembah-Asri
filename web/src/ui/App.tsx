@@ -122,7 +122,7 @@ export default function App() {
       // Let React paint the busy state before serializing the scene.
       await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
       downloadWorldJSON(await game.exportWorldJSON());
-      setExportNotice('File World JSON disiapkan.');
+      setExportNotice('Buka World-Editor.json lewat File → Open di Three.js Editor.');
     } catch (reason) {
       setExportNotice('Export gagal: ' + (reason instanceof Error ? reason.message : String(reason)));
     } finally { setExporting(false); }
@@ -158,7 +158,7 @@ export default function App() {
         </select>
       </div>
       {ready && <button type="button" className="perf-toggle" disabled={exporting}
-        onClick={() => void exportWorld()} title="Unduh scene visual untuk Three.js Editor">
+        onClick={() => void exportWorld()} title="Unduh project editor lengkap; buka melalui File → Open">
         {exporting ? 'Exporting...' : 'Export World JSON'}
       </button>}
       {exportNotice && <small role="status" className="perf-reading">{exportNotice}</small>}
