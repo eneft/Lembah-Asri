@@ -1,5 +1,18 @@
 import * as THREE from 'three';
 
+// Let nearby trees carry the sharpest foliage detail in both panorama layers.
+function softenDistantPaint(material: THREE.MeshBasicMaterial) {
+  material.onBeforeCompile = shader => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+      #ifdef USE_MAP
+        vec4 distant = texture2D(map, vMapUv, 2.4);
+        distant.rgb = mix(distant.rgb, vec3(.53,.59,.48), .24);
+        diffuseColor *= distant;
+      #endif
+    `);
+  };
+}
+
 // Continuous cylindrical mapping preserves the painted horizon aspect ratio.
 export function createDistantValley(texture: THREE.Texture) {
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -43,6 +56,7 @@ export function createDistantValley(texture: THREE.Texture) {
     map: texture, vertexColors: true, transparent: true, depthWrite: false,
     side: THREE.DoubleSide, fog: false, toneMapped: false
   });
+  softenDistantPaint(material);
   material.forceSinglePass = true;
   const panorama = new THREE.Mesh(geometry, material);
   panorama.name = 'Island horizon - north sea, east village, south forest, west mountain';
@@ -88,6 +102,7 @@ export function createNorthHomePanorama(texture: THREE.Texture) {
     map: texture, vertexColors: true, transparent: true, depthWrite: false,
     side: THREE.DoubleSide, fog: false, toneMapped: false
   });
+  softenDistantPaint(material);
   material.forceSinglePass = true;
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'Childhood home north - painted rice fields and volcano';
