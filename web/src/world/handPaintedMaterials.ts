@@ -1,3 +1,4 @@
+import { applyPaintedPigment } from './paintedPigment.ts';
 import * as THREE from 'three';
 
 /**
@@ -38,7 +39,7 @@ export function applyHandPaintedMaterials(
         colorMap.needsUpdate = true;
       }
 
-      return new THREE.MeshBasicMaterial({
+      return applyPaintedPigment(new THREE.MeshBasicMaterial({
         color: 0xffffff,
         map: colorMap,
         side: source.side,
@@ -50,7 +51,7 @@ export function applyHandPaintedMaterials(
         depthWrite: source.depthWrite,
         depthTest: source.depthTest,
         toneMapped: false
-      });
+      }));
     };
 
     object.material = Array.isArray(object.material)

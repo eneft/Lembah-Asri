@@ -1,3 +1,4 @@
+import { applyPaintedPigment } from './paintedPigment.ts';
 import * as THREE from 'three';
 
 /** Non-PBR diffuse shader: authored UV color, soft light, real shadow reception. */
@@ -17,5 +18,5 @@ export function createHousePainterlyMaterial(source: THREE.MeshStandardMaterial)
     );
   };
   material.customProgramCacheKey = () => 'house-diffuse-painterly-v1';
-  return material;
+  return applyPaintedPigment(material);
 }

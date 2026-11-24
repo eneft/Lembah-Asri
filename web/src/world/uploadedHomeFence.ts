@@ -1,3 +1,4 @@
+import { applyPaintedPigment } from './paintedPigment.ts';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -64,7 +65,7 @@ export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[])
     const map = original.emissiveMap;
     map.colorSpace = THREE.SRGBColorSpace;
     map.anisotropy = 4;
-    const material = new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide, toneMapped: false });
+    const material = applyPaintedPigment(new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide, toneMapped: false }));
     const replacement = new THREE.Group();
     replacement.name = 'Home fence — uploaded GLB';
     for (const run of runs) replacement.add(createUploadedFenceRun(geometry, material, run));
