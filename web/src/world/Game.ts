@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { serializeWorldScene } from './worldExport';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { createPaintedStoryTree } from './paintedTrees';
@@ -45,6 +46,7 @@ export class Game {
   private flowingCreekWater?: THREE.Object3D;
   private creekElapsedSeconds = 0;
   private scene = new THREE.Scene();
+  private worldExportAssets: Promise<unknown>[] = [];
   private camera = new THREE.PerspectiveCamera(48, 1, 0.1, 500);
   private world!: RAPIER.World;
   private player!: RAPIER.RigidBody;
@@ -64,6 +66,11 @@ export class Game {
   private homeSolids: SolidCollider[] = [];
   private farm!: HomeFarm;
   private gardenGround!: GardenGround;
+
+  async exportWorldJSON(): Promise<string> {
+    await Promise.all(this.worldExportAssets);
+    return serializeWorldScene(this.scene, new Set([this.playerMesh, this.characterContactShadow]));
+  }
 
   setFarmListener(fn?: (hud: FarmHUD | null) => void) { this.farm.setListener(fn); }
 
@@ -190,12 +197,12 @@ export class Game {
     this.addEnvironment();
     // Texture-load after all terrain surfaces have registered their UV scale.
     // A failed image request keeps the existing fallback color, not a blank map.
-    void loadPaintedTerrainTextures(
+    this.worldExportAssets.push(loadPaintedTerrainTextures(
       Math.min(8, this.renderer.capabilities.getMaxAnisotropy())
-    );
+    ));
     // Static occluder meshes need valid world matrices for camera raycasts.
     this.scene.updateMatrixWorld(true);
-    void this.loadEnvironmentTrees();
+    this.worldExportAssets.push(this.loadEnvironmentTrees());
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(host);
     window.addEventListener('keydown', this.onKeyDown);
@@ -445,6 +452,7 @@ export class Game {
     // Stage 0.2: extend the existing village with the childhood home. The
     // scene stays one continuous world and does not introduce loading screens.
     const home = createHomeStage();
+    this.worldExportAssets.push(home.ready);
     this.scene.add(home.root);
     this.farm = new HomeFarm(home.garden);
     this.gardenGround = home.gardenGround;
@@ -495,6 +503,7 @@ export class Game {
     // Keep the market and add the separately editable warung alongside it.
     // Include stage colliders BEFORE Rapier static bodies are constructed.
     const warung = createWarungStage();
+    this.worldExportAssets.push(warung.ready);
     this.scene.add(warung.root);
     this.cameraObstacles.push(...warung.cameraBlockers);
     this.homeSolids.push(...warung.solids);
@@ -515,9 +524,14 @@ export class Game {
     water.position.set(0,-.02,17); this.scene.add(water);
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(5,.35,4),this.mat('#8b6242')); bridge.position.set(0,.35,17); bridge.castShadow=true; this.scene.add(bridge);
     const loader = new THREE.TextureLoader();
-    const horizon = loader.load('textures/terrain/island-horizon.webp?v=3');
-    this.outskirts = createOutskirts(loader.load('textures/terrain/creek_meadow.webp'),
-      loader.load('textures/terrain/island-groves.webp'));
+    const loadWorldTexture = (url: string) => {
+      let finish: () => void = () => {};
+      this.worldExportAssets.push(new Promise<void>(resolve => { finish = resolve; }));
+      return loader.load(url, () => finish(), undefined, () => finish());
+    };
+    const horizon = loadWorldTexture('textures/terrain/island-horizon.webp?v=3');
+    this.outskirts = createOutskirts(loadWorldTexture('textures/terrain/creek_meadow.webp'),
+      loadWorldTexture('textures/terrain/island-groves.webp'));
     this.scene.add(...this.outskirts);
     this.panorama = createDistantValley(horizon);
     this.scene.add(this.panorama);
