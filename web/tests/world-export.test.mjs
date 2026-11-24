@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { serializeWorldScene } from '../src/world/worldExport.ts';
+import { serializeWorldScene, serializeWorldProject } from '../src/world/worldExport.ts';
 
 test('native world JSON round-trips editable sculpted geometry, UVs, textures and transforms', () => {
   const scene = new THREE.Scene();
@@ -44,4 +44,24 @@ test('native world JSON round-trips editable sculpted geometry, UVs, textures an
   assert.equal(loaded.getObjectByName('Runtime player'),undefined);
   assert.equal(terrain.geometry,geometry,'export must not mutate live scene');
   assert.equal(scene.children.length,6);
+});
+
+
+test('world editor project includes App metadata, scene, camera and orbit center', async () => {
+  const scene=new THREE.Scene();
+  scene.background=new THREE.Color('#b5d8df');
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(3,3,3),new THREE.MeshBasicMaterial());
+  mesh.name='Home';mesh.position.set(-30,0,0);scene.add(mesh);
+  const project=JSON.parse(serializeWorldProject(scene));
+  assert.equal(project.metadata.type,'App');
+  assert.equal(project.scene.object.type,'Scene');
+  assert.deepEqual(project.history,{undos:[],redos:[]});
+  const loader=new THREE.ObjectLoader();
+  const camera=await loader.parseAsync(project.camera);
+  const loaded=await loader.parseAsync(project.scene);
+  loaded.updateMatrixWorld(true);
+  camera.updateMatrixWorld(true);
+  const point=loaded.getObjectByName('Home').getWorldPosition(new THREE.Vector3()).project(camera);
+  assert.ok(Math.abs(point.x)<1 && Math.abs(point.y)<1 && Math.abs(point.z)<1);
+  assert.deepEqual(project.controls.center,[-30,0,0]);
 });
