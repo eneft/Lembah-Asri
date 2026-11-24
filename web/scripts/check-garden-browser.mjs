@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
-import { mkdir, stat } from 'node:fs/promises';
+import { mkdir, stat, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
 
@@ -89,6 +89,34 @@ try {
   await ready.waitFor({timeout:150_000});
   assert.deepEqual(await readSeeds(),snapshot);
   assert.ok(art.has(prefix+'textures/terrain/home_garden_rows.webp'),'the deployed garden painting was fetched');
+  // Exercise the real download button on a fully loaded production world.
+  // Retain the same native Scene JSON so it can be opened in Three.js Editor.
+  await mkdir('artifacts/world',{recursive:true});
+  const downloadPromise=page.waitForEvent('download',{timeout:150_000});
+  await page.getByRole('button',{name:'Export World JSON',exact:true}).click();
+  const download=await downloadPromise;
+  assert.equal(download.suggestedFilename(),'Lembah-Asri-World.json');
+  const worldPath='artifacts/world/Lembah-Asri-World.json';
+  await download.saveAs(worldPath);
+  const exported=JSON.parse(await readFile(worldPath,'utf8'));
+  assert.equal(exported.object.type,'Scene');
+  assert.equal(exported.metadata.type,'Object');
+  const names=new Set();
+  const walk=o=>{names.add(o.name);for(const child of o.children??[])walk(child);};
+  walk(exported.object);
+  for(const name of ['World painted grass UV terrain',
+    'Rumah utama - user uploaded PBR',
+    'Island horizon - north sea, east village, south forest, west mountain',
+    'Shallow stream west of childhood home']){
+    assert.ok(names.has(name),'missing exported world object: '+name);
+  }
+  assert.ok(exported.geometries.length>10 && exported.materials.length>10);
+  assert.ok(exported.images.length>5);
+  for(const image of exported.images){
+    assert.ok(typeof image.url==='string' ? image.url.startsWith('data:') :
+      image.url && (Array.isArray(image.url.data) || Array.isArray(image.url)),
+      'texture source must be embedded, not a remote or blob URL');
+  }
   assert.deepEqual(failures,[]);
   console.log('Touch actions, soil, saved seed and WebGL garden verified from the production build.');
 } finally {

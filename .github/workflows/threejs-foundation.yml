@@ -105,6 +105,8 @@ jobs:
         run: npm run test:terrain-v2
       - name: Verify screenshot-based dirt albedo and natural grass correction
         run: npm run test:earth-review
+      - name: Verify native Three.js world JSON round-trip
+        run: node --experimental-strip-types --test tests/world-export.test.mjs
       - name: Type-check and build
         run: npm run build
       - name: Verify production entry point
@@ -127,5 +129,13 @@ jobs:
         with:
           name: home-garden-gameplay
           path: web/artifacts/garden/*.jpg
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Save editable Three.js world JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lembah-Asri-World-JSON
+          path: web/artifacts/world/Lembah-Asri-World.json
           if-no-files-found: ignore
           retention-days: 7
