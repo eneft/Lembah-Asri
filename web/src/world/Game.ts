@@ -31,6 +31,8 @@ import {
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 export type PerformanceStats = { fps: number; drawCalls: number; triangles: number };
 
+const CAMERA_HEIGHT_RATIO = 0.34;
+
 export class Game {
   private renderer: THREE.WebGLRenderer;
   private panorama?: ReturnType<typeof createDistantValley>;
@@ -276,7 +278,7 @@ export class Game {
       const spawnTarget = game.playerMesh.position.clone();
       const spawnOffset = new THREE.Vector3(
         Math.sin(game.yaw) * game.cameraDistance,
-        game.cameraDistance * 0.58,
+        game.cameraDistance * CAMERA_HEIGHT_RATIO,
         Math.cos(game.yaw) * game.cameraDistance
       );
       game.camera.position.copy(spawnTarget.clone().add(spawnOffset));
@@ -680,7 +682,7 @@ export class Game {
     }
     const desiredFocus=target.clone().add(new THREE.Vector3(0,1.3,0));
     this.cameraFocus.lerp(desiredFocus,1-Math.exp(-12*dt));
-    const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*.58,Math.cos(this.yaw)*this.cameraDistance);
+    const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*CAMERA_HEIGHT_RATIO,Math.cos(this.yaw)*this.cameraDistance);
     const requested=target.clone().add(offset);
     const safeRequested=keepCameraOutsideGeometry(this.cameraFocus,requested,this.cameraObstacles);
     // Snap towards the near-side wall when obstructed, ease back out when clear.
@@ -708,5 +710,11 @@ export class Game {
       this.lastPerfTick = now;
     }
   };
-  dispose(){this.running=false;this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);this.panorama?.material.map?.dispose();this.panorama?.material.dispose();this.panorama?.geometry.dispose();this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
+  dispose(){this.running=false;this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);
+    if (this.panorama) {
+      this.panorama.material.map?.dispose();
+      this.panorama.material.dispose();
+      this.panorama.geometry.dispose();
+    }
+    this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
 }
