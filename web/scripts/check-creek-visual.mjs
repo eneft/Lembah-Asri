@@ -195,6 +195,13 @@ try{
   for(const file of ['creek_cobbles.webp','creek_meadow.webp']){
     assert.ok(assets.has(prefix+'textures/terrain/'+file),'missing live creek image '+file);
   }
+  const vista=await page.evaluate(()=>{
+    const root=window.__lembahVisualQA.scene.getObjectByName('Distant Lembah Asri landscape 360');
+    return root?.userData;
+  });
+  assert.equal(vista?.style,'layered-painterly-javanese-valley-v1');
+  assert.equal(vista.trees,460);
+  assert.equal(vista.houses,14);
   const arrival=await page.evaluate(()=>window.__lembahVisualQA.player.translation());
   assert.ok(Math.abs(arrival.x+42.40)<.12 && Math.abs(arrival.z-10.95)<.12,
     'the riverside link should place the player at the near end of the bridge');

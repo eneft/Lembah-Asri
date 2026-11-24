@@ -20,6 +20,7 @@ import { applyMeadowAntiTileShader } from './meadowAntiTile';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
 import { applyLembahDaylight, LEMBAH_DAYLIGHT } from './sceneArtDirection';
+import { createDistantValley } from './distantValley';
 import { createWarungStage } from './warungStage';
 import {
   configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
@@ -504,7 +505,9 @@ export class Game {
     const water = new THREE.Mesh(new THREE.BoxGeometry(48,.12,2.6),this.mat('#5bafc2'));
     water.position.set(0,-.02,17); this.scene.add(water);
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(5,.35,4),this.mat('#8b6242')); bridge.position.set(0,.35,17); bridge.castShadow=true; this.scene.add(bridge);
-    for (let i=0;i<9;i++) { const hill=new THREE.Mesh(new THREE.SphereGeometry(9,12,8),this.mat(i%2?'#789b72':'#668c70')); hill.scale.set(1,.55,.65); hill.position.set(-48+i*12,5,-52); this.scene.add(hill); }
+    // One continuous 360-degree scenic 3D landscape outside the playable map.
+    // Do not change the home terrain, fog, camera, or physics.
+    this.scene.add(createDistantValley());
   }
   private addBuilding(x:number,z:number,name:string,walls:string,roofColor:string) {
     const g=new THREE.Group(); g.position.set(x,0,z); this.scene.add(g);
