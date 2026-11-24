@@ -20,7 +20,7 @@ export function trimFenceLeft(geometry: THREE.BufferGeometry, cutX: number) {
   const read = (i: number): Vertex => ({
     p: new THREE.Vector3().fromBufferAttribute(p, i),
     n: new THREE.Vector3().fromBufferAttribute(n, i),
-    uv: new THREE.Vector2().fromBufferAttribute(uv, i)
+    uv: new THREE.Vector2(uv.getX(i), uv.getY(i))
   });
   const positions: number[] = [], normals: number[] = [], uvs: number[] = [];
   const emit = (v: Vertex) => {
