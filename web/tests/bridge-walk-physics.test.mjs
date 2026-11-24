@@ -42,7 +42,9 @@ test('the real static collision surface uses upward triangles welded to ramps',(
   assert.ok(vertices[7]>.30&&vertices[13]>.30,'the deck is physically raised');
 });
 
-import RAPIER from '@dimforge/rapier3d-compat';
+// Node resolves the compat package's CJS entry incorrectly under ESM.
+// Load the same ES build that Vite uses, without changing production imports.
+const RAPIER = await import(new URL('rapier.es.js',import.meta.resolve('@dimforge/rapier3d-compat')).href);
 import { CREEK, creekCenterX } from '../src/world/creekCourse.ts';
 import { CREEK_COLLISION, creekCollisionBanks, makeCreekCollisionVolumes, installCreekCollision } from '../src/world/creekCollision.ts';
 
@@ -79,7 +81,7 @@ test('Rapier stops walking, sprinting and jumping across the creek on either ban
     world.createCollider(RAPIER.ColliderDesc.cuboid(80,.25,80).setTranslation(0,-.25,0),floor);
     const bridge=makeBridgeWalkCollider();
     world.createCollider(RAPIER.ColliderDesc.trimesh(bridge.vertices,bridge.indices).setFriction(.92),floor);
-    assert.equal(installCreekCollision(world,floor),makeCreekCollisionVolumes().length);
+    assert.equal(installCreekCollision(world,floor,RAPIER),makeCreekCollisionVolumes().length);
     const player=world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().lockRotations().setCcdEnabled(true));
     world.createCollider(RAPIER.ColliderDesc.capsule(.56,.28).setFriction(.8),player);
     function run(x,z,vx,vz,jump=false,frames=210){

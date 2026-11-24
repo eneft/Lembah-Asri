@@ -220,7 +220,7 @@ export class Game {
     );
     // Invisible solid volumes follow the actual watercourse. The only opening
     // is the existing raised bridge; its deck and ramps stay unchanged.
-    installCreekCollision(game.world, floor);
+    installCreekCollision(game.world, floor, RAPIER);
     // Distinct static colliders for the house, empty storage shed and fences.
     // Paths and the open gate remain physically traversable.
     const fixedScenery = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());

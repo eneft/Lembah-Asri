@@ -1,4 +1,4 @@
-import RAPIER from '@dimforge/rapier3d-compat';
+import type RAPIER from '@dimforge/rapier3d-compat';
 import { CREEK, creekCenterX, creekWidth } from './creekCourse.ts';
 import { BRIDGE_DECK, BRIDGE_WALK } from './paintedBridge.ts';
 
@@ -49,10 +49,10 @@ export function makeCreekCollisionVolumes():Float32Array[] {
   return volumes;
 }
 
-export function installCreekCollision(world:RAPIER.World,body:RAPIER.RigidBody):number {
+export function installCreekCollision(world:RAPIER.World,body:RAPIER.RigidBody,api:typeof RAPIER):number {
   let count=0;
   for(const vertices of makeCreekCollisionVolumes()){
-    const collider=RAPIER.ColliderDesc.convexHull(vertices);
+    const collider=api.ColliderDesc.convexHull(vertices);
     if(!collider)throw new Error('Invalid solid creek collision volume');
     // Low friction lets the player slide naturally along the shore.
     world.createCollider(collider.setFriction(.04).setRestitution(0),body);
