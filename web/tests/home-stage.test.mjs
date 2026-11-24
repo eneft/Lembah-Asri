@@ -185,24 +185,37 @@ test('uploaded fence GLB keeps uniform XYZ proportions and exact endpoints on al
   const size = new THREE.Vector3().fromArray(gltf.accessors[0].max).sub(new THREE.Vector3().fromArray(gltf.accessors[0].min));
   const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
   geometry.translate(0, size.y / 2, 0);
+  const lengthForRun = run => 2*Math.max(run.half[0],run.half[2]);
   const stage = createHomeStage(false);
   const runs = stage.solids.filter(s => s.label.includes('fence'));
   assert.equal(runs.length, 6);
   for (const run of runs) {
-    const mesh = createUploadedFenceRun(geometry, new THREE.MeshBasicMaterial(), run);
-    mesh.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(mesh);
+    const group = createUploadedFenceRun(geometry, new THREE.MeshBasicMaterial(), run);
+    const wood = group.getObjectByName('Continuous authored bamboo');
+    const vines = group.getObjectByName('Climbing vines — painted 3D');
+    const count = group.userData.moduleCount;
+    const meshes = wood.children;
+    assert.equal(meshes.length, count > 1 ? 2 : 1);
+    assert.equal(meshes.reduce((n,m)=>n+m.count,0),count);
+    if(count>1){
+      assert.ok(meshes[1].geometry.boundingBox.min.x > geometry.boundingBox.min.x);
+      assert.ok(group.userData.sharedPostPitch < size.x*group.userData.uniformScale);
+    }
+    assert.equal(vines.userData.clusters, lengthForRun(run)<4 ? 0 : Math.max(1,Math.floor(lengthForRun(run)/6)));
+    assert.ok(vines.userData.leafCount >= vines.userData.clusters*12);
+    group.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(wood);
     const actual = bounds.getSize(new THREE.Vector3());
     const alongX = run.half[0] > run.half[2];
     const length = 2 * (alongX ? run.half[0] : run.half[2]);
     const actualLength = alongX ? actual.x : actual.z;
     const actualDepth = alongX ? actual.z : actual.x;
-    const scale = length / (mesh.count * size.x);
+    const scale = length / (size.x + (count-1)*size.x*.86);
     assert.ok(Math.abs(actualLength - length) < .001, 'exact gate-facing endpoints');
     assert.ok(Math.abs(actualDepth - size.z * scale) < .001, 'original unflattened depth');
     assert.ok(Math.abs(actual.y - size.y * scale) < .001, 'original height-to-width ratio');
     const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), rotation = new THREE.Quaternion(), xyz = new THREE.Vector3();
-    for (let i = 0; i < mesh.count; i++) {
+    for (const mesh of meshes) for (let i = 0; i < mesh.count; i++) {
       mesh.getMatrixAt(i, matrix);
       matrix.decompose(position, rotation, xyz);
       assert.ok(Math.abs(xyz.x - scale) < .00001 && Math.abs(xyz.y - scale) < .00001 && Math.abs(xyz.z - scale) < .00001, 'no nonuniform stretching');
