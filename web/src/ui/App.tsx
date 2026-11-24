@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Game, type PerformanceStats } from '../world/Game';
+import { downloadWorldJSON } from '../world/worldExport';
 import type { FarmHUD } from '../world/homeFarm';
 import { farmKeys, farmLabels } from '../world/farmPlots';
 import { CONTROL_MODE_KEY, parseControlPreference, resolveControlMode, type ControlPreference } from './controlMode';
@@ -12,6 +13,8 @@ export default function App() {
   const runActiveRef = useRef(false);
   const [runActive, setRunActive] = useState(false);
   const [ready, setReady] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState('');
   const [farm, setFarm] = useState<FarmHUD | null>(null);
   const [showPerformance, setShowPerformance] = useState(false);
   const [performanceSample, setPerformanceSample] = useState<PerformanceStats>();
@@ -110,6 +113,21 @@ export default function App() {
     gameRef.current?.setTouchRun(next);
   };
 
+  const exportWorld = async () => {
+    const game = gameRef.current;
+    if (!game || exporting) return;
+    setExporting(true);
+    setExportNotice('Menyiapkan scene dan tekstur...');
+    try {
+      // Let React paint the busy state before serializing the scene.
+      await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
+      downloadWorldJSON(await game.exportWorldJSON());
+      setExportNotice('File World JSON disiapkan.');
+    } catch (reason) {
+      setExportNotice('Export gagal: ' + (reason instanceof Error ? reason.message : String(reason)));
+    } finally { setExporting(false); }
+  };
+
   return <main className="game-shell" data-control-mode={controlMode}>
     <div className="game-canvas" ref={host} />
     <header className="brand"><span className="brand-mark">LA</span><div><strong>Lembah Asri</strong><small>RUMAH MASA KECIL · PLAYABLE 0.2</small></div></header>
@@ -139,6 +157,11 @@ export default function App() {
           <option value="tablet">Tablet</option>
         </select>
       </div>
+      {ready && <button type="button" className="perf-toggle" disabled={exporting}
+        onClick={() => void exportWorld()} title="Unduh scene visual untuk Three.js Editor">
+        {exporting ? 'Exporting...' : 'Export World JSON'}
+      </button>}
+      {exportNotice && <small role="status" className="perf-reading">{exportNotice}</small>}
       <button
         type="button" className="perf-toggle" aria-pressed={showPerformance}
         onClick={togglePerformance} title="Tampilkan FPS untuk pemeriksaan performa"
