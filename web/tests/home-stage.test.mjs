@@ -173,8 +173,8 @@ test('enlarged house, porch, roof, colliders and fences maintain clearance', () 
   assert.ok(approach.geometry.parameters.width >= 3.8, 'large house needs broad approach');
 });
 
-test('uploaded fence GLB preserves authored geometry and fits all six existing runs exactly', async () => {
-  const { createUploadedFenceRun, FENCE_HEIGHT, FENCE_DEPTH } = await import('../src/world/uploadedHomeFence.ts');
+test('uploaded fence GLB keeps uniform XYZ proportions and exact endpoints on all six runs', async () => {
+  const { createUploadedFenceRun, FENCE_HEIGHT } = await import('../src/world/uploadedHomeFence.ts');
   const bytes = readFileSync(fileURLToPath(new URL('../public/models/environment/home-fence-module.glb', import.meta.url)));
   assert.equal(bytes.subarray(0, 4).toString('ascii'), 'glTF');
   assert.equal(bytes.readUInt32LE(8), bytes.length);
@@ -193,12 +193,26 @@ test('uploaded fence GLB preserves authored geometry and fits all six existing r
     mesh.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(mesh);
     const actual = bounds.getSize(new THREE.Vector3());
-    assert.ok(Math.abs(actual.x - 2 * run.half[0]) < .001);
-    assert.ok(Math.abs(actual.z - 2 * run.half[2]) < .001);
-    assert.ok(Math.abs(actual.y - FENCE_HEIGHT) < .001);
+    const alongX = run.half[0] > run.half[2];
+    const length = 2 * (alongX ? run.half[0] : run.half[2]);
+    const actualLength = alongX ? actual.x : actual.z;
+    const actualDepth = alongX ? actual.z : actual.x;
+    const scale = length / (mesh.count * size.x);
+    assert.ok(Math.abs(actualLength - length) < .001, 'exact gate-facing endpoints');
+    assert.ok(Math.abs(actualDepth - size.z * scale) < .001, 'original unflattened depth');
+    assert.ok(Math.abs(actual.y - size.y * scale) < .001, 'original height-to-width ratio');
+    const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), rotation = new THREE.Quaternion(), xyz = new THREE.Vector3();
+    for (let i = 0; i < mesh.count; i++) {
+      mesh.getMatrixAt(i, matrix);
+      matrix.decompose(position, rotation, xyz);
+      assert.ok(Math.abs(xyz.x - scale) < .00001 && Math.abs(xyz.y - scale) < .00001 && Math.abs(xyz.z - scale) < .00001, 'no nonuniform stretching');
+    }
+    if (length >= 19) {
+      assert.ok(Math.abs(actual.y - FENCE_HEIGHT) < .1);
+      assert.ok(actualDepth > .4, 'long fences must retain full 3D thickness');
+    }
     assert.ok(Math.abs(bounds.min.y) < .001);
     assert.ok(Math.abs(bounds.getCenter(new THREE.Vector3()).x - run.center[0]) < .001);
     assert.ok(Math.abs(bounds.getCenter(new THREE.Vector3()).z - run.center[2]) < .001);
-    assert.equal(FENCE_DEPTH, .24);
   }
 });

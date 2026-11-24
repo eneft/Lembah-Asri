@@ -214,6 +214,30 @@ try{
   });
   assert.ok(vista.width>=6000 && vista.height>=178 && vista.seam && vista.uvClosed);
   assert.ok(vista.meadow && vista.groves,'all landscape layers must load in the production browser');
+  // Check the actual imported fence, not just the procedural fallback.
+  await page.waitForFunction(()=>!!window.__lembahVisualQA.scene.getObjectByName('Home fence — uploaded GLB'),null,{timeout:120000});
+  const fence=await page.evaluate(()=>{
+    const group=window.__lembahVisualQA.scene.getObjectByName('Home fence — uploaded GLB');
+    return group.children.map(mesh=>{
+      const m=mesh.instanceMatrix.array;
+      const size=mesh.geometry.boundingBox;
+      let uniform=true;
+      for(let i=0;i<mesh.count;i++){
+        const o=i*16;
+        const x=Math.hypot(m[o],m[o+1],m[o+2]);
+        const y=Math.hypot(m[o+4],m[o+5],m[o+6]);
+        const z=Math.hypot(m[o+8],m[o+9],m[o+10]);
+        uniform &&= Math.abs(x-y)<1e-5 && Math.abs(y-z)<1e-5;
+      }
+      return {uniform,count:mesh.count,depth:mesh.userData.moduleDepth,length:mesh.userData.runLength,
+        source:mesh.userData.sourceFile,hasUV:!!mesh.geometry.getAttribute('uv'),
+        hasMap:!!mesh.material.map?.image,hasBounds:!!size};
+    });
+  });
+  assert.equal(fence.length,6);
+  assert.ok(fence.every(f=>f.uniform && f.count>0 && f.source==='base_basic_shaded (1).glb' && f.hasUV && f.hasMap && f.hasBounds));
+  assert.ok(fence.filter(f=>f.length>=19).every(f=>f.depth>.4),'long fences preserve their original 3D depth');
+  assert.ok(assets.has(prefix+'models/environment/home-fence-module.glb'));
   const arrival=await page.evaluate(()=>window.__lembahVisualQA.player.translation());
   assert.ok(Math.abs(arrival.x+42.40)<.12 && Math.abs(arrival.z-10.95)<.12,
     'the riverside link should place the player at the near end of the bridge');
