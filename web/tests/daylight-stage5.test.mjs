@@ -120,7 +120,7 @@ test('stage 5 is scoped to PBR/light/shadows and preserves the 4 earlier landsca
   const houseSource=readFileSync(fileURLToPath(new URL('../src/world/homeStage.ts',import.meta.url)),'utf8');
   const bambooSource=readFileSync(fileURLToPath(new URL('../src/world/bambooFence.ts',import.meta.url)),'utf8');
   assert.match(gameSource,/applyLembahDaylight\(this.scene, this.renderer, sun, hemisphere, skyFill\)/);
-  assert.match(houseSource,/softenPaintedPBR\(material, 'house'\)/);
+  assert.match(houseSource,/createHousePainterlyMaterial\(material\)/);
   assert.match(bambooSource,/softenPaintedPBR\(bambooPBRMaterial, 'bamboo'\)/);
   assert.doesNotMatch(gameSource,/THREE\.ACESFilmicToneMapping/);
   assert.doesNotMatch(gameSource,/EffectComposer|OutlinePass|UnrealBloomPass/);
@@ -170,4 +170,15 @@ test('textured foothills and groves sit between the playable square and the dist
   assert.ok(farthest-nearest>30 && farthest<230);
   assert.equal(ground.material.map.wrapS,THREE.RepeatWrapping);
   assert.ok(groves.material.alphaTest>0);
+});
+
+import { createHousePainterlyMaterial } from '../src/world/housePainterlyMaterial.ts';
+test('house renderer uses non-PBR diffuse shader and keeps the authored color texture',()=>{
+ const source=new THREE.MeshStandardMaterial({map:new THREE.Texture(),color:0xcacaca});
+ const material=createHousePainterlyMaterial(source);
+ assert.ok(material instanceof THREE.MeshLambertMaterial);
+ assert.equal(material.map,source.map);
+ assert.equal(material.color.getHex(),source.color.getHex());
+ assert.equal(material.userData.housePainterlyShader,'house-diffuse-painterly-v1');
+ assert.equal(material.toneMapped,false);
 });
