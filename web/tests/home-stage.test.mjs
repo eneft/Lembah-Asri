@@ -202,7 +202,15 @@ test('uploaded fence GLB keeps uniform XYZ proportions and exact endpoints on al
       assert.ok(group.userData.sharedPostPitch < size.x*group.userData.uniformScale);
     }
     assert.equal(vines.userData.clusters, lengthForRun(run)<4 ? 0 : Math.max(1,Math.floor(lengthForRun(run)/6)));
-    assert.ok(vines.userData.leafCount >= vines.userData.clusters*12);
+    assert.ok(vines.userData.leafCount >= vines.userData.clusters*31);
+    assert.equal(vines.userData.branches,vines.userData.clusters*3);
+    assert.equal(vines.userData.rootGrass,vines.userData.clusters*10);
+    if(vines.userData.clusters){
+      const leaves=vines.getObjectByName('Climbing vine leaves');
+      assert.ok(leaves.geometry.getAttribute('uv') && leaves.material.map);
+      assert.equal(leaves.material.toneMapped,false);
+      assert.equal(vines.getObjectByName('Grass at climbing roots').count,vines.userData.rootGrass);
+    }
     group.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(wood);
     const actual = bounds.getSize(new THREE.Vector3());

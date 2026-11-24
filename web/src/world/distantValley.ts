@@ -5,8 +5,8 @@ function softenDistantPaint(material: THREE.MeshBasicMaterial) {
   material.onBeforeCompile = shader => {
     shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
       #ifdef USE_MAP
-        vec4 distant = texture2D(map, vMapUv, 2.4);
-        distant.rgb = mix(distant.rgb, vec3(.53,.59,.48), .24);
+        vec4 distant = texture2D(map, vMapUv, 1.35);
+        distant.rgb = mix(distant.rgb, vec3(.39,.48,.32), .10);
         diffuseColor *= distant;
       #endif
     `);

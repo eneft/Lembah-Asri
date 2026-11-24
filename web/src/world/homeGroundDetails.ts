@@ -56,7 +56,7 @@ export function scatterHomeGrass(seed = 20261121): GrassDetail[] {
     for (let x = -42.85; x <= -17.7; x += 1.22) {
       const cx = x + (random() - 0.5) * 0.76;
       const cz = z + (random() - 0.5) * 0.76;
-      const density = 0.08 + 0.50 * edgeWeight(cx, cz);
+      const density = 0.08 + 0.64 * edgeWeight(cx, cz);
       if (random() > density) continue;
       const count = 2 + Math.floor(random() * 3);
       for (let k = 0; k < count; k++) {
@@ -65,7 +65,7 @@ export function scatterHomeGrass(seed = 20261121): GrassDetail[] {
         if (!isHomeGroundDetailAllowed(px, pz)) continue;
         points.push({
           x: px, z: pz, yaw: random() * Math.PI * 2,
-          scale: 0.52 + random() * 0.72,
+          scale: 0.48 + random() * 0.84,
           dry: random() < 0.24
         });
       }
@@ -231,7 +231,7 @@ export function createHomeGroundDetails(): THREE.Group {
     const points = grass.filter(point => point.dry === dry);
     if (!points.length) continue;
     const material = new THREE.MeshBasicMaterial({
-      color: dry ? '#b5aa79' : '#8ead6b',
+      color: dry ? '#bdb075' : '#90a653',
       vertexColors: true, side: THREE.DoubleSide, toneMapped: false
     });
     const mesh = new THREE.InstancedMesh(blade, material, points.length);

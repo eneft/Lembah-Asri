@@ -83,7 +83,7 @@ export function scatterHomeUndergrowth(seed = 18628): LeafPoint[] {
       const nearFrontFoundation =
         pz > -4.65 && pz < -2.0 &&
         (px < -36.8 || px > -27.4) ? 0.34 : 0;
-      const density = 0.11 + 0.24 *
+      const density = 0.11 + 0.34 *
         THREE.MathUtils.clamp(1 - edge / 4.6, 0, 1) + nearFrontFoundation;
       if (random() > density) continue;
       if (!isHomeGroundDetailAllowed(px, pz)) continue;
@@ -209,7 +209,7 @@ function createPlantInstances(
   });
   const mesh = new THREE.InstancedMesh(geometry, material, points.length);
   const transform = new THREE.Object3D();
-  const colors = ['#6d9555', '#7ba05f', '#618e59', '#8a9e5b', '#547f52'];
+  const colors = ['#789747', '#91aa58', '#5e8243', '#9ba65b', '#587c3d'];
   for (let i = 0; i < points.length; i++) {
     const p = points[i];
     transform.position.set(p.x, 0.065, p.z);

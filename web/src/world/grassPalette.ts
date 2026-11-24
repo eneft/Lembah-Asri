@@ -23,10 +23,10 @@ export const WARM_GRASS_GLSL=[
   '  float greenMask=smoothstep(-.055,.10,grassPigment.g-grassPigment.r)',
   '    *smoothstep(.035,.15,grassPigment.g-grassPigment.b);',
   '  float value=dot(grassPigment,vec3(.26,.65,.09));',
-  '  vec3 meadowTarget=value*vec3(.84,1.16,.39);',
+  '  vec3 meadowTarget=value*vec3(.88,1.14,.37);',
   '  vec3 balanced=mix(grassPigment,meadowTarget,.52);',
   '  // Slight highlight/shadow compression, never a flat green swatch.',
-  '  vec3 softened=mix(vec3(.30,.44,.155),balanced,.88);',
+  '  vec3 softened=clamp((balanced-vec3(.25,.34,.11))*1.12+vec3(.25,.34,.11),0.,1.);',
   '  return mix(grassPigment,softened,clamp(greenMask*.76,0.0,1.0));',
   '}'
 ].join('\n');
