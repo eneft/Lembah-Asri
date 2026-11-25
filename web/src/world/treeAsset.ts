@@ -94,23 +94,41 @@ export function addCourtyardClimbers(source: THREE.Group): number {
   let count = 0;
   for (let trail=0; trail<3; trail++) {
     const points: THREE.Vector3[] = [];
-    const maxHeight = [1.28,.78,1.02][trail];
-    const steps = 28;
+    // Two long climbers climb to the actual branch zone; the third remains
+    // near the buttress roots. Heights are in the authored GLB's local units.
+    const maxHeight = [4.85,1.0,5.05][trail];
+    const steps = [84,28,88][trail];
     for (let i=0;i<=steps;i++) {
       const t=i/steps, y=.14+(maxHeight-.14)*t;
       const angle=trail*2.094+.47+.15*Math.sin(t*8.3+trail)+.12*t;
-      const radial=new THREE.Vector3(Math.cos(angle),0,Math.sin(angle));
-      const outside=radial.clone().multiplyScalar(4.5).add(new THREE.Vector3(0,y,0));
-      const origin=source.localToWorld(outside.clone());
-      const target=source.localToWorld(new THREE.Vector3(0,y,0));
-      ray.set(origin,target.sub(origin).normalize());
-      const hit=ray.intersectObjects(bark,false)[0];
-      if (!hit) break;
-      const surface=hit.point.clone().applyMatrix4(inverse);
-      // A short outward offset avoids z-fighting and preserves contact.
-      const p=surface.clone().addScaledVector(radial,.012);
+      const previous=points[points.length-1];
+      let best: {p: THREE.Vector3; radial: THREE.Vector3; score: number} | undefined;
+      // Search a small fan of directions and select a continuous surface
+      // contact, rather than jumping to the outermost separate branch.
+      for(const da of [0,-.12,.12,-.25,.25,-.4,.4]){
+        const radial=new THREE.Vector3(Math.cos(angle+da),0,Math.sin(angle+da));
+        const outside=radial.clone().multiplyScalar(4.5).add(new THREE.Vector3(0,y,0));
+        const origin=source.localToWorld(outside);
+        const target=source.localToWorld(new THREE.Vector3(0,y,0));
+        ray.set(origin,target.sub(origin).normalize());
+        for(const hit of ray.intersectObjects(bark,false)){
+          const surface=hit.point.clone().applyMatrix4(inverse);
+          if(surface.dot(radial)<0)continue;
+          const p=surface.addScaledVector(radial,.012);
+          const radius=Math.hypot(p.x,p.z);
+          const delta=previous?p.distanceTo(previous):0;
+          if(previous && delta>.25)continue;
+          const score=(previous?delta:Math.abs(radius-.95))+
+            Math.abs(da)*.12-(y>3.45&&trail!==1?.22:.015)*radius;
+          if(!best||score<best.score)best={p,radial,score};
+        }
+      }
+      if(!best)break; // Never bridge a disconnected gap with a floating vine.
+      const {p,radial}=best;
       points.push(p);
-      if (i>1 && ((i+trail*2)%7===0 || (i>8 && Math.sin(i*2.41+trail)<.12))) continue;
+      // Dense, irregular leaves at the foot; sparse growth on high branches.
+      if(y>1.2 && (i%3!==0 || Math.sin(i*2.41+trail)<-.55))continue;
+      if(y<=1.2 && i>1 && ((i+trail*2)%7===0 || (i>8&&Math.sin(i*2.41+trail)<.12)))continue;
       const sign=Math.sin(i*2.31+trail)>0?1:-1;
       const tangent=new THREE.Vector3(-radial.z,0,radial.x);
       const up=new THREE.Vector3(0,1,0).multiplyScalar(.38+.38*Math.sin(i*1.74+trail)**2)
@@ -138,6 +156,8 @@ export function addCourtyardClimbers(source: THREE.Group): number {
       for(let i=1;i<points.length;i++)path.add(new THREE.LineCurve3(points[i-1],points[i]));
       const stem=new THREE.Mesh(new THREE.TubeGeometry(path,points.length*2,.007,5,false),stemMaterial);
       stem.name='Slender bark-hugging vine stem';
+      stem.userData.tip=points[points.length-1].toArray();
+      stem.userData.maxSurfaceStep=.25;
       group.add(stem);
     }
   }
@@ -170,22 +190,51 @@ export function buildCourtyardBarkNormals(
   }
   if(width!==1254 || height!==1254)return out;
   for(const [x,y,w,h] of [[0,0,350,620],[350,0,245,495],[0,620,230,568]]){
-    const pigment=(col:number,row:number,fallback:number)=>{
-      const i=(row*width+col)*4;
-      if(rgba[i+3]<220)return fallback;
-      return (.35*rgba[i]+.50*rgba[i+1]+.15*rgba[i+2])/255;
+    const heights=new Float32Array(w*h);
+    const smooth=(a:number,b:number,x:number)=>{
+      const t=Math.max(0,Math.min(1,(x-a)/(b-a)));
+      return t*t*(3-2*t);
     };
-    for(let row=y+2;row<y+h-2;row++)for(let col=x+2;col<x+w-2;col++){
-      const i=(row*width+col)*4;
-      if(rgba[i+3]<220)continue;
+    const hash=(a:number,b:number)=> {
+      const n=Math.sin(a*127.1+b*311.7)*43758.5453;
+      return n-Math.floor(n);
+    };
+    for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){
+      const i=((y+yy)*width+x+xx)*4;
       const r=rgba[i],g=rgba[i+1],b=rgba[i+2];
-      const center=(.35*r+.50*g+.15*b)/255;
-      // Damp lichen edges: color alone is not evidence of a deep fissure.
-      const strength=2.8*(.35+.65*Math.max(0,Math.min(1,(r-g)/40)));
-      const dx=(pigment(col+1,row,center)-pigment(col-1,row,center))*.65+
-        (pigment(col+2,row,center)-pigment(col-2,row,center))*.35;
-      const dy=(pigment(col,row+1,center)-pigment(col,row-1,center))*.65+
-        (pigment(col,row+2,center)-pigment(col,row-2,center))*.35;
+      const base=(.35*r+.50*g+.15*b)/255;
+      // Pale lichen is a shallow organic layer, not a raised plate of bark.
+      const wood=smooth(8,45,r-g);
+      // Staggered, irregular elongated bark plates follow the vertical UV
+      // grain. The relief is synthetic only; it never changes albedo pixels.
+      const u=xx+3.8*Math.sin(yy*.032)+1.7*Math.sin(yy*.071+xx*.023);
+      const v=yy+2.4*Math.sin(xx*.065);
+      const column=Math.floor(u/11);
+      const stagger=hash(column,17)*25;
+      const cell=Math.floor((v+stagger)/27);
+      const fu=u/11-column, fv=(v+stagger)/27-cell;
+      const plate=smooth(.02,.23,Math.min(fu,1-fu))*
+        smooth(.015,.16,Math.min(fv,1-fv));
+      const grain=Math.sin(u*1.23+Math.sin(v*.12)*.65)*.010+
+        Math.sin(u*.64+Math.sin(v*.051)*1.4)*.020;
+      heights[yy*w+xx]=base+(wood*(.050+.040*hash(column,cell))*plate)+grain*wood;
+    }
+    const sample=(xx:number,yy:number,fallback:number)=>{
+      const i=((y+yy)*width+x+xx)*4;
+      return rgba[i+3]>=220?heights[yy*w+xx]:fallback;
+    };
+    for(let yy=4;yy<h-4;yy++)for(let xx=4;xx<w-4;xx++){
+      const i=((y+yy)*width+x+xx)*4;
+      if(rgba[i+3]<220)continue;
+      const center=heights[yy*w+xx];
+      const r=rgba[i],g=rgba[i+1];
+      const strength=5.4*(.20+.80*smooth(8,45,r-g));
+      const dx=(sample(xx+1,yy,center)-sample(xx-1,yy,center))*.45+
+        (sample(xx+2,yy,center)-sample(xx-2,yy,center))*.35+
+        (sample(xx+4,yy,center)-sample(xx-4,yy,center))*.20;
+      const dy=(sample(xx,yy+1,center)-sample(xx,yy-1,center))*.45+
+        (sample(xx,yy+2,center)-sample(xx,yy-2,center))*.35+
+        (sample(xx,yy+4,center)-sample(xx,yy-4,center))*.20;
       const nx=-dx*strength,ny=-dy*strength;
       const inv=1/Math.sqrt(1+nx*nx+ny*ny);
       out[i]=Math.round((nx*inv*.5+.5)*255);
@@ -234,20 +283,22 @@ export function makeMatteCourtyardBark(
     vertexColors:original.vertexColors, side:original.side,
     alphaTest:original.alphaTest, transparent:original.transparent,
     opacity:original.opacity, depthWrite:original.depthWrite,
-    normalMap:normal, normalScale:new THREE.Vector2(.6,.6),
+    normalMap:normal, normalScale:new THREE.Vector2(.95,.95),
     specular:0x000000, shininess:0, toneMapped:false
   });
   material.onBeforeCompile=shader=>{
     shader.fragmentShader=shader.fragmentShader.replace(/vec3 outgoingLight\s*=[^;]+;/,`
       // World-space key direction: not tied to camera movement.
       vec3 asriBarkKey=normalize(mat3(viewMatrix)*vec3(-0.55,0.80,0.45));
-      float asriBarkDiffuse=max(dot(normal,asriBarkKey),0.0);
+      float asriBarkDiffuse=dot(normal,asriBarkKey);
+      float asriBarkBase=dot(normalize(nonPerturbedNormal),asriBarkKey);
+      float asriRelief=clamp(asriBarkDiffuse-asriBarkBase,-0.48,0.48);
       // Keep the painted pigments as the dominant light information.
-      vec3 outgoingLight=diffuseColor.rgb*(0.76+0.30*asriBarkDiffuse);
+      vec3 outgoingLight=diffuseColor.rgb*clamp(0.82+0.24*max(asriBarkBase,0.0)+0.57*asriRelief,0.57,1.14);
     `);
   };
-  material.customProgramCacheKey=()=> 'asri-matte-bark-tangent-relief-v1';
-  material.userData={...original.userData,asriMatteBark:true,normalStrength:.6};
+  material.customProgramCacheKey=()=> 'asri-matte-bark-tangent-relief-v2';
+  material.userData={...original.userData,asriMatteBark:true,normalStrength:.95};
   return material;
 }
 

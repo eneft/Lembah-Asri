@@ -116,13 +116,20 @@ test('courtyard climbers attach to the uploaded bark and reuse the untouched fol
   }
   const original=root.children.slice();
   const count=addCourtyardClimbers(root);
-  assert.ok(count>=20&&count<=87,'restrained climbing leaves on actual bark');
+  assert.ok(count>=35&&count<=100,'restrained climbing leaves on actual bark');
   const group=root.getObjectByName('Asri climbing plants');
   assert.ok(group);
   const leaves=group.getObjectByName('Small hand-painted climbing leaves');
   assert.equal(leaves.material.map,atlas);
   assert.equal(leaves.geometry.getAttribute('position').count,count*6);
-  assert.ok(group.children.filter(m=>m.name==='Slender bark-hugging vine stem').length>=2);
+  const stems=group.children.filter(m=>m.name==='Slender bark-hugging vine stem');
+  assert.equal(stems.length,3);
+  assert.ok(stems.filter(m=>m.userData.tip[1]>=4.6).length>=2,'two climbers reach the branch zone');
+  assert.ok(stems.some(m=>m.userData.tip[1]>=4.6&&Math.hypot(m.userData.tip[0],m.userData.tip[2])>1.3),'one climber follows an outward lower branch');
+  for(const stem of stems){
+    const points=stem.geometry.parameters.path.curves;
+    assert.ok(points.every(c=>c.v1.distanceTo(c.v2)<=.250001),'no unsupported long gap in the stem');
+  }
   assert.deepEqual(root.children.slice(0,original.length),original);
   assert.equal(canopy.map,atlas);
   assert.equal(addCourtyardClimbers(root),0,'do not duplicate plants on reload');
@@ -146,8 +153,9 @@ test('bark relief is non-color tangent data and leaves are outside the normal is
   for(let y=90;y<110;y++)for(let x=101;x<110;x++)rgba[at(x,y)]=250;
   const n=buildCourtyardBarkNormals(rgba,w,w);
   assert.deepEqual([...n.slice(at(800,100),at(800,100)+4)],[128,128,255,255]);
-  assert.deepEqual([...n.slice(at(50,50),at(50,50)+4)],[128,128,255,255]);
+  assert.ok(n[at(50,50)+2]>=128,'normal stays in upper hemisphere');
   assert.ok(n[at(100,100)]<128,'wood edge has real tangent relief');
+  assert.ok(n.some((v,i)=>i%4===2&&v<245),'multiscale bark contains meaningful relief');
   assert.ok(n[at(100,100)+2]<255);
   const albedo=new THREE.Texture(),normal=new THREE.Texture();
   const source=new THREE.MeshBasicMaterial({map:albedo,vertexColors:true});
@@ -158,7 +166,7 @@ test('bark relief is non-color tangent data and leaves are outside the normal is
   assert.equal(matte.specular.getHex(),0);
   assert.equal(matte.vertexColors,true);
   assert.equal(matte.toneMapped,false);
-  assert.deepEqual(matte.normalScale.toArray(),[.6,.6]);
+  assert.deepEqual(matte.normalScale.toArray(),[.95,.95]);
   const shader={fragmentShader:'vec3 outgoingLight = reflectedLight.directDiffuse;'};
   matte.onBeforeCompile(shader);
   assert.match(shader.fragmentShader,/dot\(normal,asriBarkKey\)/);
