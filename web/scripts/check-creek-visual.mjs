@@ -336,53 +336,44 @@ try{
   };
   await shot(-42.6,7.0,1.12,'artifacts/creek/01-bridge-bank.jpg');
   await shot(-42.25,13.0,.78,'artifacts/creek/02-bridge-upstream.jpg');
-  // The replacement house must be the actual uploaded binary, not the
-  // safe procedural fallback. Verify PBR maps survived conversion.
+  // Inspect the actual replacement, not the safe previous-house fallback.
   await page.waitForFunction(()=>{
-    const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - user uploaded PBR');
-    return !!(home && home.getObjectByName('model'));
+    const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - Rumah Masa Kecil');
+    return !!(home && home.getObjectByName('Pintu_engsel'));
   },null,{timeout:120000});
   const importedHouse=await page.evaluate(()=>{
-    const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - user uploaded PBR');
-    const model=home.getObjectByName('model');
-    const m=model.material;
-    model.geometry.computeBoundingBox();
-    const bounds=model.geometry.boundingBox;
-    const scale=home.scale.x;
-    const size={
-      x:(bounds.max.x-bounds.min.x)*scale,
-      y:(bounds.max.y-bounds.min.y)*scale,
-      z:(bounds.max.z-bounds.min.z)*scale
-    };
-    return {
-      sourceFile:home.userData.sourceFile,
-      triangles:model.geometry.index?.count/3,
-      hasUV:!!model.geometry.getAttribute('uv'),
-      standardPBR:m.isMeshStandardMaterial===true,
-      painterly:m.userData.housePainterlyShader,
-      baseColor:!!m.map,normal:!!m.normalMap,
-      rough:!!m.roughnessMap,metal:!!m.metalnessMap,
-      box:[size.x,size.y,size.z]
-    };
+    const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - Rumah Masa Kecil');
+    let triangles=0,meshes=0,uvMeshes=0,normal=false,baseColor=false,emissive=false,matte=true;
+    home.traverse(o=>{
+      if(!o.isMesh)return;
+      meshes++;
+      triangles+=(o.geometry.index?.count??o.geometry.getAttribute('position').count)/3;
+      if(o.geometry.getAttribute('uv'))uvMeshes++;
+      for(const m of Array.isArray(o.material)?o.material:[o.material]){
+        normal||=!!m.normalMap;
+        baseColor||=!!m.map;
+        emissive||=!!m.emissive && m.emissive.getHex()!==0;
+        matte&&=m.isMeshStandardMaterial===true && m.roughness===1 && m.metalness===0;
+      }
+    });
+    return {sourceFile:home.userData.sourceFile,colliders:home.userData.authoredColliderCount,
+      scale:home.scale.toArray(),triangles,meshes,uvMeshes,normal,baseColor,emissive,matte};
   });
-  assert.equal(importedHouse.sourceFile,'base_basic_pbr.glb');
-  assert.equal(importedHouse.triangles,100000);
-  assert.ok(importedHouse.hasUV && !importedHouse.standardPBR && importedHouse.baseColor);
-  assert.equal(importedHouse.painterly,'house-diffuse-painterly-v1');
-  assert.ok(importedHouse.box[0]>9 && importedHouse.box[0]<12.1);
-  assert.ok(importedHouse.box[1]>7.1 && importedHouse.box[1]<7.5);
-  assert.ok(importedHouse.box[2]>10.6 && importedHouse.box[2]<12.1);
-  assert.ok([...assets].some(url=>url.includes('rumah_utama_user_pbr.glb')));
-  // Stage 5: inspect the actual WebGL scene after the imported 100k-triangle
-  // PBR house finishes loading. Do not infer successful rendering from source.
+  assert.equal(importedHouse.sourceFile,'Rumah_Masa_Kecil.glb');
+  assert.equal(importedHouse.triangles,24990);
+  assert.equal(importedHouse.meshes,60);
+  assert.equal(importedHouse.colliders,16);
+  assert.ok(importedHouse.uvMeshes>0 && importedHouse.normal && importedHouse.baseColor && importedHouse.emissive && importedHouse.matte);
+  assert.ok(importedHouse.scale[0]>0 && importedHouse.scale.every(s=>s===importedHouse.scale[0]));
+  assert.ok([...assets].some(url=>url.includes('Rumah_Masa_Kecil.glb')));
   const daylight=await page.evaluate(()=>{
     const game=window.__lembahVisualQA;
     const scene=game.scene;
     const hemi=scene.children.find(o=>o.isHemisphereLight);
     const sun=game.sunLight;
     const skyFill=scene.children.find(o=>o.isDirectionalLight&&o!==sun);
-    const house=scene.getObjectByName('Rumah utama - user uploaded PBR');
-    const material=house?.getObjectByName('model')?.material;
+    const house=scene.getObjectByName('Rumah utama - Rumah Masa Kecil');
+    const material=house?.getObjectByName('Genteng_depan')?.material;
     const shadow=scene.getObjectByName('World painted-terrain real shadows');
     return {
       style:scene.userData.painterlyLightingStyle,
@@ -409,8 +400,9 @@ try{
   assert.equal(daylight.envIntensity,.3);
   assert.equal(daylight.fogNear,64);
   assert.equal(daylight.fogFar,190);
-  assert.equal(daylight.housePBR,false);
-  assert.equal(daylight.houseStyle,'house-diffuse-painterly-v1');
+  assert.equal(daylight.housePBR,true);
+  assert.equal(daylight.roughness,1);
+  assert.equal(daylight.metalness,0);
   assert.equal(daylight.shadowOpacity,.43);
   // Stage 1: compare the actual materials in the production WebGL scene.
   // Every grass source uses one finish; water is never treated as foliage.
