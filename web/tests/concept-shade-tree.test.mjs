@@ -146,8 +146,9 @@ test('bark relief is non-color tangent data and leaves are outside the normal is
   for(let y=90;y<110;y++)for(let x=101;x<110;x++)rgba[at(x,y)]=250;
   const n=buildCourtyardBarkNormals(rgba,w,w);
   assert.deepEqual([...n.slice(at(800,100),at(800,100)+4)],[128,128,255,255]);
-  assert.deepEqual([...n.slice(at(50,50),at(50,50)+4)],[128,128,255,255]);
+  assert.ok(n[at(50,50)+2]>=128,'normal stays in upper hemisphere');
   assert.ok(n[at(100,100)]<128,'wood edge has real tangent relief');
+  assert.ok(n.some((v,i)=>i%4===2&&v<245),'multiscale bark contains meaningful relief');
   assert.ok(n[at(100,100)+2]<255);
   const albedo=new THREE.Texture(),normal=new THREE.Texture();
   const source=new THREE.MeshBasicMaterial({map:albedo,vertexColors:true});
@@ -158,7 +159,7 @@ test('bark relief is non-color tangent data and leaves are outside the normal is
   assert.equal(matte.specular.getHex(),0);
   assert.equal(matte.vertexColors,true);
   assert.equal(matte.toneMapped,false);
-  assert.deepEqual(matte.normalScale.toArray(),[.6,.6]);
+  assert.deepEqual(matte.normalScale.toArray(),[.95,.95]);
   const shader={fragmentShader:'vec3 outgoingLight = reflectedLight.directDiffuse;'};
   matte.onBeforeCompile(shader);
   assert.match(shader.fragmentShader,/dot\(normal,asriBarkKey\)/);
