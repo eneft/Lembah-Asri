@@ -94,23 +94,41 @@ export function addCourtyardClimbers(source: THREE.Group): number {
   let count = 0;
   for (let trail=0; trail<3; trail++) {
     const points: THREE.Vector3[] = [];
-    const maxHeight = [1.28,.78,1.02][trail];
-    const steps = 28;
+    // Two long climbers climb to the actual branch zone; the third remains
+    // near the buttress roots. Heights are in the authored GLB's local units.
+    const maxHeight = [4.85,1.0,5.05][trail];
+    const steps = [84,28,88][trail];
     for (let i=0;i<=steps;i++) {
       const t=i/steps, y=.14+(maxHeight-.14)*t;
       const angle=trail*2.094+.47+.15*Math.sin(t*8.3+trail)+.12*t;
-      const radial=new THREE.Vector3(Math.cos(angle),0,Math.sin(angle));
-      const outside=radial.clone().multiplyScalar(4.5).add(new THREE.Vector3(0,y,0));
-      const origin=source.localToWorld(outside.clone());
-      const target=source.localToWorld(new THREE.Vector3(0,y,0));
-      ray.set(origin,target.sub(origin).normalize());
-      const hit=ray.intersectObjects(bark,false)[0];
-      if (!hit) break;
-      const surface=hit.point.clone().applyMatrix4(inverse);
-      // A short outward offset avoids z-fighting and preserves contact.
-      const p=surface.clone().addScaledVector(radial,.012);
+      const previous=points[points.length-1];
+      let best: {p: THREE.Vector3; radial: THREE.Vector3; score: number} | undefined;
+      // Search a small fan of directions and select a continuous surface
+      // contact, rather than jumping to the outermost separate branch.
+      for(const da of [0,-.12,.12,-.25,.25,-.4,.4]){
+        const radial=new THREE.Vector3(Math.cos(angle+da),0,Math.sin(angle+da));
+        const outside=radial.clone().multiplyScalar(4.5).add(new THREE.Vector3(0,y,0));
+        const origin=source.localToWorld(outside);
+        const target=source.localToWorld(new THREE.Vector3(0,y,0));
+        ray.set(origin,target.sub(origin).normalize());
+        for(const hit of ray.intersectObjects(bark,false)){
+          const surface=hit.point.clone().applyMatrix4(inverse);
+          if(surface.dot(radial)<0)continue;
+          const p=surface.addScaledVector(radial,.012);
+          const radius=Math.hypot(p.x,p.z);
+          const delta=previous?p.distanceTo(previous):0;
+          if(previous && delta>.25)continue;
+          const score=(previous?delta:Math.abs(radius-.95))+
+            Math.abs(da)*.12-(y>3.45&&trail!==1?.22:.015)*radius;
+          if(!best||score<best.score)best={p,radial,score};
+        }
+      }
+      if(!best)break; // Never bridge a disconnected gap with a floating vine.
+      const {p,radial}=best;
       points.push(p);
-      if (i>1 && ((i+trail*2)%7===0 || (i>8 && Math.sin(i*2.41+trail)<.12))) continue;
+      // Dense, irregular leaves at the foot; sparse growth on high branches.
+      if(y>1.2 && (i%3!==0 || Math.sin(i*2.41+trail)<-.55))continue;
+      if(y<=1.2 && i>1 && ((i+trail*2)%7===0 || (i>8&&Math.sin(i*2.41+trail)<.12)))continue;
       const sign=Math.sin(i*2.31+trail)>0?1:-1;
       const tangent=new THREE.Vector3(-radial.z,0,radial.x);
       const up=new THREE.Vector3(0,1,0).multiplyScalar(.38+.38*Math.sin(i*1.74+trail)**2)
@@ -138,6 +156,8 @@ export function addCourtyardClimbers(source: THREE.Group): number {
       for(let i=1;i<points.length;i++)path.add(new THREE.LineCurve3(points[i-1],points[i]));
       const stem=new THREE.Mesh(new THREE.TubeGeometry(path,points.length*2,.007,5,false),stemMaterial);
       stem.name='Slender bark-hugging vine stem';
+      stem.userData.tip=points[points.length-1].toArray();
+      stem.userData.maxSurfaceStep=.25;
       group.add(stem);
     }
   }
