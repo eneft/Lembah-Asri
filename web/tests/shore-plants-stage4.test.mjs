@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { createHomeCreekVegetation, createHomeCreek, CLEAR_WATER_STAGE3, ROCK_WAKES } from '../src/world/homeCreek.ts';
-import { selectedHomeRocks, createCuratedRockGroup } from '../src/world/homeRocks.ts';
+import { selectedHomeRocks, createCuratedRockGroup, createCreekRockGroundSampler } from '../src/world/homeRocks.ts';
 import { creekCenterX, creekWidth, CREEK } from '../src/world/creekCourse.ts';
 import { createHomeStage } from '../src/world/homeStage.ts';
 
@@ -75,7 +75,7 @@ test('existing UV mossy river stones keep size, source textures and low-key grey
     mesh.userData.originalIndex=id;
     source.add(mesh);
   }
-  const rocks=createCuratedRockGroup(source);
+  const rocks=createCuratedRockGroup(source,createCreekRockGroundSampler(createHomeStage(false).root));
   assert.equal(rocks.children.length,2,'reuse exactly the same two UV models');
   const count=rocks.children.reduce((sum,child)=>sum+child.count,0);
   assert.equal(count,selectedHomeRocks.length,'do not add/remove scenic stone placements');

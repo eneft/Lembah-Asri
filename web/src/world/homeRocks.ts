@@ -160,7 +160,75 @@ function mossyRiverStone(base: THREE.MeshBasicMaterial): THREE.MeshBasicMaterial
   return applyPaintedPigment(material);
 }
 
-export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
+export type RockGroundSampler = (x:number,z:number)=>number;
+export const ROCK_GROUND_EMBED=.045;
+const ROCK_GROUND_NAMES=new Set([
+  'Visible gravel bed below clear creek water','Soft west creek bank','Soft east creek bank',
+  'West bank sculpted meadow terrain','East bank sculpted meadow terrain'
+]);
+
+/** Sample only real solid visual terrain, never the water or foam planes. */
+export function createCreekRockGroundSampler(root:THREE.Object3D):RockGroundSampler{
+  const surfaces:THREE.Mesh[]=[];
+  root.updateMatrixWorld(true);
+  root.traverse(o=>{if(o instanceof THREE.Mesh&&ROCK_GROUND_NAMES.has(o.name))surfaces.push(o);});
+  if(!surfaces.some(o=>o.name==='Visible gravel bed below clear creek water'))
+    throw new Error('Creek bed missing for grounded rock placement');
+  const ray=new THREE.Raycaster();
+  const origin=new THREE.Vector3(),down=new THREE.Vector3(0,-1,0);
+  return (x,z)=>{
+    ray.set(origin.set(x,3,z),down);
+    const hit=ray.intersectObjects(surfaces,false)[0];
+    return hit?hit.point.y:0;
+  };
+}
+
+/**
+ * Retain the original upper silhouette and UVs. Midstream exposed rocks may
+ * need more vertical mass to reach their actual bed; submerged rocks must
+ * stay underwater. For all stream rocks, anchor the lower part of the
+ * transformed mesh into the real surface under its footprint.
+ */
+export function placeCreekRock(geometry:THREE.BufferGeometry,p:RockPlacement,scale:number,ground:RockGroundSampler){
+  geometry.computeBoundingBox();
+  const box=geometry.boundingBox!,height=box.max.y-box.min.y;
+  const pos=geometry.getAttribute('position');
+  const centreGround=ground(p.x,p.z);
+  const submerged=(p.submerge??0)>=1;
+  let sy=scale;
+  if(p.midstream){
+    const oldTop=CREEK.waterY+height*scale*(1-(p.submerge??0));
+    const targetTop=THREE.MathUtils.clamp(oldTop,CREEK.waterY+.10,CREEK.waterY+.22);
+    sy=Math.max(scale,(targetTop-centreGround+ROCK_GROUND_EMBED)/height);
+  }else if(submerged){
+    sy=Math.min(scale,Math.max(.035,(CREEK.waterY-.075-centreGround)/height));
+  }
+  const cos=Math.cos(p.yaw),sin=Math.sin(p.yaw);
+  // Probe only the lowest 12% of the actual mesh, not the bounding-box corners.
+  // Deduplicate nearby points to keep initial load cheap on mobile.
+  const samples:{x:number;z:number;dy:number}[]=[];
+  const seen=new Set<string>();
+  for(let i=0;i<pos.count;i++){
+    const dy=pos.getY(i)-box.min.y;
+    if(dy>height*.12+1e-6)continue;
+    const lx=pos.getX(i)*scale,lz=pos.getZ(i)*scale;
+    const x=p.x+cos*lx+sin*lz,z=p.z-sin*lx+cos*lz;
+    const key=Math.round(x*40)+':'+Math.round(z*40)+':'+Math.round(dy*1000);
+    if(seen.has(key))continue;seen.add(key);
+    samples.push({x,z,dy});
+  }
+  if(!samples.length)samples.push({x:p.x,z:p.z,dy:0});
+  const supports=samples.map(v=>({...v,y:ground(v.x,v.z)}));
+  const baseFor=(vertical:number)=>Math.max(...supports.map(v=>v.y-v.dy*vertical))-ROCK_GROUND_EMBED;
+  let base=baseFor(sy);
+  if(submerged&&base+height*sy>CREEK.waterY-.035){
+    sy=Math.max(.001,(CREEK.waterY-.065-base)/height);
+    base=baseFor(sy);
+  }
+  return {y:base-box.min.y*sy,scaleY:sy,base,top:base+height*sy};
+}
+
+export function createCuratedRockGroup(source: THREE.Group, ground:RockGroundSampler): THREE.Group {
   const group = new THREE.Group();
   group.name = 'Curated original UV textured rock placements';
   const instance = new THREE.Object3D();
@@ -198,15 +266,10 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
     for(let i=0;i<placements.length;i++){
       const p=placements[i];
       const scale = p.size / nativeFootprint;
-      // Authored GLB is grounded at minY = 0. Lower only selected mossy
-      // stones into real creek water while retaining their visible upper mass.
-      const submerged=p.zone==='stream' && p.submerge!==undefined;
-      instance.position.set(p.x,
-        submerged ? CREEK.waterY-dimensions.y*scale*p.submerge! :
-          p.zone==='stream' ? -.027 : .022,
-        p.z);
+      const grounded=p.zone==='stream'?placeCreekRock(rock.geometry,p,scale,ground):null;
+      instance.position.set(p.x,grounded?grounded.y:.022-rock.geometry.boundingBox!.min.y*scale,p.z);
       instance.rotation.set(0,p.yaw,0);
-      instance.scale.setScalar(scale);
+      instance.scale.set(scale,grounded?grounded.scaleY:scale,scale);
       instance.updateMatrix();
       mesh.setMatrixAt(i,instance.matrix);
     }
@@ -235,6 +298,6 @@ export function createCuratedRockGroup(source: THREE.Group): THREE.Group {
 /** Adds only visual assets, without modifying collision or walkable terrain. */
 export async function attachCuratedHomeRocks(root: THREE.Object3D): Promise<boolean> {
   const source=await loadCuratedRockSource();
-  root.add(createCuratedRockGroup(source));
+  root.add(createCuratedRockGroup(source,createCreekRockGroundSampler(root)));
   return true;
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
-import { selectedHomeRocks, rockFile, ROCK_MODELS, findCuratedRockVariant, createCuratedRockGroup } from '../src/world/homeRocks.ts';
+import { selectedHomeRocks, rockFile, ROCK_MODELS, findCuratedRockVariant, createCuratedRockGroup, createCreekRockGroundSampler } from '../src/world/homeRocks.ts';
 import { createHomeStage } from '../src/world/homeStage.ts';
 import { CREEK, creekCenterX, creekWidth, createHomeCreek, createHomeCreekVegetation } from '../src/world/homeCreek.ts';
 
@@ -148,7 +148,7 @@ test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', 
     assert.equal(findCuratedRockVariant(scene,i),rock);
   }
   // Check the same adapter used after GLTFLoader finishes, not only name parsing.
-  const installed=createCuratedRockGroup(scene);
+  const installed=createCuratedRockGroup(scene,createCreekRockGroundSampler(createHomeStage(false).root));
   assert.equal(installed.name,'Curated original UV textured rock placements');
   assert.ok(installed.children.every(child=>child instanceof THREE.InstancedMesh));
   assert.equal(installed.children.length,2,'exactly two rock InstancedMesh draws');
@@ -179,16 +179,9 @@ test('GLTFLoader-sanitized mesh names resolve to all 16 actual 3D rock assets', 
     .findIndex(p=>p.submerge!==undefined&&p.submerge>=1);
   assert.ok(underwaterIndex>=0);
   variant.getMatrixAt(underwaterIndex,matrix);
-  const fullyUnder=new THREE.Vector3().setFromMatrixPosition(matrix);
-  const fullyScale=new THREE.Vector3().setFromMatrixScale(matrix);
-  assert.ok(fullyUnder.y+.15*fullyScale.y<CREEK.waterY,
+  const fullyUnder=new THREE.Box3().setFromBufferAttribute(variant.geometry.getAttribute('position')).applyMatrix4(matrix);
+  assert.ok(fullyUnder.max.y<CREEK.waterY,
     'uploaded rock mesh remains under clear water instead of poking out');
-  const mossIndex=selectedHomeRocks.filter(p=>p.type==='mossy')
-    .findIndex(p=>p.submerge!==undefined);
-  variant.getMatrixAt(mossIndex,matrix);
-  const submergedCenter=new THREE.Vector3().setFromMatrixPosition(matrix);
-  assert.ok(submergedCenter.y<CREEK.waterY,
-    'selected mossy base lies below actual water surface');
   const firstNatural=selectedHomeRocks.find(p=>p.zone==='stream'&&p.size>=1);
   assert.ok(firstNatural);
 });
@@ -235,4 +228,45 @@ test('creek is truly winding water with softened banks, not a rectangle', () => 
   assert.ok(stage.root.getObjectByName('West wooden bridge walkway'));
   assert.ok(!stage.solids.some(s=>s.label.toLowerCase().includes('creek')));
   assert.ok(!stage.solids.some(s=>s.label.toLowerCase().includes('bank')));
+});
+
+
+test('all actual river GLB rocks intersect the real creek bed or bank, not the water plane',()=>{
+  const {raw,json}=getGlb();
+  const root=new THREE.Group(),material=new THREE.MeshStandardMaterial({map:new THREE.DataTexture(new Uint8Array([120,130,100,255]),1,1)});
+  const start=28+raw.readUInt32LE(12);
+  for(const id of [0,2]){
+    const prim=json.meshes[id].primitives[0];
+    const accessor=json.accessors[prim.attributes.POSITION],view=json.bufferViews[accessor.bufferView];
+    const offset=start+(view.byteOffset??0)+(accessor.byteOffset??0);
+    const coords=Float32Array.from({length:accessor.count*3},(_,i)=>raw.readFloatLE(offset+4*i));
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(coords,3));
+    geo.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(accessor.count*2),2));
+    geo.computeBoundingBox();
+    const mesh=new THREE.Mesh(geo,material);mesh.name='LA_Rock_'+String(id).padStart(2,'0');root.add(mesh);
+  }
+  const terrain=createHomeStage(false).root;
+  const sample=createCreekRockGroundSampler(terrain);
+  const installed=createCuratedRockGroup(root,sample);
+  const moss=installed.getObjectByName('UV mossy rock variant 00');
+  const pos=moss.geometry.getAttribute('position'),box=moss.geometry.boundingBox;
+  const mat=new THREE.Matrix4(),v=new THREE.Vector3();
+  const placements=selectedHomeRocks.filter(p=>p.type==='mossy');
+  for(let i=0;i<moss.count;i++){
+    moss.getMatrixAt(i,mat);
+    let deepest=-Infinity,top=-Infinity;
+    const p=placements[i],scale=new THREE.Vector3().setFromMatrixScale(mat);
+    assert.ok(Math.abs(scale.x-scale.z)<1e-6,'original footprint remains uniform');
+    for(let k=0;k<pos.count;k++){
+      v.fromBufferAttribute(pos,k).applyMatrix4(mat);
+      top=Math.max(top,v.y);
+      if(pos.getY(k)<=box.min.y+(box.max.y-box.min.y)*.12+1e-6){
+        deepest=Math.max(deepest,sample(v.x,v.z)-v.y);
+      }
+    }
+    assert.ok(deepest>=.035&&deepest<=.065,'rock '+i+' must embed into actual solid terrain: '+deepest);
+    if(p.midstream)assert.ok(top>CREEK.waterY+.04&&top<CREEK.waterY+.29,'emerged breaker remains visible');
+    if((p.submerge??0)>=1)assert.ok(top<CREEK.waterY-.015,'underwater rock stays submerged');
+  }
 });
