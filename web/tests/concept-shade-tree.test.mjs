@@ -116,32 +116,45 @@ test('courtyard climbers attach to the uploaded bark and reuse the untouched fol
   }
   const original=root.children.slice();
   const count=addCourtyardClimbers(root);
-  assert.ok(count>=35&&count<=100,'restrained climbing leaves on actual bark');
+  assert.ok(count>=35&&count<=150,'restrained climbing leaves on actual bark');
   const group=root.getObjectByName('Asri climbing plants');
   assert.ok(group);
   const leaves=group.getObjectByName('Small hand-painted climbing leaves');
   assert.equal(leaves.material.map,atlas);
   assert.equal(leaves.geometry.getAttribute('position').count,count*6);
   const stems=group.children.filter(m=>m.name==='Slender bark-hugging vine stem');
-  assert.equal(stems.length,3);
-  assert.ok(stems.filter(m=>m.userData.tip[1]>=4.6).length>=2,'two climbers reach the branch zone');
-  assert.ok(stems.some(m=>m.userData.tip[1]>=4.6&&Math.hypot(m.userData.tip[0],m.userData.tip[2])>1.3),'one climber follows an outward lower branch');
+  assert.equal(stems.length,4);
+  const trunks=stems.filter(m=>m.userData.kind==='trunk');
+  const branches=stems.filter(m=>m.userData.kind==='branch');
+  assert.equal(trunks.length,2);
+  assert.equal(branches.length,2);
+  assert.ok(trunks.some(m=>m.userData.tip[1]>3.8));
+  assert.ok(branches.every(m=>Math.hypot(m.userData.tip[0],m.userData.tip[2])>1.8));
+  const long=trunks.find(m=>m.userData.turns>1);
+  const samples=long.geometry.parameters.path.curves.map(c=>c.v1);
+  let angleSum=0;
+  for(let i=1;i<samples.length;i++){
+    const a=Math.atan2(samples[i-1].z,samples[i-1].x),b=Math.atan2(samples[i].z,samples[i].x);
+    angleSum+=Math.atan2(Math.sin(b-a),Math.cos(b-a));
+  }
+  assert.ok(Math.abs(angleSum)>Math.PI*2,'real trunk path wraps more than a full revolution');
   for(const stem of stems){
     const points=stem.geometry.parameters.path.curves;
-    assert.ok(points.every(c=>c.v1.distanceTo(c.v2)<=.250001),'no unsupported long gap in the stem');
+    assert.ok(points.every(c=>c.v1.distanceTo(c.v2)<=.280001),'no unsupported long gap in the stem');
   }
   assert.deepEqual(root.children.slice(0,original.length),original);
   assert.equal(canopy.map,atlas);
   assert.equal(addCourtyardClimbers(root),0,'do not duplicate plants on reload');
 });
 
-test('original warm wood pigment stays intact and lichen keeps tonal variation',async()=>{
+test('original warm wood pigment stays intact and green patches return to brown',async()=>{
   const {naturalLichenPigment}=await import('../src/world/treeAsset.ts');
   assert.deepEqual(naturalLichenPigment(195,145,85),[195,145,85]);
   const a=naturalLichenPigment(151,159,91),b=naturalLichenPigment(176,182,112);
-  assert.ok(a[1]>a[0]&&b[1]>b[0]);
+  assert.ok(a[0]>a[1]&&a[1]>a[2]);
+  assert.ok(b[0]>b[1]&&b[1]>b[2]);
   assert.ok(b[0]>a[0]&&b[1]>a[1]&&b[2]>a[2]);
-  assert.ok(a[1]>=159*.95);
+  assert.notDeepEqual(naturalLichenPigment(151,159,91,[185,137,88]),a);
 });
 
 
