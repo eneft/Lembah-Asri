@@ -116,13 +116,20 @@ test('courtyard climbers attach to the uploaded bark and reuse the untouched fol
   }
   const original=root.children.slice();
   const count=addCourtyardClimbers(root);
-  assert.ok(count>=20&&count<=87,'restrained climbing leaves on actual bark');
+  assert.ok(count>=35&&count<=100,'restrained climbing leaves on actual bark');
   const group=root.getObjectByName('Asri climbing plants');
   assert.ok(group);
   const leaves=group.getObjectByName('Small hand-painted climbing leaves');
   assert.equal(leaves.material.map,atlas);
   assert.equal(leaves.geometry.getAttribute('position').count,count*6);
-  assert.ok(group.children.filter(m=>m.name==='Slender bark-hugging vine stem').length>=2);
+  const stems=group.children.filter(m=>m.name==='Slender bark-hugging vine stem');
+  assert.equal(stems.length,3);
+  assert.ok(stems.filter(m=>m.userData.tip[1]>=4.6).length>=2,'two climbers reach the branch zone');
+  assert.ok(stems.some(m=>m.userData.tip[1]>=4.6&&Math.hypot(m.userData.tip[0],m.userData.tip[2])>1.3),'one climber follows an outward lower branch');
+  for(const stem of stems){
+    const points=stem.geometry.parameters.path.curves;
+    assert.ok(points.every(c=>c.v1.distanceTo(c.v2)<=.250001),'no unsupported long gap in the stem');
+  }
   assert.deepEqual(root.children.slice(0,original.length),original);
   assert.equal(canopy.map,atlas);
   assert.equal(addCourtyardClimbers(root),0,'do not duplicate plants on reload');
