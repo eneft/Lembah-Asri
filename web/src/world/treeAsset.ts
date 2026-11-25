@@ -21,6 +21,54 @@ const urls: Record<TreeAssetKind, string> = {
  * The leaf pixels are cut with alphaTest, NOT alphaHash: no stipple noise,
  * no full-mesh transparency sorting, and correct shadow/depth behavior.
  */
+
+// Use the approved atlas, but give bark a private texture so the painted leaf
+// pixels (including their alpha mask and mipmaps) remain byte-for-byte unchanged.
+function isolateCourtyardBark(map: THREE.Texture): THREE.Texture | undefined {
+  if (typeof document === 'undefined') return;
+  const image = map.image;
+  if (!image || image.width !== 1254 || image.height !== 1254) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return;
+  ctx.drawImage(image, 0, 0);
+  // These are the three bark islands of the uploaded 1254px Asri atlas.
+  // Stretch only clean upper bark pigment; don't wrap the illustrated plants
+  // and ground at the base of each source illustration around the trunk.
+  const islands = [
+    { src: [3, 3, 344, 510], dst: [0, 0, 350, 620] },
+    { src: [356, 3, 234, 403], dst: [350, 0, 245, 495] },
+    { src: [3, 3, 344, 510], dst: [0, 620, 230, 568] }
+  ];
+  for (const {src, dst} of islands) {
+    const [x,y,w,h] = dst;
+    ctx.clearRect(x,y,w,h);
+    ctx.drawImage(image, src[0],src[1],src[2],src[3],x,y,w,h);
+    const pixels = ctx.getImageData(x,y,w,h);
+    const data = pixels.data;
+    for (let i=0; i<data.length; i+=4) {
+      const r=data[i], g=data[i+1], b=data[i+2];
+      const l=.30*r+.59*g+.11*b;
+      // Restrained aged wood pigments, not a flat tint. Retain the painted
+      // highlights and fissures while reducing orange and moss contrast.
+      const value = 119 + (l-119)*.79;
+      data[i]   = value*1.13 + (r-l)*.35;
+      data[i+1] = value*.98 + (g-l)*.35;
+      data[i+2] = value*.77 + (b-l)*.35;
+    }
+    ctx.putImageData(pixels,x,y);
+  }
+  // Texture.clone shares its Source; replace the Source itself, never mutate
+  // map.image, otherwise the approved foliage would also change.
+  const bark = map.clone();
+  bark.source = new THREE.Source(canvas);
+  bark.name = 'Asri isolated aged bark atlas';
+  bark.needsUpdate = true;
+  return bark;
+}
+
 export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group> {
   const existing = sourceCache.get(kind);
   if (existing) return existing;
@@ -36,7 +84,16 @@ export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group>
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         for (const material of materials) {
           material.toneMapped = false;
-          if (material.map) material.map.anisotropy = 4;
+          if (material instanceof THREE.MeshBasicMaterial && material.map) {
+            if (material.name === 'Kulit kayu') {
+              const bark = isolateCourtyardBark(material.map);
+              if (bark) {
+                material.map = bark;
+                material.needsUpdate = true;
+              }
+            }
+            material.map.anisotropy = 4;
+          }
         }
       });
       return source;
