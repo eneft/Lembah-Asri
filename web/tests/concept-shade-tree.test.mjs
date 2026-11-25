@@ -136,3 +136,31 @@ test('original warm wood pigment stays intact and lichen keeps tonal variation',
   assert.ok(b[0]>a[0]&&b[1]>a[1]&&b[2]>a[2]);
   assert.ok(a[1]>=159*.95);
 });
+
+
+test('bark relief is non-color tangent data and leaves are outside the normal islands',async()=>{
+  const {buildCourtyardBarkNormals,makeMatteCourtyardBark}=await import('../src/world/treeAsset.ts');
+  const w=1254,rgba=new Uint8ClampedArray(w*w*4);
+  for(let i=0;i<rgba.length;i+=4){rgba[i]=170;rgba[i+1]=110;rgba[i+2]=60;rgba[i+3]=255;}
+  const at=(x,y)=>(y*w+x)*4;
+  for(let y=90;y<110;y++)for(let x=101;x<110;x++)rgba[at(x,y)]=250;
+  const n=buildCourtyardBarkNormals(rgba,w,w);
+  assert.deepEqual([...n.slice(at(800,100),at(800,100)+4)],[128,128,255,255]);
+  assert.deepEqual([...n.slice(at(50,50),at(50,50)+4)],[128,128,255,255]);
+  assert.ok(n[at(100,100)]<128,'wood edge has real tangent relief');
+  assert.ok(n[at(100,100)+2]<255);
+  const albedo=new THREE.Texture(),normal=new THREE.Texture();
+  const source=new THREE.MeshBasicMaterial({map:albedo,vertexColors:true});
+  source.name='Kulit kayu';
+  const matte=makeMatteCourtyardBark(source,normal);
+  assert.equal(matte.map,albedo);
+  assert.equal(matte.normalMap,normal);
+  assert.equal(matte.specular.getHex(),0);
+  assert.equal(matte.vertexColors,true);
+  assert.equal(matte.toneMapped,false);
+  assert.deepEqual(matte.normalScale.toArray(),[.6,.6]);
+  const shader={fragmentShader:'vec3 outgoingLight = reflectedLight.directDiffuse;'};
+  matte.onBeforeCompile(shader);
+  assert.match(shader.fragmentShader,/dot\(normal,asriBarkKey\)/);
+  assert.equal(source.type,'MeshBasicMaterial');
+});
