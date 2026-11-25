@@ -86,3 +86,44 @@ test('opt-in riverside scene camera frames the real home yard without moving the
   assert.deepEqual(HOME.spawn,{x:-29.5,y:1.2,z:7.4},
     'existing standard spawn stays unchanged');
 });
+
+
+test('courtyard climbers attach to the uploaded bark and reuse the untouched foliage atlas', async()=>{
+  const {readFileSync}=await import('node:fs');
+  const {addCourtyardClimbers}=await import('../src/world/treeAsset.ts');
+  const data=readFileSync(new URL('../public/models/environment/pohon_pekarangan.glb',import.meta.url));
+  const n=data.readUInt32LE(12), json=JSON.parse(data.subarray(20,20+n).toString());
+  const bin=28+n;
+  const root=new THREE.Group();
+  const atlas=new THREE.Texture();
+  const bark=new THREE.MeshBasicMaterial(); bark.name='Kulit kayu';
+  const canopy=new THREE.MeshBasicMaterial({map:atlas}); canopy.name='Daun';
+  for(const primitive of json.meshes[0].primitives){
+    const g=new THREE.BufferGeometry();
+    const a=json.accessors[primitive.attributes.POSITION],v=json.bufferViews[a.bufferView];
+    const offset=bin+(v.byteOffset??0)+(a.byteOffset??0);
+    const pos=new Float32Array(a.count*3);
+    for(let i=0;i<a.count;i++)for(let j=0;j<3;j++)
+      pos[i*3+j]=data.readFloatLE(offset+i*(v.byteStride??12)+4*j);
+    g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    const ix=json.accessors[primitive.indices],iv=json.bufferViews[ix.bufferView];
+    const io=bin+(iv.byteOffset??0)+(ix.byteOffset??0);
+    const ids=[];
+    for(let i=0;i<ix.count;i++)ids.push(ix.componentType===5125?data.readUInt32LE(io+i*4):
+      ix.componentType===5123?data.readUInt16LE(io+i*2):data.readUInt8(io+i));
+    g.setIndex(ids);
+    root.add(new THREE.Mesh(g,primitive.material===0?bark:canopy));
+  }
+  const original=root.children.slice();
+  const count=addCourtyardClimbers(root);
+  assert.ok(count>=20&&count<=51,'restrained climbing leaves on actual bark');
+  const group=root.getObjectByName('Asri climbing plants');
+  assert.ok(group);
+  const leaves=group.getObjectByName('Small hand-painted climbing leaves');
+  assert.equal(leaves.material.map,atlas);
+  assert.equal(leaves.geometry.getAttribute('position').count,count*6);
+  assert.ok(group.children.filter(m=>m.name==='Slender bark-hugging vine stem').length>=2);
+  assert.deepEqual(root.children.slice(0,original.length),original);
+  assert.equal(canopy.map,atlas);
+  assert.equal(addCourtyardClimbers(root),0,'do not duplicate plants on reload');
+});
