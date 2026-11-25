@@ -8,7 +8,7 @@ const sourceCache = new Map<TreeAssetKind, Promise<THREE.Group>>();
 const urls: Record<TreeAssetKind, string> = {
   // Bump query when changing the generated GLB's geometry/atlas. iOS Safari
   // may otherwise retain the previous model despite a fresh JS bundle.
-  courtyard: './models/environment/pohon_pekarangan.glb?atlas=asri-3',
+  courtyard: './models/environment/pohon_pekarangan.glb?atlas=asri-4',
   shade: './models/environment/pohon_rimbun_shade.glb?canopy=3&bark=uv3',
   orchard: './models/environment/pohon_rimbun_orchard.glb?canopy=3&bark=uv3'
 };
