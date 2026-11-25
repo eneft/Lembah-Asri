@@ -22,17 +22,24 @@ const urls: Record<TreeAssetKind, string> = {
  * no full-mesh transparency sorting, and correct shadow/depth behavior.
  */
 
-// Keep the authored UV islands at their exact original positions. Never crop,
-// stretch, repaint or globally grade the wood. Only gently tint lichen pixels.
-export function naturalLichenPigment(r: number,g: number,b: number): [number,number,number] {
+// The user rejected the large green marks on the wood. Restore nearby
+// authored wood pigment, without changing the UV layout or foliage atlas.
+export function lichenMask(r:number,g:number,b:number):number {
   const smooth=(a:number,z:number,x:number)=>{
     const t=Math.max(0,Math.min(1,(x-a)/(z-a)));
     return t*t*(3-2*t);
   };
-  const mask=(1-smooth(15,38,r-g))*smooth(12,35,g-b)*smooth(85,125,g);
-  // A small multiplicative shift preserves the artist's pigment variation,
-  // grain, light/shadow and anti-aliased edges instead of painting flat green.
-  return [r*(1-.15*mask),g*(1-.045*mask),b*(1-.10*mask)];
+  return (1-smooth(18,44,r-g))*smooth(10,29,g-b)*smooth(68,115,g);
+}
+export function naturalLichenPigment(r:number,g:number,b:number,
+  wood:[number,number,number]=[147,104,66], amount=1):[number,number,number] {
+  const m=lichenMask(r,g,b)*amount;
+  if(m===0)return [r,g,b];
+  const l=.30*r+.59*g+.11*b;
+  const wl=.30*wood[0]+.59*wood[1]+.11*wood[2];
+  // Retain a little local painted variation, but not the light green silhouette.
+  const grain=Math.max(-9,Math.min(9,(l-wl)*.13));
+  return [r*(1-m)+(wood[0]+grain)*m,g*(1-m)+(wood[1]+grain)*m,b*(1-m)+(wood[2]+grain)*m];
 }
 function isolateCourtyardBark(map: THREE.Texture): THREE.Texture | undefined {
   if(typeof document==='undefined')return;
@@ -44,20 +51,43 @@ function isolateCourtyardBark(map: THREE.Texture): THREE.Texture | undefined {
   if(!ctx)return;
   ctx.drawImage(image,0,0);
   const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
-  const data=pixels.data;
-  // Exact original bark rectangles. No resampling, including root artwork.
+  const data=pixels.data, original=new Uint8ClampedArray(data);
+  const stride=canvas.width;
   for(const [x,y,w,h] of [[0,0,350,620],[350,0,245,495],[0,620,230,568]]){
-    for(let row=y;row<y+h;row++)for(let col=x;col<x+w;col++){
-      const i=(row*canvas.width+col)*4;
-      if(data[i+3]===0)continue;
-      const [r,g,b]=naturalLichenPigment(data[i],data[i+1],data[i+2]);
-      data[i]=r;data[i+1]=g;data[i+2]=b;
+    for(let row=y;row<y+h;row++){
+      const left=new Int32Array(w).fill(-1),right=new Int32Array(w).fill(-1);
+      const isWood=(col:number)=>{
+        const i=(row*stride+col)*4;
+        return original[i+3]>230&&original[i]-original[i+1]>35&&lichenMask(original[i],original[i+1],original[i+2])<.08;
+      };
+      let last=-1;
+      for(let col=0;col<w;col++){if(isWood(x+col))last=col;left[col]=last;}
+      last=-1;
+      for(let col=w-1;col>=0;col--){if(isWood(x+col))last=col;right[col]=last;}
+      for(let col=0;col<w;col++){
+        const i=(row*stride+x+col)*4;
+        if(original[i+3]===0||lichenMask(original[i],original[i+1],original[i+2])<.015)continue;
+        // Keep the small authored ground plants at the very bottom of root
+        // islands; above those, green patches become surrounding wood.
+        const rootArtwork=(x===0&&((y===620&&row>1118)||(y===0&&row>577)));
+        if(rootArtwork)continue;
+        const l=left[col],r=right[col];
+        let wood:[number,number,number]=[147,104,66];
+        if(l>=0||r>=0){
+          const lo=l>=0?l:r,hi=r>=0?r:l;
+          const t=hi===lo?0:(col-lo)/(hi-lo);
+          const li=(row*stride+x+lo)*4,ri=(row*stride+x+hi)*4;
+          wood=[0,1,2].map(c=>original[li+c]*(1-t)+original[ri+c]*t) as [number,number,number];
+        }
+        const c=naturalLichenPigment(original[i],original[i+1],original[i+2],wood);
+        data[i]=c[0];data[i+1]=c[1];data[i+2]=c[2];
+      }
     }
   }
   ctx.putImageData(pixels,0,0);
   const bark=map.clone();
   bark.source=new THREE.Source(canvas);
-  bark.name='Asri original bark pigment with subtle lichen';
+  bark.name='Asri restored wood pigment';
   bark.needsUpdate=true;
   return bark;
 }
@@ -91,74 +121,90 @@ export function addCourtyardClimbers(source: THREE.Group): number {
   // Use the existing isolated green leaf illustration (atlas pixels 764..879,
   // 744..937); GLTFLoader's atlas has flipY=false.
   const u0=764/1254, u1=879/1254, v0=744/1254, v1=937/1254;
-  let count = 0;
-  for (let trail=0; trail<3; trail++) {
-    const points: THREE.Vector3[] = [];
-    // Two long climbers climb to the actual branch zone; the third remains
-    // near the buttress roots. Heights are in the authored GLB's local units.
-    const maxHeight = [4.85,1.0,5.05][trail];
-    const steps = [84,28,88][trail];
-    for (let i=0;i<=steps;i++) {
-      const t=i/steps, y=.14+(maxHeight-.14)*t;
-      const angle=trail*2.094+.47+.15*Math.sin(t*8.3+trail)+.12*t;
-      const previous=points[points.length-1];
-      let best: {p: THREE.Vector3; radial: THREE.Vector3; score: number} | undefined;
-      // Search a small fan of directions and select a continuous surface
-      // contact, rather than jumping to the outermost separate branch.
-      for(const da of [0,-.12,.12,-.25,.25,-.4,.4]){
-        const radial=new THREE.Vector3(Math.cos(angle+da),0,Math.sin(angle+da));
-        const outside=radial.clone().multiplyScalar(4.5).add(new THREE.Vector3(0,y,0));
-        const origin=source.localToWorld(outside);
-        const target=source.localToWorld(new THREE.Vector3(0,y,0));
+  let count=0;
+  const paths: {points:THREE.Vector3[];radials:THREE.Vector3[];kind:string;turns:number}[]=[];
+  // The center lines are measured against the approved courtyard GLB
+  // (main trunk and its left/right lower boughs), not an imagined cylinder.
+  const trace=(centers:THREE.Vector3[], turns:number, phase:number, kind:string)=>{
+    const points:THREE.Vector3[]=[],radials:THREE.Vector3[]=[];
+    let previous:THREE.Vector3|undefined;
+    for(let i=0;i<centers.length;i++){
+      const t=i/(centers.length-1), center=centers[i];
+      const axis=centers[Math.min(i+1,centers.length-1)].clone()
+        .sub(centers[Math.max(0,i-1)]).normalize();
+      const ref=Math.abs(axis.y)>.85?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0);
+      const side=ref.addScaledVector(axis,-ref.dot(axis)).normalize();
+      const cross=new THREE.Vector3().crossVectors(axis,side).normalize();
+      const angle=phase+turns*Math.PI*2*t+.18*Math.sin(t*9.7);
+      let best:{p:THREE.Vector3;radial:THREE.Vector3;score:number}|undefined;
+      for(const da of [0,-.08,.08,-.18,.18]){
+        const radial=side.clone().multiplyScalar(Math.cos(angle+da)).addScaledVector(cross,Math.sin(angle+da));
+        const maxRadius=kind==='branch'?.72:(kind==='root'?1.9:1.6);
+        const from=center.clone().addScaledVector(radial,maxRadius);
+        const origin=source.localToWorld(from);
+        const target=source.localToWorld(center.clone());
         ray.set(origin,target.sub(origin).normalize());
         for(const hit of ray.intersectObjects(bark,false)){
-          const surface=hit.point.clone().applyMatrix4(inverse);
-          if(surface.dot(radial)<0)continue;
-          const p=surface.addScaledVector(radial,.012);
-          const radius=Math.hypot(p.x,p.z);
+          const p=hit.point.clone().applyMatrix4(inverse);
+          const dist=p.clone().sub(center).dot(radial);
+          if(dist<.025||dist>maxRadius+.01)continue;
+          p.addScaledVector(radial,.016);
           const delta=previous?p.distanceTo(previous):0;
-          if(previous && delta>.25)continue;
-          const score=(previous?delta:Math.abs(radius-.95))+
-            Math.abs(da)*.12-(y>3.45&&trail!==1?.22:.015)*radius;
+          if(previous&&delta>.28)continue;
+          const score=Math.abs(da)*.65+delta*.45-dist*.26;
           if(!best||score<best.score)best={p,radial,score};
         }
       }
-      if(!best)break; // Never bridge a disconnected gap with a floating vine.
-      const {p,radial}=best;
-      points.push(p);
-      // Dense, irregular leaves at the foot; sparse growth on high branches.
-      if(y>1.2 && (i%3!==0 || Math.sin(i*2.41+trail)<-.55))continue;
-      if(y<=1.2 && i>1 && ((i+trail*2)%7===0 || (i>8&&Math.sin(i*2.41+trail)<.12)))continue;
-      const sign=Math.sin(i*2.31+trail)>0?1:-1;
-      const tangent=new THREE.Vector3(-radial.z,0,radial.x);
-      const up=new THREE.Vector3(0,1,0).multiplyScalar(.38+.38*Math.sin(i*1.74+trail)**2)
-        .addScaledVector(tangent,sign*.78).normalize();
+      if(!best){if(points.length>1)break;continue;}
+      previous=best.p;
+      points.push(best.p);radials.push(best.radial);
+    }
+    if(points.length>1)paths.push({points,radials,kind,turns});
+  };
+  const sampled=(waypoints:number[][],steps:number)=>{
+    const curve=new THREE.CatmullRomCurve3(waypoints.map(p=>new THREE.Vector3(...p as [number,number,number])));
+    return Array.from({length:steps+1},(_,i)=>curve.getPoint(i/steps));
+  };
+  // The main vine makes more than one full wrap. The secondary vine uses
+  // a different pitch and only occupies the lower trunk.
+  trace(sampled([[0,.48,0],[.02,1.45,0],[.04,2.45,-.02],[.12,3.35,-.12],[.16,4.12,-.10]],144),1.45,.52,'trunk');
+  trace(sampled([[0,.42,0],[.02,1.15,0],[.04,1.92,-.02],[.06,2.55,-.05]],92),.85,3.55,'trunk');
+  // Two individual boughs have their own tilted axial frame so the vines
+  // actually wind around wood rather than continuing vertically in space.
+  trace(sampled([[.44,4.06,-.09],[.95,4.26,-.19],[1.60,4.54,-.40],[2.20,4.87,-.55],[2.73,5.12,-.58]],96),1.25,1.7,'branch');
+  trace(sampled([[-.25,3.62,-.17],[-.74,3.86,-.02],[-1.22,4.02,.14],[-1.75,4.25,.27],[-2.18,4.43,.33]],84),1.0,2.65,'branch');
+  for(let k=0;k<paths.length;k++){
+    const {points,radials,kind,turns}=paths[k];
+    const path=new THREE.CurvePath<THREE.Vector3>();
+    for(let i=1;i<points.length;i++)path.add(new THREE.LineCurve3(points[i-1],points[i]));
+    const stem=new THREE.Mesh(new THREE.TubeGeometry(path,points.length*2,kind==='branch'?.009:.012,5,false),stemMaterial);
+    stem.name='Slender bark-hugging vine stem';
+    stem.userData={tip:points[points.length-1].toArray(),kind,turns,maxSurfaceStep:.28};
+    group.add(stem);
+    let lastLeaf=-1;
+    for(let i=1;i<points.length;i++){
+      const p=points[i],radial=radials[i];
+      const gap=kind==='branch'? .16:.19;
+      if(lastLeaf>=0&&p.distanceTo(points[lastLeaf])<gap*(.8+.55*Math.sin(i*1.71+k)**2))continue;
+      lastLeaf=i;
+      const direction=points[Math.min(i+1,points.length-1)].clone().sub(points[i-1]).normalize();
+      const tangent=new THREE.Vector3().crossVectors(radial,direction).normalize();
+      const sign=Math.sin(i*2.31+k)>0?1:-1;
+      const up=direction.clone().multiplyScalar(.45).addScaledVector(tangent,sign*.85).normalize();
       const across=new THREE.Vector3().crossVectors(up,radial).normalize();
-      const length=(.10+.10*Math.sin(i*2.1+trail)**2)*(1-.35*t);
-      const width=length*(.48+.16*Math.sin(i*1.3)**2);
+      const length=(.15+.11*Math.sin(i*2.1+k)**2)*(kind==='branch'?.83:1);
+      const width=length*(.54+.13*Math.sin(i*1.3)**2);
       const base=positions.length/3;
-      // Bent leaf card: a raised midrib and six vertices, not a floating quad.
       for(let row=0;row<2;row++)for(let col=0;col<3;col++){
         const q=p.clone().addScaledVector(up,row*length)
           .addScaledVector(across,(col-1)*width*.5)
-          .addScaledVector(radial,.014+(col===1?.014:0)+row*.012);
+          .addScaledVector(radial,.014+(col===1?.018:0)+row*.022);
         positions.push(q.x,q.y,q.z);
         uvs.push(u0+(u1-u0)*col/2,row===0?v1:v0);
       }
       indices.push(base,base+3,base+1,base+1,base+3,base+4,
         base+1,base+4,base+2,base+2,base+4,base+5);
       count++;
-    }
-    if(points.length>1){
-      // Straight short segments follow the sampled bark, rather than a
-      // free spline which could overshoot the irregular buttress surface.
-      const path=new THREE.CurvePath<THREE.Vector3>();
-      for(let i=1;i<points.length;i++)path.add(new THREE.LineCurve3(points[i-1],points[i]));
-      const stem=new THREE.Mesh(new THREE.TubeGeometry(path,points.length*2,.007,5,false),stemMaterial);
-      stem.name='Slender bark-hugging vine stem';
-      stem.userData.tip=points[points.length-1].toArray();
-      stem.userData.maxSurfaceStep=.25;
-      group.add(stem);
     }
   }
   if(count){
