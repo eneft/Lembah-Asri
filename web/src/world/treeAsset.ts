@@ -54,9 +54,18 @@ function isolateCourtyardBark(map: THREE.Texture): THREE.Texture | undefined {
       // Restrained aged wood pigments, not a flat tint. Retain the painted
       // highlights and fissures while reducing orange and moss contrast.
       const value = 119 + (l-119)*.79;
-      data[i]   = value*1.13 + (r-l)*.35;
-      data[i+1] = value*.98 + (g-l)*.35;
-      data[i+2] = value*.77 + (b-l)*.35;
+      // Detect pale green lichen BEFORE the aged-brown grading removes its hue.
+      // Warm wood highlights have a much larger red/green difference.
+      const smooth = (a: number, b: number, x: number) => {
+        const t = Math.max(0, Math.min(1, (x-a)/(b-a)));
+        return t*t*(3-2*t);
+      };
+      const moss = (1-smooth(18,45,r-g))*smooth(18,45,g-b)*smooth(85,135,g);
+      const mossValue = 0.70 + l/550;
+      const mix = (wood: number, green: number) => wood*(1-moss)+green*moss;
+      data[i]   = mix(value*1.13 + (r-l)*.35, 93*mossValue);
+      data[i+1] = mix(value*.98 + (g-l)*.35, 129*mossValue);
+      data[i+2] = mix(value*.77 + (b-l)*.35, 57*mossValue);
     }
     ctx.putImageData(pixels,x,y);
   }
@@ -67,6 +76,102 @@ function isolateCourtyardBark(map: THREE.Texture): THREE.Texture | undefined {
   bark.name = 'Asri isolated aged bark atlas';
   bark.needsUpdate = true;
   return bark;
+}
+
+
+// Trace actual bark triangles, not a guessed cylindrical trunk. All vertices
+// are in the GLB scene's local frame and will inherit the existing tree scale.
+export function addCourtyardClimbers(source: THREE.Group): number {
+  if (source.getObjectByName('Asri climbing plants')) return 0;
+  const bark: THREE.Mesh[] = [];
+  let leafMap: THREE.Texture | undefined;
+  source.traverse(object => {
+    if (!(object instanceof THREE.Mesh)) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    if (materials.some(m => m.name === 'Kulit kayu')) bark.push(object);
+    for (const m of materials) {
+      if (m.name === 'Daun' && m instanceof THREE.MeshBasicMaterial && m.map) leafMap = m.map;
+    }
+  });
+  if (!bark.length || !leafMap) return 0;
+  source.updateWorldMatrix(true, true);
+  const ray = new THREE.Raycaster();
+  const inverse = source.matrixWorld.clone().invert();
+  const positions: number[] = [], uvs: number[] = [], indices: number[] = [];
+  const group = new THREE.Group();
+  group.name = 'Asri climbing plants';
+  const stemMaterial = new THREE.MeshBasicMaterial({color: '#536b35', toneMapped: false});
+  const leavesMaterial = new THREE.MeshBasicMaterial({
+    map: leafMap, color: '#d1dda5', alphaTest: .48,
+    side: THREE.DoubleSide, depthWrite: true, toneMapped: false
+  });
+  // Use the existing isolated green leaf illustration (atlas pixels 764..879,
+  // 744..937); GLTFLoader's atlas has flipY=false.
+  const u0=764/1254, u1=879/1254, v0=744/1254, v1=937/1254;
+  let count = 0;
+  for (let trail=0; trail<3; trail++) {
+    const points: THREE.Vector3[] = [];
+    const maxHeight = [2.45,1.80,2.08][trail];
+    const steps = 30;
+    for (let i=0;i<=steps;i++) {
+      const t=i/steps, y=.14+(maxHeight-.14)*t;
+      const angle=trail*2.094+.47+.24*Math.sin(t*5.6+trail)+.28*t;
+      const radial=new THREE.Vector3(Math.cos(angle),0,Math.sin(angle));
+      const outside=radial.clone().multiplyScalar(4.5).add(new THREE.Vector3(0,y,0));
+      const origin=source.localToWorld(outside.clone());
+      const target=source.localToWorld(new THREE.Vector3(0,y,0));
+      ray.set(origin,target.sub(origin).normalize());
+      const hit=ray.intersectObjects(bark,false)[0];
+      if (!hit) break;
+      const surface=hit.point.clone().applyMatrix4(inverse);
+      // A short outward offset avoids z-fighting and preserves contact.
+      const p=surface.clone().addScaledVector(radial,.024);
+      points.push(p);
+      if (i%2!==0 && i>1) continue;
+      const sign=(Math.floor(i/2)+trail)%2===0?1:-1;
+      const tangent=new THREE.Vector3(-radial.z,0,radial.x);
+      const up=new THREE.Vector3(0,1,0).multiplyScalar(.62)
+        .addScaledVector(tangent,sign*.78).normalize();
+      const across=new THREE.Vector3().crossVectors(up,radial).normalize();
+      const length=(.23+.085*Math.sin(i*2.1+trail)**2)*(1-.29*t);
+      const width=length*.62;
+      const base=positions.length/3;
+      // Bent leaf card: a raised midrib and six vertices, not a floating quad.
+      for(let row=0;row<2;row++)for(let col=0;col<3;col++){
+        const q=p.clone().addScaledVector(up,row*length)
+          .addScaledVector(across,(col-1)*width*.5)
+          .addScaledVector(radial,.032+(col===1?.034:0)+row*.028);
+        positions.push(q.x,q.y,q.z);
+        uvs.push(u0+(u1-u0)*col/2,row===0?v1:v0);
+      }
+      indices.push(base,base+3,base+1,base+1,base+3,base+4,
+        base+1,base+4,base+2,base+2,base+4,base+5);
+      count++;
+    }
+    if(points.length>1){
+      // Straight short segments follow the sampled bark, rather than a
+      // free spline which could overshoot the irregular buttress surface.
+      const path=new THREE.CurvePath<THREE.Vector3>();
+      for(let i=1;i<points.length;i++)path.add(new THREE.LineCurve3(points[i-1],points[i]));
+      const stem=new THREE.Mesh(new THREE.TubeGeometry(path,points.length*2,.012,5,false),stemMaterial);
+      stem.name='Slender bark-hugging vine stem';
+      group.add(stem);
+    }
+  }
+  if(count){
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    const leaves=new THREE.Mesh(geo,leavesMaterial);
+    leaves.name='Small hand-painted climbing leaves';
+    group.add(leaves);
+    group.userData.leafCount=count;
+    source.add(group);
+  }
+  return count;
 }
 
 export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group> {
@@ -96,6 +201,7 @@ export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group>
           }
         }
       });
+      addCourtyardClimbers(source);
       return source;
     }
     applyHandPaintedMaterials(source, 4);
