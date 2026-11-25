@@ -105,7 +105,7 @@ try {
   const walk=o=>{names.add(o.name);for(const child of o.children??[])walk(child);};
   walk(exported.object);
   for(const name of ['World painted grass UV terrain',
-    'Rumah utama - user uploaded PBR',
+    'Rumah utama - Rumah Masa Kecil',
     'Island horizon - north sea, east village, south forest, west mountain',
     'Shallow stream west of childhood home']){
     assert.ok(names.has(name),'missing exported world object: '+name);

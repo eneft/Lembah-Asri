@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as THREE from 'three';
@@ -236,4 +237,24 @@ test('uploaded fence GLB keeps uniform XYZ proportions and exact endpoints on al
     assert.ok(Math.abs(bounds.getCenter(new THREE.Vector3()).x - run.center[0]) < .001);
     assert.ok(Math.abs(bounds.getCenter(new THREE.Vector3()).z - run.center[2]) < .001);
   }
+});
+
+
+test('Rumah Masa Kecil is the exact original authored GLB with separate visual and collision scenes', () => {
+  const bytes=readFileSync(new URL('../public/models/environment/Rumah_Masa_Kecil.glb',import.meta.url));
+  assert.equal(bytes.length,10300884);
+  assert.equal(createHash('sha256').update(bytes).digest('hex'),'a4a170fb433d87de15e3d832489a33d9bec8dcdf2cf056831096c78655e62240');
+  assert.equal(bytes.toString('ascii',0,4),'glTF');
+  assert.equal(bytes.readUInt32LE(4),2);
+  assert.equal(bytes.readUInt32LE(8),bytes.length);
+  const doc=JSON.parse(bytes.toString('utf8',20,20+bytes.readUInt32LE(12)));
+  const visual=doc.scenes.find(s=>s.name==='Rumah');
+  const colliders=doc.scenes.find(s=>s.name==='Collision');
+  assert.equal(visual.nodes.length,60);
+  assert.equal(colliders.nodes.length,16);
+  assert.ok(colliders.nodes.every(i=>doc.nodes[i].name.startsWith('COL_')));
+  assert.equal(doc.images.length,4);
+  assert.equal(doc.materials.length,6);
+  assert.ok(doc.materials.some(m=>m.normalTexture?.texCoord===1));
+  assert.ok(doc.materials.some(m=>m.emissiveFactor?.some(v=>v>0)));
 });

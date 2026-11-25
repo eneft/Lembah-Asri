@@ -65,6 +65,7 @@ export class Game {
   private cameraFocus = new THREE.Vector3();
   private cameraObstacles: THREE.Object3D[] = [];
   private homeSolids: SolidCollider[] = [];
+  private houseReady: Promise<boolean> = Promise.resolve(false);
   private farm!: HomeFarm;
   private gardenGround!: GardenGround;
 
@@ -85,7 +86,11 @@ export class Game {
   private onWalkingGround() {
     const p = this.player.translation(), velocity = this.player.linvel();
     const ground=(x:number,z:number)=>
-      Math.max(gardenHeightAt(x,z),bridgeWalkHeightAt(x,z));
+      Math.max(gardenHeightAt(x,z),bridgeWalkHeightAt(x,z), ...this.homeSolids
+        .filter(s => /^(COL_Lantai|COL_Anak_tangga_)/.test(s.label)
+          && Math.abs(x-s.center[0]) <= s.half[0]+0.02
+          && Math.abs(z-s.center[2]) <= s.half[2]+0.02)
+        .map(s => s.center[1]+s.half[1]));
     const height = ground(p.x, p.z);
     // Raised soil and the timber bridge share the same real physical contact
     // height. Otherwise running/jumping on the bridge is classified airborne.
@@ -237,6 +242,7 @@ export class Game {
     installCreekCollision(game.world, floor, RAPIER);
     // Distinct static colliders for the house, empty storage shed and fences.
     // Paths and the open gate remain physically traversable.
+    await game.houseReady;
     const fixedScenery = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     for (const solid of game.homeSolids) {
       const [hx,hy,hz] = solid.half;
@@ -458,6 +464,7 @@ export class Game {
     this.flowingCreekWater = home.root.getObjectByName('Shallow stream west of childhood home');
     this.cameraObstacles.push(...home.cameraBlockers);
     this.homeSolids = home.solids;
+    this.houseReady = home.houseReady;
     const ground = createPaintedTerrainPlane('grass', 160, 160, 0, 0, 0);
     ground.name = 'World painted grass UV terrain';
     carveVisualCreek(ground);
