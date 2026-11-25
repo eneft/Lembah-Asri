@@ -7,6 +7,7 @@ import { createHomeGroundDetails } from './homeGroundDetails.ts';
 import { createHouseGroundTransition, featherMergedHouseGround, createHouseContactShadow } from './houseTerrainSeam.ts';
 import { createHomeArtPass } from './homeArtPass.ts';
 import { createPaintedStoryTree } from './paintedTrees.ts';
+import { CONCEPT_SHADE_TREE } from './referenceShadeTree.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { loadUserReferenceTextureSet, applyUserReferenceDryRock } from './userReferenceTextures.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
@@ -428,9 +429,31 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   const fallback = buildLocalHouseFallback(root);
   addShed(root);
   const wellReady = addWellOnly(root, loadApprovedModel);
+  const peneduh = new THREE.Group();
+  peneduh.name = 'Pohon peneduh halaman';
+  const placement = CONCEPT_SHADE_TREE;
+  peneduh.position.set(placement.x, 0, placement.z);
+  peneduh.rotation.y = placement.yaw;
+  root.add(peneduh);
+  const shadeFallback = createPaintedStoryTree({
+    kind: 'shade', height: placement.height, seed: placement.seed
+  });
+  peneduh.add(shadeFallback);
+  solids.push({
+    label: 'Pohon peneduh halaman', center: [placement.x, 1.5, placement.z],
+    half: [.40, 1.5, .40]
+  });
+  const shadeReady = loadApprovedModel
+    ? loadPaintedTreeSource('courtyard').then(source => {
+        const tree = instantiatePaintedTree(source, placement.height, 0, 0, 0);
+        // The authored origin is the soil line. Root tips extend below it.
+        tree.position.y = 0;
+        peneduh.add(tree);
+        peneduh.remove(shadeFallback);
+      }).catch(error => console.warn('[LembahAsri] Keeping shade tree fallback', error))
+    : Promise.resolve();
+
   // Pre-PR#93 courtyard: the original modest orchard tree beside the well.
-  // Replace its UV-painted procedural fallback with the old orchard GLB when
-  // loaded, without reintroducing the large tree, exposed roots or collider.
   const oldFruitFallback = createPaintedStoryTree({
     kind: 'orchard',
     seed: ORIGINAL_COURTYARD_FRUIT_TREE.seed,
@@ -612,5 +635,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
     return false;
   });
 
-  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, wellReady, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, wellReady, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady, shadeReady]).then(([house]) => house) };
 }

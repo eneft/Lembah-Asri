@@ -164,8 +164,13 @@ try{
   assert.ok(grounding.slice(12,16).every(r=>r.top<-.215),'four bed rocks remain submerged');
   assert.ok(grounding.slice(16,20).every(r=>r.top>-.16),'four current breakers remain visible');
   assert.ok(facts.grass>260&&facts.grass<600,'restore the earlier softer riverside density');
-  // Restore the real 3.65m orchard GLB from the pre-PR#93 layout,
-  // not the temporary fallback. The former 7.5m sentinel must be absent.
+  await page.waitForFunction(()=>{
+    const shade=window.__lembahVisualQA.scene.getObjectByName('Pohon peneduh halaman');
+    return shade?.children.length===1 &&
+      shade.children[0].userData.renderStyle==='textured volumetric alpha-cutout GLB';
+  },null,{timeout:120000});
+  assert.ok(assets.has(prefix+'models/environment/pohon_pekarangan.glb'));
+  // The small fruit tree still occupies the original spot beside the well.
   await page.waitForFunction(()=>{
     const tree=window.__lembahVisualQA.scene.getObjectByName('Old fruit tree');
     return tree?.userData?.renderStyle==='textured volumetric alpha-cutout GLB';
@@ -198,7 +203,7 @@ try{
   assert.ok(orchard.meshCount>=2 && orchard.barkUV && orchard.leavesUV && orchard.leafAlpha,
     'the old orchard tree is a genuine painted 3D asset');
   assert.ok(orchard.oldLargeGone && orchard.conceptGone && orchard.oldRootsGone,
-    'remove every extra large courtyard tree and its groundcover');
+    'legacy tree overlays must not duplicate the authored shade GLB');
   assert.ok(assets.has(prefix+'models/environment/pohon_rimbun_orchard.glb'),
     'the restored orchard GLB is actually loaded, not only the fallback');
   await mkdir('artifacts/creek',{recursive:true});
