@@ -157,6 +157,100 @@ export function addCourtyardClimbers(source: THREE.Group): number {
   return count;
 }
 
+
+// Derive a conservative tangent-space relief from the original authored
+// bark pigment. This is a height estimate, not a high-poly normal bake.
+// Preserve the albedo; normal data never goes through sRGB conversion.
+export function buildCourtyardBarkNormals(
+  rgba: Uint8ClampedArray, width: number, height: number
+): Uint8Array {
+  const out=new Uint8Array(width*height*4);
+  for(let i=0;i<out.length;i+=4){
+    out[i]=128;out[i+1]=128;out[i+2]=255;out[i+3]=255;
+  }
+  if(width!==1254 || height!==1254)return out;
+  for(const [x,y,w,h] of [[0,0,350,620],[350,0,245,495],[0,620,230,568]]){
+    const pigment=(col:number,row:number,fallback:number)=>{
+      const i=(row*width+col)*4;
+      if(rgba[i+3]<220)return fallback;
+      return (.35*rgba[i]+.50*rgba[i+1]+.15*rgba[i+2])/255;
+    };
+    for(let row=y+2;row<y+h-2;row++)for(let col=x+2;col<x+w-2;col++){
+      const i=(row*width+col)*4;
+      if(rgba[i+3]<220)continue;
+      const r=rgba[i],g=rgba[i+1],b=rgba[i+2];
+      const center=(.35*r+.50*g+.15*b)/255;
+      // Damp lichen edges: color alone is not evidence of a deep fissure.
+      const strength=2.8*(.35+.65*Math.max(0,Math.min(1,(r-g)/40)));
+      const dx=(pigment(col+1,row,center)-pigment(col-1,row,center))*.65+
+        (pigment(col+2,row,center)-pigment(col-2,row,center))*.35;
+      const dy=(pigment(col,row+1,center)-pigment(col,row-1,center))*.65+
+        (pigment(col,row+2,center)-pigment(col,row-2,center))*.35;
+      const nx=-dx*strength,ny=-dy*strength;
+      const inv=1/Math.sqrt(1+nx*nx+ny*ny);
+      out[i]=Math.round((nx*inv*.5+.5)*255);
+      out[i+1]=Math.round((ny*inv*.5+.5)*255);
+      out[i+2]=Math.round((inv*.5+.5)*255);
+    }
+  }
+  return out;
+}
+
+function makeCourtyardBarkNormalMap(map: THREE.Texture): THREE.DataTexture | undefined {
+  if(typeof document==='undefined')return;
+  const image=map.image;
+  if(!image || image.width!==1254 || image.height!==1254)return;
+  const canvas=document.createElement('canvas');
+  canvas.width=image.width;canvas.height=image.height;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!ctx)return;
+  ctx.drawImage(image,0,0);
+  const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+  const normal=new THREE.DataTexture(buildCourtyardBarkNormals(pixels.data,canvas.width,canvas.height),
+    canvas.width,canvas.height,THREE.RGBAFormat);
+  normal.name='Asri bark tangent relief';
+  normal.colorSpace=THREE.NoColorSpace;
+  normal.flipY=map.flipY;
+  normal.channel=map.channel;
+  normal.wrapS=map.wrapS;normal.wrapT=map.wrapT;
+  normal.offset.copy(map.offset);normal.repeat.copy(map.repeat);
+  normal.rotation=map.rotation;normal.center.copy(map.center);
+  normal.matrixAutoUpdate=map.matrixAutoUpdate;normal.matrix.copy(map.matrix);
+  normal.magFilter=THREE.LinearFilter;
+  normal.minFilter=THREE.LinearMipmapLinearFilter;
+  normal.generateMipmaps=true;
+  normal.anisotropy=4;
+  normal.needsUpdate=true;
+  return normal;
+}
+
+// Use Three's tangent normal decoding but replace the outgoing lighting
+// with a bounded, diffuse-only storybook response. No specular or PBR shine.
+export function makeMatteCourtyardBark(
+  original: THREE.MeshBasicMaterial, normal: THREE.Texture
+): THREE.MeshPhongMaterial {
+  const material=new THREE.MeshPhongMaterial({
+    name:original.name, map:original.map, color:original.color.clone(),
+    vertexColors:original.vertexColors, side:original.side,
+    alphaTest:original.alphaTest, transparent:original.transparent,
+    opacity:original.opacity, depthWrite:original.depthWrite,
+    normalMap:normal, normalScale:new THREE.Vector2(.6,.6),
+    specular:0x000000, shininess:0, toneMapped:false
+  });
+  material.onBeforeCompile=shader=>{
+    shader.fragmentShader=shader.fragmentShader.replace(/vec3 outgoingLight\s*=[^;]+;/,`
+      // World-space key direction: not tied to camera movement.
+      vec3 asriBarkKey=normalize(mat3(viewMatrix)*vec3(-0.55,0.80,0.45));
+      float asriBarkDiffuse=max(dot(normal,asriBarkKey),0.0);
+      // Keep the painted pigments as the dominant light information.
+      vec3 outgoingLight=diffuseColor.rgb*(0.76+0.30*asriBarkDiffuse);
+    `);
+  };
+  material.customProgramCacheKey=()=> 'asri-matte-bark-tangent-relief-v1';
+  material.userData={...original.userData,asriMatteBark:true,normalStrength:.6};
+  return material;
+}
+
 export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group> {
   const existing = sourceCache.get(kind);
   if (existing) return existing;
@@ -185,6 +279,21 @@ export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group>
         }
       });
       addCourtyardClimbers(source);
+      const replacements=new Map<THREE.Material,THREE.Material>();
+      source.traverse(object=>{
+        if(!(object instanceof THREE.Mesh))return;
+        const replace=(material:THREE.Material)=>{
+          if(!(material instanceof THREE.MeshBasicMaterial) || material.name!=='Kulit kayu' || !material.map)return material;
+          const existing=replacements.get(material);
+          if(existing)return existing;
+          const normal=makeCourtyardBarkNormalMap(material.map);
+          if(!normal)return material;
+          const matte=makeMatteCourtyardBark(material,normal);
+          replacements.set(material,matte);
+          return matte;
+        };
+        object.material=Array.isArray(object.material)?object.material.map(replace):replace(object.material);
+      });
       return source;
     }
     applyHandPaintedMaterials(source, 4);
