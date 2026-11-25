@@ -115,6 +115,54 @@ try{
   assert.ok(assets.has(prefix+'models/environment/bridge_user_reference_wood_v2.glb'));
   assert.equal(facts.submerged,11);
   assert.equal(facts.underwater,4,'four true 3D rocks must be under the transparent water');
+  const grounding=await page.evaluate(()=>{
+    const scene=window.__lembahVisualQA.scene;
+    const rock=scene.getObjectByName('UV mossy rock variant 00');
+    const names=['Visible gravel bed below clear creek water','Soft west creek bank','Soft east creek bank',
+      'West bank sculpted meadow terrain','East bank sculpted meadow terrain'];
+    const triangles=[];
+    for(const name of names){
+      const o=scene.getObjectByName(name),g=o.geometry,p=g.attributes.position,idx=g.index;
+      for(let i=0;i<idx.count;i+=3){
+        const v=[0,1,2].map(k=>{
+          const j=idx.getX(i+k),q=[p.getX(j),p.getY(j),p.getZ(j)];
+          const m=o.matrixWorld.elements;
+          return [m[0]*q[0]+m[4]*q[1]+m[8]*q[2]+m[12],m[1]*q[0]+m[5]*q[1]+m[9]*q[2]+m[13],m[2]*q[0]+m[6]*q[1]+m[10]*q[2]+m[14]];
+        });
+        triangles.push(v);
+      }
+    }
+    const ground=(x,z)=>{
+      let best=-Infinity;
+      for(const [a,b,c] of triangles){
+        if(x<Math.min(a[0],b[0],c[0])-1e-6||x>Math.max(a[0],b[0],c[0])+1e-6||
+           z<Math.min(a[2],b[2],c[2])-1e-6||z>Math.max(a[2],b[2],c[2])+1e-6)continue;
+        const d=(b[2]-c[2])*(a[0]-c[0])+(c[0]-b[0])*(a[2]-c[2]);
+        if(Math.abs(d)<1e-10)continue;
+        const u=((b[2]-c[2])*(x-c[0])+(c[0]-b[0])*(z-c[2]))/d;
+        const v=((c[2]-a[2])*(x-c[0])+(a[0]-c[0])*(z-c[2]))/d,w=1-u-v;
+        if(Math.min(u,v,w)>=-1e-6)best=Math.max(best,u*a[1]+v*b[1]+w*c[1]);
+      }
+      return Number.isFinite(best)?best:0;
+    };
+    const p=rock.geometry.attributes.position,box=rock.geometry.boundingBox,m=rock.instanceMatrix.array;
+    const results=[];
+    for(let i=0;i<rock.count;i++){
+      let embed=-Infinity,top=-Infinity;const o=i*16;
+      for(let j=0;j<p.count;j++){
+        const x=p.getX(j),y=p.getY(j),z=p.getZ(j);
+        const wx=m[o]*x+m[o+4]*y+m[o+8]*z+m[o+12],wy=m[o+1]*x+m[o+5]*y+m[o+9]*z+m[o+13],wz=m[o+2]*x+m[o+6]*y+m[o+10]*z+m[o+14];
+        top=Math.max(top,wy);
+        if(y<=box.min.y+(box.max.y-box.min.y)*.12+1e-6)embed=Math.max(embed,ground(wx,wz)-wy);
+      }
+      results.push({embed,top});
+    }
+    return results;
+  });
+  assert.equal(grounding.length,20);
+  assert.ok(grounding.every(r=>r.embed>=.025&&r.embed<=.085),'no river rock may float above the actual rendered terrain: '+JSON.stringify(grounding));
+  assert.ok(grounding.slice(12,16).every(r=>r.top<-.215),'four bed rocks remain submerged');
+  assert.ok(grounding.slice(16,20).every(r=>r.top>-.16),'four current breakers remain visible');
   assert.ok(facts.grass>260&&facts.grass<600,'restore the earlier softer riverside density');
   // Restore the real 3.65m orchard GLB from the pre-PR#93 layout,
   // not the temporary fallback. The former 7.5m sentinel must be absent.
