@@ -12,9 +12,15 @@ function inside(box,x,z,r=.29){
     Math.abs(z-box.center[2])<box.half[2]+r;
 }
 
-test('restored pre-PR#93 yard has only the modest fruit tree beside well', async()=>{
+test('yard contains the mature shade tree and the modest fruit tree beside the well', async()=>{
   const stage=createHomeStage(false);
   await stage.ready;
+  const shade=stage.root.getObjectByName('Pohon peneduh halaman');
+  assert.ok(shade instanceof THREE.Group);
+  assert.equal(shade.position.x,CONCEPT_SHADE_TREE.x);
+  assert.equal(shade.position.z,CONCEPT_SHADE_TREE.z);
+  assert.equal(shade.children.length,1);
+  assert.ok(stage.solids.some(s=>s.label===shade.name && inside(s,shade.position.x,shade.position.z)));
   const tree=stage.root.getObjectByName('Old fruit tree');
   assert.ok(tree instanceof THREE.Group);
   assert.equal(tree.position.x,-40);

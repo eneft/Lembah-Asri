@@ -8,7 +8,7 @@ const sourceCache = new Map<TreeAssetKind, Promise<THREE.Group>>();
 const urls: Record<TreeAssetKind, string> = {
   // Bump query when changing the generated GLB's geometry/atlas. iOS Safari
   // may otherwise retain the previous model despite a fresh JS bundle.
-  courtyard: './models/environment/pohon_pekarangan.glb',
+  courtyard: './models/environment/pohon_pekarangan.glb?atlas=asri-2',
   shade: './models/environment/pohon_rimbun_shade.glb?canopy=3&bark=uv3',
   orchard: './models/environment/pohon_rimbun_orchard.glb?canopy=3&bark=uv3'
 };
@@ -28,6 +28,19 @@ export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group>
   const promise = new GLTFLoader().loadAsync(urls[kind]).then(gltf => {
     const source = gltf.scene;
     source.name = 'Approved UV alpha-cutout 3D ' + kind + ' tree';
+    if (kind === 'courtyard') {
+      // The authored unlit atlas includes its own highlights and leaf mask.
+      source.traverse(object => {
+        if (!(object instanceof THREE.Mesh)) return;
+        object.castShadow = true;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) {
+          material.toneMapped = false;
+          if (material.map) material.map.anisotropy = 4;
+        }
+      });
+      return source;
+    }
     applyHandPaintedMaterials(source, 4);
     let leafFound = false;
     source.traverse(object => {
