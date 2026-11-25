@@ -73,6 +73,7 @@ export type HomeStage = {
   cameraBlockers: THREE.Object3D[];
   garden: GardenSurface;
   gardenGround: GardenGround;
+  houseReady: Promise<boolean>;
   ready: Promise<boolean>;
 };
 
@@ -606,7 +607,35 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
       obj.receiveShadow = true;
     });
     if (meshCount < 2) throw new Error('Expected authored multi-mesh childhood house');
+    // Transform the separately authored cuboids using the identical visual transform.
+    const collisionScene = gltf.scenes.find(s => s.name === 'Collision');
+    if (!collisionScene) throw new Error('Missing house collision scene');
+    collisionScene.scale.copy(scene.scale);
+    collisionScene.position.copy(scene.position);
+    collisionScene.updateMatrixWorld(true);
+    const authoredSolids: SolidCollider[] = [];
+    const addCollider = (obj: THREE.Object3D) => {
+      const bounds = new THREE.Box3().setFromObject(obj);
+      const center = bounds.getCenter(new THREE.Vector3());
+      const half = bounds.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+      if (![center.x,center.y,center.z,half.x,half.y,half.z].every(Number.isFinite)
+          || Math.min(half.x,half.y,half.z) <= 0) throw new Error('Invalid house collider');
+      authoredSolids.push({ label: obj.name, center: [center.x,center.y,center.z], half: [half.x,half.y,half.z] });
+    };
+    collisionScene.traverse(obj => {
+      if (obj instanceof THREE.Mesh && obj.name.startsWith('COL_')) addCollider(obj);
+    });
+    if (authoredSolids.length !== 16) throw new Error('Expected 16 authored house colliders');
+    // The door is currently static/closed. Block it until interior gameplay exists.
+    scene.updateMatrixWorld(true);
+    const door = scene.getObjectByName('Pintu_engsel');
+    if (!door) throw new Error('Missing closed door');
+    addCollider(door);
     await courtyardAlbedo;
+    const previous = solids.findIndex(s => s.label === 'Childhood home walls');
+    if (previous < 0) throw new Error('Missing fallback house collision');
+    solids.splice(previous, 1, ...authoredSolids);
+    scene.userData.authoredColliderCount = 16;
     scene.updateMatrixWorld(true);
     root.add(scene);
     fallback.visible = false;
@@ -676,5 +705,5 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   });
   });
 
-  return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, wellReady, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady, shadeReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, garden, gardenGround, houseReady: loaded, ready: Promise.all([loaded, wellReady, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady, shadeReady]).then(([house]) => house) };
 }
