@@ -39,7 +39,7 @@ test('transparent shadow receivers preserve textured terrain color and depth', (
   assert.equal(world.castShadow,false);
   assert.equal(world.material.transparent,true);
   assert.equal(world.material.depthWrite,false);
-  assert.equal(world.material.opacity,0.34);
+  assert.equal(world.material.opacity,0.43);
   assert.equal(world.material.toneMapped,false);
   assert.equal(world.rotation.x,-Math.PI/2);
   assert.equal(world.renderOrder,6);

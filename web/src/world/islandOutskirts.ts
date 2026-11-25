@@ -40,7 +40,7 @@ export function createOutskirts(meadow: THREE.Texture, foliage: THREE.Texture) {
     return g;
   }
   const land = new THREE.Mesh(geometry(), new THREE.MeshBasicMaterial({
-    map: meadow, color: 0xe2e6c2, vertexColors: true, transparent: true, fog: true, toneMapped: false, side: THREE.DoubleSide
+    map: meadow, color: 0xc6d0a6, vertexColors: true, transparent: true, fog: true, toneMapped: false, side: THREE.DoubleSide
   }));
   land.geometry.setAttribute('color', new THREE.Float32BufferAttribute(groundColors, 4));
   land.material.forceSinglePass = true;
@@ -53,7 +53,7 @@ export function createOutskirts(meadow: THREE.Texture, foliage: THREE.Texture) {
     shader.fragmentShader = 'varying float scenicDistance;\n' + shader.fragmentShader.replace(
       '#include <fog_fragment>', `vec3 meadowColor = gl_FragColor.rgb;
         #include <fog_fragment>
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, meadowColor, .69 * smoothstep(70., 130., scenicDistance));`);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, meadowColor,  .26 * smoothstep(75., 165., scenicDistance));`);
   };
   land.name = 'Rolling meadow outside playable ground';
 

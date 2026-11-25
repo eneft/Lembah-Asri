@@ -11,9 +11,9 @@ import * as THREE from 'three';
 export const LEMBAH_DAYLIGHT = Object.freeze({
   version: 'lembah-painterly-daylight-stage5-v1',
   sky: '#b5d8df',
-  distantMist: '#cfdeca',
-  fogNear: 38,
-  fogFar: 115,
+  distantMist: '#b8c9ab',
+  fogNear: 64,
+  fogFar: 190,
   sunColor: '#fff0d9',
   sunIntensity: 1.55,
   hemisphereSky: '#eaf3ec',
@@ -27,7 +27,7 @@ export const LEMBAH_DAYLIGHT = Object.freeze({
   pbrNormalStrengthMax: 0.62,
   pbrMetalnessMax: 0.22,
   pbrEnvironmentIntensityMax: 0.3,
-  shadowOpacity: 0.34,
+  shadowOpacity: 0.43,
   contactShadowOpacity: 0.35
 });
 

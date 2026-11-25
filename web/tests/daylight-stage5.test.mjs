@@ -20,8 +20,8 @@ test('one stage5 daylight rig matches matte art without toon or postprocessing',
   assert.equal(scene.userData.painterlyLightingStyle,'lembah-painterly-daylight-stage5-v1');
   assert.equal(scene.background.getHexString(),new THREE.Color(LEMBAH_DAYLIGHT.sky).getHexString());
   assert.equal(scene.fog.color.getHexString(),new THREE.Color(LEMBAH_DAYLIGHT.distantMist).getHexString());
-  assert.equal(scene.fog.near,38);
-  assert.equal(scene.fog.far,115);
+  assert.equal(scene.fog.near,64);
+  assert.equal(scene.fog.far,190);
   assert.equal(renderer.outputColorSpace,THREE.SRGBColorSpace);
   assert.equal(renderer.toneMapping,THREE.NeutralToneMapping);
   assert.equal(renderer.toneMappingExposure,1);
