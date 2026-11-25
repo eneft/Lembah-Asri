@@ -170,22 +170,51 @@ export function buildCourtyardBarkNormals(
   }
   if(width!==1254 || height!==1254)return out;
   for(const [x,y,w,h] of [[0,0,350,620],[350,0,245,495],[0,620,230,568]]){
-    const pigment=(col:number,row:number,fallback:number)=>{
-      const i=(row*width+col)*4;
-      if(rgba[i+3]<220)return fallback;
-      return (.35*rgba[i]+.50*rgba[i+1]+.15*rgba[i+2])/255;
+    const heights=new Float32Array(w*h);
+    const smooth=(a:number,b:number,x:number)=>{
+      const t=Math.max(0,Math.min(1,(x-a)/(b-a)));
+      return t*t*(3-2*t);
     };
-    for(let row=y+2;row<y+h-2;row++)for(let col=x+2;col<x+w-2;col++){
-      const i=(row*width+col)*4;
-      if(rgba[i+3]<220)continue;
+    const hash=(a:number,b:number)=> {
+      const n=Math.sin(a*127.1+b*311.7)*43758.5453;
+      return n-Math.floor(n);
+    };
+    for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){
+      const i=((y+yy)*width+x+xx)*4;
       const r=rgba[i],g=rgba[i+1],b=rgba[i+2];
-      const center=(.35*r+.50*g+.15*b)/255;
-      // Damp lichen edges: color alone is not evidence of a deep fissure.
-      const strength=2.8*(.35+.65*Math.max(0,Math.min(1,(r-g)/40)));
-      const dx=(pigment(col+1,row,center)-pigment(col-1,row,center))*.65+
-        (pigment(col+2,row,center)-pigment(col-2,row,center))*.35;
-      const dy=(pigment(col,row+1,center)-pigment(col,row-1,center))*.65+
-        (pigment(col,row+2,center)-pigment(col,row-2,center))*.35;
+      const base=(.35*r+.50*g+.15*b)/255;
+      // Pale lichen is a shallow organic layer, not a raised plate of bark.
+      const wood=smooth(8,45,r-g);
+      // Staggered, irregular elongated bark plates follow the vertical UV
+      // grain. The relief is synthetic only; it never changes albedo pixels.
+      const u=xx+3.8*Math.sin(yy*.032)+1.7*Math.sin(yy*.071+xx*.023);
+      const v=yy+2.4*Math.sin(xx*.065);
+      const column=Math.floor(u/11);
+      const stagger=hash(column,17)*25;
+      const cell=Math.floor((v+stagger)/27);
+      const fu=u/11-column, fv=(v+stagger)/27-cell;
+      const plate=smooth(.02,.23,Math.min(fu,1-fu))*
+        smooth(.015,.16,Math.min(fv,1-fv));
+      const grain=Math.sin(u*1.23+Math.sin(v*.12)*.65)*.010+
+        Math.sin(u*.64+Math.sin(v*.051)*1.4)*.020;
+      heights[yy*w+xx]=base+(wood*(.050+.040*hash(column,cell))*plate)+grain*wood;
+    }
+    const sample=(xx:number,yy:number,fallback:number)=>{
+      const i=((y+yy)*width+x+xx)*4;
+      return rgba[i+3]>=220?heights[yy*w+xx]:fallback;
+    };
+    for(let yy=4;yy<h-4;yy++)for(let xx=4;xx<w-4;xx++){
+      const i=((y+yy)*width+x+xx)*4;
+      if(rgba[i+3]<220)continue;
+      const center=heights[yy*w+xx];
+      const r=rgba[i],g=rgba[i+1];
+      const strength=5.4*(.20+.80*smooth(8,45,r-g));
+      const dx=(sample(xx+1,yy,center)-sample(xx-1,yy,center))*.45+
+        (sample(xx+2,yy,center)-sample(xx-2,yy,center))*.35+
+        (sample(xx+4,yy,center)-sample(xx-4,yy,center))*.20;
+      const dy=(sample(xx,yy+1,center)-sample(xx,yy-1,center))*.45+
+        (sample(xx,yy+2,center)-sample(xx,yy-2,center))*.35+
+        (sample(xx,yy+4,center)-sample(xx,yy-4,center))*.20;
       const nx=-dx*strength,ny=-dy*strength;
       const inv=1/Math.sqrt(1+nx*nx+ny*ny);
       out[i]=Math.round((nx*inv*.5+.5)*255);
@@ -234,20 +263,22 @@ export function makeMatteCourtyardBark(
     vertexColors:original.vertexColors, side:original.side,
     alphaTest:original.alphaTest, transparent:original.transparent,
     opacity:original.opacity, depthWrite:original.depthWrite,
-    normalMap:normal, normalScale:new THREE.Vector2(.6,.6),
+    normalMap:normal, normalScale:new THREE.Vector2(.95,.95),
     specular:0x000000, shininess:0, toneMapped:false
   });
   material.onBeforeCompile=shader=>{
     shader.fragmentShader=shader.fragmentShader.replace(/vec3 outgoingLight\s*=[^;]+;/,`
       // World-space key direction: not tied to camera movement.
       vec3 asriBarkKey=normalize(mat3(viewMatrix)*vec3(-0.55,0.80,0.45));
-      float asriBarkDiffuse=max(dot(normal,asriBarkKey),0.0);
+      float asriBarkDiffuse=dot(normal,asriBarkKey);
+      float asriBarkBase=dot(normalize(nonPerturbedNormal),asriBarkKey);
+      float asriRelief=clamp(asriBarkDiffuse-asriBarkBase,-0.48,0.48);
       // Keep the painted pigments as the dominant light information.
-      vec3 outgoingLight=diffuseColor.rgb*(0.76+0.30*asriBarkDiffuse);
+      vec3 outgoingLight=diffuseColor.rgb*clamp(0.82+0.24*max(asriBarkBase,0.0)+0.57*asriRelief,0.57,1.14);
     `);
   };
-  material.customProgramCacheKey=()=> 'asri-matte-bark-tangent-relief-v1';
-  material.userData={...original.userData,asriMatteBark:true,normalStrength:.6};
+  material.customProgramCacheKey=()=> 'asri-matte-bark-tangent-relief-v2';
+  material.userData={...original.userData,asriMatteBark:true,normalStrength:.95};
   return material;
 }
 
