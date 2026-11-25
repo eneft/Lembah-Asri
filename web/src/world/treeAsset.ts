@@ -22,62 +22,45 @@ const urls: Record<TreeAssetKind, string> = {
  * no full-mesh transparency sorting, and correct shadow/depth behavior.
  */
 
-// Use the approved atlas, but give bark a private texture so the painted leaf
-// pixels (including their alpha mask and mipmaps) remain byte-for-byte unchanged.
+// Keep the authored UV islands at their exact original positions. Never crop,
+// stretch, repaint or globally grade the wood. Only gently tint lichen pixels.
+export function naturalLichenPigment(r: number,g: number,b: number): [number,number,number] {
+  const smooth=(a:number,z:number,x:number)=>{
+    const t=Math.max(0,Math.min(1,(x-a)/(z-a)));
+    return t*t*(3-2*t);
+  };
+  const mask=(1-smooth(15,38,r-g))*smooth(12,35,g-b)*smooth(85,125,g);
+  // A small multiplicative shift preserves the artist's pigment variation,
+  // grain, light/shadow and anti-aliased edges instead of painting flat green.
+  return [r*(1-.15*mask),g*(1-.045*mask),b*(1-.10*mask)];
+}
 function isolateCourtyardBark(map: THREE.Texture): THREE.Texture | undefined {
-  if (typeof document === 'undefined') return;
-  const image = map.image;
-  if (!image || image.width !== 1254 || image.height !== 1254) return;
-  const canvas = document.createElement('canvas');
-  canvas.width = image.width;
-  canvas.height = image.height;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return;
-  ctx.drawImage(image, 0, 0);
-  // These are the three bark islands of the uploaded 1254px Asri atlas.
-  // Stretch only clean upper bark pigment; don't wrap the illustrated plants
-  // and ground at the base of each source illustration around the trunk.
-  const islands = [
-    { src: [3, 3, 344, 510], dst: [0, 0, 350, 620] },
-    { src: [356, 3, 234, 403], dst: [350, 0, 245, 495] },
-    { src: [3, 3, 344, 510], dst: [0, 620, 230, 568] }
-  ];
-  for (const {src, dst} of islands) {
-    const [x,y,w,h] = dst;
-    ctx.clearRect(x,y,w,h);
-    ctx.drawImage(image, src[0],src[1],src[2],src[3],x,y,w,h);
-    const pixels = ctx.getImageData(x,y,w,h);
-    const data = pixels.data;
-    for (let i=0; i<data.length; i+=4) {
-      const r=data[i], g=data[i+1], b=data[i+2];
-      const l=.30*r+.59*g+.11*b;
-      // Restrained aged wood pigments, not a flat tint. Retain the painted
-      // highlights and fissures while reducing orange and moss contrast.
-      const value = 119 + (l-119)*.79;
-      // Detect pale green lichen BEFORE the aged-brown grading removes its hue.
-      // Warm wood highlights have a much larger red/green difference.
-      const smooth = (a: number, b: number, x: number) => {
-        const t = Math.max(0, Math.min(1, (x-a)/(b-a)));
-        return t*t*(3-2*t);
-      };
-      const moss = (1-smooth(18,45,r-g))*smooth(18,45,g-b)*smooth(85,135,g);
-      const mossValue = 0.70 + l/550;
-      const mix = (wood: number, green: number) => wood*(1-moss)+green*moss;
-      data[i]   = mix(value*1.13 + (r-l)*.35, 93*mossValue);
-      data[i+1] = mix(value*.98 + (g-l)*.35, 129*mossValue);
-      data[i+2] = mix(value*.77 + (b-l)*.35, 57*mossValue);
+  if(typeof document==='undefined')return;
+  const image=map.image;
+  if(!image || image.width!==1254 || image.height!==1254)return;
+  const canvas=document.createElement('canvas');
+  canvas.width=image.width;canvas.height=image.height;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!ctx)return;
+  ctx.drawImage(image,0,0);
+  const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+  const data=pixels.data;
+  // Exact original bark rectangles. No resampling, including root artwork.
+  for(const [x,y,w,h] of [[0,0,350,620],[350,0,245,495],[0,620,230,568]]){
+    for(let row=y;row<y+h;row++)for(let col=x;col<x+w;col++){
+      const i=(row*canvas.width+col)*4;
+      if(data[i+3]===0)continue;
+      const [r,g,b]=naturalLichenPigment(data[i],data[i+1],data[i+2]);
+      data[i]=r;data[i+1]=g;data[i+2]=b;
     }
-    ctx.putImageData(pixels,x,y);
   }
-  // Texture.clone shares its Source; replace the Source itself, never mutate
-  // map.image, otherwise the approved foliage would also change.
-  const bark = map.clone();
-  bark.source = new THREE.Source(canvas);
-  bark.name = 'Asri isolated aged bark atlas';
-  bark.needsUpdate = true;
+  ctx.putImageData(pixels,0,0);
+  const bark=map.clone();
+  bark.source=new THREE.Source(canvas);
+  bark.name='Asri original bark pigment with subtle lichen';
+  bark.needsUpdate=true;
   return bark;
 }
-
 
 // Trace actual bark triangles, not a guessed cylindrical trunk. All vertices
 // are in the GLB scene's local frame and will inherit the existing tree scale.
@@ -100,9 +83,9 @@ export function addCourtyardClimbers(source: THREE.Group): number {
   const positions: number[] = [], uvs: number[] = [], indices: number[] = [];
   const group = new THREE.Group();
   group.name = 'Asri climbing plants';
-  const stemMaterial = new THREE.MeshBasicMaterial({color: '#536b35', toneMapped: false});
+  const stemMaterial = new THREE.MeshBasicMaterial({color: '#555b34', toneMapped: false});
   const leavesMaterial = new THREE.MeshBasicMaterial({
-    map: leafMap, color: '#d1dda5', alphaTest: .48,
+    map: leafMap, color: '#e7e8c5', alphaTest: .48,
     side: THREE.DoubleSide, depthWrite: true, toneMapped: false
   });
   // Use the existing isolated green leaf illustration (atlas pixels 764..879,
@@ -111,11 +94,11 @@ export function addCourtyardClimbers(source: THREE.Group): number {
   let count = 0;
   for (let trail=0; trail<3; trail++) {
     const points: THREE.Vector3[] = [];
-    const maxHeight = [2.45,1.80,2.08][trail];
-    const steps = 30;
+    const maxHeight = [1.28,.78,1.02][trail];
+    const steps = 28;
     for (let i=0;i<=steps;i++) {
       const t=i/steps, y=.14+(maxHeight-.14)*t;
-      const angle=trail*2.094+.47+.24*Math.sin(t*5.6+trail)+.28*t;
+      const angle=trail*2.094+.47+.15*Math.sin(t*8.3+trail)+.12*t;
       const radial=new THREE.Vector3(Math.cos(angle),0,Math.sin(angle));
       const outside=radial.clone().multiplyScalar(4.5).add(new THREE.Vector3(0,y,0));
       const origin=source.localToWorld(outside.clone());
@@ -125,22 +108,22 @@ export function addCourtyardClimbers(source: THREE.Group): number {
       if (!hit) break;
       const surface=hit.point.clone().applyMatrix4(inverse);
       // A short outward offset avoids z-fighting and preserves contact.
-      const p=surface.clone().addScaledVector(radial,.024);
+      const p=surface.clone().addScaledVector(radial,.012);
       points.push(p);
-      if (i%2!==0 && i>1) continue;
-      const sign=(Math.floor(i/2)+trail)%2===0?1:-1;
+      if (i>1 && ((i+trail*2)%7===0 || (i>8 && Math.sin(i*2.41+trail)<.12))) continue;
+      const sign=Math.sin(i*2.31+trail)>0?1:-1;
       const tangent=new THREE.Vector3(-radial.z,0,radial.x);
-      const up=new THREE.Vector3(0,1,0).multiplyScalar(.62)
+      const up=new THREE.Vector3(0,1,0).multiplyScalar(.38+.38*Math.sin(i*1.74+trail)**2)
         .addScaledVector(tangent,sign*.78).normalize();
       const across=new THREE.Vector3().crossVectors(up,radial).normalize();
-      const length=(.23+.085*Math.sin(i*2.1+trail)**2)*(1-.29*t);
-      const width=length*.62;
+      const length=(.10+.10*Math.sin(i*2.1+trail)**2)*(1-.35*t);
+      const width=length*(.48+.16*Math.sin(i*1.3)**2);
       const base=positions.length/3;
       // Bent leaf card: a raised midrib and six vertices, not a floating quad.
       for(let row=0;row<2;row++)for(let col=0;col<3;col++){
         const q=p.clone().addScaledVector(up,row*length)
           .addScaledVector(across,(col-1)*width*.5)
-          .addScaledVector(radial,.032+(col===1?.034:0)+row*.028);
+          .addScaledVector(radial,.014+(col===1?.014:0)+row*.012);
         positions.push(q.x,q.y,q.z);
         uvs.push(u0+(u1-u0)*col/2,row===0?v1:v0);
       }
@@ -153,7 +136,7 @@ export function addCourtyardClimbers(source: THREE.Group): number {
       // free spline which could overshoot the irregular buttress surface.
       const path=new THREE.CurvePath<THREE.Vector3>();
       for(let i=1;i<points.length;i++)path.add(new THREE.LineCurve3(points[i-1],points[i]));
-      const stem=new THREE.Mesh(new THREE.TubeGeometry(path,points.length*2,.012,5,false),stemMaterial);
+      const stem=new THREE.Mesh(new THREE.TubeGeometry(path,points.length*2,.007,5,false),stemMaterial);
       stem.name='Slender bark-hugging vine stem';
       group.add(stem);
     }
@@ -172,6 +155,100 @@ export function addCourtyardClimbers(source: THREE.Group): number {
     source.add(group);
   }
   return count;
+}
+
+
+// Derive a conservative tangent-space relief from the original authored
+// bark pigment. This is a height estimate, not a high-poly normal bake.
+// Preserve the albedo; normal data never goes through sRGB conversion.
+export function buildCourtyardBarkNormals(
+  rgba: Uint8ClampedArray, width: number, height: number
+): Uint8Array {
+  const out=new Uint8Array(width*height*4);
+  for(let i=0;i<out.length;i+=4){
+    out[i]=128;out[i+1]=128;out[i+2]=255;out[i+3]=255;
+  }
+  if(width!==1254 || height!==1254)return out;
+  for(const [x,y,w,h] of [[0,0,350,620],[350,0,245,495],[0,620,230,568]]){
+    const pigment=(col:number,row:number,fallback:number)=>{
+      const i=(row*width+col)*4;
+      if(rgba[i+3]<220)return fallback;
+      return (.35*rgba[i]+.50*rgba[i+1]+.15*rgba[i+2])/255;
+    };
+    for(let row=y+2;row<y+h-2;row++)for(let col=x+2;col<x+w-2;col++){
+      const i=(row*width+col)*4;
+      if(rgba[i+3]<220)continue;
+      const r=rgba[i],g=rgba[i+1],b=rgba[i+2];
+      const center=(.35*r+.50*g+.15*b)/255;
+      // Damp lichen edges: color alone is not evidence of a deep fissure.
+      const strength=2.8*(.35+.65*Math.max(0,Math.min(1,(r-g)/40)));
+      const dx=(pigment(col+1,row,center)-pigment(col-1,row,center))*.65+
+        (pigment(col+2,row,center)-pigment(col-2,row,center))*.35;
+      const dy=(pigment(col,row+1,center)-pigment(col,row-1,center))*.65+
+        (pigment(col,row+2,center)-pigment(col,row-2,center))*.35;
+      const nx=-dx*strength,ny=-dy*strength;
+      const inv=1/Math.sqrt(1+nx*nx+ny*ny);
+      out[i]=Math.round((nx*inv*.5+.5)*255);
+      out[i+1]=Math.round((ny*inv*.5+.5)*255);
+      out[i+2]=Math.round((inv*.5+.5)*255);
+    }
+  }
+  return out;
+}
+
+function makeCourtyardBarkNormalMap(map: THREE.Texture): THREE.DataTexture | undefined {
+  if(typeof document==='undefined')return;
+  const image=map.image;
+  if(!image || image.width!==1254 || image.height!==1254)return;
+  const canvas=document.createElement('canvas');
+  canvas.width=image.width;canvas.height=image.height;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!ctx)return;
+  ctx.drawImage(image,0,0);
+  const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+  const normal=new THREE.DataTexture(buildCourtyardBarkNormals(pixels.data,canvas.width,canvas.height),
+    canvas.width,canvas.height,THREE.RGBAFormat);
+  normal.name='Asri bark tangent relief';
+  normal.colorSpace=THREE.NoColorSpace;
+  normal.flipY=map.flipY;
+  normal.channel=map.channel;
+  normal.wrapS=map.wrapS;normal.wrapT=map.wrapT;
+  normal.offset.copy(map.offset);normal.repeat.copy(map.repeat);
+  normal.rotation=map.rotation;normal.center.copy(map.center);
+  normal.matrixAutoUpdate=map.matrixAutoUpdate;normal.matrix.copy(map.matrix);
+  normal.magFilter=THREE.LinearFilter;
+  normal.minFilter=THREE.LinearMipmapLinearFilter;
+  normal.generateMipmaps=true;
+  normal.anisotropy=4;
+  normal.needsUpdate=true;
+  return normal;
+}
+
+// Use Three's tangent normal decoding but replace the outgoing lighting
+// with a bounded, diffuse-only storybook response. No specular or PBR shine.
+export function makeMatteCourtyardBark(
+  original: THREE.MeshBasicMaterial, normal: THREE.Texture
+): THREE.MeshPhongMaterial {
+  const material=new THREE.MeshPhongMaterial({
+    name:original.name, map:original.map, color:original.color.clone(),
+    vertexColors:original.vertexColors, side:original.side,
+    alphaTest:original.alphaTest, transparent:original.transparent,
+    opacity:original.opacity, depthWrite:original.depthWrite,
+    normalMap:normal, normalScale:new THREE.Vector2(.6,.6),
+    specular:0x000000, shininess:0, toneMapped:false
+  });
+  material.onBeforeCompile=shader=>{
+    shader.fragmentShader=shader.fragmentShader.replace(/vec3 outgoingLight\s*=[^;]+;/,`
+      // World-space key direction: not tied to camera movement.
+      vec3 asriBarkKey=normalize(mat3(viewMatrix)*vec3(-0.55,0.80,0.45));
+      float asriBarkDiffuse=max(dot(normal,asriBarkKey),0.0);
+      // Keep the painted pigments as the dominant light information.
+      vec3 outgoingLight=diffuseColor.rgb*(0.76+0.30*asriBarkDiffuse);
+    `);
+  };
+  material.customProgramCacheKey=()=> 'asri-matte-bark-tangent-relief-v1';
+  material.userData={...original.userData,asriMatteBark:true,normalStrength:.6};
+  return material;
 }
 
 export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group> {
@@ -202,6 +279,21 @@ export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group>
         }
       });
       addCourtyardClimbers(source);
+      const replacements=new Map<THREE.Material,THREE.Material>();
+      source.traverse(object=>{
+        if(!(object instanceof THREE.Mesh))return;
+        const replace=(material:THREE.Material)=>{
+          if(!(material instanceof THREE.MeshBasicMaterial) || material.name!=='Kulit kayu' || !material.map)return material;
+          const existing=replacements.get(material);
+          if(existing)return existing;
+          const normal=makeCourtyardBarkNormalMap(material.map);
+          if(!normal)return material;
+          const matte=makeMatteCourtyardBark(material,normal);
+          replacements.set(material,matte);
+          return matte;
+        };
+        object.material=Array.isArray(object.material)?object.material.map(replace):replace(object.material);
+      });
       return source;
     }
     applyHandPaintedMaterials(source, 4);

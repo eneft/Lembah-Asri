@@ -116,7 +116,7 @@ test('courtyard climbers attach to the uploaded bark and reuse the untouched fol
   }
   const original=root.children.slice();
   const count=addCourtyardClimbers(root);
-  assert.ok(count>=20&&count<=51,'restrained climbing leaves on actual bark');
+  assert.ok(count>=20&&count<=87,'restrained climbing leaves on actual bark');
   const group=root.getObjectByName('Asri climbing plants');
   assert.ok(group);
   const leaves=group.getObjectByName('Small hand-painted climbing leaves');
@@ -126,4 +126,41 @@ test('courtyard climbers attach to the uploaded bark and reuse the untouched fol
   assert.deepEqual(root.children.slice(0,original.length),original);
   assert.equal(canopy.map,atlas);
   assert.equal(addCourtyardClimbers(root),0,'do not duplicate plants on reload');
+});
+
+test('original warm wood pigment stays intact and lichen keeps tonal variation',async()=>{
+  const {naturalLichenPigment}=await import('../src/world/treeAsset.ts');
+  assert.deepEqual(naturalLichenPigment(195,145,85),[195,145,85]);
+  const a=naturalLichenPigment(151,159,91),b=naturalLichenPigment(176,182,112);
+  assert.ok(a[1]>a[0]&&b[1]>b[0]);
+  assert.ok(b[0]>a[0]&&b[1]>a[1]&&b[2]>a[2]);
+  assert.ok(a[1]>=159*.95);
+});
+
+
+test('bark relief is non-color tangent data and leaves are outside the normal islands',async()=>{
+  const {buildCourtyardBarkNormals,makeMatteCourtyardBark}=await import('../src/world/treeAsset.ts');
+  const w=1254,rgba=new Uint8ClampedArray(w*w*4);
+  for(let i=0;i<rgba.length;i+=4){rgba[i]=170;rgba[i+1]=110;rgba[i+2]=60;rgba[i+3]=255;}
+  const at=(x,y)=>(y*w+x)*4;
+  for(let y=90;y<110;y++)for(let x=101;x<110;x++)rgba[at(x,y)]=250;
+  const n=buildCourtyardBarkNormals(rgba,w,w);
+  assert.deepEqual([...n.slice(at(800,100),at(800,100)+4)],[128,128,255,255]);
+  assert.deepEqual([...n.slice(at(50,50),at(50,50)+4)],[128,128,255,255]);
+  assert.ok(n[at(100,100)]<128,'wood edge has real tangent relief');
+  assert.ok(n[at(100,100)+2]<255);
+  const albedo=new THREE.Texture(),normal=new THREE.Texture();
+  const source=new THREE.MeshBasicMaterial({map:albedo,vertexColors:true});
+  source.name='Kulit kayu';
+  const matte=makeMatteCourtyardBark(source,normal);
+  assert.equal(matte.map,albedo);
+  assert.equal(matte.normalMap,normal);
+  assert.equal(matte.specular.getHex(),0);
+  assert.equal(matte.vertexColors,true);
+  assert.equal(matte.toneMapped,false);
+  assert.deepEqual(matte.normalScale.toArray(),[.6,.6]);
+  const shader={fragmentShader:'vec3 outgoingLight = reflectedLight.directDiffuse;'};
+  matte.onBeforeCompile(shader);
+  assert.match(shader.fragmentShader,/dot\(normal,asriBarkKey\)/);
+  assert.equal(source.type,'MeshBasicMaterial');
 });
