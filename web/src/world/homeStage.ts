@@ -574,7 +574,47 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   // The supplied PBR house replaces the previous approved house GLB.
   // Keep the old 3D fallback only until the new asset finishes loading.
   const uploadedHouseUrl='./models/environment/rumah_utama_user_pbr.glb?house=pbr-v1';
-  const loaded = !loadApprovedModel ? Promise.resolve(false) : new GLTFLoader().loadAsync(uploadedHouseUrl).then(async gltf => {
+  // Prefer the new authored multi-mesh house; keep the previous working asset
+  // as a safe fallback while the binary is being staged.
+  const loadChildhoodHouse = async (): Promise<boolean> => {
+    const gltf = await new GLTFLoader().loadAsync('./models/environment/Rumah_Masa_Kecil.glb?house=masa-kecil-v1');
+    const scene = gltf.scenes.find(s => s.name === 'Rumah') ?? gltf.scene;
+    scene.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(scene);
+    const dimensions = bounds.getSize(new THREE.Vector3());
+    const scale = computeHouseScale(dimensions);
+    const center = bounds.getCenter(new THREE.Vector3());
+    scene.scale.setScalar(scale);
+    scene.position.set(HOME.house.x - center.x * scale, -bounds.min.y * scale,
+      HOME.house.z - center.z * scale);
+    scene.name = 'Rumah utama - Rumah Masa Kecil';
+    scene.userData.sourceFile = 'Rumah_Masa_Kecil.glb';
+    scene.userData.uvPreserved = true;
+    let meshCount = 0;
+    scene.traverse(obj => {
+      if (!(obj instanceof THREE.Mesh)) return;
+      if (obj.name.startsWith('COL_')) { obj.visible = false; return; }
+      meshCount++;
+      // Authored matte materials have metallicFactor=0 and roughnessFactor=1.
+      // Preserve the original UV channels, roof normal map, foliage mask and lamp emission.
+      for (const m of Array.isArray(obj.material) ? obj.material : [obj.material]) {
+        if (!(m instanceof THREE.MeshStandardMaterial)) continue;
+        if (m.map) m.map.anisotropy = 8;
+        if (m.normalMap) m.normalMap.anisotropy = 4;
+      }
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+    });
+    if (meshCount < 2) throw new Error('Expected authored multi-mesh childhood house');
+    await courtyardAlbedo;
+    scene.updateMatrixWorld(true);
+    root.add(scene);
+    fallback.visible = false;
+    return true;
+  };
+  const loaded = !loadApprovedModel ? Promise.resolve(false) : loadChildhoodHouse().catch(error => {
+    console.warn('[LembahAsri] New childhood house unavailable; keep previous approved house', error);
+    return new GLTFLoader().loadAsync(uploadedHouseUrl).then(async gltf => {
     const scene = gltf.scene;
     scene.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(scene);
@@ -633,6 +673,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
   }).catch(error => {
     console.warn('[LembahAsri] House GLB unavailable; keep 3D house fallback', error);
     return false;
+  });
   });
 
   return { root, solids, cameraBlockers, garden, gardenGround, ready: Promise.all([loaded, wellReady, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady, shadeReady]).then(([house]) => house) };
