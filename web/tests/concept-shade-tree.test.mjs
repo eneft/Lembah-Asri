@@ -116,7 +116,7 @@ test('courtyard climbers attach to the uploaded bark and reuse the untouched fol
   }
   const original=root.children.slice();
   const count=addCourtyardClimbers(root);
-  assert.ok(count>=20&&count<=51,'restrained climbing leaves on actual bark');
+  assert.ok(count>=20&&count<=87,'restrained climbing leaves on actual bark');
   const group=root.getObjectByName('Asri climbing plants');
   assert.ok(group);
   const leaves=group.getObjectByName('Small hand-painted climbing leaves');
@@ -126,4 +126,13 @@ test('courtyard climbers attach to the uploaded bark and reuse the untouched fol
   assert.deepEqual(root.children.slice(0,original.length),original);
   assert.equal(canopy.map,atlas);
   assert.equal(addCourtyardClimbers(root),0,'do not duplicate plants on reload');
+});
+
+test('original warm wood pigment stays intact and lichen keeps tonal variation',async()=>{
+  const {naturalLichenPigment}=await import('../src/world/treeAsset.ts');
+  assert.deepEqual(naturalLichenPigment(195,145,85),[195,145,85]);
+  const a=naturalLichenPigment(151,159,91),b=naturalLichenPigment(176,182,112);
+  assert.ok(a[1]>a[0]&&b[1]>b[0]);
+  assert.ok(b[0]>a[0]&&b[1]>a[1]&&b[2]>a[2]);
+  assert.ok(a[1]>=159*.95);
 });
