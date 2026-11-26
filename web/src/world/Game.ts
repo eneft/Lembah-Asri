@@ -38,7 +38,10 @@ import {
 type Motion = 'idle' | 'walk' | 'run' | 'jump';
 export type PerformanceStats = { fps: number; drawCalls: number; triangles: number };
 
-const CAMERA_HEIGHT_RATIO = 0.34;
+// Keep the horizon near the upper edge while retaining the ground ahead.
+const CAMERA_HEIGHT_RATIO = .46;
+const HOME_CAMERA_FOCUS_HEIGHT = 1.45;
+const HOME_ORBIT_LIMIT = Math.PI / 6;
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
@@ -150,7 +153,7 @@ export class Game {
   private running = true;
   // Face the childhood home on the opening scene, camera behind the player.
   private yaw = 0;
-  private pitch = 0.28;
+  private framingYaw = 0;
   private last = performance.now();
   private accumulator = 0;
   private playerRuntimeLogged = false;
@@ -178,7 +181,7 @@ export class Game {
   };
   private onKeyUp = (e: KeyboardEvent) => { this.keys.delete(e.key.toLowerCase()); };
   private onPointerUp = () => { this.dragging = false; };
-  private cameraDistance = 10;
+  private cameraDistance = 8.6;
 
   private constructor(host: HTMLElement) {
     this.host = host;
@@ -297,6 +300,7 @@ export class Game {
       game.yaw = .21;
       game.cameraDistance = 6.8;
     }
+    game.framingYaw = game.yaw;
     const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(arrival.x, arrival.y, arrival.z).lockRotations().setCcdEnabled(true));
     game.world.createCollider(RAPIER.ColliderDesc.capsule(0.56, 0.28).setFriction(0.8), body);
     game.player = body;
@@ -328,7 +332,7 @@ export class Game {
         Math.cos(game.yaw) * game.cameraDistance
       );
       game.camera.position.copy(spawnTarget.clone().add(spawnOffset));
-      game.cameraFocus.copy(spawnTarget).add(new THREE.Vector3(0, 1.3, 0));
+      game.cameraFocus.copy(spawnTarget).add(new THREE.Vector3(0, HOME_CAMERA_FOCUS_HEIGHT, 0));
       game.camera.lookAt(game.cameraFocus);
       const playerBounds = new THREE.Box3().setFromObject(game.playerMesh);
       console.info('[LembahAsri] Player visible', {
@@ -668,8 +672,13 @@ export class Game {
   private pointerX=0;
   private dragging=false;
   private onPointerDown=(e:PointerEvent)=>{this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
-  private onPointerMove=(e:PointerEvent)=>{if(!this.dragging)return;this.yaw-=(e.clientX-this.pointerX)*.006;this.pointerX=e.clientX;};
-  private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
+  private onPointerMove=(e:PointerEvent)=>{
+    if (!this.dragging) return;
+    const yaw = this.yaw - (e.clientX-this.pointerX)*.006;
+    this.yaw = THREE.MathUtils.clamp(yaw,this.framingYaw-HOME_ORBIT_LIMIT,this.framingYaw+HOME_ORBIT_LIMIT);
+    this.pointerX=e.clientX;
+  };
+  private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 6, 10);};
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
     this.creekElapsedSeconds+=dt;
@@ -780,7 +789,7 @@ export class Game {
       focusSunShadows(this.sunLight, target.x, target.z, this.sunOffset);
       updateCharacterContactShadow(this.characterContactShadow, target);
     }
-    const desiredFocus=target.clone().add(new THREE.Vector3(0,1.3,0));
+    const desiredFocus=target.clone().add(new THREE.Vector3(0,HOME_CAMERA_FOCUS_HEIGHT,0));
     this.cameraFocus.lerp(desiredFocus,1-Math.exp(-12*dt));
     const offset=new THREE.Vector3(Math.sin(this.yaw)*this.cameraDistance,this.cameraDistance*CAMERA_HEIGHT_RATIO,Math.cos(this.yaw)*this.cameraDistance);
     const requested=target.clone().add(offset);
