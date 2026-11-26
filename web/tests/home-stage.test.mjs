@@ -174,7 +174,7 @@ test('enlarged house, porch, roof, colliders and fences maintain clearance', () 
   assert.ok(approach.geometry.parameters.width >= 3.8, 'large house needs broad approach');
 });
 
-test('uploaded fence GLB keeps uniform XYZ proportions and exact endpoints on all six runs', async () => {
+test('uploaded fence GLB keeps uniform XYZ proportions and exact endpoints in both courtyard layouts', async () => {
   const { createUploadedFenceRun, FENCE_HEIGHT } = await import('../src/world/uploadedHomeFence.ts');
   const bytes = readFileSync(fileURLToPath(new URL('../public/models/environment/home-fence-module.glb', import.meta.url)));
   assert.equal(bytes.subarray(0, 4).toString('ascii'), 'glTF');
@@ -187,9 +187,10 @@ test('uploaded fence GLB keeps uniform XYZ proportions and exact endpoints on al
   const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
   geometry.translate(0, size.y / 2, 0);
   const lengthForRun = run => 2*Math.max(run.half[0],run.half[2]);
-  const stage = createHomeStage(false);
-  const runs = stage.solids.filter(s => s.label.includes('fence'));
-  assert.equal(runs.length, 6);
+  const layouts = [createHomeStage(false), createHomeStage(false, true)];
+  const fences = layouts.map(stage => stage.solids.filter(s => s.label.includes('fence')));
+  assert.deepEqual(fences.map(runs => runs.length), [6, 7]);
+  const runs = fences.flat();
   for (const run of runs) {
     const group = createUploadedFenceRun(geometry, new THREE.MeshBasicMaterial(), run);
     const wood = group.getObjectByName('Continuous authored bamboo');
@@ -228,7 +229,7 @@ test('uploaded fence GLB keeps uniform XYZ proportions and exact endpoints on al
     const length = 2 * (alongX ? run.half[0] : run.half[2]);
     const actualLength = alongX ? actual.x : actual.z;
     const actualDepth = alongX ? actual.z : actual.x;
-    const scale = length / (size.x + (count-1)*size.x*.86);
+    const scale = FENCE_HEIGHT / size.y;
     assert.ok(Math.abs(actualLength - length) < .001, 'exact gate-facing endpoints');
     assert.ok(Math.abs(actualDepth - size.z * scale) < .001, 'original unflattened depth');
     assert.ok(Math.abs(actual.y - size.y * scale) < .001, 'original height-to-width ratio');

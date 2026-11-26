@@ -183,35 +183,36 @@ export function createUploadedFenceRun(geometry: THREE.BufferGeometry, material:
   // The authored end posts occupy the outer 10% of the mesh. Overlap the
   // post spacing by 14% so clipped rails reach the previous full post.
   const overlap=size.x*.14,pitch=size.x-overlap,cutX=bounds.min.x+size.x*.10;
-  const idealCount=(length*size.y/FENCE_HEIGHT-overlap)/pitch;
-  const candidates=[Math.max(1,Math.floor(idealCount)),Math.max(1,Math.ceil(idealCount))];
-  const fit=(count:number)=>length/(size.x+(count-1)*pitch);
-  const heightError=(count:number)=>Math.abs(size.y*fit(count)-FENCE_HEIGHT);
-  const eligible=candidates.filter(count=>length<19||size.z*fit(count)>.4);
-  const count=(eligible.length?eligible:candidates).reduce((a,b)=>heightError(a)<=heightError(b)?a:b);
-  const scale=fit(count);
+  // Keep bamboo diameters, rail heights and spacing identical across the yard.
+  // Anchor the last full end post, trimming only the surplus at the start.
+  const scale = FENCE_HEIGHT / size.y;
+  const count = 1 + Math.max(0, Math.ceil((length / scale - size.x) / pitch));
+  const excess = Math.max(0, size.x + (count - 1) * pitch - length / scale);
+  const start = -length / 2 - excess * scale;
+  const firstGeometry = excess > 1e-6 ? trimFenceLeft(geometry, bounds.min.x + excess) : geometry;
   const runGroup=new THREE.Group();
   const wood=new THREE.Group();wood.name='Continuous authored bamboo';
   const make=(g:THREE.BufferGeometry,first:number,amount:number)=>{
     const mesh=new THREE.InstancedMesh(g,material,amount),marker=new THREE.Object3D();
-    mesh.name=first===0?'Full initial bamboo module':'Single-post repeating bamboo modules';
+    mesh.name=first===0?'Initial bamboo module':'Single-post repeating bamboo modules';
     for(let j=0;j<amount;j++){
       const i=first+j;
       marker.scale.setScalar(scale);
-      marker.position.set(-length/2+(i*pitch-bounds.min.x)*scale,-bounds.min.y*scale,-center.z*scale);
+      marker.position.set(start+(i*pitch-bounds.min.x)*scale,-bounds.min.y*scale,-center.z*scale);
       marker.updateMatrix();mesh.setMatrixAt(j,marker.matrix);
     }
     mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingBox();mesh.computeBoundingSphere();
     mesh.castShadow=true;mesh.receiveShadow=true;wood.add(mesh);
   };
-  make(geometry,0,1);
+  make(firstGeometry,0,1);
   if(count>1)make(repeated??trimFenceLeft(geometry,cutX),1,count-1);
   runGroup.name=run.label+' — uploaded fence modules';
   runGroup.userData={sourceFile:'base_basic_shaded (1).glb',moduleCount:count,runLength:length,
     uniformScale:scale,moduleHeight:size.y*scale,moduleDepth:size.z*scale,sharedPostPitch:pitch*scale,
     trimmedLeft:cutX,overlap:overlap*scale};
   const seed=run.label.split('').reduce((a,c)=>Math.imul(a,31)+c.charCodeAt(0),13);
-  const anchors=Array.from({length:count},(_,i)=>-length/2+(i*pitch+center.x-bounds.min.x)*scale);
+  const anchors=Array.from({length:count},(_,i)=>start+(i*pitch+center.x-bounds.min.x)*scale)
+    .filter(x => x >= -length/2);
   const outward=run.label.startsWith('South')||run.label.startsWith('West')?1:-1;
   runGroup.add(wood,createFenceVines(length,size.y*scale,size.z*scale,seed,anchors,outward));
   runGroup.position.set(run.center[0],0,run.center[2]);
