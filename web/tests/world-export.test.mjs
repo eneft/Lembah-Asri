@@ -45,3 +45,38 @@ test('native world JSON round-trips editable sculpted geometry, UVs, textures an
   assert.equal(terrain.geometry,geometry,'export must not mutate live scene');
   assert.equal(scene.children.length,6);
 });
+
+test('export rejects a missing texture source with the exact object and slot', () => {
+  const scene = new THREE.Scene();
+  const missing = new THREE.Texture();
+  missing.name = 'textures/missing.webp';
+  const material = new THREE.MeshBasicMaterial({map:missing});
+  material.name = 'Roof pigment';
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(),material);
+  mesh.name = 'Shed roof';
+  scene.add(mesh);
+  assert.throws(()=>serializeWorldScene(scene),
+    /Texture not ready: textures\/missing\.webp \| mesh: Shed roof \| material: Roof pigment \| slot: map/);
+  assert.equal(material.map,missing,'validation never strips the actual texture');
+});
+
+test('world export preserves real embedded albedo, normal and alpha image sources', () => {
+  const scene = new THREE.Scene();
+  const texture = (name, bytes) => {
+    const t = new THREE.DataTexture(new Uint8Array(bytes),1,1);
+    t.name = name;
+    return t;
+  };
+  const map = texture('Authored albedo',[122,100,54,255]);
+  const normalMap = texture('Authored normal',[128,128,255,255]);
+  const alphaMap = texture('Authored alpha',[255,128,255,255]);
+  const material = new THREE.MeshStandardMaterial({map,normalMap,alphaMap,transparent:true});
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(),material);
+  scene.add(mesh);
+  const json=JSON.parse(serializeWorldScene(scene));
+  const result=new THREE.ObjectLoader().parse(json).children[0].material;
+  assert.deepEqual(Array.from(result.map.image.data),Array.from(map.image.data));
+  assert.deepEqual(Array.from(result.normalMap.image.data),Array.from(normalMap.image.data));
+  assert.deepEqual(Array.from(result.alphaMap.image.data),Array.from(alphaMap.image.data));
+  assert.equal(mesh.material,material);
+});

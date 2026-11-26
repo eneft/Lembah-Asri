@@ -32,7 +32,7 @@ try {
   page.setDefaultTimeout(60_000);
   const failures = [], art = new Set();
   page.on('pageerror', e => failures.push(e.message));
-  page.on('console', m => { if (m.type() === 'error' && /Shader Error|VALIDATE_STATUS|Could not initialise WebGL/i.test(m.text())) failures.push(m.text()); });
+  page.on('console', m => { if (m.type() === 'error' && /Shader Error|VALIDATE_STATUS|Could not initialise WebGL|World export failed/i.test(m.text())) { failures.push(m.text()); console.error(m.text()); } });
   page.on('response', res => { if (res.ok()) art.add(new URL(res.url()).pathname); });
   await page.route('https://fonts.googleapis.com/**',route=>route.abort());
   const url = 'http://127.0.0.1:' + server.address().port + prefix;
@@ -93,8 +93,17 @@ try {
   // Retain the same native Scene JSON so it can be opened in Three.js Editor.
   await mkdir('artifacts/world',{recursive:true});
   const downloadPromise=page.waitForEvent('download',{timeout:150_000});
+  const exportFailure=page.getByText(/^Export gagal:/).waitFor({timeout:150_000})
+    .then(async()=>{throw new Error(await page.getByText(/^Export gagal:/).textContent());});
+  const result=Promise.race([downloadPromise,exportFailure]);
+  // Register the rejection handler before clicking to avoid unhandled errors
+  // if the export fails while Playwright is still completing the input action.
+  void result.catch(()=>{});
   await page.getByRole('button',{name:'Export World JSON',exact:true}).click();
-  const download=await downloadPromise;
+  const download=await result.catch(async error=>{
+    const notice=await page.locator('.perf-reading[role="status"]').textContent({timeout:3000}).catch(()=>'(no export status)');
+    throw new Error('World JSON download failed: '+notice+'; '+error.message);
+  });
   assert.equal(download.suggestedFilename(),'Lembah-Asri-World.json');
   const worldPath='artifacts/world/Lembah-Asri-World.json';
   await download.saveAs(worldPath);
@@ -109,6 +118,12 @@ try {
     'Island horizon - north sea, east village, south forest, west mountain',
     'Shallow stream west of childhood home']){
     assert.ok(names.has(name),'missing exported world object: '+name);
+  }
+  // The actual exported runtime scene must not contain the off-area village.
+  for (const name of ['Balai Desa walls', 'Pendopo floor', 'Pasar Desa walls',
+    'Puskesmas walls', 'Village plaza handpainted UV surface', 'Village bamboo footbridge',
+    'Warung approach - walkable UV path']) {
+    assert.ok(!names.has(name), 'unexpected off-area world object: '+name);
   }
   assert.ok(exported.geometries.length>10 && exported.materials.length>10);
   assert.ok(exported.images.length>5);

@@ -352,7 +352,7 @@ function addStreamAndBridge(root: THREE.Object3D) {
  * asynchronously, keeping a fallback house if the model is unavailable.
  * On the existing continuous 160 m world ground, all props are 3D geometry.
  */
-export function createHomeStage(loadApprovedModel = true, chapter = false): HomeStage {
+export function createHomeStage(loadApprovedModel = true, chapter = false, isolated = false): HomeStage {
   const root = new THREE.Group();
   root.name = 'Rumah Masa Kecil / Playable House Garden';
   const solids: SolidCollider[] = [];
@@ -382,7 +382,7 @@ export function createHomeStage(loadApprovedModel = true, chapter = false): Home
     data[(y * width + x) * 4 + 1] *= 1 - gardenProfile(u, t).coverage;
   }
   wearMask.needsUpdate = true;
-  floorPatch(root, 'Path from the house gate to the village', 22, 3.3, -8.5, HOME.gate.z, '#b9a27d', 0.066, 'path', true);
+  floorPatch(root, 'Path from the house gate to the village', isolated ? 7.5 : 22, 3.3, isolated ? -15.75 : -8.5, HOME.gate.z, '#b9a27d', 0.066, 'path', true);
   // A wider approach helps the enlarged house read as the protagonist's home.
   // Ends at the actual front wall rather than diving under the house.
   const entrance = floorPatch(root, 'House entrance footpath', 3.8, 12.8,

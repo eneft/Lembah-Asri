@@ -30,6 +30,7 @@ import { applyLembahDaylight, LEMBAH_DAYLIGHT } from './sceneArtDirection';
 import { createOutskirts } from './islandOutskirts';
 import { createDistantValley, createNorthHomePanorama } from './distantValley';
 import { createWarungStage } from './warungStage';
+import { HOME_AREA, resolveSceneArea, inHomeArea, constrainHomePosition } from './sceneAreas';
 import {
   chapterSunOffset, villageSunOffset, configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
   createCharacterContactShadow, updateCharacterContactShadow
@@ -41,10 +42,11 @@ export type PerformanceStats = { fps: number; drawCalls: number; triangles: numb
 // Keep the horizon near the upper edge while retaining the ground ahead.
 const CAMERA_HEIGHT_RATIO = .46;
 const HOME_CAMERA_FOCUS_HEIGHT = 1.45;
-const HOME_ORBIT_LIMIT = Math.PI / 6;
+
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
+  private readonly area = resolveSceneArea(window.location.search);
   private outskirts: ReturnType<typeof createOutskirts> = [];
   private panorama?: ReturnType<typeof createDistantValley>;
   private environmentTarget?: THREE.WebGLRenderTarget;
@@ -79,9 +81,27 @@ export class Game {
   private farm!: HomeFarm | ChapterFarm;
   private gardenGround!: GardenGround;
 
+  private exportingScene = false;
   async exportWorldJSON(): Promise<string> {
-    await Promise.all(this.worldExportAssets);
-    return serializeWorldScene(this.scene, new Set([this.playerMesh, this.characterContactShadow]));
+    if (this.exportingScene) throw new Error('Scene export already running');
+    this.exportingScene = true;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      // Stop submitting WebGL frames while preparing the editor snapshot:
+      // otherwise mobile/software renderers compete for CPU and memory with
+      // PNG encoding and geometry serialization.
+      await Promise.race([
+        Promise.all(this.worldExportAssets),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Scene assets did not finish loading')), 60_000);
+        })
+      ]);
+      return serializeWorldScene(this.scene, new Set([this.playerMesh, this.characterContactShadow]));
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+      this.exportingScene = false;
+      this.last = performance.now();
+    }
   }
 
   setFarmListener(fn?: (hud: FarmHUD | null) => void) { this.farm.setListener(fn); }
@@ -113,7 +133,7 @@ export class Game {
   private onWalkingGround() {
     const p = this.player.translation(), velocity = this.player.linvel();
     const ground=(x:number,z:number)=>
-      Math.max(gardenHeightAt(x,z),bridgeWalkHeightAt(x,z), villageBridgeHeightAt(x,z), ...this.homeSolids
+      Math.max(gardenHeightAt(x,z),bridgeWalkHeightAt(x,z), this.area === 'legacy' ? villageBridgeHeightAt(x,z) : 0, ...this.homeSolids
         .filter(s => /^(COL_Lantai|COL_Anak_tangga_)/.test(s.label)
           && Math.abs(x-s.center[0]) <= s.half[0]+0.02
           && Math.abs(z-s.center[2]) <= s.half[2]+0.02)
@@ -153,7 +173,6 @@ export class Game {
   private running = true;
   // Face the childhood home on the opening scene, camera behind the player.
   private yaw = 0;
-  private framingYaw = 0;
   private last = performance.now();
   private accumulator = 0;
   private playerRuntimeLogged = false;
@@ -258,7 +277,13 @@ export class Game {
     const game = new Game(host);
     game.world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     const floor = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-    game.world.createCollider(RAPIER.ColliderDesc.cuboid(80, 0.25, 80).setTranslation(0, -0.25, 0), floor);
+    if (game.area === 'home') {
+      const { minX, maxX, minZ, maxZ } = HOME_AREA;
+      game.world.createCollider(RAPIER.ColliderDesc.cuboid((maxX-minX)/2, .25, (maxZ-minZ)/2)
+        .setTranslation((minX+maxX)/2, -.25, (minZ+maxZ)/2), floor);
+    } else {
+      game.world.createCollider(RAPIER.ColliderDesc.cuboid(80, 0.25, 80).setTranslation(0, -0.25, 0), floor);
+    }
     const { vertices, indices } = game.gardenGround;
     game.world.createCollider(RAPIER.ColliderDesc.trimesh(vertices, indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES), floor);
     // Bridge deck + its long gentle approach ramps use a real collision
@@ -268,8 +293,10 @@ export class Game {
       RAPIER.ColliderDesc.trimesh(bridgeWalk.vertices,bridgeWalk.indices).setFriction(.92),
       floor
     );
-    const villageWalk = makeVillageBridgeCollider();
-    game.world.createCollider(RAPIER.ColliderDesc.trimesh(villageWalk.vertices,villageWalk.indices).setFriction(.92),floor);
+    if (game.area === 'legacy') {
+      const villageWalk = makeVillageBridgeCollider();
+      game.world.createCollider(RAPIER.ColliderDesc.trimesh(villageWalk.vertices,villageWalk.indices).setFriction(.92),floor);
+    }
     // Invisible solid volumes follow the actual watercourse. The only opening
     // is the existing raised bridge; its deck and ramps stay unchanged.
     installCreekCollision(game.world, floor, RAPIER);
@@ -300,7 +327,6 @@ export class Game {
       game.yaw = .21;
       game.cameraDistance = 6.8;
     }
-    game.framingYaw = game.yaw;
     const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(arrival.x, arrival.y, arrival.z).lockRotations().setCcdEnabled(true));
     game.world.createCollider(RAPIER.ColliderDesc.capsule(0.56, 0.28).setFriction(0.8), body);
     game.player = body;
@@ -489,16 +515,42 @@ export class Game {
     mesh.name = name; mesh.position.set(...pos); mesh.castShadow = true; mesh.receiveShadow = true; parent.add(mesh); return mesh;
   }
   private addEnvironment() {
-    // Stage 0.2: extend the existing village with the childhood home. The
-    // scene stays one continuous world and does not introduce loading screens.
+    // Build only the active playable scene; keep the old village as an
+    // explicit development preview while individual scenes are authored.
+    const isolated = this.area === 'home';
     const loader = new THREE.TextureLoader();
     const loadWorldTexture = (url: string) => {
-      let finish: () => void = () => {};
-      this.worldExportAssets.push(new Promise<void>(resolve => { finish = resolve; }));
-      return loader.load(url, () => finish(), undefined, () => finish());
+      // TextureLoader returns an empty Texture immediately. Keep a valid
+      // image even on network/decode failure, instead of resolving readiness
+      // with a null source that cannot be serialized by Three.js.
+      const fallback = document.createElement('canvas');
+      fallback.width = fallback.height = 2;
+      const ctx = fallback.getContext('2d')!;
+      if (/island-horizon|north-home-panorama|island-groves/.test(url)) {
+        // Optional scenery disappears into the existing sky if art is missing.
+        ctx.clearRect(0, 0, 2, 2);
+      } else {
+        ctx.fillStyle = /creek_meadow/.test(url) ? '#9db66a'
+          : /creek_water/.test(url) ? '#75b3ac' : '#ffffff';
+        ctx.fillRect(0, 0, 2, 2);
+      }
+      const texture = new THREE.CanvasTexture(fallback);
+      texture.name = url;
+      texture.userData.sourceURL = url;
+      const ready = loader.loadAsync(url).then(loaded => {
+        // Preserve settings applied by the caller (wrap, UV, color space).
+        texture.image = loaded.image;
+        texture.needsUpdate = true;
+        texture.userData.sourceState = 'loaded';
+      }).catch(error => {
+        texture.userData.sourceState = 'fallback';
+        console.warn('[LembahAsri] Using explicit scenery texture fallback:', url, error);
+      });
+      this.worldExportAssets.push(ready);
+      return texture;
     };
     const finish = villageFinishes(loadWorldTexture);
-    const home = createHomeStage(true, chapterMode());
+    const home = createHomeStage(true, chapterMode(), isolated);
     this.worldExportAssets.push(home.ready);
     this.scene.add(home.root);
     const shed = home.root.getObjectByName('Empty timber storage shed');
@@ -513,7 +565,10 @@ export class Game {
     this.cameraObstacles.push(...home.cameraBlockers);
     this.homeSolids = home.solids;
     this.houseReady = home.houseReady;
-    const ground = createPaintedTerrainPlane('grass', 160, 160, 0, 0, 0);
+    const size = isolated ? HOME_AREA.terrainSize : 160;
+    const cx = isolated ? HOME_AREA.terrainX : 0;
+    const cz = isolated ? HOME_AREA.terrainZ : 0;
+    const ground = createPaintedTerrainPlane('grass', size, size, cx, cz, 0);
     ground.name = 'World painted grass UV terrain';
     carveVisualCreek(ground);
     // Break distant 3.5-m repeating grass tile grid globally, using the
@@ -524,95 +579,107 @@ export class Game {
     // Preserve the painted albedo: a transparent ShadowMaterial layer catches
     // actual character, roof and tree shadows without re-lighting the texture.
     const groundShadows = createPaintedShadowReceiver(
-      'World painted-terrain real shadows', 160, 160, 0, 0, 0.103
+      'World painted-terrain real shadows', size, size, cx, cz, 0.103
     );
     this.scene.add(carveVisualCreek(sculptGardenGround(groundShadows)));
     this.characterContactShadow = createCharacterContactShadow();
     this.scene.add(this.characterContactShadow);
     // One or two InstancedMesh draws for all small 3D grass tufts.
-    this.scene.add(createInstancedGrass());
-    const plaza = new THREE.Mesh(new THREE.BoxGeometry(24,0.18,18), this.mat('#c8b991'));
-    plaza.position.set(0,0.02,-5); plaza.receiveShadow = true; this.scene.add(plaza);
-    const plazaTop = createPaintedTerrainPlane('plaza', 24, 18, 0, -5, 0.113);
-    plazaTop.name = 'Village plaza handpainted UV surface';
-    this.scene.add(plazaTop);
-    // Plaza surface is higher than the world receiver; receive shadows over
-    // its hand-painted paved/earth surfaces as well.
-    this.scene.add(createPaintedShadowReceiver(
-      'Village plaza real shadows', 24, 18, 0, -5, 0.151
-    ));
-    const hall = new THREE.Group(); hall.position.set(-13,0,-12); this.scene.add(hall);
-    const hallWall = this.box(hall,'Balai Desa walls',[10,4.2,7],[0,2.1,0],'#e8d5ae');
-    hallWall.material = finish.wall;
-    this.cameraObstacles.push(hallWall);
-    this.box(hall,'Balai Desa timber trim',[10.2,.25,7.2],[0,3.6,0],'#76543a').material = finish.wood;
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(6.4,2.8,4),finish.roof);
-    roof.position.set(0,5.2,0); roof.rotation.y=Math.PI/4; roof.castShadow=true; hall.add(roof);
-    this.cameraObstacles.push(roof);
-    this.box(hall,'Balai Desa veranda',[11,.3,2],[0,.3,4.2],'#9b7852');
-    const gazebo = new THREE.Group(); gazebo.position.set(7,0,-7); this.scene.add(gazebo);
-    this.box(gazebo,'Pendopo floor',[7,.35,6],[0,.35,0],'#9a7956');
-    for (const x of [-2.8,2.8]) for (const z of [-2.3,2.3]) this.box(gazebo,'Pendopo post',[.22,3.1,.22],[x,1.9,z],'#79563a').material = finish.wood;
-    const cap = new THREE.Mesh(new THREE.ConeGeometry(5.2,2,4),finish.roof); cap.position.y=4.2; cap.rotation.y=Math.PI/4; cap.castShadow=true; gazebo.add(cap);
-    this.cameraObstacles.push(cap);
-    this.addBuilding(-1,-20,'Pasar Desa',finish);
-    // Keep the market and add the separately editable warung alongside it.
-    // Include stage colliders BEFORE Rapier static bodies are constructed.
-    const warung = createWarungStage();
-    this.worldExportAssets.push(warung.ready);
-    this.scene.add(warung.root);
-    warung.root.getObjectByName('Warung - low-poly clay fallback')?.traverse(part => {
-      if (!(part instanceof THREE.Mesh)) return;
-      if (/wall/i.test(part.name)) part.material = finish.wall;
-      else if (/roof plane/i.test(part.name)) part.material = finish.roof;
-      else if (/timber|shelv|counter|post|lintel|support/i.test(part.name)) part.material = finish.wood;
-    });
-    this.cameraObstacles.push(...warung.cameraBlockers);
-    this.homeSolids.push(...warung.solids);
-    // A real path joins its front step to the existing village plaza.
-    const warungPath = createPaintedTerrainPlane('path', 2.0, 6.8, -9.5, -17.15, 0.021, true);
-    warungPath.name = 'Warung approach - walkable UV path';
-    warungPath.renderOrder = 3;
-    this.scene.add(warungPath);
-    this.addBuilding(17,-18,'Puskesmas',finish);
-    // Separate the raised plaza path from the ground path. Previously the
-    // 35 m plane sat 3 cm *inside* the plaza, causing occlusion popping.
-    const path = createPaintedTerrainPlane('path',5,20.5,0,14.25,.018,true);
-    path.renderOrder=3; this.scene.add(path);
-    const plazaPath = createPaintedTerrainPlane('path',5,14.5,0,-3.25,.138,true);
-    plazaPath.renderOrder=3; this.scene.add(plazaPath);
-    // Trees are placed using local UV-painted 3D assets in loadEnvironmentTrees.
-    this.villageWater = loadWorldTexture(CREEK_PAINTED_TEXTURES.water);
-    this.scene.add(villageStream(this.villageWater));
-    const bridge = new THREE.Mesh(new THREE.BoxGeometry(VILLAGE_CROSSING.width,.24,VILLAGE_CROSSING.length),finish.wood); bridge.position.set(0,BRIDGE_WALK.top-.12,VILLAGE_CROSSING.z); bridge.castShadow=true; this.scene.add(bridge);
-    // The two crossings share the authored bamboo model and atlas. Fit the
-    // second visual to its existing deck after the home bridge has loaded.
-    this.worldExportAssets.push(home.ready.then(() => {
-      const original = home.root.getObjectByName('Uploaded wooden bridge - original GLB');
-      if (!original) return;
-      const crossing = new THREE.Group();
-      crossing.name = 'Village bamboo footbridge';
-      const copy = original.clone();
-      copy.position.set(0,original.position.y,0);
-      crossing.add(copy);
-      crossing.rotation.y = Math.PI/2;
-      crossing.updateMatrixWorld(true);
-      const bounds = new THREE.Box3().setFromObject(crossing);
-      const size = bounds.getSize(new THREE.Vector3());
-      const center = bounds.getCenter(new THREE.Vector3());
-      const mount = new THREE.Group();
-      mount.scale.set(VILLAGE_CROSSING.width/size.x, 1, VILLAGE_CROSSING.length/size.z);
-      mount.position.set(-center.x*mount.scale.x,0,VILLAGE_CROSSING.z-center.z*mount.scale.z);
-      mount.add(crossing);
-      this.scene.add(mount);
-      bridge.visible = false;
-    }));
+    this.scene.add(createInstancedGrass(73137, isolated
+      ? (x,z) => inHomeArea(x,z,HOME_AREA.grassPadding) : undefined));
+    if (!isolated) {
+      const plaza = new THREE.Mesh(new THREE.BoxGeometry(24,0.18,18), this.mat('#c8b991'));
+      plaza.position.set(0,0.02,-5); plaza.receiveShadow = true; this.scene.add(plaza);
+      const plazaTop = createPaintedTerrainPlane('plaza', 24, 18, 0, -5, 0.113);
+      plazaTop.name = 'Village plaza handpainted UV surface';
+      this.scene.add(plazaTop);
+      // Plaza surface is higher than the world receiver; receive shadows over
+      // its hand-painted paved/earth surfaces as well.
+      this.scene.add(createPaintedShadowReceiver(
+        'Village plaza real shadows', 24, 18, 0, -5, 0.151
+      ));
+      const hall = new THREE.Group(); hall.position.set(-13,0,-12); this.scene.add(hall);
+      const hallWall = this.box(hall,'Balai Desa walls',[10,4.2,7],[0,2.1,0],'#e8d5ae');
+      hallWall.material = finish.wall;
+      this.cameraObstacles.push(hallWall);
+      this.box(hall,'Balai Desa timber trim',[10.2,.25,7.2],[0,3.6,0],'#76543a').material = finish.wood;
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(6.4,2.8,4),finish.roof);
+      roof.position.set(0,5.2,0); roof.rotation.y=Math.PI/4; roof.castShadow=true; hall.add(roof);
+      this.cameraObstacles.push(roof);
+      this.box(hall,'Balai Desa veranda',[11,.3,2],[0,.3,4.2],'#9b7852');
+      const gazebo = new THREE.Group(); gazebo.position.set(7,0,-7); this.scene.add(gazebo);
+      this.box(gazebo,'Pendopo floor',[7,.35,6],[0,.35,0],'#9a7956');
+      for (const x of [-2.8,2.8]) for (const z of [-2.3,2.3]) this.box(gazebo,'Pendopo post',[.22,3.1,.22],[x,1.9,z],'#79563a').material = finish.wood;
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(5.2,2,4),finish.roof); cap.position.y=4.2; cap.rotation.y=Math.PI/4; cap.castShadow=true; gazebo.add(cap);
+      this.cameraObstacles.push(cap);
+      this.addBuilding(-1,-20,'Pasar Desa',finish);
+      // Keep the market and add the separately editable warung alongside it.
+      // Include stage colliders BEFORE Rapier static bodies are constructed.
+      const warung = createWarungStage();
+      this.worldExportAssets.push(warung.ready);
+      this.scene.add(warung.root);
+      warung.root.getObjectByName('Warung - low-poly clay fallback')?.traverse(part => {
+        if (!(part instanceof THREE.Mesh)) return;
+        if (/wall/i.test(part.name)) part.material = finish.wall;
+        else if (/roof plane/i.test(part.name)) part.material = finish.roof;
+        else if (/timber|shelv|counter|post|lintel|support/i.test(part.name)) part.material = finish.wood;
+      });
+      this.cameraObstacles.push(...warung.cameraBlockers);
+      this.homeSolids.push(...warung.solids);
+      // A real path joins its front step to the existing village plaza.
+      const warungPath = createPaintedTerrainPlane('path', 2.0, 6.8, -9.5, -17.15, 0.021, true);
+      warungPath.name = 'Warung approach - walkable UV path';
+      warungPath.renderOrder = 3;
+      this.scene.add(warungPath);
+      this.addBuilding(17,-18,'Puskesmas',finish);
+      // Separate the raised plaza path from the ground path. Previously the
+      // 35 m plane sat 3 cm *inside* the plaza, causing occlusion popping.
+      const path = createPaintedTerrainPlane('path',5,20.5,0,14.25,.018,true);
+      path.renderOrder=3; this.scene.add(path);
+      const plazaPath = createPaintedTerrainPlane('path',5,14.5,0,-3.25,.138,true);
+      plazaPath.renderOrder=3; this.scene.add(plazaPath);
+      // Trees are placed using local UV-painted 3D assets in loadEnvironmentTrees.
+      this.villageWater = loadWorldTexture(CREEK_PAINTED_TEXTURES.water);
+      this.scene.add(villageStream(this.villageWater));
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(VILLAGE_CROSSING.width,.24,VILLAGE_CROSSING.length),finish.wood); bridge.position.set(0,BRIDGE_WALK.top-.12,VILLAGE_CROSSING.z); bridge.castShadow=true; this.scene.add(bridge);
+      // The two crossings share the authored bamboo model and atlas. Fit the
+      // second visual to its existing deck after the home bridge has loaded.
+      this.worldExportAssets.push(home.ready.then(() => {
+        const original = home.root.getObjectByName('Uploaded wooden bridge - original GLB');
+        if (!original) return;
+        const crossing = new THREE.Group();
+        crossing.name = 'Village bamboo footbridge';
+        const copy = original.clone();
+        copy.position.set(0,original.position.y,0);
+        crossing.add(copy);
+        crossing.rotation.y = Math.PI/2;
+        crossing.updateMatrixWorld(true);
+        const bounds = new THREE.Box3().setFromObject(crossing);
+        const size = bounds.getSize(new THREE.Vector3());
+        const center = bounds.getCenter(new THREE.Vector3());
+        const mount = new THREE.Group();
+        mount.scale.set(VILLAGE_CROSSING.width/size.x, 1, VILLAGE_CROSSING.length/size.z);
+        mount.position.set(-center.x*mount.scale.x,0,VILLAGE_CROSSING.z-center.z*mount.scale.z);
+        mount.add(crossing);
+        this.scene.add(mount);
+        bridge.visible = false;
+      }));
+    }
     const horizon = loadWorldTexture('textures/terrain/island-horizon.webp?v=3');
     this.outskirts = createOutskirts(loadWorldTexture('textures/terrain/creek_meadow.webp'),
       loadWorldTexture('textures/terrain/island-groves.webp'));
     this.scene.add(...this.outskirts);
     this.panorama = createDistantValley(horizon);
     this.panorama.add(createNorthHomePanorama(loadWorldTexture('textures/terrain/north-home-panorama.webp?v=1')));
+    if (isolated) {
+      // Scenery only: a low-cost backdrop, not loaded village gameplay.
+      for (const layer of this.outskirts) {
+        layer.position.set(cx, 0, cz);
+        layer.scale.setScalar(.70);
+      }
+      this.panorama.position.set(cx, 0, cz);
+      this.panorama.scale.setScalar(.70);
+    }
     this.scene.add(this.panorama);
   }
   private addBuilding(x:number,z:number,name:string,finish:ReturnType<typeof villageFinishes>) {
@@ -656,6 +723,7 @@ export class Game {
       console.warn('[LembahAsri] Using local 3D tree fallback', error);
     }
     for (const placement of placements) {
+      if (this.area === 'home' && !inHomeArea(placement.x,placement.z,HOME_AREA.grassPadding)) continue;
       const tree = source
         ? instantiatePaintedTree(source, placement.height, placement.x, placement.z, placement.yaw)
         : createPaintedStoryTree({
@@ -674,13 +742,13 @@ export class Game {
   private onPointerDown=(e:PointerEvent)=>{this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
   private onPointerMove=(e:PointerEvent)=>{
     if (!this.dragging) return;
-    const yaw = this.yaw - (e.clientX-this.pointerX)*.006;
-    this.yaw = THREE.MathUtils.clamp(yaw,this.framingYaw-HOME_ORBIT_LIMIT,this.framingYaw+HOME_ORBIT_LIMIT);
+    this.yaw -= (e.clientX-this.pointerX)*.006;
     this.pointerX=e.clientX;
   };
-  private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 6, 10);};
+  private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
+    if (this.exportingScene) return;
     this.creekElapsedSeconds+=dt;
     if (this.villageWater) this.villageWater.offset.y = this.creekElapsedSeconds * .017;
     updateHomeCreekWater(this.flowingCreekWater,this.creekElapsedSeconds);
@@ -717,7 +785,9 @@ export class Game {
         const before=this.player.translation();
         this.world.step();
         const stepped=this.player.translation();
-        const safe=guardCreekPlayerMovement(before,stepped);
+        const bounded = this.area === 'home' ? constrainHomePosition(stepped.x,stepped.z) : stepped;
+        const creekSafe=guardCreekPlayerMovement(before,bounded);
+        const safe={...creekSafe,blocked:creekSafe.blocked || bounded.x!==stepped.x || bounded.z!==stepped.z};
         if(safe.blocked){
           const v=this.player.linvel();
           this.player.setTranslation({x:safe.x,y:stepped.y,z:safe.z},true);

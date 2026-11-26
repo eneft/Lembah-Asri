@@ -126,10 +126,10 @@ export function scatterLowPolyGrass(seed = 73137): GrassPoint[] {
   return result;
 }
 
-export function createInstancedGrass(seed = 73137): THREE.Group {
+export function createInstancedGrass(seed = 73137, include: (x: number, z: number) => boolean = () => true): THREE.Group {
   const group = new THREE.Group();
   group.name = 'Low poly instanced meadow grass';
-  const points = scatterLowPolyGrass(seed);
+  const points = scatterLowPolyGrass(seed).filter(point => include(point.x, point.z));
   const geometry = makeLowPolyGrassGeometry();
   const dummy = new THREE.Object3D();
   for (const kind of [0, 1] as const) {
