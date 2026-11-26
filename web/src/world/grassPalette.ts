@@ -9,7 +9,7 @@ import * as THREE from 'three';
  * The painterly brush texture, world UV, alpha feather and geometry stay.
  */
 export const WARM_GRASS_STYLE=Object.freeze({
-  version:'warm-painterly-grass-stage1-v1',
+  version:'olive-jade-pigment-v2',
   shadow:'#78934f',
   meadow:'#98b66a',
   highlight:'#c0cd81',
@@ -23,10 +23,12 @@ export const WARM_GRASS_GLSL=[
   '  float greenMask=smoothstep(-.055,.10,grassPigment.g-grassPigment.r)',
   '    *smoothstep(.035,.15,grassPigment.g-grassPigment.b);',
   '  float value=dot(grassPigment,vec3(.26,.65,.09));',
-  '  vec3 meadowTarget=value*vec3(.88,1.14,.37);',
-  '  vec3 balanced=mix(grassPigment,meadowTarget,.52);',
-  '  // Slight highlight/shadow compression, never a flat green swatch.',
-  '  vec3 softened=clamp((balanced-vec3(.25,.34,.11))*1.12+vec3(.25,.34,.11),0.,1.);',
+  // Grade by painted luminance so shaded leaves stay jade and the lit
+  // brush marks pick up the olive warmth of the meadow.
+  '  float lit=smoothstep(.08,.52,value);',
+  '  vec3 pigmentRatio=mix(vec3(.70,1.12,.66),vec3(1.06,1.07,.53),lit);',
+  '  vec3 target=value*pigmentRatio/dot(pigmentRatio,vec3(.26,.65,.09));',
+  '  vec3 softened=mix(grassPigment,target,.64);',
   '  return mix(grassPigment,softened,clamp(greenMask*.76,0.0,1.0));',
   '}'
 ].join('\n');
@@ -42,7 +44,7 @@ export function ensureWarmGrassGLSL(fragmentShader:string):string{
  * The injected color grade is directly after the authored courtyard map,
  * so the farm soil overlay is subsequently applied WITHOUT green grading.
  */
-export function applyWarmCourtyardGrass(material:THREE.MeshBasicMaterial):void{
+export function applyGreenPigment(material:THREE.MeshBasicMaterial):void{
   if(material.userData.warmGrassStyle===WARM_GRASS_STYLE.version)return;
   const previous=material.onBeforeCompile;
   const originalKey=material.customProgramCacheKey.bind(material);
@@ -53,7 +55,9 @@ export function applyWarmCourtyardGrass(material:THREE.MeshBasicMaterial):void{
         '#include <map_fragment>\ndiffuseColor.rgb=lembahWarmGrass(diffuseColor.rgb);')
     );
   };
-  material.customProgramCacheKey=()=>originalKey()+'|'+WARM_GRASS_STYLE.version+'|courtyard';
+  material.customProgramCacheKey=()=>originalKey()+'|'+WARM_GRASS_STYLE.version+'|green-pigment';
   material.userData.warmGrassStyle=WARM_GRASS_STYLE.version;
   material.needsUpdate=true;
 }
+
+export { applyGreenPigment as applyWarmCourtyardGrass };

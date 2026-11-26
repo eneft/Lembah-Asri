@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { applyHandPaintedMaterials } from './handPaintedMaterials.ts';
 
+import { applyGreenPigment } from './grassPalette.ts';
+
 export type TreeAssetKind = 'shade' | 'orchard' | 'courtyard';
 
 const sourceCache = new Map<TreeAssetKind, Promise<THREE.Group>>();
@@ -340,10 +342,10 @@ export function makeMatteCourtyardBark(
       float asriBarkBase=dot(normalize(nonPerturbedNormal),asriBarkKey);
       float asriRelief=clamp(asriBarkDiffuse-asriBarkBase,-0.48,0.48);
       // Keep the painted pigments as the dominant light information.
-      vec3 outgoingLight=diffuseColor.rgb*clamp(0.82+0.24*max(asriBarkBase,0.0)+0.57*asriRelief,0.57,1.14);
+      vec3 outgoingLight=diffuseColor.rgb*clamp(0.91+0.13*max(asriBarkBase,0.0)+0.28*asriRelief,0.76,1.10);
     `);
   };
-  material.customProgramCacheKey=()=> 'asri-matte-bark-tangent-relief-v2';
+  material.customProgramCacheKey=()=> 'asri-matte-bark-tangent-relief-v3';
   material.userData={...original.userData,asriMatteBark:true,normalStrength:.95};
   return material;
 }
@@ -364,6 +366,7 @@ export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group>
         for (const material of materials) {
           material.toneMapped = false;
           if (material instanceof THREE.MeshBasicMaterial && material.map) {
+            if (material.name === 'Daun') applyGreenPigment(material);
             if (material.name === 'Kulit kayu') {
               const bark = isolateCourtyardBark(material.map);
               if (bark) {
@@ -435,6 +438,7 @@ export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group>
             `);
           };
           material.customProgramCacheKey = () => 'village-canopy-sun-v2';
+          applyGreenPigment(material);
           leafFound = true;
         }
         if (material.map) {
