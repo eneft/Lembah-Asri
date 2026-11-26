@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { applyPaintedPigment } from './paintedPigment.ts';
 import { fenceSide } from './fenceSpacing.ts';
+import { bambooSurfaceUV, BAMBOO_TEXTURE_REVISION } from './bambooSurfaceAtlas.ts';
 
 export const INTACT_FENCE_REVISION='intact-canes-v3';
+export { BAMBOO_TEXTURE_REVISION };
 export const INTACT_FENCE_ATLAS='./textures/fence/bamboo_albedo.webp';
 export const FENCE_TOP=1.45;
 const POST_DIAMETER=.28;
@@ -12,14 +14,12 @@ const DEPTH=.40;
 const SIDE_GAP={front:.24,side:.225,rear:.21} as const;
 type Run={label:string;center:[number,number,number];half:[number,number,number]};
 type Item={x:number;y:number;z:number;length:number;radius:number;angle:number;spin:number;shade:string};
-const palette=['#d0c7a4','#d2caae','#c2c3a1','#ddd0b1','#c8bd9d'];
+const palette=['#f7f4e8','#fffaf0','#ecf0dc','#fff6e4','#f0eadc'];
 type UVKind='cane'|'rail'|'tie'|'end';
-// Select clean single-cane patches inside the existing illustrated atlas,
-// not the entire baked surface of several fused stalks. Avoid white seams.
+// Texture-only remap: all existing position, index, normal and instance
+// transforms are retained. The radial end tile has a dark inner wall.
 function atlasUV(kind:UVKind,u:number,v:number):[number,number] {
-  const r=kind==='cane'?[.065,.525,.145,.970]:kind==='rail'?[.555,.525,.635,.970]:
-    kind==='tie'?[.18,.10,.31,.22]:[.69,.14,.83,.27];
-  return [r[0]+u*(r[2]-r[0]),r[1]+v*(r[3]-r[1])];
+  return bambooSurfaceUV(kind==='end'?'rim':kind,u,v);
 }
 
 /** Full tube exterior, rolled rim, interior wall and recessed diaphragm.
@@ -49,7 +49,8 @@ export function makeIntactCane(kind:'cane'|'rail',sides=12):THREE.BufferGeometry
     for(const [yy,rr] of [[h,r],[h,inner],[well,inner]]){
       for(let k=0;k<=sides;k++){
         const a=k/sides*Math.PI*2;
-        add(Math.cos(a)*rr,yy,Math.sin(a)*rr,'end',.5+.45*Math.cos(a)*rr,.5+.45*Math.sin(a)*rr);
+        const radius=yy===well?.27:rr===inner?.37:.48;
+        add(Math.cos(a)*rr,yy,Math.sin(a)*rr,'end',.5+radius*Math.cos(a),.5+radius*Math.sin(a));
       }
     }
     for(let j=0;j<2;j++)for(let k=0;k<sides;k++){
@@ -101,16 +102,18 @@ export function makeIntactFenceMaterial(map:THREE.Texture):THREE.MeshBasicMateri
   const old=material.onBeforeCompile;
   material.onBeforeCompile=(shader,renderer)=>{
     old.call(material,shader,renderer);
-    shader.vertexShader='varying vec3 vIntactFence;\n'+shader.vertexShader.replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nvIntactFence=(instanceMatrix*vec4(position,1.)).xyz;');
-    shader.fragmentShader='varying vec3 vIntactFence;\n'+shader.fragmentShader.replace('#include <color_fragment>',`
+    shader.vertexShader='varying vec3 vIntactFence;\nvarying vec3 vBambooNormal;\n'+shader.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\nvIntactFence=(instanceMatrix*vec4(position,1.)).xyz;\nmat3 r=mat3(normalize(instanceMatrix[0].xyz),normalize(instanceMatrix[1].xyz),normalize(instanceMatrix[2].xyz));\nvBambooNormal=normalize(r*normal);');
+    shader.fragmentShader='varying vec3 vIntactFence;\nvarying vec3 vBambooNormal;\n'+shader.fragmentShader.replace('#include <color_fragment>',`
       #include <color_fragment>
       float damp=(1.-smoothstep(.02,.38,vIntactFence.y))*
         smoothstep(.28,.80,.5+.28*sin(vIntactFence.x*5.2+vIntactFence.z*9.)+.22*sin(vIntactFence.x*13.2));
-      diffuseColor.rgb*=mix(vec3(1.),vec3(.57,.72,.40),damp*.68);
+      float form=.91+.13*dot(normalize(vBambooNormal),normalize(vec3(-.45,.65,.55)));
+      diffuseColor.rgb*=form*mix(vec3(1.),vec3(.73,.86,.62),damp*.40);
     `);
   };
-  material.customProgramCacheKey=()=>INTACT_FENCE_REVISION;
+  material.customProgramCacheKey=()=>BAMBOO_TEXTURE_REVISION;
+  material.userData.textureRevision=BAMBOO_TEXTURE_REVISION;
   material.name='Matte hand-painted bamboo — independent cane UV';
   return material;
 }
@@ -152,10 +155,10 @@ export function createIntactFenceRun(run:Run,material:THREE.Material){
     anchors.push(x);
     posts.push(item(x,0,0,FENCE_TOP,POST_DIAMETER/2));
     for(const y of railY){
-      for(const dy of [-.037,.037])wraps.push({...item(x,y+dy,0,.17,.147),shade:'#b8a17c'});
+      for(const dy of [-.037,.037])wraps.push({...item(x,y+dy,0,.17,.147),shade:'#eee2c9'});
       // Thin crossed straps on both faces, physically seated on the post.
       for(const z of [-.15,.15])for(const sign of [-1,1])
-        bindings.push({...item(x,y,z,.31,.02,sign*.72),shade:'#a58c61'});
+        bindings.push({...item(x,y,z,.31,.02,sign*.72),shade:'#e0ceb1'});
     }
   }
   for(let j=0;j<bays;j++){
