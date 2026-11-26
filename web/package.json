@@ -12,7 +12,7 @@
     "test:materials": "node --experimental-strip-types --test tests/hand-painted-materials.test.mjs",
     "test:farm-browser": "node scripts/check-garden-browser.mjs",
     "test:camera-idle": "node --experimental-strip-types --test tests/camera-idle.test.mjs",
-    "test:home": "node --experimental-strip-types --test tests/home-stage.test.mjs tests/garden-farming.test.mjs",
+    "test:home": "node --experimental-strip-types --test tests/home-stage.test.mjs tests/garden-farming.test.mjs tests/scene-areas.test.mjs",
     "test:warung": "node --experimental-strip-types --test tests/warung-stage.test.mjs",
     "test:terrain": "node --experimental-strip-types --test tests/terrain-materials.test.mjs",
     "test:terrain-v2": "node --experimental-strip-types --test tests/terrain-v2.test.mjs",
