@@ -259,10 +259,23 @@ export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[])
         bamboo = mix(bamboo, light, smoothstep(.51,.94,tone));
         // Retain small colour changes in the original fibres and bindings.
         vec3 chroma = diffuseColor.rgb / max(value,.015);
-        diffuseColor.rgb = bamboo * mix(vec3(1.), clamp(chroma,.55,1.5), .16);
+        bamboo *= mix(vec3(1.), clamp(chroma,.55,1.5), .16);
+        // Damp pockets extend across adjacent canes. Use run-space metres so
+        // patches continue across instanced module seams.
+        float pockets = .5 + .28*sin(p.x*2.8 + sin(p.x*.86) + p.z*3.)
+                           + .22*sin(p.x*6.2 - p.y*4.6);
+        float fragments = .5 + .24*sin(p.x*24. + p.y*17. + sin(p.y*27.))
+                             + .26*sin(p.x*37. - p.y*31. + p.z*14.);
+        float grain = .5 + .25*sin(p.x*121. + sin(p.y*83.)*2.) + .25*sin(p.y*103. - p.x*57.);
+        float damp = .14 + .55*pockets - p.y + (fragments-.5)*.23;
+        float cover = smoothstep(.01,.15,damp) * smoothstep(.14,.49,pockets + .22*(fragments-.5));
+        vec3 moss = mix(vec3(.055,.109,.019), vec3(.26,.34,.067), fragments)
+                  * (.50 + .78*tone);
+        float mottling = smoothstep(.22,.62, fragments*.56 + grain*.44);
+        diffuseColor.rgb = mix(bamboo,moss,cover*(.28 + .63*mottling));
       `);
     };
-    material.customProgramCacheKey = () => 'bridge-rail-palette-v6';
+    material.customProgramCacheKey = () => 'bridge-bamboo-moss-v7';
     const replacement = new THREE.Group();
     replacement.name = 'Home fence — uploaded GLB';
     geometry.computeBoundingBox();
