@@ -81,9 +81,27 @@ export class Game {
   private farm!: HomeFarm | ChapterFarm;
   private gardenGround!: GardenGround;
 
+  private exportingScene = false;
   async exportWorldJSON(): Promise<string> {
-    await Promise.all(this.worldExportAssets);
-    return serializeWorldScene(this.scene, new Set([this.playerMesh, this.characterContactShadow]));
+    if (this.exportingScene) throw new Error('Scene export already running');
+    this.exportingScene = true;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      // Stop submitting WebGL frames while preparing the editor snapshot:
+      // otherwise mobile/software renderers compete for CPU and memory with
+      // PNG encoding and geometry serialization.
+      await Promise.race([
+        Promise.all(this.worldExportAssets),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Scene assets did not finish loading')), 60_000);
+        })
+      ]);
+      return serializeWorldScene(this.scene, new Set([this.playerMesh, this.characterContactShadow]));
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+      this.exportingScene = false;
+      this.last = performance.now();
+    }
   }
 
   setFarmListener(fn?: (hud: FarmHUD | null) => void) { this.farm.setListener(fn); }
@@ -705,6 +723,7 @@ export class Game {
   private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
+    if (this.exportingScene) return;
     this.creekElapsedSeconds+=dt;
     if (this.villageWater) this.villageWater.offset.y = this.creekElapsedSeconds * .017;
     updateHomeCreekWater(this.flowingCreekWater,this.creekElapsedSeconds);
