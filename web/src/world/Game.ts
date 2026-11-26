@@ -13,8 +13,9 @@ import { activateCharacterMotion } from './animationState';
 import { ChapterFarm } from './chapterFarm';
 import { chapterMode, type ChapterTask } from './homeChapter';
 import { HomeFarm, type FarmHUD } from './homeFarm';
-import { farmKeys, type FarmAction } from './farmPlots';
-import { sculptGardenGround, gardenHeightAt, type GardenGround } from './gardenLayout';
+import { HoeSwing } from './hoeSwing';
+import { reachablePlot, farmKeys, type FarmAction } from './farmPlots';
+import { sculptGardenGround, plantingPlaces, gardenHeightAt, type GardenGround } from './gardenLayout';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 import { HOME_SCENIC_CAMERA } from './homeScenicCamera';
 import { bridgeWalkHeightAt, makeBridgeWalkCollider, VILLAGE_CROSSING, BRIDGE_WALK, makeVillageBridgeCollider, villageBridgeHeightAt } from './paintedBridge';
@@ -57,6 +58,7 @@ export class Game {
   private world!: RAPIER.World;
   private player!: RAPIER.RigidBody;
   private playerMesh!: THREE.Group;
+  private hoe?: HoeSwing;
   private mixer?: THREE.AnimationMixer;
   private actions: Partial<Record<Motion, THREE.AnimationAction>> = {};
   private jumpInProgress = false;
@@ -85,7 +87,17 @@ export class Game {
     if (!this.playerMesh) return false;
     const {x, y, z} = this.playerMesh.position;
     this.farm.update(x, y, z, this.playerMesh.rotation.y);
-    return this.farm.act(action, id);
+    if (action !== 'hoe') return this.farm.act(action, id);
+    if (this.jumpInProgress || this.hoe?.active) return false;
+    const plot = plantingPlaces[id ?? reachablePlot(x,z,this.playerMesh.rotation.y)];
+    if (!plot || !this.farm.act(action, plot.id)) return false;
+    if (Math.hypot(plot.x-x,plot.z-z) > .05)
+      this.playerMesh.rotation.y = Math.atan2(plot.x-x,plot.z-z);
+    const facing = this.playerMesh.rotation.y;
+    const bladeX = x + .82*Math.sin(facing);
+    const bladeZ = z + .82*Math.cos(facing);
+    this.hoe?.start(gardenHeightAt(bladeX,bladeZ)-y);
+    return true;
   }
 
   interactChapter(expected?: ChapterTask) {
@@ -425,6 +437,7 @@ export class Game {
     this.actions.idle = idleAction;
     // Start the actual FBX Idle immediately at full weight (no zero-length fade).
     this.activeMotion = activateCharacterMotion(this.actions, undefined, 'idle', 0);
+    this.hoe = new HoeSwing(actorRoot);
     return actorRoot;
   }
 
@@ -672,13 +685,13 @@ export class Game {
       const side=Math.abs(this.touchMove.x)>.04?this.touchMove.x:keyboardSide;
       // Touch RUN is a toggle so movement + sprint + jump needs only two fingers.
       const sprint=this.keys.has('shift') || this.touchRun;
-      const { moving, speed, motion: desired } = resolveLocomotion(forward,side,sprint);
-      const dir=new THREE.Vector3(side,0,-forward);
+      const { moving, speed, motion: desired } = resolveLocomotion(this.hoe?.active ? 0 : forward,this.hoe?.active ? 0 : side,sprint);
+      const dir=moving ? new THREE.Vector3(side,0,-forward) : new THREE.Vector3();
       if(moving) dir.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),this.yaw);
       const vel=this.player.linvel();
       this.player.setLinvel({x:dir.x*speed,y:vel.y,z:dir.z*speed},true);
       // Jump only from a resting capsule; never restart or cut it midair.
-      if(this.jumpRequested && !this.jumpInProgress && this.onWalkingGround()){
+      if(this.jumpRequested && !this.hoe?.active && !this.jumpInProgress && this.onWalkingGround()){
         this.player.setLinvel({x:dir.x*speed,y:5.2,z:dir.z*speed},true);
         this.jumpInProgress=true;
         this.jumpLeftGround=false;
@@ -747,6 +760,7 @@ export class Game {
       // Idle is an authored 8.33 s clip with subtle keyframes. Preserve
       // that clip and add a low-amplitude procedural breathing layer so that
       // the idle state is visible without changing the asset or skeleton.
+      this.hoe?.restore();
       if (this.idleSpine) this.idleSpine.rotation.x -= this.idleSpineOffset;
       this.mixer?.update(dt);
       this.idleSeconds += dt;
@@ -758,6 +772,7 @@ export class Game {
       );
       this.idleSpineOffset = this.idleBlend * Math.sin(this.idleSeconds * 1.9) * 0.025;
       if (this.idleSpine) this.idleSpine.rotation.x += this.idleSpineOffset;
+      this.hoe?.update(dt);
     }
     const target=this.playerMesh?.position??new THREE.Vector3();
     if (this.playerMesh) {
@@ -795,7 +810,7 @@ export class Game {
       this.lastPerfTick = now;
     }
   };
-  dispose(){this.running=false;this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);
+  dispose(){this.running=false;this.hoe?.dispose();this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);
     for (const layer of this.outskirts) {
       layer.geometry.dispose();
       layer.material.map?.dispose();
