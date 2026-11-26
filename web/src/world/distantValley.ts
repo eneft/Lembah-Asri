@@ -5,8 +5,8 @@ function softenDistantPaint(material: THREE.MeshBasicMaterial) {
   material.onBeforeCompile = shader => {
     shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
       #ifdef USE_MAP
-        vec4 distant = texture2D(map, vMapUv, 1.35);
-        distant.rgb = mix(distant.rgb, vec3(.39,.48,.32), .10);
+        vec4 distant = texture2D(map, vMapUv, 1.65);
+        distant.rgb = mix(distant.rgb, vec3(.47,.56,.48), .23);
         diffuseColor *= distant;
       #endif
     `);
@@ -65,20 +65,20 @@ export function createDistantValley(texture: THREE.Texture) {
 }
 
 // Independent north-facing panorama: the world convention is north = -Z.
-// Preserve the 2048:682 illustration aspect ratio along a 90 degree arc.
+// Preserve the 2048:682 illustration aspect ratio on a narrower arc centred behind the homestead.
 export function createNorthHomePanorama(texture: THREE.Texture) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.anisotropy = 4;
-  const segments = 96, radius = 229, span = Math.PI / 2;
-  const height = radius * span * 682 / 2048, base = -2;
+  const segments = 96, radius = 229, span = Math.PI / 3.5;
+  const height = radius * span * 682 / 2048, base = -9;
   const positions: number[] = [], uvs: number[] = [], colors: number[] = [], indices: number[] = [];
   const smooth = (t: number) => {
     t = Math.max(0, Math.min(1, t));
     return t * t * (3 - 2 * t);
   };
-  const rows = [[0, 0], [.05, 1], [.85, 1], [1, 0]];
+  const rows = [[0, 0], [.20, .78], [.72, .90], [1, 0]];
   for (let i = 0; i <= segments; i++) {
     const u = i / segments, theta = (u - .5) * span;
     const edge = smooth(u / .15) * smooth((1 - u) / .15);
