@@ -556,6 +556,7 @@ export class Game {
     this.worldExportAssets.push(home.ready.then(result => {
       const fence=home.root.getObjectByName('Home fence — uploaded GLB');
       this.host.dataset.fenceRevision=fence?.userData.spacingRevision ?? 'fallback';
+      this.host.dataset.fenceTextureRevision=fence?.userData.textureRevision ?? 'fallback';
       return result;
     }));
     this.scene.add(home.root);
