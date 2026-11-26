@@ -253,16 +253,19 @@ export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[])
         vec3 honey = vec3(1.05,.51,.115);
         vec3 olive = vec3(.62,.48,.105);
         vec3 glaze = mix(honey, olive, smoothstep(-.75,.92,cane)*.78);
-        // Deepen the shaded grooves of the baked atlas while retaining highlights on cut ends.
-        float relief = mix(.60, 1.04, smoothstep(.06,.57,value));
-        vec3 bamboo = mix(diffuseColor.rgb, value*glaze, .95) * relief * (.88 + .12*streak);
+        // The shaded atlas includes bright longitudinal bands. Roll them off in linear light.
+        float shoulder = max(value - .12, 0.);
+        float dryValue = min(value, .12) + shoulder / (1. + 3.8 * shoulder);
+        float relief = mix(.69, .94, smoothstep(.06,.44,value));
+        vec3 pigment = mix(diffuseColor.rgb / max(value, .001), glaze, .95);
+        vec3 bamboo = pigment * dryValue * relief * (.92 + .08*streak);
         float flecks = .5 + .25*sin(p.x*35. + sin(p.y*13.)*2.) + .25*sin(p.y*39. - p.x*23.);
         float moss = smoothstep(.38,.77, wear*.76 + flecks*.24)
           * (1.-smoothstep(.08,.36 + wear*.56,p.y));
-        diffuseColor.rgb = mix(bamboo, (.014 + value)*vec3(.27,.36,.055), moss*.84);
+        diffuseColor.rgb = mix(bamboo, (.014 + dryValue)*vec3(.27,.36,.055), moss*.84);
       `);
     };
-    material.customProgramCacheKey = () => 'honey-bamboo-verge-v4';
+    material.customProgramCacheKey = () => 'dry-matte-bamboo-v5';
     const replacement = new THREE.Group();
     replacement.name = 'Home fence — uploaded GLB';
     geometry.computeBoundingBox();
