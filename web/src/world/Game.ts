@@ -93,7 +93,10 @@ export class Game {
     if (!plot || !this.farm.act(action, plot.id)) return false;
     if (Math.hypot(plot.x-x,plot.z-z) > .05)
       this.playerMesh.rotation.y = Math.atan2(plot.x-x,plot.z-z);
-    this.hoe?.start(plot.height-y);
+    const facing = this.playerMesh.rotation.y;
+    const bladeX = x + .82*Math.sin(facing);
+    const bladeZ = z + .82*Math.cos(facing);
+    this.hoe?.start(gardenHeightAt(bladeX,bladeZ)-y);
     return true;
   }
 
