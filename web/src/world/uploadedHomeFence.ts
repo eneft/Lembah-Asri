@@ -1,3 +1,4 @@
+import { loadAuthoredBambooFence } from './authoredBambooFence.ts';
 import { createIntactFenceRun, makeIntactFenceMaterial, INTACT_FENCE_REVISION } from './intactBambooFence.ts';
 import { loadOriginalBambooSurfaceAtlas, ORIGINAL_BAMBOO_GLB, BAMBOO_TEXTURE_REVISION } from './bambooSurfaceAtlas.ts';
 import { applyPaintedPigment } from './paintedPigment.ts';
@@ -225,6 +226,11 @@ export function createUploadedFenceRun(geometry: THREE.BufferGeometry, material:
 /** Install complete, individually UV-mapped bamboo canes. The original
  * GLB remains untouched in the repository, but its fused mesh is not cut. */
 export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[]): Promise<boolean> {
+  try {
+    return await loadAuthoredBambooFence(root,runs);
+  } catch(error) {
+    console.warn('[LembahAsri] New authored fence unavailable; preserving current fence',error);
+  }
   try {
     if(!runs.length)throw new Error('Unexpected home fence layout');
     const old=root.children.filter(child=>child.userData.bambooFence===true);
