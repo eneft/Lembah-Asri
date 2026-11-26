@@ -552,7 +552,12 @@ export class Game {
     };
     const finish = villageFinishes(loadWorldTexture);
     const home = createHomeStage(true, chapterMode(), isolated);
-    this.worldExportAssets.push(home.ready);
+    this.host.dataset.fenceRevision = 'loading';
+    this.worldExportAssets.push(home.ready.then(result => {
+      const fence=home.root.getObjectByName('Home fence — uploaded GLB');
+      this.host.dataset.fenceRevision=fence?.userData.spacingRevision ?? 'fallback';
+      return result;
+    }));
     this.scene.add(home.root);
     const shed = home.root.getObjectByName('Empty timber storage shed');
     shed?.traverse(part => {

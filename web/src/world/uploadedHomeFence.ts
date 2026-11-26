@@ -211,7 +211,7 @@ export function createUploadedFenceRun(geometry: THREE.BufferGeometry, material:
   runGroup.userData={sourceFile:'base_basic_shaded (1).glb',moduleCount:count,runLength:length,
     uniformScale:scale,moduleHeight:size.y*scale,moduleDepth:size.z*scale,sharedPostPitch:pitch*scale,
     trimmedLeft:cutX,overlap:overlap*scale,
-    ...(geometry.userData.fenceSide ? {fenceSide:geometry.userData.fenceSide, bayGaps:geometry.userData.bayGaps} : {})};
+    ...(geometry.userData.fenceSide ? {fenceSide:geometry.userData.fenceSide, bayGaps:geometry.userData.bayGaps, spacingRevision:geometry.userData.spacingRevision} : {})};
   const seed=run.label.split('').reduce((a,c)=>Math.imul(a,31)+c.charCodeAt(0),13);
   const anchors=Array.from({length:count},(_,i)=>start+(i*pitch+center.x-bounds.min.x)*scale)
     .filter(x => x >= -length/2);
@@ -297,6 +297,7 @@ export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[])
     // Replace only the existing fence visuals; retain every original collider.
     const old = root.children.filter(child => child.userData.bambooFence === true);
     if (old.length !== runs.length) throw new Error('Original fence layout mismatch');
+    replacement.userData.spacingRevision='visible-gap-v2';
     root.add(replacement);
     for (const child of old) root.remove(child);
     return true;

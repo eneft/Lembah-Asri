@@ -2,9 +2,9 @@ import * as THREE from 'three';
 
 export type FenceSide = 'front' | 'side' | 'rear';
 export const FENCE_GAP = Object.freeze({
-  front: {min:.12,max:.15,target:.135},
-  side: {min:.09,max:.12,target:.105},
-  rear: {min:.06,max:.09,target:.075}
+  front: {min:.22,max:.27,target:.24},
+  side: {min:.20,max:.25,target:.225},
+  rear: {min:.19,max:.23,target:.21}
 });
 export function fenceSide(label:string):FenceSide {
   return label.startsWith('South')?'front':label.startsWith('North')?'rear':'side';
@@ -35,15 +35,15 @@ export function createOpenFenceModule(source:THREE.BufferGeometry,side:FenceSide
   // Measured against the supplied GLB: end and middle support columns,
   // two horizontal rail/tie bands, and two original slender cane samples.
   const supports:Span[]=[{lo:x(0),hi:x(.105)},{lo:x(.424),hi:x(.544)},{lo:x(.895),hi:x(1)}];
-  const rails:Span[]=[{lo:y(.13),hi:y(.27)},{lo:y(.592),hi:y(.754)}];
+  const rails:Span[]=[{lo:y(.145),hi:y(.245)},{lo:y(.610),hi:y(.714)}];
   const openY:Span[]=[
     {lo:bounds.min.y,hi:rails[0].lo},
     {lo:rails[0].hi,hi:rails[1].lo},
     {lo:rails[1].hi,hi:bounds.max.y}
   ];
-  // Front uses a slightly slimmer original slice so both unequal bays
-  // fit the approved 12–15 cm clear gap without stretching any cane.
-  const nominalWidth=side==='front'?.12:.13;
+  // Mobile oblique camera needs more sky-through openings than the first
+  // revision. Keep three original cane strips per bay, not a bamboo wall.
+  const nominalWidth=side==='front'?.10:side==='side'?.12:.14;
   const caneWidth=nominalWidth/scale;
   const sourceCenters=[x(.580),x(.810)];
   const positions:number[]=[],normals:number[]=[],uvs:number[]=[];
@@ -182,6 +182,6 @@ export function createOpenFenceModule(source:THREE.BufferGeometry,side:FenceSide
   geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
   geometry.computeBoundingBox();geometry.computeBoundingSphere();
   geometry.userData={fenceSide:side,nominalCaneWidth:nominalWidth,bayGaps:gaps,caneCenters:centers,
-    closedCuts,openCuts,originalUV:true,sourceMesh:'home-fence-module.glb'};
+    closedCuts,openCuts,spacingRevision:'visible-gap-v2',originalUV:true,sourceMesh:'home-fence-module.glb'};
   return geometry;
 }
