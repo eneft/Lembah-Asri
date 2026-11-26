@@ -205,7 +205,16 @@ test('uploaded fence GLB keeps uniform XYZ proportions and exact endpoints on al
     assert.equal(vines.userData.clusters, lengthForRun(run)<4 ? 0 : Math.max(1,Math.floor(lengthForRun(run)/6)));
     assert.ok(vines.userData.leafCount >= vines.userData.clusters*31);
     assert.equal(vines.userData.branches,vines.userData.clusters*3);
-    assert.equal(vines.userData.rootGrass,vines.userData.clusters*10);
+    const verge = vines.getObjectByName('Grass at climbing roots');
+    assert.ok(verge && verge.count > 0);
+    const sides = new Set();
+    for (let i = 0; i < verge.count; i++) {
+      const transform = new THREE.Matrix4();
+      verge.getMatrixAt(i,transform);
+      sides.add(Math.sign(transform.elements[14]));
+      assert.ok(Math.abs(transform.elements[12]) < lengthForRun(run)/2);
+    }
+    assert.equal(sides.size, 2, 'verge grows on both sides within the run');
     if(vines.userData.clusters){
       const leaves=vines.getObjectByName('Climbing vine leaves');
       assert.ok(leaves.geometry.getAttribute('uv') && leaves.material.map);

@@ -18,7 +18,8 @@ import { HOME_SCENIC_CAMERA } from './homeScenicCamera';
 import { bridgeWalkHeightAt, makeBridgeWalkCollider } from './paintedBridge';
 import { installCreekCollision, guardCreekPlayerMovement } from './creekCollision';
 import { applyRiversidePaint } from './riversidePaint';
-import { carveVisualCreek, updateHomeCreekWater } from './homeCreek';
+import { villageFinishes, villageStream } from './villageSurfaces';
+import { CREEK_PAINTED_TEXTURES, carveVisualCreek, updateHomeCreekWater } from './homeCreek';
 import { applyMeadowAntiTileShader } from './meadowAntiTile';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
@@ -44,6 +45,7 @@ export class Game {
   private characterBaseColor?: THREE.Texture;
   private sunLight!: THREE.DirectionalLight;
   private characterContactShadow!: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  private villageWater?: THREE.Texture;
   private flowingCreekWater?: THREE.Object3D;
   private creekElapsedSeconds = 0;
   private scene = new THREE.Scene();
@@ -456,9 +458,22 @@ export class Game {
   private addEnvironment() {
     // Stage 0.2: extend the existing village with the childhood home. The
     // scene stays one continuous world and does not introduce loading screens.
+    const loader = new THREE.TextureLoader();
+    const loadWorldTexture = (url: string) => {
+      let finish: () => void = () => {};
+      this.worldExportAssets.push(new Promise<void>(resolve => { finish = resolve; }));
+      return loader.load(url, () => finish(), undefined, () => finish());
+    };
+    const finish = villageFinishes(loadWorldTexture);
     const home = createHomeStage();
     this.worldExportAssets.push(home.ready);
     this.scene.add(home.root);
+    const shed = home.root.getObjectByName('Empty timber storage shed');
+    shed?.traverse(part => {
+      if (part instanceof THREE.Mesh && part.name !== 'Shed opening') {
+        part.material = part.name === 'Lean-to roof' ? finish.roof : finish.wood;
+      }
+    });
     this.farm = new HomeFarm(home.garden);
     this.gardenGround = home.gardenGround;
     this.flowingCreekWater = home.root.getObjectByName('Shallow stream west of childhood home');
@@ -494,23 +509,31 @@ export class Game {
       'Village plaza real shadows', 24, 18, 0, -5, 0.151
     ));
     const hall = new THREE.Group(); hall.position.set(-13,0,-12); this.scene.add(hall);
-    this.cameraObstacles.push(this.box(hall,'Balai Desa walls',[10,4.2,7],[0,2.1,0],'#e8d5ae'));
-    this.box(hall,'Balai Desa timber trim',[10.2,.25,7.2],[0,3.6,0],'#76543a');
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(6.4,2.8,4),this.mat('#a94f35'));
+    const hallWall = this.box(hall,'Balai Desa walls',[10,4.2,7],[0,2.1,0],'#e8d5ae');
+    hallWall.material = finish.wall;
+    this.cameraObstacles.push(hallWall);
+    this.box(hall,'Balai Desa timber trim',[10.2,.25,7.2],[0,3.6,0],'#76543a').material = finish.wood;
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(6.4,2.8,4),finish.roof);
     roof.position.set(0,5.2,0); roof.rotation.y=Math.PI/4; roof.castShadow=true; hall.add(roof);
     this.cameraObstacles.push(roof);
     this.box(hall,'Balai Desa veranda',[11,.3,2],[0,.3,4.2],'#9b7852');
     const gazebo = new THREE.Group(); gazebo.position.set(7,0,-7); this.scene.add(gazebo);
     this.box(gazebo,'Pendopo floor',[7,.35,6],[0,.35,0],'#9a7956');
-    for (const x of [-2.8,2.8]) for (const z of [-2.3,2.3]) this.box(gazebo,'Pendopo post',[.22,3.1,.22],[x,1.9,z],'#79563a');
-    const cap = new THREE.Mesh(new THREE.ConeGeometry(5.2,2,4),this.mat('#a95036')); cap.position.y=4.2; cap.rotation.y=Math.PI/4; cap.castShadow=true; gazebo.add(cap);
+    for (const x of [-2.8,2.8]) for (const z of [-2.3,2.3]) this.box(gazebo,'Pendopo post',[.22,3.1,.22],[x,1.9,z],'#79563a').material = finish.wood;
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(5.2,2,4),finish.roof); cap.position.y=4.2; cap.rotation.y=Math.PI/4; cap.castShadow=true; gazebo.add(cap);
     this.cameraObstacles.push(cap);
-    this.addBuilding(-1,-20,'Pasar Desa','#d8bd91','#8f4934');
+    this.addBuilding(-1,-20,'Pasar Desa',finish);
     // Keep the market and add the separately editable warung alongside it.
     // Include stage colliders BEFORE Rapier static bodies are constructed.
     const warung = createWarungStage();
     this.worldExportAssets.push(warung.ready);
     this.scene.add(warung.root);
+    warung.root.getObjectByName('Warung - low-poly clay fallback')?.traverse(part => {
+      if (!(part instanceof THREE.Mesh)) return;
+      if (/wall/i.test(part.name)) part.material = finish.wall;
+      else if (/roof plane/i.test(part.name)) part.material = finish.roof;
+      else if (/timber|shelv|counter|post|lintel|support/i.test(part.name)) part.material = finish.wood;
+    });
     this.cameraObstacles.push(...warung.cameraBlockers);
     this.homeSolids.push(...warung.solids);
     // A real path joins its front step to the existing village plaza.
@@ -518,7 +541,7 @@ export class Game {
     warungPath.name = 'Warung approach - walkable UV path';
     warungPath.renderOrder = 3;
     this.scene.add(warungPath);
-    this.addBuilding(17,-18,'Puskesmas','#e9e4d3','#a95036');
+    this.addBuilding(17,-18,'Puskesmas',finish);
     // Separate the raised plaza path from the ground path. Previously the
     // 35 m plane sat 3 cm *inside* the plaza, causing occlusion popping.
     const path = createPaintedTerrainPlane('path',5,20.5,0,14.25,.018,true);
@@ -526,15 +549,31 @@ export class Game {
     const plazaPath = createPaintedTerrainPlane('path',5,14.5,0,-3.25,.138,true);
     plazaPath.renderOrder=3; this.scene.add(plazaPath);
     // Trees are placed using local UV-painted 3D assets in loadEnvironmentTrees.
-    const water = new THREE.Mesh(new THREE.BoxGeometry(48,.12,2.6),this.mat('#5bafc2'));
-    water.position.set(0,-.02,17); this.scene.add(water);
-    const bridge = new THREE.Mesh(new THREE.BoxGeometry(5,.35,4),this.mat('#8b6242')); bridge.position.set(0,.35,17); bridge.castShadow=true; this.scene.add(bridge);
-    const loader = new THREE.TextureLoader();
-    const loadWorldTexture = (url: string) => {
-      let finish: () => void = () => {};
-      this.worldExportAssets.push(new Promise<void>(resolve => { finish = resolve; }));
-      return loader.load(url, () => finish(), undefined, () => finish());
-    };
+    this.villageWater = loadWorldTexture(CREEK_PAINTED_TEXTURES.water);
+    this.scene.add(villageStream(this.villageWater));
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(5,.35,4),finish.wood); bridge.position.set(0,.35,17); bridge.castShadow=true; this.scene.add(bridge);
+    // The two crossings share the authored bamboo model and atlas. Fit the
+    // second visual to its existing deck after the home bridge has loaded.
+    this.worldExportAssets.push(home.ready.then(() => {
+      const original = home.root.getObjectByName('Uploaded wooden bridge - original GLB');
+      if (!original) return;
+      const crossing = new THREE.Group();
+      crossing.name = 'Village bamboo footbridge';
+      const copy = original.clone();
+      copy.position.set(0,0,0);
+      crossing.add(copy);
+      crossing.rotation.y = Math.PI/2;
+      crossing.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(crossing);
+      const size = bounds.getSize(new THREE.Vector3());
+      const center = bounds.getCenter(new THREE.Vector3());
+      const mount = new THREE.Group();
+      mount.scale.set(3.1/size.x, 1, 4.5/size.z);
+      mount.position.set(-center.x*mount.scale.x,.045-bounds.min.y,17-center.z*mount.scale.z);
+      mount.add(crossing);
+      this.scene.add(mount);
+      bridge.visible = false;
+    }));
     const horizon = loadWorldTexture('textures/terrain/island-horizon.webp?v=3');
     this.outskirts = createOutskirts(loadWorldTexture('textures/terrain/creek_meadow.webp'),
       loadWorldTexture('textures/terrain/island-groves.webp'));
@@ -543,10 +582,12 @@ export class Game {
     this.panorama.add(createNorthHomePanorama(loadWorldTexture('textures/terrain/north-home-panorama.webp?v=1')));
     this.scene.add(this.panorama);
   }
-  private addBuilding(x:number,z:number,name:string,walls:string,roofColor:string) {
+  private addBuilding(x:number,z:number,name:string,finish:ReturnType<typeof villageFinishes>) {
     const g=new THREE.Group(); g.position.set(x,0,z); this.scene.add(g);
-    this.cameraObstacles.push(this.box(g,name+' walls',[7,3.5,6],[0,1.75,0],walls));
-    const roof=new THREE.Mesh(new THREE.ConeGeometry(5.2,2.1,4),this.mat(roofColor)); roof.position.y=4.45; roof.rotation.y=Math.PI/4; roof.castShadow=true; g.add(roof);
+    const wall = this.box(g,name+' walls',[7,3.5,6],[0,1.75,0],'#ecdfc3');
+    wall.material = finish.wall;
+    this.cameraObstacles.push(wall);
+    const roof=new THREE.Mesh(new THREE.ConeGeometry(5.2,2.1,4),finish.roof); roof.position.y=4.45; roof.rotation.y=Math.PI/4; roof.castShadow=true; g.add(roof);
     this.cameraObstacles.push(roof);
   }
   /** UV-painted true 3D trees, bundled locally instead of fetched from
@@ -603,6 +644,7 @@ export class Game {
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
   private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
     this.creekElapsedSeconds+=dt;
+    if (this.villageWater) this.villageWater.offset.y = this.creekElapsedSeconds * .017;
     updateHomeCreekWater(this.flowingCreekWater,this.creekElapsedSeconds);
     // The render loop starts during construction, before async FBX + texture loading finishes.
     // Do not read playerMesh.position or update physics-driven visuals until the model exists.

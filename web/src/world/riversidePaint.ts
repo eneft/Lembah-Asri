@@ -36,6 +36,17 @@ export function loadRiversidePaint(): Promise<void> {
 
 const grassPaint = `
   vec2 p=vRiversidePosition.xz;
+  // Lay the same short grass strokes into the meadow and courtyard painting.
+  // Fade fine marks into the horizon and mask out brown paths and worked soil.
+  if (uMeadowReady > .5) {
+    float green = smoothstep(-.012,.045,diffuseColor.g-diffuseColor.r)
+                * smoothstep(.04,.15,diffuseColor.g-diffuseColor.b);
+    float nearField = 1.-smoothstep(16.,55.,distance(cameraPosition.xz,p));
+    vec2 strokeUV = mat2(.94,.34,-.34,.94)*p*.62 + .12*sin(p.yx*.93);
+    vec3 marks = texture2D(uBankMeadow,strokeUV).rgb;
+    float brush = clamp(dot(marks,vec3(.23,.65,.12))-.24,-.19,.36);
+    diffuseColor.rgb *= 1. + green*nearField*brush*.66;
+  }
   // Skip the bank samples outside the river valley, including the crop beds.
   if (uMeadowReady>.5 && abs(p.x+46.)<17.) {
     vec2 course=creekCourse(p.y);
@@ -66,7 +77,14 @@ const grassPaint = `
       lawn=mix(lawn,earth,clamp(wear*pathBrush,0.,.94));
       diffuseColor.rgb=mix(diffuseColor.rgb,lawn,reach*grassCover);
     }
-  }`;
+  }
+  // Foot traffic around the working well exposes the same ochre earth as the path.
+  vec2 wellOffset = (p-vec2(-39.,4.))/vec2(1.95,1.65);
+  float wellRadius = length(wellOffset) + .06*sin(p.x*6.3)*sin(p.y*5.7);
+  float wellWear = 1.-smoothstep(.45,1.20,wellRadius);
+  float earthGrain = .5+.25*sin(p.x*13.+p.y*5.)+.25*sin(p.y*21.-p.x*7.);
+  diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(.28,.18,.08),vec3(.48,.34,.17),earthGrain),wellWear*.65);
+`;
 
 /**
  * Stage 2: stagger the wet stone foot into the exposed bank soil, with a

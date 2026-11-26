@@ -429,6 +429,7 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
 
   const fallback = buildLocalHouseFallback(root);
   addShed(root);
+  root.add(createHouseContactShadow(HOME.well.x, HOME.well.z, 2.65, 2.25));
   const wellReady = addWellOnly(root, loadApprovedModel);
   const peneduh = new THREE.Group();
   peneduh.name = 'Pohon peneduh halaman';
