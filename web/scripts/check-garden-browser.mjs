@@ -110,6 +110,12 @@ try {
     'Shallow stream west of childhood home']){
     assert.ok(names.has(name),'missing exported world object: '+name);
   }
+  // The actual exported runtime scene must not contain the off-area village.
+  for (const name of ['Balai Desa walls', 'Pendopo floor', 'Pasar Desa walls',
+    'Puskesmas walls', 'Village plaza handpainted UV surface', 'Village bamboo footbridge',
+    'Warung approach - walkable UV path']) {
+    assert.ok(!names.has(name), 'unexpected off-area world object: '+name);
+  }
   assert.ok(exported.geometries.length>10 && exported.materials.length>10);
   assert.ok(exported.images.length>5);
   for(const image of exported.images){
