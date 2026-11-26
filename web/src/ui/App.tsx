@@ -120,10 +120,11 @@ export default function App() {
     setExportNotice('Menyiapkan scene dan tekstur...');
     try {
       // Let React paint the busy state before serializing the scene.
-      await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
+      await new Promise<void>(resolve => window.setTimeout(resolve, 0));
       downloadWorldJSON(await game.exportWorldJSON());
       setExportNotice('File World JSON disiapkan.');
     } catch (reason) {
+      console.error('[LembahAsri] World export failed', reason);
       setExportNotice('Export gagal: ' + (reason instanceof Error ? reason.message : String(reason)));
     } finally { setExporting(false); }
   };
