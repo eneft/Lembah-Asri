@@ -1,3 +1,4 @@
+import { createOpenFenceModule, fenceSide, type FenceSide } from './fenceSpacing.ts';
 import { applyPaintedPigment } from './paintedPigment.ts';
 import { makePaintedLeafAlbedo } from './homeArtPass.ts';
 import { makeLowPolyGrassGeometry } from './lowPolyGrass.ts';
@@ -209,7 +210,8 @@ export function createUploadedFenceRun(geometry: THREE.BufferGeometry, material:
   runGroup.name=run.label+' — uploaded fence modules';
   runGroup.userData={sourceFile:'base_basic_shaded (1).glb',moduleCount:count,runLength:length,
     uniformScale:scale,moduleHeight:size.y*scale,moduleDepth:size.z*scale,sharedPostPitch:pitch*scale,
-    trimmedLeft:cutX,overlap:overlap*scale};
+    trimmedLeft:cutX,overlap:overlap*scale,
+    ...(geometry.userData.fenceSide ? {fenceSide:geometry.userData.fenceSide, bayGaps:geometry.userData.bayGaps} : {})};
   const seed=run.label.split('').reduce((a,c)=>Math.imul(a,31)+c.charCodeAt(0),13);
   const anchors=Array.from({length:count},(_,i)=>start+(i*pitch+center.x-bounds.min.x)*scale)
     .filter(x => x >= -length/2);
@@ -279,10 +281,18 @@ export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[])
     material.customProgramCacheKey = () => 'bridge-bamboo-moss-v7';
     const replacement = new THREE.Group();
     replacement.name = 'Home fence — uploaded GLB';
-    geometry.computeBoundingBox();
-    const sourceBounds=geometry.boundingBox!;
-    const repeated=trimFenceLeft(geometry,sourceBounds.min.x+(sourceBounds.max.x-sourceBounds.min.x)*.10);
-    for (const run of runs) replacement.add(createUploadedFenceRun(geometry, material, run, repeated));
+    const variants=new Map<FenceSide,{geometry:THREE.BufferGeometry;repeat:THREE.BufferGeometry}>();
+    for (const run of runs) {
+      const side=fenceSide(run.label);
+      let variant=variants.get(side);
+      if(!variant){
+        const opened=createOpenFenceModule(geometry,side,FENCE_HEIGHT);
+        const b=opened.boundingBox!;
+        variant={geometry:opened,repeat:trimFenceLeft(opened,b.min.x+(b.max.x-b.min.x)*.10)};
+        variants.set(side,variant);
+      }
+      replacement.add(createUploadedFenceRun(variant.geometry,material,run,variant.repeat));
+    }
     if (runs.length === 0) throw new Error('Unexpected home fence layout');
     // Replace only the existing fence visuals; retain every original collider.
     const old = root.children.filter(child => child.userData.bambooFence === true);
