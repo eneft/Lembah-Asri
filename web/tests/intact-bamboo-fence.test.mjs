@@ -56,7 +56,7 @@ test('every actual home fence run uses separated unbroken canes, continuous rail
   }
   const loader=readFileSync(new URL('../src/world/uploadedHomeFence.ts',import.meta.url),'utf8');
   const body=loader.slice(loader.indexOf('export async function loadUploadedHomeFence'));
-  assert.match(body,/createIntactFenceRun/);
+  assert.match(body,/new GLTFLoader\(\)\.loadAsync\(UPLOADED_FENCE_URL\)/);
   assert.ok(!body.includes('createOpenFenceModule'));
   assert.ok(!body.includes('trimFenceLeft'));
   assert.ok(readFileSync(new URL('../public/'+INTACT_FENCE_ATLAS.slice(2),import.meta.url)).length>1000);

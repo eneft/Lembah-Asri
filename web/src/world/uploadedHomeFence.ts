@@ -1,11 +1,10 @@
-import { createIntactFenceRun, makeIntactFenceMaterial, INTACT_FENCE_REVISION } from './intactBambooFence.ts';
-import { loadOriginalBambooSurfaceAtlas, ORIGINAL_BAMBOO_GLB, BAMBOO_TEXTURE_REVISION } from './bambooSurfaceAtlas.ts';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { applyPaintedPigment } from './paintedPigment.ts';
 import { makePaintedLeafAlbedo } from './homeArtPass.ts';
 import { makeLowPolyGrassGeometry } from './lowPolyGrass.ts';
 import * as THREE from 'three';
 
-export const UPLOADED_FENCE_URL = './models/environment/home-fence-module.glb?v=1';
+export const UPLOADED_FENCE_URL = './models/environment/pagar_bambu_asri.glb';
 // Preserve the authored XYZ proportions and the minimum 40 cm long-run depth.
 // Lower prominence through the weathered pigment, not by shrinking the mesh.
 export const FENCE_HEIGHT = 1.45;
@@ -222,24 +221,49 @@ export function createUploadedFenceRun(geometry: THREE.BufferGeometry, material:
   return runGroup;
 }
 
-/** Install complete, individually UV-mapped bamboo canes. The original
- * GLB remains untouched in the repository, but its fused mesh is not cut. */
+/** Repeat the complete authored scene along each existing fence collider. */
 export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[]): Promise<boolean> {
   try {
-    if(!runs.length)throw new Error('Unexpected home fence layout');
-    const old=root.children.filter(child=>child.userData.bambooFence===true);
-    if(old.length!==runs.length)throw new Error('Original fence layout mismatch');
-    const atlas=await loadOriginalBambooSurfaceAtlas();
-    const material=makeIntactFenceMaterial(atlas);
-    const replacement=new THREE.Group();
-    replacement.name='Home fence — uploaded GLB';
-    replacement.userData={spacingRevision:INTACT_FENCE_REVISION,originalGLBUnchanged:true,sourceAtlas:ORIGINAL_BAMBOO_GLB,textureRevision:BAMBOO_TEXTURE_REVISION};
-    for(const run of runs){
-      const fence=createIntactFenceRun(run,material);
-      const seed=run.label.split('').reduce((a,c)=>Math.imul(a,31)+c.charCodeAt(0),13);
-      const outward=run.label.startsWith('South')||run.label.startsWith('West')?1:-1;
-      fence.add(createFenceVines(fence.userData.runLength,FENCE_HEIGHT,fence.userData.moduleDepth,seed,fence.userData.anchors,outward));
-      replacement.add(fence);
+    const old = root.children.filter(child => child.userData.bambooFence === true);
+    if (!runs.length || old.length !== runs.length) throw new Error('Original fence layout mismatch');
+    const { scene } = await new GLTFLoader().loadAsync(UPLOADED_FENCE_URL);
+    scene.updateMatrixWorld(true);
+    const bamboo = scene.getObjectByName('01_Bambu');
+    if (!bamboo) throw new Error('Missing structural bamboo mesh');
+    const bounds = new THREE.Box3().setFromObject(bamboo);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const scale = FENCE_HEIGHT / size.y;
+    const replacement = new THREE.Group();
+    replacement.name = 'Home fence — uploaded GLB';
+    replacement.userData.sourceFile = UPLOADED_FENCE_URL;
+    for (const run of runs) {
+      const alongX = run.half[0] > run.half[2];
+      const length = 2 * Math.max(run.half[0], run.half[2]);
+      const count = Math.max(1, Math.round(length / (size.x * scale)));
+      const pitch = length / count;
+      const group = new THREE.Group();
+      group.name = run.label;
+      group.position.set(run.center[0], 0, run.center[2]);
+      group.rotation.y = alongX ? (run.label.startsWith('North') ? Math.PI : 0)
+        : (run.label.startsWith('West') ? -Math.PI / 2 : Math.PI / 2);
+      scene.traverse(part => {
+        if (!(part instanceof THREE.Mesh)) return;
+        const batch = new THREE.InstancedMesh(part.geometry, part.material, count);
+        batch.name = part.name;
+        batch.castShadow = batch.receiveShadow = true;
+        const transform = new THREE.Matrix4();
+        const sx = pitch / size.x;
+        for (let i = 0; i < count; i++) {
+          transform.makeScale(sx, scale, scale);
+          transform.setPosition(-length / 2 + (i + .5) * pitch - center.x * sx,
+            -bounds.min.y * scale, -center.z * scale);
+          batch.setMatrixAt(i, transform.multiply(part.matrixWorld));
+        }
+        batch.computeBoundingSphere();
+        group.add(batch);
+      });
+      replacement.add(group);
     }
     root.add(replacement);
     for(const child of old)root.remove(child);
