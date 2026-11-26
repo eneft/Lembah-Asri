@@ -39,6 +39,10 @@ try {
   await page.goto(url, {waitUntil:'domcontentloaded'});
   const ready = page.getByText('3D WORLD READY',{exact:true});
   await ready.waitFor({timeout:150_000});
+  // Check installed geometry, not merely the code or synthetic test output.
+  await page.locator('.game-canvas[data-fence-revision="visible-gap-v2"]').waitFor({timeout:120_000});
+  await mkdir('artifacts/garden',{recursive:true});
+  await page.screenshot({path:'artifacts/garden/00-pagar-revisi-v2.jpg',type:'jpeg',quality:90});
   const modeChoice = page.getByRole('combobox',{name:'Mode kontrol'});
   const controlMode = () => page.locator('.game-shell').getAttribute('data-control-mode');
   assert.equal(await modeChoice.inputValue(),'auto','first visit uses automatic mode');
