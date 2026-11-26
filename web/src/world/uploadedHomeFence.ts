@@ -1,9 +1,8 @@
-import { createOpenFenceModule, fenceSide, type FenceSide } from './fenceSpacing.ts';
+import { createIntactFenceRun, makeIntactFenceMaterial, INTACT_FENCE_ATLAS, INTACT_FENCE_REVISION } from './intactBambooFence.ts';
 import { applyPaintedPigment } from './paintedPigment.ts';
 import { makePaintedLeafAlbedo } from './homeArtPass.ts';
 import { makeLowPolyGrassGeometry } from './lowPolyGrass.ts';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export const UPLOADED_FENCE_URL = './models/environment/home-fence-module.glb?v=1';
 // Preserve the authored XYZ proportions and the minimum 40 cm long-run depth.
@@ -222,87 +221,31 @@ export function createUploadedFenceRun(geometry: THREE.BufferGeometry, material:
   return runGroup;
 }
 
+/** Install complete, individually UV-mapped bamboo canes. The original
+ * GLB remains untouched in the repository, but its fused mesh is not cut. */
 export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[]): Promise<boolean> {
   try {
-    const { scene } = await new GLTFLoader().loadAsync(UPLOADED_FENCE_URL);
-    scene.updateMatrixWorld(true);
-    const meshes: THREE.Mesh[] = [];
-    scene.traverse(obj => { if (obj instanceof THREE.Mesh) meshes.push(obj); });
-    if (meshes.length !== 1) throw new Error('Expected one authored fence mesh');
-    const source = meshes[0];
-    const original = source.material;
-    if (!(original instanceof THREE.MeshStandardMaterial) || !original.emissiveMap) throw new Error('Missing authored shaded texture');
-    const geometry = source.geometry.clone().applyMatrix4(source.matrixWorld);
-    // The GLB uses a baked emissive atlas. Use that same UV atlas as a matte
-    // non-PBR surface, avoiding double lighting or darkening the original art.
-    const map = original.emissiveMap;
-    map.colorSpace = THREE.SRGBColorSpace;
-    map.anisotropy = 4;
-    const material = applyPaintedPigment(new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide, toneMapped: false }));
-    const painted = material.onBeforeCompile;
-    material.onBeforeCompile = (shader, renderer) => {
-      painted.call(material, shader, renderer);
-      shader.vertexShader = 'varying vec3 vFencePoint;\n' + shader.vertexShader.replace(
-        '#include <begin_vertex>',
-        '#include <begin_vertex>\nvFencePoint = (instanceMatrix * vec4(position, 1.)).xyz;'
-      );
-      shader.fragmentShader = 'varying vec3 vFencePoint;\n' + shader.fragmentShader.replace('#include <map_fragment>', `
-        #include <map_fragment>
-        vec3 p = vFencePoint;
-        float value = dot(diffuseColor.rgb, vec3(.25,.60,.15));
-        // Bridge handrail samples in linear sRGB: shaded binding, olive cane,
-        // sun-warmed straw and cut-end light. The fence atlas locates each detail.
-        vec3 shade = vec3(.086,.040,.012);
-        vec3 olive = vec3(.42,.36,.096);
-        vec3 straw = vec3(.69,.445,.159);
-        vec3 light = vec3(.93,.75,.35);
-        float tone = sqrt(max(value, 0.));
-        vec3 middle = mix(olive, straw, .48 + .32*sin(p.x*2.6 + p.y*.42));
-        vec3 bamboo = mix(shade, middle, smoothstep(.07,.65,tone));
-        bamboo = mix(bamboo, light, smoothstep(.51,.94,tone));
-        // Retain small colour changes in the original fibres and bindings.
-        vec3 chroma = diffuseColor.rgb / max(value,.015);
-        bamboo *= mix(vec3(1.), clamp(chroma,.55,1.5), .16);
-        // Damp pockets extend across adjacent canes. Use run-space metres so
-        // patches continue across instanced module seams.
-        float pockets = .5 + .28*sin(p.x*2.8 + sin(p.x*.86) + p.z*3.)
-                           + .22*sin(p.x*6.2 - p.y*4.6);
-        float fragments = .5 + .24*sin(p.x*24. + p.y*17. + sin(p.y*27.))
-                             + .26*sin(p.x*37. - p.y*31. + p.z*14.);
-        float grain = .5 + .25*sin(p.x*121. + sin(p.y*83.)*2.) + .25*sin(p.y*103. - p.x*57.);
-        float damp = .14 + .55*pockets - p.y + (fragments-.5)*.23;
-        float cover = smoothstep(.01,.15,damp) * smoothstep(.14,.49,pockets + .22*(fragments-.5));
-        vec3 moss = mix(vec3(.055,.109,.019), vec3(.26,.34,.067), fragments)
-                  * (.50 + .78*tone);
-        float mottling = smoothstep(.22,.62, fragments*.56 + grain*.44);
-        diffuseColor.rgb = mix(bamboo,moss,cover*(.28 + .63*mottling));
-      `);
-    };
-    material.customProgramCacheKey = () => 'bridge-bamboo-moss-v7';
-    const replacement = new THREE.Group();
-    replacement.name = 'Home fence — uploaded GLB';
-    const variants=new Map<FenceSide,{geometry:THREE.BufferGeometry;repeat:THREE.BufferGeometry}>();
-    for (const run of runs) {
-      const side=fenceSide(run.label);
-      let variant=variants.get(side);
-      if(!variant){
-        const opened=createOpenFenceModule(geometry,side,FENCE_HEIGHT);
-        const b=opened.boundingBox!;
-        variant={geometry:opened,repeat:trimFenceLeft(opened,b.min.x+(b.max.x-b.min.x)*.10)};
-        variants.set(side,variant);
-      }
-      replacement.add(createUploadedFenceRun(variant.geometry,material,run,variant.repeat));
+    if(!runs.length)throw new Error('Unexpected home fence layout');
+    const old=root.children.filter(child=>child.userData.bambooFence===true);
+    if(old.length!==runs.length)throw new Error('Original fence layout mismatch');
+    const atlas=await new THREE.TextureLoader().loadAsync(INTACT_FENCE_ATLAS);
+    atlas.name=INTACT_FENCE_ATLAS;
+    const material=makeIntactFenceMaterial(atlas);
+    const replacement=new THREE.Group();
+    replacement.name='Home fence — uploaded GLB';
+    replacement.userData={spacingRevision:INTACT_FENCE_REVISION,originalGLBUnchanged:true,sourceAtlas:INTACT_FENCE_ATLAS};
+    for(const run of runs){
+      const fence=createIntactFenceRun(run,material);
+      const seed=run.label.split('').reduce((a,c)=>Math.imul(a,31)+c.charCodeAt(0),13);
+      const outward=run.label.startsWith('South')||run.label.startsWith('West')?1:-1;
+      fence.add(createFenceVines(fence.userData.runLength,FENCE_HEIGHT,fence.userData.moduleDepth,seed,fence.userData.anchors,outward));
+      replacement.add(fence);
     }
-    if (runs.length === 0) throw new Error('Unexpected home fence layout');
-    // Replace only the existing fence visuals; retain every original collider.
-    const old = root.children.filter(child => child.userData.bambooFence === true);
-    if (old.length !== runs.length) throw new Error('Original fence layout mismatch');
-    replacement.userData.spacingRevision='visible-gap-v2';
     root.add(replacement);
-    for (const child of old) root.remove(child);
+    for(const child of old)root.remove(child);
     return true;
-  } catch (error) {
-    console.warn('[LembahAsri] Keeping existing bamboo fence fallback', error);
+  } catch(error) {
+    console.warn('[LembahAsri] Keeping existing bamboo fence fallback',error);
     return false;
   }
 }
