@@ -31,7 +31,7 @@ import { createOutskirts } from './islandOutskirts';
 import { createDistantValley, createNorthHomePanorama } from './distantValley';
 import { createWarungStage } from './warungStage';
 import { HOME_AREA, resolveSceneArea, inHomeArea, constrainHomePosition } from './sceneAreas';
-import { HOME_LANDSCAPE, createHomeLandscapeGround, createHomeBoundaryGrove } from './homeLandscape';
+import { HOME_LANDSCAPE, createHomeLandscapeGround, createHomeBoundaryGrove, homeLandscapeHeight } from './homeLandscape';
 import {
   chapterSunOffset, villageSunOffset, configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
   createCharacterContactShadow, updateCharacterContactShadow
@@ -566,9 +566,9 @@ export class Game {
     this.cameraObstacles.push(...home.cameraBlockers);
     this.homeSolids = home.solids;
     this.houseReady = home.houseReady;
-    const size = isolated ? HOME_AREA.terrainSize : 160;
-    const cx = isolated ? HOME_AREA.terrainX : 0;
-    const cz = isolated ? HOME_AREA.terrainZ : 0;
+    const size = isolated ? HOME_AREA.maxZ-HOME_AREA.minZ+4 : 160;
+    const cx = isolated ? (HOME_AREA.minX+HOME_AREA.maxX)/2 : 0;
+    const cz = isolated ? (HOME_AREA.minZ+HOME_AREA.maxZ)/2 : 0;
     const ground = isolated ? createHomeLandscapeGround() : createPaintedTerrainPlane('grass', size, size, cx, cz, 0);
     ground.name = 'World painted grass UV terrain';
     carveVisualCreek(ground);
@@ -587,7 +587,7 @@ export class Game {
     this.scene.add(this.characterContactShadow);
     // One or two InstancedMesh draws for all small 3D grass tufts.
     this.scene.add(createInstancedGrass(73137, isolated
-      ? (x,z) => inHomeArea(x,z,HOME_AREA.grassPadding) : undefined));
+      ? (x,z) => inHomeArea(x,z) : undefined));
     if (!isolated) {
       const plaza = new THREE.Mesh(new THREE.BoxGeometry(24,0.18,18), this.mat('#c8b991'));
       plaza.position.set(0,0.02,-5); plaza.receiveShadow = true; this.scene.add(plaza);
@@ -737,6 +737,7 @@ export class Game {
         tree.position.set(placement.x, 0, placement.z);
         tree.rotation.y = placement.yaw;
       }
+      if (this.area === 'home') tree.position.y += homeLandscapeHeight(placement.x,placement.z);
       tree.name = 'Village handpainted shade tree ' + placement.seed;
       this.scene.add(tree);
     }
