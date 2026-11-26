@@ -39,8 +39,8 @@ type Motion = 'idle' | 'walk' | 'run' | 'jump';
 export type PerformanceStats = { fps: number; drawCalls: number; triangles: number };
 
 // Keep the horizon near the upper edge while retaining the ground ahead.
-const CAMERA_HEIGHT_RATIO = .56;
-const HOME_CAMERA_FOCUS_HEIGHT = 1.15;
+const CAMERA_HEIGHT_RATIO = .46;
+const HOME_CAMERA_FOCUS_HEIGHT = 1.45;
 const HOME_ORBIT_LIMIT = Math.PI / 6;
 
 export class Game {
