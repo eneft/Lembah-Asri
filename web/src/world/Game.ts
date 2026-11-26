@@ -10,6 +10,8 @@ import { PLAYER_BODY_GROUND_Y, isPlayerGrounded, jumpMayFinish, removeBakedHipTr
 import { applyHandPaintedMaterials } from './handPaintedMaterials';
 import { keepCameraOutsideGeometry } from './cameraOcclusion';
 import { activateCharacterMotion } from './animationState';
+import { ChapterFarm } from './chapterFarm';
+import { chapterMode, type ChapterTask } from './homeChapter';
 import { HomeFarm, type FarmHUD } from './homeFarm';
 import { farmKeys, type FarmAction } from './farmPlots';
 import { sculptGardenGround, gardenHeightAt, type GardenGround } from './gardenLayout';
@@ -68,7 +70,7 @@ export class Game {
   private cameraObstacles: THREE.Object3D[] = [];
   private homeSolids: SolidCollider[] = [];
   private houseReady: Promise<boolean> = Promise.resolve(false);
-  private farm!: HomeFarm;
+  private farm!: HomeFarm | ChapterFarm;
   private gardenGround!: GardenGround;
 
   async exportWorldJSON(): Promise<string> {
@@ -83,6 +85,13 @@ export class Game {
     const {x, y, z} = this.playerMesh.position;
     this.farm.update(x, y, z, this.playerMesh.rotation.y);
     return this.farm.act(action, id);
+  }
+
+  interactChapter(expected?: ChapterTask) {
+    if (!(this.farm instanceof ChapterFarm) || !this.playerMesh) return;
+    const {x,y,z} = this.playerMesh.position;
+    this.farm.update(x,y,z,this.playerMesh.rotation.y);
+    this.farm.interact(expected);
   }
 
   private onWalkingGround() {
@@ -139,6 +148,10 @@ export class Game {
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     // Menu navigation should never also drive the player.
     if (e.target instanceof HTMLElement && e.target.closest('select, input, textarea, [contenteditable="true"]')) return;
+    if (key === 'e' && this.farm instanceof ChapterFarm) {
+      if (!e.repeat) this.interactChapter();
+      return;
+    }
     if (/^[1-4]$/.test(key)) {
       if (!e.repeat) this.useFarmAction(farmKeys[Number(key) - 1]);
       return;
@@ -261,7 +274,7 @@ export class Game {
     const conceptView = view === HOME_SCENIC_CAMERA.query;
     const arrival = conceptView
       ? {x:HOME_SCENIC_CAMERA.x,y:HOME.spawn.y,z:HOME_SCENIC_CAMERA.z}
-      : riverside ? {x:-42.40,y:HOME.spawn.y,z:10.95} : HOME.spawn;
+      : riverside ? {x:-42.40,y:HOME.spawn.y,z:10.95} : chapterMode() ? {x:HOME.house.x, y:HOME.spawn.y, z:14.6} : HOME.spawn;
     if (conceptView) {
       // Interactive world seen from the river, with the well, raised bank,
       // trees and homestead all still real 3D and fully walkable.
@@ -277,7 +290,7 @@ export class Game {
     try {
       game.playerMesh = await game.loadPlayer();
       game.playerMesh.visible = true;
-      if (riverside) game.playerMesh.rotation.y = Math.PI;
+      if (riverside || chapterMode()) game.playerMesh.rotation.y = Math.PI;
       game.playerMesh.traverse(object => {
         if (object instanceof THREE.Mesh) {
           object.visible = true;
@@ -467,7 +480,7 @@ export class Game {
       return loader.load(url, () => finish(), undefined, () => finish());
     };
     const finish = villageFinishes(loadWorldTexture);
-    const home = createHomeStage();
+    const home = createHomeStage(true, chapterMode());
     this.worldExportAssets.push(home.ready);
     this.scene.add(home.root);
     const shed = home.root.getObjectByName('Empty timber storage shed');
@@ -476,7 +489,7 @@ export class Game {
         part.material = part.name === 'Lean-to roof' ? finish.roof : finish.wood;
       }
     });
-    this.farm = new HomeFarm(home.garden);
+    this.farm = chapterMode() ? new ChapterFarm(home.garden) : new HomeFarm(home.garden);
     this.gardenGround = home.gardenGround;
     this.flowingCreekWater = home.root.getObjectByName('Shallow stream west of childhood home');
     this.cameraObstacles.push(...home.cameraBlockers);

@@ -17,7 +17,7 @@ import { applyRiversidePaint } from './riversidePaint.ts';
 import { applyCreekCourtyardAlbedo } from './shoreCourtyard.ts';
 import { applyWarmCourtyardGrass } from './grassPalette.ts';
 import { createHousePainterlyMaterial } from './housePainterlyMaterial.ts';
-import { createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
+import { BRIDGE_WALK, BRIDGE_DECK, createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { loadUserSuppliedWoodenBridge } from './uploadedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
 import { loadUploadedHomeFence } from './uploadedHomeFence.ts';
@@ -352,7 +352,7 @@ function addStreamAndBridge(root: THREE.Object3D) {
  * asynchronously, keeping a fallback house if the model is unavailable.
  * On the existing continuous 160 m world ground, all props are 3D geometry.
  */
-export function createHomeStage(loadApprovedModel = true): HomeStage {
+export function createHomeStage(loadApprovedModel = true, chapter = false): HomeStage {
   const root = new THREE.Group();
   root.name = 'Rumah Masa Kecil / Playable House Garden';
   const solids: SolidCollider[] = [];
@@ -539,7 +539,28 @@ export function createHomeStage(loadApprovedModel = true): HomeStage {
 
   // Fence boundary with a 5 m gap facing the connected village road.
   addWoodenFence(root, solids, 'North rear fence', -30.5, -16.5, 27, 'x');
-  addWoodenFence(root, solids, 'South front fence', -31, 15, 26, 'x');
+  if (chapter) {
+    const gateX = HOME.house.x;
+    const left = gateX - 1.5, right = gateX + 1.5;
+    addWoodenFence(root, solids, 'South front fence west', (-44+left)/2, 15, left+44, 'x');
+    addWoodenFence(root, solids, 'South front fence east', (right-18)/2, 15, -18-right, 'x');
+    floorPatch(root, 'Footpath through the southern gate', 2.4, 10, gateX, 12,
+      '#baa17a', .079, 'path', true);
+    const sari = new THREE.Group();
+    sari.name = 'Bu Sari';
+    sari.position.set(BRIDGE_WALK.startX-.9, 0, BRIDGE_DECK.z+.8);
+    root.add(sari);
+    cylinder(sari,'Kain batik',.22,.32,.75,[0,.44,0],mat('#71523e'));
+    cylinder(sari,'Kebaya hijau',.27,.21,.45,[0,.98,0],mat('#678569'));
+    const head = new THREE.Mesh(new THREE.SphereGeometry(.21,12,10),mat('#bf8c66'));
+    head.position.y=1.38;
+    sari.add(head);
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(.218,12,8,0,Math.PI*2,0,1.37),mat('#3f3731'));
+    hair.position.copy(head.position); sari.add(hair);
+    solids.push({label:'Bu Sari',center:[sari.position.x,.7,sari.position.z],half:[.25,.7,.25]});
+  } else {
+    addWoodenFence(root, solids, 'South front fence', -31, 15, 26, 'x');
+  }
   addWoodenFence(root, solids, 'East side fence north', -16.8, -6.2, 19, 'z');
   addWoodenFence(root, solids, 'East side fence south', -16.8, 13.7, 2.6, 'z');
   addWoodenFence(root, solids, 'West side fence north', -43.8, -11.6, 9.3, 'z');

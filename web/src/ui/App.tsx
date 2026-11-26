@@ -131,17 +131,24 @@ export default function App() {
   return <main className="game-shell" data-control-mode={controlMode}>
     <div className="game-canvas" ref={host} />
     <header className="brand"><span className="brand-mark">LA</span><div><strong>Lembah Asri</strong><small>RUMAH MASA KECIL · PLAYABLE 0.2</small></div></header>
-    {!farm && <section className="objective"><b>Kembali ke Lembah Asri</b><span>Jelajahi rumah masa kecil</span><span>Dekati bedeng untuk berkebun</span><span>Ikuti jalan menuju desa</span></section>}
+    {!farm && <section className="objective"><b>Kembali ke Lembah Asri</b><span>Jelajahi rumah masa kecil</span><span>Dekati bedeng untuk berkebun</span><span>Ikuti jalan menuju desa</span>{ready && <a href="?bab=pulang">Mainkan bab Pulang ke Rumah</a>}</section>}
     {farm && <section className="farm-panel" aria-label="Rawat kebun">
-      <div className="farm-location">Bedeng {farm.row} · Titik {farm.spot}</div>
+      <div className="farm-location">{farm.chapter && <>Hari {farm.chapter.day} · {farm.chapter.location} </>}
+        {farm.id >= 0 && <>Bedeng {farm.row} · Titik {farm.spot}</>}</div>
+      {farm.chapter && <>
+        <small>Benih {farm.chapter.seeds} · Air {farm.chapter.water}/4 · Panen {farm.harvests}</small>
+        {farm.chapter.task && <div className="farm-actions"><button type="button"
+          onClick={() => gameRef.current?.interactChapter(farm.chapter?.task)}>{farm.chapter.label} <kbd>E</kbd></button></div>}
+      </>}
       <strong aria-live="polite">{farm.description}</strong>
       {farm.actions.length > 0 && <div className="farm-actions">
         {farm.actions.map(action => <button type="button" key={action}
           onClick={() => gameRef.current?.useFarmAction(action, farm.id)}>
-          {farmLabels[action]} <kbd aria-hidden="true">{farmKeys.indexOf(action) + 1}</kbd>
+          {farm.chapter && action === 'sow' ? 'Tanam kangkung' : farmLabels[action]} <kbd aria-hidden="true">{farmKeys.indexOf(action) + 1}</kbd>
         </button>)}
       </div>}
-      {farm.harvests > 0 && <small>Hasil panen · {farm.harvests} sawi</small>}
+      {!farm.chapter && farm.harvests > 0 && <small>Hasil panen · {farm.harvests} sawi</small>}
+      {farm.chapter && farm.id >= 0 && <small>{farm.chapter.goal}</small>}
       {!farm.saved && <small>Progres tersimpan selama sesi ini.</small>}
     </section>}
     <aside className="status">
