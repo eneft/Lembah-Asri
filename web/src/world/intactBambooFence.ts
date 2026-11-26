@@ -12,7 +12,7 @@ const DEPTH=.40;
 const SIDE_GAP={front:.24,side:.225,rear:.21} as const;
 type Run={label:string;center:[number,number,number];half:[number,number,number]};
 type Item={x:number;y:number;z:number;length:number;radius:number;angle:number;spin:number;shade:string};
-const palette=['#b6a47a','#b9aa80','#a8a076','#c2ae84','#b2a17a'];
+const palette=['#d0c7a4','#d2caae','#c2c3a1','#ddd0b1','#c8bd9d'];
 type UVKind='cane'|'rail'|'tie'|'end';
 // Select clean single-cane patches inside the existing illustrated atlas,
 // not the entire baked surface of several fused stalks. Avoid white seams.
@@ -54,7 +54,7 @@ export function makeIntactCane(kind:'cane'|'rail',sides=12):THREE.BufferGeometry
     }
     for(let j=0;j<2;j++)for(let k=0;k<sides;k++){
       const a=first+j*(sides+1)+k,b=a+sides+1;
-      if(top)idx.push(a,a+1,b,a+1,b+1,b);else idx.push(a,b,a+1,a+1,b,b+1);
+      if(top)idx.push(a,b,a+1,a+1,b,b+1);else idx.push(a,a+1,b,a+1,b+1,b);
     }
     const center=add(0,well,0,'end',.5,.5);
     const start=first+2*(sides+1);
@@ -142,7 +142,7 @@ export function createIntactFenceRun(run:Run,material:THREE.Material){
   for(let j=0;j<bays;j++){
     const x0=edge+j*pitch,x1=x0+pitch;
     const lo=x0+POST_DIAMETER/2,hi=x1-POST_DIAMETER/2,available=hi-lo;
-    const n=Math.max(1,Math.round((available-SIDE_GAP[side])/(PICKET_DIAMETER+SIDE_GAP[side])));
+    const n=Math.max(0,Math.min(Math.floor(available/PICKET_DIAMETER),Math.round((available-SIDE_GAP[side])/(PICKET_DIAMETER+SIDE_GAP[side]))));
     const gap=(available-n*PICKET_DIAMETER)/(n+1);
     gaps.push(gap);
     for(let k=0;k<n;k++){
