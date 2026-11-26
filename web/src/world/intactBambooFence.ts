@@ -64,7 +64,20 @@ export function makeIntactCane(kind:'cane'|'rail',sides=12):THREE.BufferGeometry
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));
   g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
-  g.setIndex(idx);g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
+  g.setIndex(idx);g.computeVertexNormals();
+  // Average the two duplicate UV seam normals without welding the UVs.
+  const normal=g.attributes.normal;
+  const seam=(start:number)=>{
+    const a=new THREE.Vector3().fromBufferAttribute(normal,start);
+    const b=new THREE.Vector3().fromBufferAttribute(normal,start+sides);
+    a.add(b).normalize();
+    normal.setXYZ(start,a.x,a.y,a.z);normal.setXYZ(start+sides,a.x,a.y,a.z);
+  };
+  for(let j=0;j<rings.length;j++)seam(j*(sides+1));
+  const endStride=3*(sides+1)+1;
+  for(let k=0;k<2;k++)for(let j=0;j<3;j++)seam(rings.length*(sides+1)+k*endStride+j*(sides+1));
+  normal.needsUpdate=true;
+  g.computeBoundingBox();g.computeBoundingSphere();
   g.userData={part:kind,completeCane:true,independentUV:true};
   return g;
 }
@@ -74,6 +87,11 @@ const suv=strap.attributes.uv;
 for(let i=0;i<suv.count;i++)suv.setXY(i,...atlasUV('tie',suv.getX(i),suv.getY(i)));
 strap.computeBoundingSphere();
 strap.userData.part='woven binding';
+const wrap=new THREE.TorusGeometry(1,.045,5,12);
+wrap.rotateX(Math.PI/2);
+const wuv=wrap.attributes.uv;
+for(let i=0;i<wuv.count;i++)wuv.setXY(i,...atlasUV('tie',wuv.getX(i),wuv.getY(i)));
+wrap.userData.part='continuous rattan wrap';
 
 export function makeIntactFenceMaterial(map:THREE.Texture):THREE.MeshBasicMaterial{
   map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;
@@ -121,7 +139,7 @@ export function createIntactFenceRun(run:Run,material:THREE.Material){
   const side=fenceSide(run.label),bays=Math.max(1,Math.round(length/1.72));
   // Keep full-size posts within the original run, including the gate ends.
   const edge=-length/2+POST_DIAMETER/2,pitch=(length-POST_DIAMETER)/bays;
-  const posts:Item[]=[],pickets:Item[]=[],rails:Item[]=[],bindings:Item[]=[];
+  const posts:Item[]=[],pickets:Item[]=[],rails:Item[]=[],bindings:Item[]=[],wraps:Item[]=[];
   const gaps:number[]=[],anchors:number[]=[];
   let seed=run.label.split('').reduce((a,c)=>Math.imul(a,31)+c.charCodeAt(0),18)>>>0;
   const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
@@ -134,6 +152,7 @@ export function createIntactFenceRun(run:Run,material:THREE.Material){
     anchors.push(x);
     posts.push(item(x,0,0,FENCE_TOP,POST_DIAMETER/2));
     for(const y of railY){
+      for(const dy of [-.037,.037])wraps.push({...item(x,y+dy,0,.17,.147),shade:'#b8a17c'});
       // Thin crossed straps on both faces, physically seated on the post.
       for(const z of [-.15,.15])for(const sign of [-1,1])
         bindings.push({...item(x,y,z,.31,.02,sign*.72),shade:'#a58c61'});
@@ -160,7 +179,8 @@ export function createIntactFenceRun(run:Run,material:THREE.Material){
   group.add(batch('Complete hollow bamboo posts',cane,material,posts),
     batch('Complete separated bamboo pickets',cane,material,pickets),
     batch('Continuous bamboo rails',rail,material,rails),
-    batch('Woven bamboo bindings',strap,material,bindings,true));
+    batch('Woven bamboo bindings',strap,material,bindings,true),
+    batch('Continuous rattan wraps',wrap,material,wraps));
   group.userData={spacingRevision:INTACT_FENCE_REVISION,fenceSide:side,
     runLength:length,moduleHeight:FENCE_TOP,moduleDepth:DEPTH,bayGaps:gaps,anchors,
     supportPosts:posts.length,pickets:pickets.length,railSections:rails.length,
