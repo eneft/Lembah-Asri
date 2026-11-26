@@ -200,11 +200,11 @@ export function makeCreekFoamAlbedo():THREE.DataTexture {
   return foamTexture;
 }
 
-function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
+function creekRibbon(side:-1|0|1|2|3,start:number=CREEK.start,end:number=CREEK.end):THREE.Mesh{
   const positions:number[]=[],uvs:number[]=[],colors:number[]=[],indices:number[]=[];
-  const segments=284,levels=(side===0||side===3)?6:side===2?4:7;
+  const segments=Math.ceil(284*(end-start)/(CREEK.end-CREEK.start)),levels=(side===0||side===3)?6:side===2?4:7;
   for(let i=0;i<=segments;i++){
-    const t=i/segments,z=CREEK.start+(CREEK.end-CREEK.start)*t;
+    const t=i/segments,z=start+(end-start)*t;
     const center=creekCenterX(z),half=creekWidth(z)/2;
     for(let j=0;j<levels;j++){
       const u=j/(levels-1);
@@ -260,7 +260,7 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
       // Foam atlas is positioned once over the entire river. Water and
       // earth bank maps repeat every ~8–11 m so their brush strokes aren't
       // stretched across 160 m. U is the original real cross-section UV.
-      uvs.push(u,side===3?t:(z-CREEK.start)/(side===0?CREEK_WATER_UV.longitudinalTileMetres:side===2?10:8));
+      uvs.push(u,side===3?(z-CREEK.start)/(CREEK.end-CREEK.start):(z-CREEK.start)/(side===0?CREEK_WATER_UV.longitudinalTileMetres:side===2?10:8));
       colors.push(...color);
     }
   }
@@ -417,10 +417,10 @@ function creekRibbon(side:-1|0|1|2|3):THREE.Mesh{
   }
   return mesh;
 }
-export function createHomeCreek():THREE.Group{
+export function createHomeCreek(start:number=CREEK.start,end:number=CREEK.end):THREE.Group{
   const root=new THREE.Group();
   root.name='Meandering shallow creek and earthen banks';
-  root.add(creekRibbon(-1),creekRibbon(1),creekRibbon(2),creekRibbon(0),creekRibbon(3));
+  root.add(creekRibbon(-1,start,end),creekRibbon(1,start,end),creekRibbon(2,start,end),creekRibbon(0,start,end),creekRibbon(3,start,end));
   root.add(createRockWaterWakes());
   root.userData.flowDirection='upstream-negative-Z-to-downstream-positive-Z';
   return root;

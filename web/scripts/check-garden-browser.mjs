@@ -57,6 +57,9 @@ try {
   assert.equal(await controlMode(),'tablet');
   await modeChoice.selectOption('auto');
   assert.equal(await controlMode(),'tablet','auto restores device-dependent behavior');
+  // A native select retains keyboard focus after changing mode. Return focus
+  // to gameplay just as a player would, before issuing movement keys.
+  await page.locator('.game-canvas canvas').click({position:{x:400,y:300}});
   const hud = page.getByRole('region',{name:'Rawat kebun'});
   // Walk diagonally across the open courtyard from the normal spawn until a
   // place actually comes within reach (independent of software renderer FPS).
@@ -115,14 +118,15 @@ try {
   walk(exported.object);
   for(const name of ['World painted grass UV terrain',
     'Rumah utama - Rumah Masa Kecil',
-    'Island horizon - north sea, east village, south forest, west mountain',
+    'Home scene - layered local grove',
     'Shallow stream west of childhood home']){
     assert.ok(names.has(name),'missing exported world object: '+name);
   }
   // The actual exported runtime scene must not contain the off-area village.
   for (const name of ['Balai Desa walls', 'Pendopo floor', 'Pasar Desa walls',
     'Puskesmas walls', 'Village plaza handpainted UV surface', 'Village bamboo footbridge',
-    'Warung approach - walkable UV path']) {
+    'Warung approach - walkable UV path', 'Island horizon - north sea, east village, south forest, west mountain',
+    'Childhood home north - painted rice fields and volcano', 'Rolling meadow outside playable ground']) {
     assert.ok(!names.has(name), 'unexpected off-area world object: '+name);
   }
   assert.ok(exported.geometries.length>10 && exported.materials.length>10);

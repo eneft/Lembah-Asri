@@ -11,6 +11,7 @@ import { CONCEPT_SHADE_TREE } from './referenceShadeTree.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { loadUserReferenceTextureSet, applyUserReferenceDryRock } from './userReferenceTextures.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
+import { HOME_LANDSCAPE } from './homeLandscape.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures, installRockContactFoam } from './homeCreek.ts';
 import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerrain3D.ts';
 import { applyRiversidePaint } from './riversidePaint.ts';
@@ -328,17 +329,17 @@ function addWoodenFence(
   });
 }
 
-function addStreamAndBridge(root: THREE.Object3D) {
+function addStreamAndBridge(root: THREE.Object3D, isolated = false) {
   // Organic, genuinely sculpted 3D grassy shoulders merge into the entire
   // world meadow. Exact crest vertices meet the recessed creek geometry.
   // This replaces a straight brown ribbon without altering world physics.
-  root.add(createSculptedCreekMeadow());
+  root.add(isolated ? createSculptedCreekMeadow(HOME_LANDSCAPE.creekStart,HOME_LANDSCAPE.creekEnd) : createSculptedCreekMeadow());
   // Sunken real cross-section, UV-painted riverbed + flowing translucent water.
   // The flat world grass/shadow planes are already cut only inside this channel.
-  root.add(createHomeCreek());
+  root.add(isolated ? createHomeCreek(HOME_LANDSCAPE.creekStart,HOME_LANDSCAPE.creekEnd) : createHomeCreek());
   // Dense growth only around the major stone clusters, never on the bridge.
   root.add(createHomeCreekVegetation());
-  root.add(createFineCreekBankGrass());
+  root.add(isolated ? createFineCreekBankGrass(HOME_LANDSCAPE.creekStart+1,HOME_LANDSCAPE.creekEnd-1) : createFineCreekBankGrass());
   // No fallback row of 52 plain stones. Only the two selected UV GLB rock
   // types are displayed, with natural scale variation.
   // The safe old bridge stays visible during GLB load; on success its
@@ -485,7 +486,7 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
         return false;
       })
     : Promise.resolve(false);
-  addStreamAndBridge(root);
+  addStreamAndBridge(root, isolated);
   const creekArtReady: Promise<boolean> = loadApprovedModel
     ? loadPaintedCreekTextures(root) : Promise.resolve(false);
   const bridgeArtReady: Promise<boolean> = loadApprovedModel

@@ -31,6 +31,7 @@ import { createOutskirts } from './islandOutskirts';
 import { createDistantValley, createNorthHomePanorama } from './distantValley';
 import { createWarungStage } from './warungStage';
 import { HOME_AREA, resolveSceneArea, inHomeArea, constrainHomePosition } from './sceneAreas';
+import { HOME_LANDSCAPE, createHomeLandscapeGround, createHomeBoundaryGrove, homeLandscapeHeight } from './homeLandscape';
 import {
   chapterSunOffset, villageSunOffset, configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
   createCharacterContactShadow, updateCharacterContactShadow
@@ -565,10 +566,10 @@ export class Game {
     this.cameraObstacles.push(...home.cameraBlockers);
     this.homeSolids = home.solids;
     this.houseReady = home.houseReady;
-    const size = isolated ? HOME_AREA.terrainSize : 160;
-    const cx = isolated ? HOME_AREA.terrainX : 0;
-    const cz = isolated ? HOME_AREA.terrainZ : 0;
-    const ground = createPaintedTerrainPlane('grass', size, size, cx, cz, 0);
+    const size = isolated ? HOME_AREA.maxZ-HOME_AREA.minZ+4 : 160;
+    const cx = isolated ? (HOME_AREA.minX+HOME_AREA.maxX)/2 : 0;
+    const cz = isolated ? (HOME_AREA.minZ+HOME_AREA.maxZ)/2 : 0;
+    const ground = isolated ? createHomeLandscapeGround() : createPaintedTerrainPlane('grass', size, size, cx, cz, 0);
     ground.name = 'World painted grass UV terrain';
     carveVisualCreek(ground);
     // Break distant 3.5-m repeating grass tile grid globally, using the
@@ -586,7 +587,7 @@ export class Game {
     this.scene.add(this.characterContactShadow);
     // One or two InstancedMesh draws for all small 3D grass tufts.
     this.scene.add(createInstancedGrass(73137, isolated
-      ? (x,z) => inHomeArea(x,z,HOME_AREA.grassPadding) : undefined));
+      ? (x,z) => inHomeArea(x,z) : undefined));
     if (!isolated) {
       const plaza = new THREE.Mesh(new THREE.BoxGeometry(24,0.18,18), this.mat('#c8b991'));
       plaza.position.set(0,0.02,-5); plaza.receiveShadow = true; this.scene.add(plaza);
@@ -665,22 +666,21 @@ export class Game {
         bridge.visible = false;
       }));
     }
-    const horizon = loadWorldTexture('textures/terrain/island-horizon.webp?v=3');
-    this.outskirts = createOutskirts(loadWorldTexture('textures/terrain/creek_meadow.webp'),
-      loadWorldTexture('textures/terrain/island-groves.webp'));
-    this.scene.add(...this.outskirts);
-    this.panorama = createDistantValley(horizon);
-    this.panorama.add(createNorthHomePanorama(loadWorldTexture('textures/terrain/north-home-panorama.webp?v=1')));
     if (isolated) {
-      // Scenery only: a low-cost backdrop, not loaded village gameplay.
-      for (const layer of this.outskirts) {
-        layer.position.set(cx, 0, cz);
-        layer.scale.setScalar(.70);
-      }
-      this.panorama.position.set(cx, 0, cz);
-      this.panorama.scale.setScalar(.70);
+      // No old island panorama, ocean, mountain, or village silhouette.
+      // Compact depth comes from the real local hills and UV-painted grove.
+      this.scene.background = new THREE.Color(HOME_LANDSCAPE.sky);
+      this.scene.fog = new THREE.Fog(HOME_LANDSCAPE.sky, HOME_LANDSCAPE.fogNear, HOME_LANDSCAPE.fogFar);
+      this.scene.userData.sceneArea = 'home';
+    } else {
+      const horizon = loadWorldTexture('textures/terrain/island-horizon.webp?v=3');
+      this.outskirts = createOutskirts(loadWorldTexture('textures/terrain/creek_meadow.webp'),
+        loadWorldTexture('textures/terrain/island-groves.webp'));
+      this.scene.add(...this.outskirts);
+      this.panorama = createDistantValley(horizon);
+      this.panorama.add(createNorthHomePanorama(loadWorldTexture('textures/terrain/north-home-panorama.webp?v=1')));
+      this.scene.add(this.panorama);
     }
-    this.scene.add(this.panorama);
   }
   private addBuilding(x:number,z:number,name:string,finish:ReturnType<typeof villageFinishes>) {
     const g=new THREE.Group(); g.position.set(x,0,z); this.scene.add(g);
@@ -722,6 +722,10 @@ export class Game {
       // A broken/missing GLB must never prevent the rest of the game loading.
       console.warn('[LembahAsri] Using local 3D tree fallback', error);
     }
+    if (this.area === 'home') {
+      const groveSource = source ?? createPaintedStoryTree({kind:'shade',height:5.5,seed:1800});
+      this.scene.add(createHomeBoundaryGrove(groveSource));
+    }
     for (const placement of placements) {
       if (this.area === 'home' && !inHomeArea(placement.x,placement.z,HOME_AREA.grassPadding)) continue;
       const tree = source
@@ -733,6 +737,7 @@ export class Game {
         tree.position.set(placement.x, 0, placement.z);
         tree.rotation.y = placement.yaw;
       }
+      if (this.area === 'home') tree.position.y += homeLandscapeHeight(placement.x,placement.z);
       tree.name = 'Village handpainted shade tree ' + placement.seed;
       this.scene.add(tree);
     }

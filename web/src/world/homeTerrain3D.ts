@@ -87,15 +87,15 @@ export function creekMeadowHeight(z:number, offset:number):number{
   return Math.max(0,Math.min(.159,h+undulation));
 }
 
-function makeContour(side:-1|1):THREE.Mesh {
+function makeContour(side:-1|1,start:number=CREEK.start,end:number=CREEK.end):THREE.Mesh {
   const positions:number[]=[];
   const uv0:number[]=[];
   const uv1:number[]=[];
   const index:number[]=[];
-  const segments=TERRAIN_CONTOUR.longitudinalSegments;
+  const segments=Math.ceil(TERRAIN_CONTOUR.longitudinalSegments*(end-start)/(CREEK.end-CREEK.start));
   const cols=distances.length;
   for(let i=0;i<=segments;i++){
-    const z=CREEK.start+(CREEK.end-CREEK.start)*i/segments;
+    const z=start+(end-start)*i/segments;
     const half=creekWidth(z)*.5;
     const center=creekCenterX(z);
     for(let j=0;j<cols;j++){
@@ -158,10 +158,10 @@ function makeContour(side:-1|1):THREE.Mesh {
   return mesh;
 }
 
-export function createSculptedCreekMeadow():THREE.Group {
+export function createSculptedCreekMeadow(start:number=CREEK.start,end:number=CREEK.end):THREE.Group {
   const group=new THREE.Group();
   group.name='Sculpted 3D banks blending into village terrain';
-  group.add(makeContour(-1),makeContour(1));
+  group.add(makeContour(-1,start,end),makeContour(1,start,end));
   group.userData.visualOnly=true;
   group.userData.villageTerrainUnchanged=true;
   group.userData.bridgePassagePreserved=true;
@@ -174,12 +174,12 @@ export function createSculptedCreekMeadow():THREE.Group {
  * spacing makes quiet bare-earth gaps beside rocks and under the bridge.
  * A single instanced draw is cheap even on a phone.
  */
-export function createFineCreekBankGrass():THREE.InstancedMesh{
+export function createFineCreekBankGrass(start=-51,end=46):THREE.InstancedMesh{
   let seed=342018;
   const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   type Tuft={x:number;y:number;z:number;scale:number;rotation:number;shade:number};
   const tufts:Tuft[]=[];
-  for(let z=-51;z<46;z+=.65){
+  for(let z=start;z<end;z+=.65){
     if(z>6.15&&z<11.25)continue; // keep bridge and near-bank approaches clear
     for(const side of [-1,1] as const){
       for(let lane=0;lane<2;lane++){
