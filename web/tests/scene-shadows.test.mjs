@@ -77,11 +77,11 @@ test('contact shadow is a tiny feathered alpha texture below the moving characte
 test('Game installs real shadow reception for soil and plaza, and follows player', () => {
   const source=readFileSync(fileURLToPath(new URL('../src/world/Game.ts', import.meta.url)),'utf8');
   assert.match(source,/configureSunShadows\(sun, mobile\)/);
-  assert.match(source,/focusSunShadows\(sun, HOME\.spawn\.x, HOME\.spawn\.z\)/);
+  assert.match(source,/focusSunShadows\(sun, HOME\.spawn\.x, HOME\.spawn\.z, this\.sunOffset\)/);
   assert.match(source,/this\.scene\.add\(sun, sun\.target\)/);
   assert.match(source,/World painted-terrain real shadows/);
   assert.match(source,/Village plaza real shadows/);
   assert.match(source,/this\.scene\.add\(this\.characterContactShadow\)/);
-  assert.match(source,/focusSunShadows\(this\.sunLight, target\.x, target\.z\)/);
+  assert.match(source,/focusSunShadows\(this\.sunLight, target\.x, target\.z, this\.sunOffset\)/);
   assert.match(source,/updateCharacterContactShadow\(this\.characterContactShadow, target\)/);
 });
