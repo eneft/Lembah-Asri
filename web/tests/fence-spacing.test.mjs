@@ -35,7 +35,7 @@ function readSource(){
 }
 
 // Union of actual triangle intersections at a height between the rails.
-function coverage(g,level){
+function coverage(g,level,oblique=0){
   const a=g.attributes.position,index=g.index,b=g.boundingBox;
   const y=b.min.y+(b.max.y-b.min.y)*level, spans=[];
   for(let i=0;i<(index?.count??a.count);i+=3){
@@ -44,7 +44,7 @@ function coverage(g,level){
     for(let k=0;k<3;k++){
       const u=p[k],v=p[(k+1)%3];
       if((u.y<y&&v.y>=y)||(v.y<y&&u.y>=y))
-        hits.push(u.x+(v.x-u.x)*(y-u.y)/(v.y-u.y));
+        hits.push(u.x+oblique*u.z+((v.x-u.x)+oblique*(v.z-u.z))*(y-u.y)/(v.y-u.y));
     }
     if(hits.length>1)spans.push([Math.min(...hits),Math.max(...hits)]);
   }
@@ -78,8 +78,9 @@ test('open variants preserve original support envelope, UV atlas and side-specif
     for(const n of g.attributes.uv.array)assert.ok(Number.isFinite(n)&&n>=-.001&&n<=1.001);
     assert.ok(g.attributes.position.count>0&&g.attributes.position.count%3===0);
     const projected=coverage(g,.45);
-    assert.ok(projected.fraction<middle.fraction-.1,side+' must have actual openings');
-    assert.ok(projected.gaps.some(gap=>gap>.05),side+' must contain visible openings');
+    assert.ok(projected.fraction<.62,side+' must have generous actual openings, got '+projected.fraction);
+    assert.ok(coverage(g,.45,.55).gaps.some(gap=>gap>.10),side+' must stay visibly open in an oblique camera');
+    assert.ok(projected.gaps.some(gap=>gap>.16),side+' must contain visible openings');
     assert.ok(coverage(g,.20).fraction>.9,'lower rail remains continuous');
     console.log(side, 'nominal gaps (m)',meta.bayGaps,'mid coverage',projected.fraction,'closed/open cut loops',meta.closedCuts,meta.openCuts);
   }
