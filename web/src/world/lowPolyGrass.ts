@@ -17,7 +17,7 @@ export function makeLowPolyGrassGeometry(): THREE.BufferGeometry {
     // The previous 30–40 cm wide triangular tufts looked like paper shards.
     // Thin and shorten the blades; group them into natural grass clusters.
     const height = 0.16 + (blade % 3) * 0.037;
-    const width = 0.044 + (blade % 2) * 0.012;
+    const width = 0.024 + (blade % 2) * 0.008;
     const bend = 0.055 + (blade % 2) * 0.022;
     const rootX = ux * 0.02;
     const rootZ = uz * 0.02;
@@ -36,9 +36,9 @@ export function makeLowPolyGrassGeometry(): THREE.BufferGeometry {
         positions.push(...point);
         const brightness = point[1] / height;
         colors.push(
-          0.63 + brightness * 0.24,
-          0.70 + brightness * 0.19,
-          0.48 + brightness * 0.15
+          0.42 + brightness * 0.54,
+          0.49 + brightness * 0.46,
+          0.29 + brightness * 0.33
         );
       }
     }
@@ -136,7 +136,7 @@ export function createInstancedGrass(seed = 73137): THREE.Group {
     const selected = points.filter(point => point.kind === kind);
     if (!selected.length) continue;
     const material = new THREE.MeshBasicMaterial({
-      color: kind === 0 ? '#87ab65' : '#a9a47a',
+      color: kind === 0 ? '#96aa58' : '#b8a46b',
       vertexColors: true,
       side: THREE.DoubleSide,
       toneMapped: false

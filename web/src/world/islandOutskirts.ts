@@ -85,6 +85,13 @@ export function createOutskirts(meadow: THREE.Texture, foliage: THREE.Texture) {
   const groves = new THREE.Mesh(geometry(), new THREE.MeshBasicMaterial({
     map: foliage, alphaTest: .35, side: THREE.DoubleSide, fog: false, toneMapped: false
   }));
+  // A light aerial wash connects the two orchard belts with the painted horizon.
+  groves.material.onBeforeCompile = shader => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+      #include <map_fragment>
+      diffuseColor.rgb = mix(diffuseColor.rgb,vec3(.40,.45,.28),.16);
+    `);
+  };
   groves.name = 'Middle-distance orchard, forest and coastal palms';
   return [land, groves];
 }

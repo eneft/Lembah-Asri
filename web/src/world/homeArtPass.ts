@@ -177,7 +177,8 @@ export function makePaintedLeafAlbedo(): THREE.DataTexture {
       const u = (x + 0.5) / size;
       const v = (y + 0.5) / size;
       const vein = Math.exp(-Math.abs(u - 0.5) * 31) * 17;
-      const branch = Math.sin(v * 26 + u * 15) * Math.sin(v * 13 - u * 25) * 3.8;
+      const fold = 16 * Math.tanh((u - .50) * 9) * Math.sin(Math.PI * v);
+      const branch = fold + Math.sin(v * 26 + u * 15) * Math.sin(v * 13 - u * 25) * 3.8;
       const pigment = Math.sin(u * 69 + Math.sin(v * 21) * 2.4) * 4
         + Math.cos(v * 48 + u * 11) * 3;
       const highlight = (v > 0.32 && v < 0.76 ? 5 : 0);

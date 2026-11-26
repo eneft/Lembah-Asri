@@ -410,18 +410,31 @@ export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group>
           material.transparent = false;
           material.alphaToCoverage = true; // MSAA softens the cut edge on iPhone
           material.side = THREE.DoubleSide;
+          object.geometry.computeBoundingBox();
+          const crown = object.geometry.boundingBox!;
+          const crownCenter = crown.getCenter(new THREE.Vector3());
+          const crownSize = crown.getSize(new THREE.Vector3()).max(new THREE.Vector3(.01,.01,.01));
           const painted = material.onBeforeCompile;
           material.onBeforeCompile = (shader, renderer) => {
             painted.call(material, shader, renderer);
-            shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+            shader.uniforms.uCrownCenter = {value: crownCenter};
+            shader.uniforms.uCrownSize = {value: crownSize};
+            shader.vertexShader = 'uniform vec3 uCrownCenter,uCrownSize; varying float vCanopySun;\n' +
+              shader.vertexShader.replace('#include <begin_vertex>', `
+                #include <begin_vertex>
+                vec3 crownOffset = (position-uCrownCenter)/uCrownSize;
+                vec3 sunLocal = normalize(vec3(-.51,.81,-.32) * mat3(modelMatrix));
+                vCanopySun = smoothstep(-.42,.45,dot(crownOffset,sunLocal));`);
+            shader.fragmentShader = 'varying float vCanopySun;\n' + shader.fragmentShader.replace('#include <map_fragment>', `
               #include <map_fragment>
               #ifdef USE_MAP
                 vec3 leafWash = texture2D(map, vMapUv, 1.7).rgb;
-                diffuseColor.rgb = mix(diffuseColor.rgb, leafWash, .52) * vec3(.91,.88,.73);
+                diffuseColor.rgb = mix(diffuseColor.rgb, leafWash, .32)
+                  * mix(vec3(.68,.78,.64),vec3(1.24,1.04,.74),vCanopySun);
               #endif
             `);
           };
-          material.customProgramCacheKey = () => 'soft-olive-leaf-pigment-v1';
+          material.customProgramCacheKey = () => 'village-canopy-sun-v2';
           leafFound = true;
         }
         if (material.map) {
