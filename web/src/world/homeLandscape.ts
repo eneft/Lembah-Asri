@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { HOME_AREA, inHomeArea } from './sceneAreas';
-import { creekCenterX, creekWidth } from './creekCourse';
-import { createPaintedTerrainPlane } from './terrainMaterials';
+import { HOME_AREA, inHomeArea } from './sceneAreas.ts';
+import { creekCenterX, creekWidth } from './creekCourse.ts';
+import { createPaintedTerrainPlane } from './terrainMaterials.ts';
 
 export const HOME_LANDSCAPE = Object.freeze({
   x: -35, z: -1, width: 88, depth: 94,
