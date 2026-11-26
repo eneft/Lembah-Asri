@@ -35,7 +35,7 @@ export function createHomeLandscapeGround() {
   for(let i=0;i<pos.count;i++){
     const wx=x+pos.getX(i), wz=z-pos.getY(i);
     pos.setZ(i,homeLandscapeHeight(wx,wz));
-    uv1[i*2]=wx/3.5; uv1[i*2+1]=-wz/3.5;
+    uv1[i*2]=wx/3.5; uv1[i*2+1]=wz/3.5;
   }
   geometry.setAttribute('uv1',new THREE.BufferAttribute(uv1,2));
   geometry.computeVertexNormals();
@@ -70,13 +70,12 @@ export function createHomeBoundaryGrove(source:THREE.Group): THREE.Group {
   const height=bounds.max.y-bounds.min.y;
   if(!Number.isFinite(height)||height<.1) throw new Error('Invalid shade tree source');
   const placements=homeBoundaryTrees();
-  source.traverse(part=>{
+  source.traverseVisible(part=>{
     if(!(part instanceof THREE.Mesh)||!part.visible) return;
     const mesh=new THREE.InstancedMesh(part.geometry,part.material,placements.length);
     mesh.name='Local grove - '+part.name;
     mesh.castShadow=false;mesh.receiveShadow=false;
-    const inverse=source.matrixWorld.clone().invert();
-    const local=inverse.multiply(part.matrixWorld);
+    const local=part.matrixWorld;
     for(let i=0;i<placements.length;i++){
       const p=placements[i], scale=p.height/height;
       const transform=new THREE.Matrix4().compose(
