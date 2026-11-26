@@ -50,13 +50,14 @@ export function buildBambooAtlasPixels(source:ImageData):Uint8Array{
       const raw=(fiber[0]*.25+fiber[1]*.60+fiber[2]*.15);
       const grain=clamp((raw-150)*.36,-24,24);
       const broad=Math.sin(u*Math.PI*2)*3+Math.cos(u*Math.PI*6)*2;
-      const narrow=(hash(Math.round(u*118),7)-.5)*8;
+      const narrow=(hash(Math.round((1-Math.abs(2*u-1))*118),7)-.5)*8;
       let color:RGB;
       if(kind==='cane'||kind==='rail'){
         const nodeDistance=Math.min(Math.abs(v-.30),Math.abs(v-.68));
         const ring=1-smooth(nodeDistance/.017);
         const shade=1-smooth(Math.abs(nodeDistance-.022)/.014);
-        const base=mix([154,127,72],[198,166,105],.52+.18*Math.cos(v*5.7));
+        const pigment=fiber.map((c,i)=>clamp(c*(174/Math.max(raw,90)),0,255)) as RGB;
+        const base=mix(mix([154,127,72],[198,166,105],.52+.18*Math.cos(v*5.7)),pigment,.31);
         color=mix(base,[113,93,53],shade*.20);
         color=mix(color,[210,183,121],ring*.49);
         const damp=(1-smooth(v/.32))*(.23+.19*Math.cos(u*Math.PI*4+v*17));
@@ -66,8 +67,12 @@ export function buildBambooAtlasPixels(source:ImageData):Uint8Array{
         color=mix([121,88,43],[177,145,85],.52+.17*Math.cos(u*Math.PI*12));
         color=color.map(c=>c+grain*.5+narrow*.8) as RGB;
       }else if(kind==='rim'){
-        color=mix([188,153,88],[220,190,128],.55+.22*Math.cos(u*Math.PI*8));
-        color=color.map(c=>c+grain*.35) as RGB;
+        const r=Math.hypot(u-.5,v-.5);
+        const angle=Math.atan2(v-.5,u-.5);
+        const inner=mix([99,78,43],[151,121,70],smooth((r-.26)/.12));
+        const lip=mix([187,152,88],[218,189,126],.55+.18*Math.cos(angle*13));
+        color=mix(inner,lip,smooth((r-.36)/.075));
+        color=color.map(c=>c+grain*.28) as RGB;
       }else if(kind==='inside'){
         color=mix([92,72,40],[157,124,71],smooth(v));
         color=color.map(c=>c+grain*.3+narrow*.4) as RGB;
