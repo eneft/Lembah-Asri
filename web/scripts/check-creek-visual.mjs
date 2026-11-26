@@ -253,59 +253,48 @@ try{
   for(const file of ['creek_cobbles.webp','creek_meadow.webp']){
     assert.ok(assets.has(prefix+'textures/terrain/'+file),'missing live creek image '+file);
   }
+  // Home is now a self-contained scene: verify local terrain and the real
+  // UV-painted grove, and ensure old world panorama assets are not installed.
   await page.waitForFunction(()=>{
     const scene=window.__lembahVisualQA.scene;
-    return ['Island horizon - north sea, east village, south forest, west mountain',
-      'Rolling meadow outside playable ground','Middle-distance orchard, forest and coastal palms']
-      .every(name=>scene.getObjectByName(name)?.material?.map?.image?.width>0);
+    const grove=scene.getObjectByName('Home scene - layered local grove');
+    return grove?.children.length>0 && grove.children.every(m=>m.isInstancedMesh);
   },null,{timeout:120000});
   const vista=await page.evaluate(()=>{
     const scene=window.__lembahVisualQA.scene;
-    const horizon=scene.getObjectByName('Island horizon - north sea, east village, south forest, west mountain');
-    const meadow=scene.getObjectByName('Rolling meadow outside playable ground');
-    const groves=scene.getObjectByName('Middle-distance orchard, forest and coastal palms');
-    const p=horizon.geometry.getAttribute('position'), uv=horizon.geometry.getAttribute('uv');
-    return {width:horizon.material.map.image.width,height:horizon.material.map.image.height,
-      seam:[p.getX(0),p.getY(0),p.getZ(0)].every((v,i)=>v===[p.getX(p.count-7),p.getY(p.count-7),p.getZ(p.count-7)][i]),
-      uvClosed:uv.getX(0)===0 && uv.getX(p.count-7)===1,
-      meadow:!!meadow.material.map.image,groves:!!groves.material.map.image};
+    const ground=scene.getObjectByName('World painted grass UV terrain');
+    const grove=scene.getObjectByName('Home scene - layered local grove');
+    return {local:ground?.userData.localLandscape,grove:grove.children.length,
+      old:['Island horizon - north sea, east village, south forest, west mountain',
+      'Rolling meadow outside playable ground','Middle-distance orchard, forest and coastal palms']
+      .some(name=>scene.getObjectByName(name))};
   });
-  assert.ok(vista.width>=6000 && vista.height>=178 && vista.seam && vista.uvClosed);
-  assert.ok(vista.meadow && vista.groves,'all landscape layers must load in the production browser');
-  // Check the actual imported fence, not just the procedural fallback.
-  await page.waitForFunction(()=>!!window.__lembahVisualQA.scene.getObjectByName('Home fence — uploaded GLB'),null,{timeout:120000});
+  assert.equal(vista.local,true);
+  assert.ok(vista.grove>0);
+  assert.equal(vista.old,false);
+  // Inspect actual rebuilt full canes, not the obsolete clipped GLB modules.
+  await page.waitForFunction(()=>window.__lembahVisualQA.scene.getObjectByName('Home fence — uploaded GLB')?.userData.spacingRevision==='intact-canes-v3',null,{timeout:120000});
   const fence=await page.evaluate(()=>{
     const group=window.__lembahVisualQA.scene.getObjectByName('Home fence — uploaded GLB');
     return group.children.map(run=>{
-      const wood=run.getObjectByName('Continuous authored bamboo');
+      const posts=run.getObjectByName('Complete hollow bamboo posts');
+      const pickets=run.getObjectByName('Complete separated bamboo pickets');
+      const rails=run.getObjectByName('Continuous bamboo rails');
       const vines=run.getObjectByName('Climbing vines — painted 3D');
-      const meshes=wood.children;
-      let uniform=true;
-      for(const mesh of meshes){
-        const m=mesh.instanceMatrix.array;
-        for(let i=0;i<mesh.count;i++){
-          const o=i*16;
-          const x=Math.hypot(m[o],m[o+1],m[o+2]);
-          const y=Math.hypot(m[o+4],m[o+5],m[o+6]);
-          const z=Math.hypot(m[o+8],m[o+9],m[o+10]);
-          uniform &&= Math.abs(x-y)<1e-5 && Math.abs(y-z)<1e-5;
-        }
-      }
-      const count=meshes.reduce((n,m)=>n+m.count,0);
-      return {uniform,count,depth:run.userData.moduleDepth,length:run.userData.runLength,
-        source:run.userData.sourceFile,hasUV:meshes.every(m=>!!m.geometry.getAttribute('uv')),
-        hasMap:meshes.every(m=>!!m.material.map?.image),hasBounds:meshes.every(m=>!!m.geometry.boundingBox),
-        singleSeam:count===1||(meshes.length===2&&meshes[0].count===1&&meshes[1].geometry.boundingBox.min.x>meshes[0].geometry.boundingBox.min.x),
-        leaves:vines.userData.leafCount,clusters:vines.userData.clusters,branches:vines.userData.branches,rootGrass:vines.userData.rootGrass,
+      const meshes=[posts,pickets,rails];
+      return {posts:posts.count,pickets:pickets.count,rails:rails.count,
+        complete:meshes.every(m=>m.geometry.userData.completeCane && m.geometry.getAttribute('uv') && m.material.map?.image),
+        gaps:run.userData.bayGaps,revision:run.userData.spacingRevision,
+        leaves:vines.userData.leafCount,clusters:vines.userData.clusters,branches:vines.userData.branches,
+        rootGrass:vines.userData.rootGrass,length:run.userData.runLength,
         realLeaves:vines.userData.leafCount===0||vines.getObjectByName('Climbing vine leaves')?.count===vines.userData.leafCount};
     });
   });
   assert.equal(fence.length,6);
-  assert.ok(fence.every(f=>f.uniform && f.count>0 && f.source==='base_basic_shaded (1).glb' && f.hasUV && f.hasMap && f.hasBounds));
-  assert.ok(fence.filter(f=>f.length>=19).every(f=>f.depth>.4),'long fences preserve their original 3D depth');
-  assert.ok(fence.every(f=>f.singleSeam),'interior joins must omit duplicated end posts');
-  assert.ok(fence.every(f=>f.realLeaves && (f.length<4?f.clusters===0:f.leaves>=f.clusters*31 && f.clusters>0 && f.branches===f.clusters*3 && f.rootGrass===f.clusters*10)),'sparse volumetric climbing leaves on long fence runs');
-  assert.ok(assets.has(prefix+'models/environment/home-fence-module.glb'));
+  assert.ok(fence.every(f=>f.complete && f.revision==='intact-canes-v3' && f.pickets>0 &&
+    f.rails===2*(f.posts-1) && f.gaps.every(g=>g>.15&&g<.34)));
+  assert.ok(fence.every(f=>f.realLeaves && (f.length<4?f.clusters===0:f.leaves>=f.clusters*31 && f.clusters>0 && f.branches===f.clusters*3 && f.rootGrass>0)));
+  assert.ok(assets.has(prefix+'textures/fence/bamboo_albedo.webp'));
   const arrival=await page.evaluate(()=>window.__lembahVisualQA.player.translation());
   assert.ok(Math.abs(arrival.x+42.40)<.12 && Math.abs(arrival.z-10.95)<.12,
     'the riverside link should place the player at the near end of the bridge');
@@ -398,8 +387,8 @@ try{
   assert.equal(daylight.fill,.3);
   assert.equal(daylight.exposure,1);
   assert.equal(daylight.envIntensity,.3);
-  assert.equal(daylight.fogNear,64);
-  assert.equal(daylight.fogFar,190);
+  assert.equal(daylight.fogNear,32);
+  assert.equal(daylight.fogFar,60);
   assert.equal(daylight.housePBR,true);
   assert.equal(daylight.roughness,1);
   assert.equal(daylight.metalness,0);
