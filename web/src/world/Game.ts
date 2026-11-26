@@ -30,7 +30,7 @@ import { createOutskirts } from './islandOutskirts';
 import { createDistantValley, createNorthHomePanorama } from './distantValley';
 import { createWarungStage } from './warungStage';
 import {
-  configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
+  chapterSunOffset, villageSunOffset, configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
   createCharacterContactShadow, updateCharacterContactShadow
 } from './sceneShadows';
 
@@ -45,6 +45,7 @@ export class Game {
   private panorama?: ReturnType<typeof createDistantValley>;
   private environmentTarget?: THREE.WebGLRenderTarget;
   private characterBaseColor?: THREE.Texture;
+  private readonly sunOffset = chapterMode() ? chapterSunOffset : villageSunOffset;
   private sunLight!: THREE.DirectionalLight;
   private characterContactShadow!: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private villageWater?: THREE.Texture;
@@ -188,7 +189,7 @@ export class Game {
     sky.material.uniforms['mieCoefficient'].value = 0.004;
     sky.material.uniforms['mieDirectionalG'].value = 0.82;
     // Match the environment sun direction to the scene's directional key light.
-    const sunDirection = new THREE.Vector3(-18, 30, -12).normalize();
+    const sunDirection = this.sunOffset.clone().normalize();
     sky.material.uniforms['sunPosition'].value.copy(sunDirection);
     const skyScene = new THREE.Scene();
     skyScene.add(sky);
@@ -207,7 +208,7 @@ export class Game {
     configureSunShadows(sun, mobile);
     // Shadow camera follows the actor, not the map origin. This prevents
     // the childhood home from falling off the edge of the shadow frustum.
-    focusSunShadows(sun, HOME.spawn.x, HOME.spawn.z);
+    focusSunShadows(sun, HOME.spawn.x, HOME.spawn.z, this.sunOffset);
     this.scene.add(sun, sun.target);
     // Keep a soft sky-side fill for matte PBR surfaces. Hand-painted
     // MeshBasicMaterial UV art never gets a second lighting pass.
@@ -761,7 +762,7 @@ export class Game {
     const target=this.playerMesh?.position??new THREE.Vector3();
     if (this.playerMesh) {
       this.farm.update(target.x, target.y, target.z, this.playerMesh.rotation.y);
-      focusSunShadows(this.sunLight, target.x, target.z);
+      focusSunShadows(this.sunLight, target.x, target.z, this.sunOffset);
       updateCharacterContactShadow(this.characterContactShadow, target);
     }
     const desiredFocus=target.clone().add(new THREE.Vector3(0,1.3,0));

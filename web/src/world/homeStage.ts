@@ -391,8 +391,10 @@ export function createHomeStage(loadApprovedModel = true, chapter = false): Home
   // The GLB soil edge now samples this SAME authored courtyard albedo.
   // Await the shared image when attaching the imported building so the seam
   // cannot briefly render black while its map is still downloading.
+  const courtyardURL = chapter ? './textures/terrain/chapter_courtyard.webp'
+    : './textures/terrain/home_courtyard.webp?restored=98';
   const courtyardAlbedo: Promise<THREE.Texture | undefined> = loadApprovedModel
-    ? new THREE.TextureLoader().loadAsync('./textures/terrain/home_courtyard.webp?restored=98')
+    ? new THREE.TextureLoader().loadAsync(courtyardURL)
       .then(texture => {
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.anisotropy = 8;
@@ -544,7 +546,7 @@ export function createHomeStage(loadApprovedModel = true, chapter = false): Home
     const left = gateX - 1.5, right = gateX + 1.5;
     addWoodenFence(root, solids, 'South front fence west', (-44+left)/2, 15, left+44, 'x');
     addWoodenFence(root, solids, 'South front fence east', (right-18)/2, 15, -18-right, 'x');
-    floorPatch(root, 'Footpath through the southern gate', 2.4, 10, gateX, 12,
+    floorPatch(root, 'Footpath through the southern gate', 1.9, 4.2, gateX - .25, 15.6,
       '#baa17a', .079, 'path', true);
     const sari = new THREE.Group();
     sari.name = 'Bu Sari';
