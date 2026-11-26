@@ -329,7 +329,7 @@ function addWoodenFence(
   });
 }
 
-function addStreamAndBridge(root: THREE.Object3D) {
+function addStreamAndBridge(root: THREE.Object3D, isolated = false) {
   // Organic, genuinely sculpted 3D grassy shoulders merge into the entire
   // world meadow. Exact crest vertices meet the recessed creek geometry.
   // This replaces a straight brown ribbon without altering world physics.
@@ -486,7 +486,7 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
         return false;
       })
     : Promise.resolve(false);
-  addStreamAndBridge(root);
+  addStreamAndBridge(root, isolated);
   const creekArtReady: Promise<boolean> = loadApprovedModel
     ? loadPaintedCreekTextures(root) : Promise.resolve(false);
   const bridgeArtReady: Promise<boolean> = loadApprovedModel
