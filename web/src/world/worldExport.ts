@@ -37,9 +37,14 @@ export function serializeWorldScene(
       copy.geometry = baked;
       const materials = Array.isArray(copy.material) ? copy.material : [copy.material];
       for (const material of materials) {
-        for (const value of Object.values(material)) {
+        for (const [slot, value] of Object.entries(material)) {
           if (value instanceof THREE.Texture && !value.isRenderTargetTexture) {
-            if (!value.image) throw new Error('Texture not ready: ' + (value.name || value.uuid));
+            if (!value.image) {
+              const asset = value.userData.sourceURL || value.name || value.uuid;
+              throw new Error('Texture not ready: ' + asset + ' | mesh: ' +
+                (source.name || source.uuid) + ' | material: ' +
+                (material.name || material.type) + ' | slot: ' + slot);
+            }
             textures.set(value.source.uuid, value);
           }
         }
