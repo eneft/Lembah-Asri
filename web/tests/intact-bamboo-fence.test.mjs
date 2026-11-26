@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {readFileSync} from 'node:fs';
-import {makeIntactCane,createIntactFenceRun,makeIntactFenceMaterial,INTACT_FENCE_REVISION,INTACT_FENCE_ATLAS} from '../src/world/intactBambooFence.ts';
+import {makeIntactCane,createIntactFenceRun,makeIntactFenceMaterial,INTACT_FENCE_REVISION,INTACT_FENCE_ATLAS,BAMBOO_TEXTURE_REVISION} from '../src/world/intactBambooFence.ts';
+import {bambooSurfaceUV,buildBambooAtlasPixels} from '../src/world/bambooSurfaceAtlas.ts';
 import {createHomeStage} from '../src/world/homeStage.ts';
 
 test('every cane has continuous real hollow geometry with closed walls and valid UVs',()=>{
@@ -30,6 +31,7 @@ test('every cane has continuous real hollow geometry with closed walls and valid
 
 test('every actual home fence run uses separated unbroken canes, continuous rails and unchanged footprint',()=>{
   const mat=makeIntactFenceMaterial(new THREE.Texture());
+  assert.equal(mat.userData.textureRevision,BAMBOO_TEXTURE_REVISION);
   assert.equal(mat.type,'MeshBasicMaterial');assert.equal(mat.toneMapped,false);
   const stage=createHomeStage(false,false,true);
   for(const run of stage.solids.filter(s=>s.label.includes('fence'))){
@@ -58,4 +60,26 @@ test('every actual home fence run uses separated unbroken canes, continuous rail
   assert.ok(!body.includes('createOpenFenceModule'));
   assert.ok(!body.includes('trimFenceLeft'));
   assert.ok(readFileSync(new URL('../public/'+INTACT_FENCE_ATLAS.slice(2),import.meta.url)).length>1000);
+});
+
+test('texture-only atlas uses original pigment, padded islands and seamless cane UV edges',()=>{
+  const source=(rgb)=>{
+    const data=new Uint8ClampedArray(64*64*4);
+    for(let i=0;i<data.length;i+=4)data.set([...rgb,255],i);
+    return {width:64,height:64,data};
+  };
+  const warm=buildBambooAtlasPixels(source([212,160,75]));
+  const olive=buildBambooAtlasPixels(source([150,137,68]));
+  assert.equal(warm.length,768*512*4);
+  assert.notDeepEqual(warm,olive,'source GLB colors must affect atlas, not just a fixed fallback');
+  for(const kind of ['cane','rail','tie','rim','inside','well']){
+    const a=bambooSurfaceUV(kind,0,0),b=bambooSurfaceUV(kind,1,1);
+    assert.ok(a.every(v=>v>0&&v<1)&&b.every(v=>v>0&&v<1));
+    assert.ok(a[0]<b[0]&&a[1]<b[1]);
+  }
+  const at=(x,y)=>Array.from(warm.slice((y*768+x)*4,(y*768+x)*4+4));
+  for(const y of [24,72,128,200])assert.deepEqual(at(4,y),at(252,y),'cane seam must have matching pigment');
+  const tube=makeIntactCane('cane');
+  assert.equal(tube.attributes.position.count,210);
+  assert.equal(tube.index.count,1008);
 });
