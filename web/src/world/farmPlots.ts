@@ -2,7 +2,7 @@ import { plantingPlaces } from './gardenLayout.ts';
 
 export type FarmAction = 'hoe' | 'water' | 'sow' | 'harvest';
 export type CropStage = 'bare' | 'seed' | 'sprout' | 'ripe';
-export type PlotState = { tilled: boolean; wateredAt: number; plantedAt: number; harvests: number };
+export type PlotState = { chapterStage?: CropStage; tilled: boolean; wateredAt: number; plantedAt: number; harvests: number };
 export const farmLabels: Record<FarmAction, string> = { hoe: 'Cangkul', water: 'Siram', sow: 'Tanam sawi', harvest: 'Panen' };
 export const farmKeys = ['hoe', 'water', 'sow', 'harvest'] as const;
 export const GROW_TIME = 120_000;
@@ -10,6 +10,7 @@ const prefix = 'lembah-asri:home-garden:v1:';
 const blank = (): PlotState => ({ tilled: false, wateredAt: 0, plantedAt: 0, harvests: 0 });
 
 export function cropStage(plot: PlotState, now: number): CropStage {
+  if (plot.chapterStage) return plot.chapterStage;
   if (!plot.plantedAt) return 'bare';
   if (!plot.wateredAt) return 'seed';
   const age = now - Math.max(plot.plantedAt, plot.wateredAt);

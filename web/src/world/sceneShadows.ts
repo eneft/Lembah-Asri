@@ -58,14 +58,17 @@ export function configureSunShadows(sun: THREE.DirectionalLight, mobile: boolean
 }
 
 /** Follow the character and keep the shadow-map texel grid reasonably stable. */
-export function focusSunShadows(sun: THREE.DirectionalLight, x: number, z: number): void {
+export const villageSunOffset = new THREE.Vector3(-18, 30, -12);
+export const chapterSunOffset = new THREE.Vector3(22, 28, 15);
+
+export function focusSunShadows(sun: THREE.DirectionalLight, x: number, z: number, offset = villageSunOffset): void {
   if (!Number.isFinite(x) || !Number.isFinite(z)) return;
   const width = sun.shadow.camera.right - sun.shadow.camera.left;
   const snap = width / Math.max(1, sun.shadow.mapSize.x);
   const fx = Math.round(x / snap) * snap;
   const fz = Math.round(z / snap) * snap;
   sun.target.position.set(fx, 0, fz);
-  sun.position.set(fx - 18, 30, fz - 12);
+  sun.position.copy(sun.target.position).add(offset);
 }
 
 /**

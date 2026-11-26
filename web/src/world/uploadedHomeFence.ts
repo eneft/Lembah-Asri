@@ -282,7 +282,7 @@ export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[])
     const sourceBounds=geometry.boundingBox!;
     const repeated=trimFenceLeft(geometry,sourceBounds.min.x+(sourceBounds.max.x-sourceBounds.min.x)*.10);
     for (const run of runs) replacement.add(createUploadedFenceRun(geometry, material, run, repeated));
-    if (replacement.children.length !== 6) throw new Error('Unexpected home fence layout');
+    if (runs.length === 0) throw new Error('Unexpected home fence layout');
     // Replace only the existing fence visuals; retain every original collider.
     const old = root.children.filter(child => child.userData.bambooFence === true);
     if (old.length !== runs.length) throw new Error('Original fence layout mismatch');

@@ -3,6 +3,8 @@ import { GardenSurface } from './gardenSurface.ts';
 import { FarmPlots, availableActions, cropStage, describePlot, reachablePlot, GROW_TIME, type FarmAction } from './farmPlots.ts';
 
 export type FarmHUD = {
+  chapter?: { location:string; goal:string; day:number; seeds:number; water:number;
+    task?: import('./homeChapter.ts').ChapterTask; label:string };
   id: number; row: number; spot: number; description: string;
   actions: FarmAction[]; harvests: number; saved: boolean;
 };
