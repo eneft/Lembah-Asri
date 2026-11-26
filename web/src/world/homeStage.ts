@@ -11,7 +11,7 @@ import { CONCEPT_SHADE_TREE } from './referenceShadeTree.ts';
 import { loadPaintedTreeSource, instantiatePaintedTree } from './treeAsset.ts';
 import { loadUserReferenceTextureSet, applyUserReferenceDryRock } from './userReferenceTextures.ts';
 import { attachCuratedHomeRocks } from './homeRocks.ts';
-import { HOME_LANDSCAPE } from './homeLandscape';
+import { HOME_LANDSCAPE } from './homeLandscape.ts';
 import { createHomeCreek, createHomeCreekVegetation, carveVisualCreek, loadPaintedCreekTextures, installRockContactFoam } from './homeCreek.ts';
 import { createSculptedCreekMeadow, createFineCreekBankGrass } from './homeTerrain3D.ts';
 import { applyRiversidePaint } from './riversidePaint.ts';
