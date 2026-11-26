@@ -520,9 +520,34 @@ export class Game {
     const isolated = this.area === 'home';
     const loader = new THREE.TextureLoader();
     const loadWorldTexture = (url: string) => {
-      let finish: () => void = () => {};
-      this.worldExportAssets.push(new Promise<void>(resolve => { finish = resolve; }));
-      return loader.load(url, () => finish(), undefined, () => finish());
+      // TextureLoader returns an empty Texture immediately. Keep a valid
+      // image even on network/decode failure, instead of resolving readiness
+      // with a null source that cannot be serialized by Three.js.
+      const fallback = document.createElement('canvas');
+      fallback.width = fallback.height = 2;
+      const ctx = fallback.getContext('2d')!;
+      if (/island-horizon|north-home-panorama|island-groves/.test(url)) {
+        // Optional scenery disappears into the existing sky if art is missing.
+        ctx.clearRect(0, 0, 2, 2);
+      } else {
+        ctx.fillStyle = /creek_meadow/.test(url) ? '#9db66a'
+          : /creek_water/.test(url) ? '#75b3ac' : '#ffffff';
+        ctx.fillRect(0, 0, 2, 2);
+      }
+      const texture = new THREE.CanvasTexture(fallback);
+      texture.name = url;
+      texture.userData.sourceURL = url;
+      const ready = loader.loadAsync(url).then(loaded => {
+        // Preserve settings applied by the caller (wrap, UV, color space).
+        texture.image = loaded.image;
+        texture.needsUpdate = true;
+        texture.userData.sourceState = 'loaded';
+      }).catch(error => {
+        texture.userData.sourceState = 'fallback';
+        console.warn('[LembahAsri] Using explicit scenery texture fallback:', url, error);
+      });
+      this.worldExportAssets.push(ready);
+      return texture;
     };
     const finish = villageFinishes(loadWorldTexture);
     const home = createHomeStage(true, chapterMode(), isolated);
