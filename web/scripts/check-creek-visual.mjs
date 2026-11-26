@@ -272,29 +272,18 @@ try{
   assert.equal(vista.local,true);
   assert.ok(vista.grove>0);
   assert.equal(vista.old,false);
-  // Inspect actual rebuilt full canes, not the obsolete clipped GLB modules.
-  await page.waitForFunction(()=>window.__lembahVisualQA.scene.getObjectByName('Home fence — uploaded GLB')?.userData.textureRevision==='original-bamboo-pigment-v4',null,{timeout:120000});
+  await page.waitForFunction(()=>window.__lembahVisualQA.scene.getObjectByName('Home fence — uploaded GLB')?.userData.spacingRevision==='authored-shared-posts-v1',null,{timeout:120000});
   const fence=await page.evaluate(()=>{
     const group=window.__lembahVisualQA.scene.getObjectByName('Home fence — uploaded GLB');
-    return group.children.map(run=>{
-      const posts=run.getObjectByName('Complete hollow bamboo posts');
-      const pickets=run.getObjectByName('Complete separated bamboo pickets');
-      const rails=run.getObjectByName('Continuous bamboo rails');
-      const vines=run.getObjectByName('Climbing vines — painted 3D');
-      const meshes=[posts,pickets,rails];
-      return {posts:posts.count,pickets:pickets.count,rails:rails.count,
-        complete:meshes.every(m=>m.geometry.userData.completeCane && m.geometry.getAttribute('uv') && m.material.map?.image && m.material.userData.textureRevision==='original-bamboo-pigment-v4'),
-        gaps:run.userData.bayGaps,revision:run.userData.spacingRevision,
-        leaves:vines.userData.leafCount,clusters:vines.userData.clusters,branches:vines.userData.branches,
-        rootGrass:vines.userData.rootGrass,length:run.userData.runLength,
-        realLeaves:vines.userData.leafCount===0||vines.getObjectByName('Climbing vine leaves')?.count===vines.userData.leafCount};
-    });
+    return group.children.map(run=>({
+      meta:run.userData,original:run.children.every(m=>m.isInstancedMesh&&m.geometry.getAttribute('uv')&&m.material.map?.image),
+      first:run.getObjectByName('01_Bambu')?.count,
+      repeat:run.getObjectByName('01_Bambu — shared post repeat')?.count??0
+    }));
   });
   assert.equal(fence.length,6);
-  assert.ok(fence.every(f=>f.complete && f.revision==='intact-canes-v3' && f.pickets>0 &&
-    f.rails===2*(f.posts-1) && f.gaps.every(g=>g>.15&&g<.34)));
-  assert.ok(fence.every(f=>f.realLeaves && (f.length<4?f.clusters===0:f.leaves>=f.clusters*31 && f.clusters>0 && f.branches===f.clusters*3 && f.rootGrass>0)));
-  assert.ok(assets.has(prefix+'models/environment/home-fence-module.glb'));
+  assert.ok(fence.every(f=>f.original&&f.first===1&&f.repeat===f.meta.moduleCount-1&&f.meta.postCount===2*f.meta.moduleCount+1));
+  assert.ok([...assets].some(url=>url.includes('pagar_bambu_asri.glb')));
   const arrival=await page.evaluate(()=>window.__lembahVisualQA.player.translation());
   assert.ok(Math.abs(arrival.x+42.40)<.12 && Math.abs(arrival.z-10.95)<.12,
     'the riverside link should place the player at the near end of the bridge');
