@@ -15,7 +15,7 @@ import { farmKeys, type FarmAction } from './farmPlots';
 import { sculptGardenGround, gardenHeightAt, type GardenGround } from './gardenLayout';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
 import { HOME_SCENIC_CAMERA } from './homeScenicCamera';
-import { bridgeWalkHeightAt, makeBridgeWalkCollider } from './paintedBridge';
+import { bridgeWalkHeightAt, makeBridgeWalkCollider, VILLAGE_CROSSING, BRIDGE_WALK, makeVillageBridgeCollider, villageBridgeHeightAt } from './paintedBridge';
 import { installCreekCollision, guardCreekPlayerMovement } from './creekCollision';
 import { applyRiversidePaint } from './riversidePaint';
 import { villageFinishes, villageStream } from './villageSurfaces';
@@ -88,7 +88,7 @@ export class Game {
   private onWalkingGround() {
     const p = this.player.translation(), velocity = this.player.linvel();
     const ground=(x:number,z:number)=>
-      Math.max(gardenHeightAt(x,z),bridgeWalkHeightAt(x,z), ...this.homeSolids
+      Math.max(gardenHeightAt(x,z),bridgeWalkHeightAt(x,z), villageBridgeHeightAt(x,z), ...this.homeSolids
         .filter(s => /^(COL_Lantai|COL_Anak_tangga_)/.test(s.label)
           && Math.abs(x-s.center[0]) <= s.half[0]+0.02
           && Math.abs(z-s.center[2]) <= s.half[2]+0.02)
@@ -239,6 +239,8 @@ export class Game {
       RAPIER.ColliderDesc.trimesh(bridgeWalk.vertices,bridgeWalk.indices).setFriction(.92),
       floor
     );
+    const villageWalk = makeVillageBridgeCollider();
+    game.world.createCollider(RAPIER.ColliderDesc.trimesh(villageWalk.vertices,villageWalk.indices).setFriction(.92),floor);
     // Invisible solid volumes follow the actual watercourse. The only opening
     // is the existing raised bridge; its deck and ramps stay unchanged.
     installCreekCollision(game.world, floor, RAPIER);
@@ -551,7 +553,7 @@ export class Game {
     // Trees are placed using local UV-painted 3D assets in loadEnvironmentTrees.
     this.villageWater = loadWorldTexture(CREEK_PAINTED_TEXTURES.water);
     this.scene.add(villageStream(this.villageWater));
-    const bridge = new THREE.Mesh(new THREE.BoxGeometry(5,.35,4),finish.wood); bridge.position.set(0,.35,17); bridge.castShadow=true; this.scene.add(bridge);
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(VILLAGE_CROSSING.width,.24,VILLAGE_CROSSING.length),finish.wood); bridge.position.set(0,BRIDGE_WALK.top-.12,VILLAGE_CROSSING.z); bridge.castShadow=true; this.scene.add(bridge);
     // The two crossings share the authored bamboo model and atlas. Fit the
     // second visual to its existing deck after the home bridge has loaded.
     this.worldExportAssets.push(home.ready.then(() => {
@@ -560,7 +562,7 @@ export class Game {
       const crossing = new THREE.Group();
       crossing.name = 'Village bamboo footbridge';
       const copy = original.clone();
-      copy.position.set(0,0,0);
+      copy.position.set(0,original.position.y,0);
       crossing.add(copy);
       crossing.rotation.y = Math.PI/2;
       crossing.updateMatrixWorld(true);
@@ -568,8 +570,8 @@ export class Game {
       const size = bounds.getSize(new THREE.Vector3());
       const center = bounds.getCenter(new THREE.Vector3());
       const mount = new THREE.Group();
-      mount.scale.set(3.1/size.x, 1, 4.5/size.z);
-      mount.position.set(-center.x*mount.scale.x,.045-bounds.min.y,17-center.z*mount.scale.z);
+      mount.scale.set(VILLAGE_CROSSING.width/size.x, 1, VILLAGE_CROSSING.length/size.z);
+      mount.position.set(-center.x*mount.scale.x,0,VILLAGE_CROSSING.z-center.z*mount.scale.z);
       mount.add(crossing);
       this.scene.add(mount);
       bridge.visible = false;

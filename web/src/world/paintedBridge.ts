@@ -53,6 +53,26 @@ export function makeBridgeWalkCollider():{vertices:Float32Array;indices:Uint32Ar
   return {vertices:new Float32Array(vertices),indices:new Uint32Array(indices)};
 }
 
+export const VILLAGE_CROSSING = Object.freeze({z:17, length:4.5, width:3.1});
+
+export function villageBridgeHeightAt(x:number,z:number):number {
+  return bridgeWalkHeightAt(
+    BRIDGE_DECK.x + (z-VILLAGE_CROSSING.z)*BRIDGE_DECK.length/VILLAGE_CROSSING.length,
+    BRIDGE_DECK.z - x*2*BRIDGE_WALK.halfWidth/VILLAGE_CROSSING.width
+  );
+}
+
+export function makeVillageBridgeCollider(){
+  const walk = makeBridgeWalkCollider();
+  for (let i=0; i<walk.vertices.length; i+=3) {
+    const along = walk.vertices[i]-BRIDGE_DECK.x;
+    const across = walk.vertices[i+2]-BRIDGE_DECK.z;
+    walk.vertices[i] = -across*VILLAGE_CROSSING.width/(2*BRIDGE_WALK.halfWidth);
+    walk.vertices[i+2] = VILLAGE_CROSSING.z + along*VILLAGE_CROSSING.length/BRIDGE_DECK.length;
+  }
+  return walk;
+}
+
 /** Matte painted timber: long vertical strokes in the plank's Z direction.
  * No basket-weave/waffle tiling from the old multi-face wooden atlas. */
 export function makePainterlyPlankAlbedo():THREE.DataTexture{
