@@ -1,4 +1,5 @@
-import { createIntactFenceRun, makeIntactFenceMaterial, INTACT_FENCE_ATLAS, INTACT_FENCE_REVISION } from './intactBambooFence.ts';
+import { createIntactFenceRun, makeIntactFenceMaterial, INTACT_FENCE_REVISION } from './intactBambooFence.ts';
+import { loadOriginalBambooSurfaceAtlas, ORIGINAL_BAMBOO_GLB, BAMBOO_TEXTURE_REVISION } from './bambooSurfaceAtlas.ts';
 import { applyPaintedPigment } from './paintedPigment.ts';
 import { makePaintedLeafAlbedo } from './homeArtPass.ts';
 import { makeLowPolyGrassGeometry } from './lowPolyGrass.ts';
@@ -228,12 +229,11 @@ export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[])
     if(!runs.length)throw new Error('Unexpected home fence layout');
     const old=root.children.filter(child=>child.userData.bambooFence===true);
     if(old.length!==runs.length)throw new Error('Original fence layout mismatch');
-    const atlas=await new THREE.TextureLoader().loadAsync(INTACT_FENCE_ATLAS);
-    atlas.name=INTACT_FENCE_ATLAS;
+    const atlas=await loadOriginalBambooSurfaceAtlas();
     const material=makeIntactFenceMaterial(atlas);
     const replacement=new THREE.Group();
     replacement.name='Home fence — uploaded GLB';
-    replacement.userData={spacingRevision:INTACT_FENCE_REVISION,originalGLBUnchanged:true,sourceAtlas:INTACT_FENCE_ATLAS};
+    replacement.userData={spacingRevision:INTACT_FENCE_REVISION,originalGLBUnchanged:true,sourceAtlas:ORIGINAL_BAMBOO_GLB,textureRevision:BAMBOO_TEXTURE_REVISION};
     for(const run of runs){
       const fence=createIntactFenceRun(run,material);
       const seed=run.label.split('').reduce((a,c)=>Math.imul(a,31)+c.charCodeAt(0),13);
