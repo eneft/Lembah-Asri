@@ -72,7 +72,7 @@ export function createFenceVines(length:number,height:number,depth:number,seed:n
   const group=new THREE.Group();
   group.name='Climbing vines — painted 3D';
   const clusters=length<4?0:Math.max(1,Math.floor(length/6));
-  const leaves:{position:THREE.Vector3;angle:number;size:number;color:THREE.Color;side:number;tilt:number}[]=[];
+  const leaves:{position:THREE.Vector3;angle:number;size:number;color:THREE.Color;side:number;tilt:number;yaw?:number}[]=[];
   const verge:{x:number;z:number;scale:number;yaw:number}[]=[];
   let branches=0,state=seed>>>0;
   const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
@@ -88,7 +88,7 @@ export function createFenceVines(length:number,height:number,depth:number,seed:n
       const tangent=curve.getTangent(t);
       const axis=Math.atan2(-tangent.x,tangent.y);
       const sign=j%2===0?1:-1;
-      leaves.push({position,angle:axis+sign*(.65+random()*1.05),size:.46+random()*.52,
+      leaves.push({position,angle:axis+sign*(.65+random()*1.05),size:.76+random()*.80,
         color:new THREE.Color(palette[Math.floor(random()*palette.length)]),side,tilt:(random()-.5)*.75});
     }
   };
@@ -97,7 +97,7 @@ export function createFenceVines(length:number,height:number,depth:number,seed:n
     const x=anchors.length?anchors.reduce((a,b)=>Math.abs(a-target)<Math.abs(b-target)?a:b):target;
     const side=i%3===2?-outward:outward;
     // Main stem hugs the thick post; side shoots bend back to rail surfaces.
-    const z=side*depth*.43;
+    const z=side*(depth*.5+.012);
     const rise=height*(.79+random()*.12);
     const points=Array.from({length:7},(_,j)=>{
       const t=j/6;
@@ -110,16 +110,38 @@ export function createFenceVines(length:number,height:number,depth:number,seed:n
       const endX=THREE.MathUtils.clamp(x+dir*reach,-length/2+.12,length/2-.12);
       append([
         new THREE.Vector3(x,y,z),
-        new THREE.Vector3(x+dir*.17,y+.05,side*depth*.35),
-        new THREE.Vector3((x+endX)*.5,y+.025,side*depth*.32),
-        new THREE.Vector3(endX,y+(b===2?-.13:.07),side*depth*.34)
+        new THREE.Vector3(x+dir*.17,y+.05,z),
+        new THREE.Vector3((x+endX)*.5,y+.025,z),
+        new THREE.Vector3(endX,y+(b===2?-.13:.07),z)
       ],side,7+Math.floor(random()*4),.006);
       branches++;
     }
-    // Low foliage at the root; never scatter across the gate or open paths.
-    for(let k=0;k<10;k++){
-      const px=THREE.MathUtils.clamp(x+(random()-.5)*1.15,-length/2+.25,length/2-.25);
-      verge.push({x:px,z:side*(depth*.48+.035+random()*.17),scale:.8+random()*.8,yaw:random()*Math.PI*2});
+  }
+  // Grass and spreading herbs grow in broken drifts on either face of the fence.
+  for (const side of [-1, 1]) {
+    for (let x = -length / 2 + .6; x < length / 2 - .55; x += .65 + random() * 1.5) {
+      const spread = .16 + random() * .26;
+      const tufts = 3 + Math.floor(random() * 6);
+      for (let k = 0; k < tufts; k++) {
+        verge.push({
+          x: x + (random() - .5) * spread * 2,
+          z: side * (depth / 2 + .03 + random() * spread),
+          scale: .62 + random() * .90, yaw: random() * Math.PI * 2
+        });
+      }
+      if (random() < .54) {
+        const z = side * (depth / 2 + .12 + random() * .22);
+        const phase = random() * Math.PI * 2;
+        for (let k = 0; k < 7; k++) {
+          const yaw = phase + k * 2.4;
+          leaves.push({
+            position: new THREE.Vector3(x + Math.sin(yaw) * .05, .065, z + Math.cos(yaw) * .05),
+            angle: (random() - .5) * .5, size: 1.12 + random() * .96,
+            color: new THREE.Color(palette[Math.floor(random() * palette.length)]),
+            side, tilt: .48 + random() * .75, yaw
+          });
+        }
+      }
     }
   }
   const marker=new THREE.Object3D();
@@ -128,7 +150,7 @@ export function createFenceVines(length:number,height:number,depth:number,seed:n
     mesh.name='Climbing vine leaves';
     leaves.forEach((leaf,i)=>{
       marker.position.copy(leaf.position);
-      marker.rotation.set(leaf.tilt,leaf.side===1?0:Math.PI,leaf.angle*leaf.side);
+      marker.rotation.set(leaf.tilt,leaf.yaw ?? (leaf.side===1?0:Math.PI),leaf.angle*leaf.side,'YXZ');
       marker.scale.setScalar(leaf.size);marker.updateMatrix();
       mesh.setMatrixAt(i,marker.matrix);mesh.setColorAt(i,leaf.color);
     });
@@ -217,21 +239,28 @@ export async function loadUploadedHomeFence(root: THREE.Group, runs: FenceRun[])
     const painted = material.onBeforeCompile;
     material.onBeforeCompile = (shader, renderer) => {
       painted.call(material, shader, renderer);
-      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+      shader.vertexShader = 'varying vec3 vFencePoint;\n' + shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\nvFencePoint = (instanceMatrix * vec4(position, 1.)).xyz;'
+      );
+      shader.fragmentShader = 'varying vec3 vFencePoint;\n' + shader.fragmentShader.replace('#include <map_fragment>', `
         #include <map_fragment>
-        float bambooValue = dot(diffuseColor.rgb, vec3(.25,.60,.15));
-        // Preserve baked texture contrasts, but grade pale canes into warm old bamboo.
-        vec3 golden = vec3(.035,.019,.006) + bambooValue * vec3(1.08,.73,.30);
-        vec3 timber = mix(diffuseColor.rgb, golden, .76);
-        // Broken low moss pigmentation; never a uniform green stripe.
-        float mossNoise = .5 + .25*sin(vPaintLocal.x*38. + sin(vPaintLocal.y*25.)*2.)
-          + .25*sin(vPaintLocal.x*71. - vPaintLocal.y*41. + vPaintLocal.z*57.);
-        float moss = (1.-smoothstep(.06,.32,vPaintLocal.y)) * smoothstep(.48,.84,mossNoise);
-        vec3 mossPigment = vec3(.085,.115,.029) + bambooValue*vec3(.24,.35,.075);
-        diffuseColor.rgb = mix(timber,mossPigment,moss*.60);
+        vec3 p = vFencePoint;
+        float value = dot(diffuseColor.rgb, vec3(.25,.60,.15));
+        float cane = sin(p.x*17. + .36*sin(p.x*31.) + p.y*.24);
+        float streak = .5 + .5*sin(p.x*51. + sin(p.y*2. + p.x*13.));
+        float wear = .5 + .25*sin(p.x*3.7 + p.y*4.1) + .25*sin(p.x*6.3 - p.y*2.8);
+        vec3 honey = vec3(1.08,.66,.22);
+        vec3 olive = vec3(.67,.62,.20);
+        vec3 glaze = mix(honey, olive, smoothstep(-.75,.92,cane)*.78);
+        vec3 bamboo = mix(diffuseColor.rgb, value*glaze, .86) * (.86 + .14*streak);
+        float flecks = .5 + .25*sin(p.x*35. + sin(p.y*13.)*2.) + .25*sin(p.y*39. - p.x*23.);
+        float moss = smoothstep(.38,.77, wear*.76 + flecks*.24)
+          * (1.-smoothstep(.08,.36 + wear*.56,p.y));
+        diffuseColor.rgb = mix(bamboo, (.045 + value)*vec3(.32,.42,.095), moss*.78);
       `);
     };
-    material.customProgramCacheKey = () => 'golden-bamboo-moss-pigment-v2';
+    material.customProgramCacheKey = () => 'weathered-bamboo-verge-v3';
     const replacement = new THREE.Group();
     replacement.name = 'Home fence — uploaded GLB';
     geometry.computeBoundingBox();
