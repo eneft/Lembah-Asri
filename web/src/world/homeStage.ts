@@ -666,7 +666,66 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
     fallback.visible = false;
     return true;
   };
-  const loaded = !loadApprovedModel ? Promise.resolve(false) : loadChildhoodHouse().catch(error => {
+  // Meshy cottage uses a single visual mesh, not the separate authored
+  // Collision scene of Rumah_Masa_Kecil. Keep the old house as a safe fallback.
+  const loadRedRoofCottage = async (): Promise<boolean> => {
+    const { scene } = await new GLTFLoader().loadAsync('./models/environment/Red_Roof_Cottage.glb?house=red-roof-v1');
+    scene.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(scene);
+    const dimensions = bounds.getSize(new THREE.Vector3());
+    const scale = computeHouseScale(dimensions);
+    const center = bounds.getCenter(new THREE.Vector3());
+    scene.scale.setScalar(scale);
+    scene.position.set(HOME.house.x - center.x * scale, -bounds.min.y * scale,
+      HOME.house.z - center.z * scale);
+    scene.name = 'Rumah utama - Red Roof Cottage';
+    scene.userData.sourceFile = 'Red_Roof_Cottage.glb';
+    scene.userData.uvPreserved = true;
+    let meshCount = 0;
+    scene.traverse(obj => {
+      if (!(obj instanceof THREE.Mesh)) return;
+      meshCount++;
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+      // Preserve source materials and embedded maps.
+      for (const m of Array.isArray(obj.material) ? obj.material : [obj.material]) {
+        if (!(m instanceof THREE.MeshStandardMaterial)) continue;
+        if (m.map) m.map.anisotropy = 8;
+        if (m.normalMap) m.normalMap.anisotropy = 4;
+      }
+    });
+    if (!meshCount) throw new Error('Cottage has no renderable mesh');
+    scene.updateMatrixWorld(true);
+    const fitted = new THREE.Box3().setFromObject(scene);
+    const fittedCenter = fitted.getCenter(new THREE.Vector3());
+    const half = fitted.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+    if (![fittedCenter.x, fittedCenter.y, fittedCenter.z, half.x, half.y, half.z].every(Number.isFinite)
+      || Math.min(half.x, half.y, half.z) <= 0) throw new Error('Invalid cottage bounds');
+    // Closed exterior only: conservative AABB collision until a detailed
+    // collider set is authored for this specific mesh.
+    await courtyardAlbedo;
+    const previous = solids.findIndex(s => s.label === 'Childhood home walls');
+    if (previous < 0) throw new Error('Missing fallback house collision');
+    solids[previous] = {
+      label: 'Childhood home walls',
+      center: [fittedCenter.x, fittedCenter.y, fittedCenter.z],
+      half: [half.x + 0.05, half.y, half.z + 0.05]
+    };
+    cameraProxy.position.copy(fittedCenter);
+    cameraProxy.scale.set(
+      (half.x * 2 + 0.9) / (HOME.house.width + 0.9),
+      (half.y * 2 + 0.6) / (HOME.house.height + 0.6),
+      (half.z * 2 + 0.9) / (HOME.house.depth + 0.9)
+    );
+    cameraProxy.updateMatrixWorld(true);
+    root.add(scene);
+    fallback.visible = false;
+    return true;
+  };
+  const loaded = !loadApprovedModel ? Promise.resolve(false) : loadRedRoofCottage().catch(error => {
+    console.warn('[LembahAsri] Red Roof Cottage unavailable; retain approved house', error);
+    return loadChildhoodHouse();
+  }).catch(error => {
     console.warn('[LembahAsri] New childhood house unavailable; keep previous approved house', error);
     return new GLTFLoader().loadAsync(uploadedHouseUrl).then(async gltf => {
     const scene = gltf.scene;
