@@ -26,14 +26,14 @@ import { CREEK_PAINTED_TEXTURES, carveVisualCreek, updateHomeCreekWater } from '
 import { applyMeadowAntiTileShader } from './meadowAntiTile';
 import { createPaintedTerrainPlane, loadPaintedTerrainTextures } from './terrainMaterials';
 import { createInstancedGrass } from './lowPolyGrass';
-import { applyLembahDaylight, LEMBAH_DAYLIGHT } from './sceneArtDirection';
+import { applyLembahDaylight, applyHomeWarmMorning, HOME_WARM_MORNING, LEMBAH_DAYLIGHT } from './sceneArtDirection';
 import { createOutskirts } from './islandOutskirts';
 import { createDistantValley, createNorthHomePanorama } from './distantValley';
 import { createWarungStage } from './warungStage';
 import { HOME_AREA, resolveSceneArea, inHomeArea, constrainHomePosition } from './sceneAreas';
 import { HOME_LANDSCAPE, createHomeLandscapeGround, createHomeBoundaryGrove, homeLandscapeHeight } from './homeLandscape';
 import {
-  chapterSunOffset, villageSunOffset, configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
+  chapterSunOffset, villageSunOffset, homeMorningSunOffset, configureSunShadows, focusSunShadows, createPaintedShadowReceiver,
   createCharacterContactShadow, updateCharacterContactShadow
 } from './sceneShadows';
 
@@ -52,7 +52,7 @@ export class Game {
   private panorama?: ReturnType<typeof createDistantValley>;
   private environmentTarget?: THREE.WebGLRenderTarget;
   private characterBaseColor?: THREE.Texture;
-  private readonly sunOffset = chapterMode() ? chapterSunOffset : villageSunOffset;
+  private readonly sunOffset = this.area === 'home' ? homeMorningSunOffset : chapterMode() ? chapterSunOffset : villageSunOffset;
   private sunLight!: THREE.DirectionalLight;
   private characterContactShadow!: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private villageWater?: THREE.Texture;
@@ -252,6 +252,7 @@ export class Game {
     this.scene.add(skyFill);
     applyLembahDaylight(this.scene, this.renderer, sun, hemisphere, skyFill);
     this.addEnvironment();
+    if (this.area === 'home') applyHomeWarmMorning(this.scene, this.renderer, sun, hemisphere, skyFill);
     // Texture-load after all terrain surfaces have registered their UV scale.
     // A failed image request keeps the existing fallback color, not a blank map.
     this.worldExportAssets.push(loadPaintedTerrainTextures(
@@ -588,8 +589,16 @@ export class Game {
     const groundShadows = createPaintedShadowReceiver(
       'World painted-terrain real shadows', size, size, cx, cz, 0.103
     );
+    if (isolated) {
+      groundShadows.material.color.set(HOME_WARM_MORNING.shadowColor);
+      groundShadows.material.opacity=HOME_WARM_MORNING.shadowOpacity;
+    }
     this.scene.add(carveVisualCreek(sculptGardenGround(groundShadows)));
     this.characterContactShadow = createCharacterContactShadow();
+    if (isolated) {
+      this.characterContactShadow.userData.baseOpacity=HOME_WARM_MORNING.contactShadowOpacity;
+      this.characterContactShadow.material.opacity=HOME_WARM_MORNING.contactShadowOpacity;
+    }
     this.scene.add(this.characterContactShadow);
     // One or two InstancedMesh draws for all small 3D grass tufts.
     this.scene.add(createInstancedGrass(73137, isolated
