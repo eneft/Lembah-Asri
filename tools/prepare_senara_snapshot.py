@@ -83,6 +83,9 @@ def main():
         if path.name == "build-character-clips.mjs":
             out = out.replace("name + '.fbx'", "name.toLowerCase() + '.fbx'")
             out = out.replace("'clips/' + name + '.json'", "'clips/' + name.toLowerCase() + '.json'")
+        if path.name == "check-garden-browser.mjs":
+            out = out.replace("clip + '.json'", "clip.toLowerCase() + '.json'")
+            out = out.replace("clip + '.fbx'", "clip.toLowerCase() + '.fbx'")
         # Brand presentation, NOT the village name in dialogue, save keys, or schema IDs.
         if path.name == "index.html":
             out = out.replace("<title>Lembah Asri</title>", "<title>SENARA</title>")
