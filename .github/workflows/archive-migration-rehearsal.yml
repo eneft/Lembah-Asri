@@ -1,0 +1,86 @@
+name: Archive migration rehearsal
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/archive-migration-rehearsal.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Fetch history and tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Create and verify full fetched-history backup
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/archive-backup"
+          mkdir -p "$out"
+          git rev-parse "$BASE_SHA" > "$out/source-commit.txt"
+          git show-ref > "$out/fetched-refs.txt"
+          git ls-tree -r -l "$BASE_SHA" > "$out/source-tree.txt"
+          git bundle create "$out/Lembah-Asri-full-history.bundle" --all
+          git bundle verify "$out/Lembah-Asri-full-history.bundle"
+          git clone --mirror "$out/Lembah-Asri-full-history.bundle" "$RUNNER_TEMP/restore-test.git"
+          git -C "$RUNNER_TEMP/restore-test.git" fsck --full
+          git -C "$RUNNER_TEMP/restore-test.git" ls-tree -r -l "$BASE_SHA" > "$out/restored-tree.txt"
+          cmp "$out/source-tree.txt" "$out/restored-tree.txt"
+          git -C "$RUNNER_TEMP/restore-test.git" for-each-ref --format='%(objectname) %(refname)' > "$out/restored-refs.txt"
+          while read -r oid ref; do
+            actual="$(git -C "$RUNNER_TEMP/restore-test.git" rev-parse "$ref")"
+            test "$actual" = "$oid"
+          done < "$out/fetched-refs.txt"
+          (cd "$out" && sha256sum Lembah-Asri-full-history.bundle > SHA256SUMS)
+          du -h "$out/Lembah-Asri-full-history.bundle"
+          echo "Full fetched-history bundle restored and source tree and refs verified." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload verified backup for external archival
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lembah-Asri-verified-history-backup
+          path: ${{ runner.temp }}/archive-backup/
+          compression-level: 0
+          retention-days: 30
+      - name: Extract Three.js only from the exact base snapshot
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          isolated="$RUNNER_TEMP/isolated-game"
+          mkdir -p "$isolated"
+          git archive "$BASE_SHA" web | tar -xf - -C "$isolated"
+          test -f "$isolated/web/package.json"
+          test ! -e "$isolated/blockout3d"
+          test ! -e "$isolated/assets"
+          du -sh "$isolated/web" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build isolated Three.js source
+        working-directory: ${{ runner.temp }}/isolated-game/web
+        run: |
+          npm install
+          npm run build
+          test -s dist/index.html
+      - name: Test gameplay without legacy directories
+        working-directory: ${{ runner.temp }}/isolated-game/web
+        run: |
+          npm run test:animation
+          npm run test:materials
+          npm run test:home
+          npm run test:terrain
+          npm run test:farm-browser
+      - name: Report rehearsal result
+        run: |
+          echo "Three.js isolated build and selected gameplay tests passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "No files or history were removed from main. Download and preserve the verified bundle outside this repository before cutover." >> "$GITHUB_STEP_SUMMARY"
