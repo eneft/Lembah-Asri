@@ -31,7 +31,17 @@ try {
   const page = await browser.newPage({ viewport:{width:960,height:640}, hasTouch:true, isMobile:true });
   page.setDefaultTimeout(60_000);
   const failures = [], art = new Set();
-  page.on('pageerror', e => failures.push(e.message));
+  page.on('pageerror', e => { failures.push(e.message); console.error(e.stack); });
+  await page.addInitScript(() => {
+    const events = new EventTarget();
+    window.__THREE_DEVTOOLS__ = events;
+    events.addEventListener('observe', ({ detail }) => {
+      if (detail.isScene && detail.name !== 'Lembah Asri - World') {
+        // Constructors emit before children have been attached.
+        (window.testScenes ??= []).push(detail);
+      }
+    });
+  });
   page.on('console', m => { if (m.type() === 'error' && /Shader Error|VALIDATE_STATUS|Could not initialise WebGL|World export failed/i.test(m.text())) { failures.push(m.text()); console.error(m.text()); } });
   page.on('response', res => { if (res.ok()) art.add(new URL(res.url()).pathname); });
   await page.route('https://fonts.googleapis.com/**',route=>route.abort());
@@ -67,9 +77,19 @@ try {
   const hud = page.getByRole('region',{name:'Rawat kebun'});
   // Walk diagonally across the open courtyard from the normal spawn until a
   // place actually comes within reach (independent of software renderer FPS).
+  const position = () => page.evaluate(() => {
+    const player = window.testScenes?.map(scene => scene.getObjectByName('LembahAsri_PlayerRoot')).find(Boolean);
+    return {feet:player?.position.toArray(), focus:document.activeElement?.tagName};
+  });
+  assert.equal((await position()).focus,'CANVAS');
   await page.keyboard.down('d');
   await page.keyboard.down('w');
-  try { await hud.waitFor(); } finally { await page.keyboard.up('w'); await page.keyboard.up('d'); }
+  try {
+    await hud.waitFor();
+  } catch (error) {
+    console.error('Failed garden approach', await position(), failures);
+    throw error;
+  } finally { await page.keyboard.up('w'); await page.keyboard.up('d'); }
   await page.mouse.move(460,315);
   await page.mouse.down();
   await page.mouse.move(557,315,{steps:6});
@@ -95,6 +115,17 @@ try {
   await page.reload({waitUntil:'domcontentloaded'});
   await ready.waitFor({timeout:150_000});
   assert.deepEqual(await readSeeds(),snapshot);
+  // Advance only the wall clock used for crop growth, leaving RAF and physics live.
+  await page.clock.setFixedTime(new Date(snapshot[0][1].plantedAt + 121_000));
+  await page.locator('.game-canvas canvas').click({position:{x:400,y:300}});
+  await page.keyboard.down('d');
+  await page.keyboard.down('w');
+  try { await button('Panen').waitFor(); } finally {
+    await page.keyboard.up('w');
+    await page.keyboard.up('d');
+  }
+  await button('Panen').tap();
+  assert.equal((await readSeeds())[0][1].harvests,1);
   assert.ok(art.has(prefix+'textures/terrain/home_garden_rows.webp'),'the deployed garden painting was fetched');
   // Exercise the real download button on a fully loaded production world.
   // Retain the same native Scene JSON so it can be opened in Three.js Editor.

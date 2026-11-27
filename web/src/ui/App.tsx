@@ -171,7 +171,7 @@ export default function App() {
       </button>}
       {exportNotice && <small role="status" className="perf-reading">{exportNotice}</small>}
       <button
-        type="button" className="perf-toggle" aria-pressed={showPerformance}
+        type="button" className="perf-toggle" disabled={!ready} aria-pressed={showPerformance}
         onClick={togglePerformance} title="Tampilkan FPS untuk pemeriksaan performa"
       >{showPerformance ? 'FPS ON' : 'FPS'}</button>
       {showPerformance && performanceSample &&

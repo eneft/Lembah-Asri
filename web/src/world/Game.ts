@@ -199,6 +199,14 @@ export class Game {
       if (!e.repeat) this.jumpRequested = true;
     }
   };
+  private releaseKeyboard = () => {
+    this.keys.clear();
+    this.jumpRequested = false;
+    this.dragging = false;
+  };
+  private onVisibilityChange = () => {
+    if (document.hidden) this.releaseKeyboard();
+  };
   private onKeyUp = (e: KeyboardEvent) => { this.keys.delete(e.key.toLowerCase()); };
   private onPointerUp = () => { this.dragging = false; };
   private cameraDistance = 8.6;
@@ -234,6 +242,7 @@ export class Game {
     sky.geometry.dispose();
     sky.material.dispose();
     pmrem.dispose();
+    this.renderer.domElement.tabIndex = 0;
     host.appendChild(this.renderer.domElement);
     this.camera.position.set(0, 6, -9);
     const hemisphere = new THREE.HemisphereLight('#e9f5ff', '#82775f', 1.15);
@@ -263,6 +272,8 @@ export class Game {
     this.worldExportAssets.push(this.loadEnvironmentTrees());
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(host);
+    window.addEventListener('blur', this.releaseKeyboard);
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     window.addEventListener('pointerup', this.onPointerUp);
@@ -759,7 +770,7 @@ export class Game {
   }
   private pointerX=0;
   private dragging=false;
-  private onPointerDown=(e:PointerEvent)=>{this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
+  private onPointerDown=(e:PointerEvent)=>{this.renderer.domElement.focus({preventScroll:true});this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
   private onPointerMove=(e:PointerEvent)=>{
     if (!this.dragging) return;
     this.yaw -= (e.clientX-this.pointerX)*.006;
@@ -909,7 +920,10 @@ export class Game {
       this.lastPerfTick = now;
     }
   };
-  dispose(){this.running=false;this.hoe?.dispose();this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);
+  dispose(){
+    window.removeEventListener('blur', this.releaseKeyboard);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    this.running=false;this.hoe?.dispose();this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);
     for (const layer of this.outskirts) {
       layer.geometry.dispose();
       layer.material.map?.dispose();
