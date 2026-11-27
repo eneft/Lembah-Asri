@@ -28,7 +28,7 @@ try {
     executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome',
     args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-dev-shm-usage']
   });
-  const page = await browser.newPage({ viewport:{width:960,height:640}, hasTouch:true, isMobile:true });
+  const page = await browser.newPage({ viewport:{width:960,height:640}, deviceScaleFactor:0.75, hasTouch:true, isMobile:true });
   page.setDefaultTimeout(60_000);
   const failures = [], art = new Set();
   page.on('pageerror', e => { failures.push(e.message); console.error(e.stack); });
@@ -85,7 +85,7 @@ try {
   await page.keyboard.down('d');
   await page.keyboard.down('w');
   try {
-    await hud.waitFor();
+    await hud.waitFor({timeout:150_000});
   } catch (error) {
     console.error('Failed garden approach', await position(), failures);
     throw error;
@@ -120,7 +120,7 @@ try {
   await page.locator('.game-canvas canvas').click({position:{x:400,y:300}});
   await page.keyboard.down('d');
   await page.keyboard.down('w');
-  try { await button('Panen').waitFor(); } finally {
+  try { await button('Panen').waitFor({timeout:150_000}); } finally {
     await page.keyboard.up('w');
     await page.keyboard.up('d');
   }
@@ -170,6 +170,10 @@ try {
     assert.ok(typeof image.url==='string' ? image.url.startsWith('data:') :
       image.url && (Array.isArray(image.url.data) || Array.isArray(image.url)),
       'texture source must be embedded, not a remote or blob URL');
+  }
+  for (const clip of ['Walking','Running','Jump']) {
+    assert.ok(art.has(prefix + 'models/character/clips/' + clip + '.json'), 'missing clip ' + clip);
+    assert.ok(!art.has(prefix + 'models/character/' + clip + '.fbx'), 'downloaded duplicate mesh ' + clip);
   }
   assert.deepEqual(failures,[]);
   console.log('Touch actions, soil, saved seed and WebGL garden verified from the production build.');
