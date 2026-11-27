@@ -432,7 +432,10 @@ export class Game {
     // Use the existing Idle FBX as both the visible character mesh and rig.
     // Keep its original UV layout and use the matching diffuse texture shipped
     // with this character package. No remote or replacement mesh is required.
-    const model = await loader.loadAsync(base + 'Idle.fbx');
+    const [model, shaded] = await Promise.all([
+      loader.loadAsync(base + 'Idle.fbx'),
+      new THREE.TextureLoader().loadAsync(base + 'shaded.png')
+    ]);
     model.name = 'LembahAsri_Player';
     const bounds = new THREE.Box3().setFromObject(model);
     const height = Math.max(bounds.max.y - bounds.min.y, 0.001);
@@ -449,8 +452,6 @@ export class Game {
 
     // Use the authored shaded atlas: it is the approved character texture
     // for this mesh and already contains the intended painted lighting.
-    const textureLoader = new THREE.TextureLoader();
-    const shaded = await textureLoader.loadAsync(base + 'shaded.png');
     // FBX UVs require this PNG orientation; do not change the approved atlas.
     shaded.flipY = true;
     this.characterBaseColor = shaded;
@@ -485,18 +486,18 @@ export class Game {
   }
 
   private async loadMotionClips() {
-    const loader = new FBXLoader();
+    const loader = new THREE.FileLoader();
     const clips: Array<[Exclude<Motion, 'idle'>, string]> = [
-      ['walk', 'Walking.fbx'],
-      ['run', 'Running.fbx'],
-      ['jump', 'Jump.fbx']
+      ['walk', 'Walking.json'],
+      ['run', 'Running.json'],
+      ['jump', 'Jump.json']
     ];
     // Parallel background loading avoids serially blocking the first render.
     const results = await Promise.allSettled(
       clips.map(async ([motion, file]) => {
-        const asset = await loader.loadAsync('./models/character/' + file);
-        const clip = asset.animations[0];
-        if (!clip) throw new Error(`Clip ${motion} tidak ditemukan pada ${file}`);
+        const data = await loader.loadAsync('./models/character/clips/' + file);
+        if (typeof data !== 'string') throw new Error('Invalid animation response: ' + file);
+        const clip = THREE.AnimationClip.parse(JSON.parse(data));
         removeBakedHipTravel(clip, motion);
         clip.name = motion;
         const action = this.mixer!.clipAction(clip);
