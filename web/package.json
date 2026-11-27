@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/build-painted-trees.mjs",
+    "predev": "node scripts/build-painted-trees.mjs && node scripts/build-character-clips.mjs",
     "dev": "vite --host 0.0.0.0",
-    "prebuild": "node scripts/build-painted-trees.mjs",
+    "prebuild": "node scripts/build-painted-trees.mjs && node scripts/build-character-clips.mjs",
     "build": "tsc --noEmit && vite build",
     "test:animation": "node --experimental-strip-types --test tests/character-animation.test.mjs",
     "test:materials": "node --experimental-strip-types --test tests/hand-painted-materials.test.mjs",

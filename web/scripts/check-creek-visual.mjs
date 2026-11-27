@@ -399,7 +399,7 @@ try{
     }));
   });
   for(const surface of meadowStyle.slice(0,6))
-    assert.equal(surface.style,'warm-painterly-grass-stage1-v1',
+    assert.equal(surface.style,'olive-jade-pigment-v2',
       'missing shared grass palette: '+surface.name);
   assert.equal(meadowStyle[6].style,null,
     'river water must keep its original painterly material');

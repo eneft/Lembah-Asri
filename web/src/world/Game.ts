@@ -199,6 +199,14 @@ export class Game {
       if (!e.repeat) this.jumpRequested = true;
     }
   };
+  private releaseKeyboard = () => {
+    this.keys.clear();
+    this.jumpRequested = false;
+    this.dragging = false;
+  };
+  private onVisibilityChange = () => {
+    if (document.hidden) this.releaseKeyboard();
+  };
   private onKeyUp = (e: KeyboardEvent) => { this.keys.delete(e.key.toLowerCase()); };
   private onPointerUp = () => { this.dragging = false; };
   private cameraDistance = 8.6;
@@ -234,6 +242,7 @@ export class Game {
     sky.geometry.dispose();
     sky.material.dispose();
     pmrem.dispose();
+    this.renderer.domElement.tabIndex = 0;
     host.appendChild(this.renderer.domElement);
     this.camera.position.set(0, 6, -9);
     const hemisphere = new THREE.HemisphereLight('#e9f5ff', '#82775f', 1.15);
@@ -263,6 +272,8 @@ export class Game {
     this.worldExportAssets.push(this.loadEnvironmentTrees());
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(host);
+    window.addEventListener('blur', this.releaseKeyboard);
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     window.addEventListener('pointerup', this.onPointerUp);
@@ -421,7 +432,10 @@ export class Game {
     // Use the existing Idle FBX as both the visible character mesh and rig.
     // Keep its original UV layout and use the matching diffuse texture shipped
     // with this character package. No remote or replacement mesh is required.
-    const model = await loader.loadAsync(base + 'Idle.fbx');
+    const [model, shaded] = await Promise.all([
+      loader.loadAsync(base + 'Idle.fbx'),
+      new THREE.TextureLoader().loadAsync(base + 'shaded.png')
+    ]);
     model.name = 'LembahAsri_Player';
     const bounds = new THREE.Box3().setFromObject(model);
     const height = Math.max(bounds.max.y - bounds.min.y, 0.001);
@@ -438,8 +452,6 @@ export class Game {
 
     // Use the authored shaded atlas: it is the approved character texture
     // for this mesh and already contains the intended painted lighting.
-    const textureLoader = new THREE.TextureLoader();
-    const shaded = await textureLoader.loadAsync(base + 'shaded.png');
     // FBX UVs require this PNG orientation; do not change the approved atlas.
     shaded.flipY = true;
     this.characterBaseColor = shaded;
@@ -474,18 +486,18 @@ export class Game {
   }
 
   private async loadMotionClips() {
-    const loader = new FBXLoader();
+    const loader = new THREE.FileLoader();
     const clips: Array<[Exclude<Motion, 'idle'>, string]> = [
-      ['walk', 'Walking.fbx'],
-      ['run', 'Running.fbx'],
-      ['jump', 'Jump.fbx']
+      ['walk', 'Walking.json'],
+      ['run', 'Running.json'],
+      ['jump', 'Jump.json']
     ];
     // Parallel background loading avoids serially blocking the first render.
     const results = await Promise.allSettled(
       clips.map(async ([motion, file]) => {
-        const asset = await loader.loadAsync('./models/character/' + file);
-        const clip = asset.animations[0];
-        if (!clip) throw new Error(`Clip ${motion} tidak ditemukan pada ${file}`);
+        const data = await loader.loadAsync('./models/character/clips/' + file);
+        if (typeof data !== 'string') throw new Error('Invalid animation response: ' + file);
+        const clip = THREE.AnimationClip.parse(JSON.parse(data));
         removeBakedHipTravel(clip, motion);
         clip.name = motion;
         const action = this.mixer!.clipAction(clip);
@@ -759,7 +771,7 @@ export class Game {
   }
   private pointerX=0;
   private dragging=false;
-  private onPointerDown=(e:PointerEvent)=>{this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
+  private onPointerDown=(e:PointerEvent)=>{this.renderer.domElement.focus({preventScroll:true});this.dragging=true;this.pointerX=e.clientX;this.renderer.domElement.setPointerCapture(e.pointerId);};
   private onPointerMove=(e:PointerEvent)=>{
     if (!this.dragging) return;
     this.yaw -= (e.clientX-this.pointerX)*.006;
@@ -767,7 +779,7 @@ export class Game {
   };
   private onWheel=(e:WheelEvent)=>{this.cameraDistance = THREE.MathUtils.clamp(this.cameraDistance * (e.deltaY>0?1.08:.92), 5, 17);};
   private resize(){const w=this.host.clientWidth,h=this.host.clientHeight;if(!w||!h)return;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();}
-  private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.05);this.last=now;
+  private loop=()=>{if(!this.running)return;this.frame=requestAnimationFrame(this.loop);const now=performance.now();const dt=Math.min((now-this.last)/1000,.2);this.last=now;
     if (this.exportingScene) return;
     this.creekElapsedSeconds+=dt;
     if (this.villageWater) this.villageWater.offset.y = this.creekElapsedSeconds * .017;
@@ -909,7 +921,10 @@ export class Game {
       this.lastPerfTick = now;
     }
   };
-  dispose(){this.running=false;this.hoe?.dispose();this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);
+  dispose(){
+    window.removeEventListener('blur', this.releaseKeyboard);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    this.running=false;this.hoe?.dispose();this.farm?.dispose();cancelAnimationFrame(this.frame);this.resizeObserver.disconnect();window.removeEventListener('keydown',this.onKeyDown);window.removeEventListener('keyup',this.onKeyUp);window.removeEventListener('pointerup',this.onPointerUp);window.removeEventListener('pointercancel',this.onPointerUp);
     for (const layer of this.outskirts) {
       layer.geometry.dispose();
       layer.material.map?.dispose();

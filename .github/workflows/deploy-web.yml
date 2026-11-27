@@ -38,6 +38,10 @@ jobs:
           npm run build
           test -s dist/index.html
 
+      - name: Verify farming in the Pages build
+        working-directory: web
+        run: npm run test:farm-browser
+
       - name: Prepare GitHub Pages package
         run: |
           mkdir -p build/pages
