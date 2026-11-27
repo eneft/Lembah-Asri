@@ -31,6 +31,42 @@ export const LEMBAH_DAYLIGHT = Object.freeze({
   contactShadowOpacity: 0.35
 });
 
+/** Home-only warm morning grade. Preserve the legacy rig, baked albedo,
+ * Neutral tone mapping, existing shadow maps and all authored materials. */
+export const HOME_WARM_MORNING = Object.freeze({
+  version:'home-warm-morning-v1',
+  sky:'#c8dfe5',
+  sunColor:'#f6d9a6',
+  sunIntensity:1.38,
+  hemisphereSky:'#e5f0f5',
+  hemisphereGround:'#a19479',
+  hemisphereIntensity:1.18,
+  fillColor:'#fff0d8',
+  fillIntensity:.32,
+  environmentIntensity:.24,
+  exposure:1,
+  shadowColor:'#796b53',
+  shadowOpacity:.29,
+  contactShadowOpacity:.30
+});
+
+/** Adjust the already installed single lighting rig, never add another sun. */
+export function applyHomeWarmMorning(
+  scene:THREE.Scene, renderer:THREE.WebGLRenderer, sun:THREE.DirectionalLight,
+  hemisphere:THREE.HemisphereLight,fill:THREE.DirectionalLight
+):void {
+  const p=HOME_WARM_MORNING;
+  renderer.toneMappingExposure=p.exposure;
+  scene.background=new THREE.Color(p.sky);
+  if(scene.fog instanceof THREE.Fog)scene.fog.color.set(p.sky);
+  scene.environmentIntensity=p.environmentIntensity;
+  sun.color.set(p.sunColor);sun.intensity=p.sunIntensity;
+  hemisphere.color.set(p.hemisphereSky);hemisphere.groundColor.set(p.hemisphereGround);
+  hemisphere.intensity=p.hemisphereIntensity;
+  fill.color.set(p.fillColor);fill.intensity=p.fillIntensity;
+  scene.userData.painterlyLightingStyle=p.version;
+}
+
 /** Scene color management stays explicit in linear lighting / sRGB output. */
 export function applyLembahDaylight(
   scene: THREE.Scene,
