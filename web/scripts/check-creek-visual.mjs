@@ -370,18 +370,18 @@ try{
       shadowOpacity:shadow?.material?.opacity
     };
   });
-  assert.equal(daylight.style,'lembah-painterly-daylight-stage5-v1');
-  assert.equal(daylight.sun,1.55);
-  assert.equal(daylight.hemi,1.1);
-  assert.equal(daylight.fill,.3);
+  assert.equal(daylight.style,'home-warm-morning-v1');
+  assert.equal(daylight.sun,1.38);
+  assert.equal(daylight.hemi,1.18);
+  assert.equal(daylight.fill,.32);
   assert.equal(daylight.exposure,1);
-  assert.equal(daylight.envIntensity,.3);
+  assert.equal(daylight.envIntensity,.24);
   assert.equal(daylight.fogNear,32);
   assert.equal(daylight.fogFar,60);
   assert.equal(daylight.housePBR,true);
   assert.equal(daylight.roughness,1);
   assert.equal(daylight.metalness,0);
-  assert.equal(daylight.shadowOpacity,.43);
+  assert.equal(daylight.shadowOpacity,.29);
   // Stage 1: compare the actual materials in the production WebGL scene.
   // Every grass source uses one finish; water is never treated as foliage.
   const meadowStyle=await page.evaluate(()=>{
