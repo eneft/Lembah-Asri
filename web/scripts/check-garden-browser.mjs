@@ -112,20 +112,17 @@ try {
   const snapshot = await readSeeds();
   assert.equal(snapshot.length,1);
   assert.ok(snapshot[0][1].tilled && snapshot[0][1].plantedAt && snapshot[0][1].wateredAt);
+  // Finish the cycle on the selected bed. Only the crop clock advances.
+  await page.clock.setFixedTime(new Date(Math.max(snapshot[0][1].plantedAt, snapshot[0][1].wateredAt) + 121_000));
+  await button('Panen').tap();
+  const harvested = await readSeeds();
+  assert.equal(harvested.length,1);
+  assert.equal(harvested[0][0],snapshot[0][0]);
+  assert.equal(harvested[0][1].harvests,1);
+  assert.equal(harvested[0][1].plantedAt,0);
   await page.reload({waitUntil:'domcontentloaded'});
   await ready.waitFor({timeout:150_000});
-  assert.deepEqual(await readSeeds(),snapshot);
-  // Advance only the wall clock used for crop growth, leaving RAF and physics live.
-  await page.clock.setFixedTime(new Date(snapshot[0][1].plantedAt + 121_000));
-  await page.locator('.game-canvas canvas').click({position:{x:400,y:300}});
-  await page.keyboard.down('d');
-  await page.keyboard.down('w');
-  try { await button('Panen').waitFor({timeout:150_000}); } finally {
-    await page.keyboard.up('w');
-    await page.keyboard.up('d');
-  }
-  await button('Panen').tap();
-  assert.equal((await readSeeds())[0][1].harvests,1);
+  assert.deepEqual(await readSeeds(),harvested);
   assert.ok(art.has(prefix+'textures/terrain/home_garden_rows.webp'),'the deployed garden painting was fetched');
   // Exercise the real download button on a fully loaded production world.
   // Retain the same native Scene JSON so it can be opened in Three.js Editor.
