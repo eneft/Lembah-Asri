@@ -60,6 +60,8 @@ export function configureSunShadows(sun: THREE.DirectionalLight, mobile: boolean
 /** Follow the character and keep the shadow-map texel grid reasonably stable. */
 export const villageSunOffset = new THREE.Vector3(-18, 30, -12);
 export const chapterSunOffset = new THREE.Vector3(22, 28, 15);
+// Lower morning key angle, same tracking frustum and shadow budget.
+export const homeMorningSunOffset = new THREE.Vector3(22, 20, 15);
 
 export function focusSunShadows(sun: THREE.DirectionalLight, x: number, z: number, offset = villageSunOffset): void {
   if (!Number.isFinite(x) || !Number.isFinite(z)) return;
@@ -124,5 +126,6 @@ export function updateCharacterContactShadow(
   shadow.visible = true;
   const factor = 1 + Math.min(air, 4) * 0.17;
   shadow.scale.set(factor, factor, 1);
-  shadow.material.opacity = LEMBAH_DAYLIGHT.contactShadowOpacity / (1 + air * 0.8);
+  const baseOpacity=typeof shadow.userData.baseOpacity==='number' ? shadow.userData.baseOpacity : LEMBAH_DAYLIGHT.contactShadowOpacity;
+  shadow.material.opacity = baseOpacity / (1 + air * 0.8);
 }
