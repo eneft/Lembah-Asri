@@ -1,3 +1,4 @@
+import { createHomeClouds } from './homeClouds';
 import { applyPaintedPigment } from './paintedPigment.ts';
 import * as THREE from 'three';
 import { serializeWorldScene } from './worldExport';
@@ -52,6 +53,9 @@ export class Game {
   private outskirts: ReturnType<typeof createOutskirts> = [];
   private panorama?: ReturnType<typeof createDistantValley>;
   private environmentTarget?: THREE.WebGLRenderTarget;
+  private clouds?: ReturnType<typeof createHomeClouds>;
+  private skyDisposed = false;
+  private morningSky?: THREE.Texture;
   private characterBaseColor?: THREE.Texture;
   private readonly sunOffset = this.area === 'home' ? homeMorningSunOffset : chapterMode() ? chapterSunOffset : villageSunOffset;
   private sunLight!: THREE.DirectionalLight;
@@ -269,6 +273,20 @@ export class Game {
     applyLembahDaylight(this.scene, this.renderer, sun, hemisphere, skyFill);
     this.addEnvironment();
     if (this.area === 'home') applyHomeWarmMorning(this.scene, this.renderer, sun, hemisphere, skyFill);
+    if (this.area === 'home') {
+      this.worldExportAssets.push(new THREE.TextureLoader().loadAsync('textures/sky/awan-berlapis.webp').then(texture => {
+        if (this.skyDisposed) { texture.dispose(); return; }
+        this.clouds = createHomeClouds(texture);
+        this.scene.add(this.clouds.group);
+      }).catch(error => console.warn('Awan pekarangan gagal dimuat:', error)));
+      this.worldExportAssets.push(new THREE.TextureLoader().loadAsync('textures/sky/pekarangan-pagi.webp').then(texture => {
+        if (this.skyDisposed) { texture.dispose(); return; }
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        this.morningSky = texture;
+        this.scene.background = texture;
+      }).catch(error => console.warn('Langit pekarangan gagal dimuat:', error)));
+    }
     // Texture-load after all terrain surfaces have registered their UV scale.
     // A failed image request keeps the existing fallback color, not a blank map.
     this.worldExportAssets.push(loadPaintedTerrainTextures(
@@ -923,6 +941,7 @@ export class Game {
     const smoothed=this.camera.position.clone().lerp(safeRequested,easing);
     this.camera.position.copy(keepCameraOutsideGeometry(this.cameraFocus,smoothed,this.cameraObstacles));
     this.camera.lookAt(this.cameraFocus);
+    this.clouds?.update(this.camera, dt);
     this.renderer.render(this.scene,this.camera);
     // Diagnostic HUD is opt-in and samples at most once per second to avoid
     // the per-frame React rerenders that previously made mobile input janky.
@@ -964,5 +983,8 @@ export class Game {
       this.panorama.material.dispose();
       this.panorama.geometry.dispose();
     }
+    this.skyDisposed = true;
+    this.clouds?.dispose();
+    this.morningSky?.dispose();
     this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.houseStairs?.dispose();this.world?.free();}
 }
