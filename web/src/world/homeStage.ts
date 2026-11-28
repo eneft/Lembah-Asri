@@ -172,7 +172,7 @@ function buildLocalHouseFallback(root: THREE.Object3D): THREE.Group {
   return group;
 }
 
-function addShed(root: THREE.Object3D) {
+function addShed(root: THREE.Object3D, loadApprovedModel: boolean): Promise<boolean> {
   const g = new THREE.Group();
   g.name = 'Empty timber storage shed';
   g.position.set(-22, 0, -10.4);
@@ -191,6 +191,53 @@ function addShed(root: THREE.Object3D) {
     cylinder(g, 'Stored timber logs', 0.1, 0.1, 1.6,
       [-1.18 + i * 0.23, 0.24, 2.0], wood, 7).rotation.z = Math.PI / 2;
   }
+  root.userData.shedLoadState = loadApprovedModel ? 'loading' : 'skipped';
+  if (!loadApprovedModel) return Promise.resolve(false);
+  return new GLTFLoader().loadAsync('./models/environment/garden_tool_shed_optimized.glb').then(({ scene }) => {
+    scene.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(scene);
+    const size = bounds.getSize(new THREE.Vector3());
+    if (![size.x, size.y, size.z].every(v => Number.isFinite(v) && v > 0.01)) {
+      throw new Error('Invalid storage shed dimensions');
+    }
+    // Authored front faces +Z. Keep proportions and center the existing plot.
+    // Width includes the attached plants and ground skirt; retain the original
+    // wall collider pending a visual gameplay/collision acceptance test.
+    const scale = Math.min(4.5 / size.x, 2.65 / size.y, 3.5 / size.z);
+    const center = bounds.getCenter(new THREE.Vector3());
+    scene.scale.setScalar(scale);
+    scene.position.set(-22 - center.x * scale, -bounds.min.y * scale, -10.4 - center.z * scale);
+    scene.name = 'Garden tool storage shed';
+    let texturedMeshes = 0;
+    scene.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+        if (material instanceof THREE.MeshStandardMaterial) {
+          if (material.map) {
+            material.map.colorSpace = THREE.SRGBColorSpace;
+            material.map.anisotropy = 4;
+            texturedMeshes++;
+          }
+          // Aged wood and clay should remain matte; keep UV and normal map.
+          material.metalness = 0;
+          material.roughness = 1;
+          material.normalScale.multiplyScalar(0.65);
+          material.needsUpdate = true;
+        }
+      }
+    });
+    if (!texturedMeshes) throw new Error('Storage shed has no textured mesh');
+    root.add(scene);
+    g.visible = false;
+    root.userData.shedLoadState = 'loaded';
+    return true;
+  }).catch(error => {
+    root.userData.shedLoadState = 'fallback';
+    console.warn('[LembahAsri] Keeping procedural storage shed', error);
+    return false;
+  });
 }
 
 /** 
@@ -433,7 +480,7 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
     : Promise.resolve(undefined);
 
   const fallback = buildLocalHouseFallback(root);
-  addShed(root);
+  const shedReady = addShed(root, loadApprovedModel);
   root.add(createHouseContactShadow(HOME.well.x, HOME.well.z, 2.65, 2.25));
   const wellReady = addWellOnly(root, loadApprovedModel);
   const peneduh = new THREE.Group();
@@ -680,5 +727,5 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
     return false;
   });
 
-  return { root, solids, cameraBlockers, garden, gardenGround, houseCollision, houseReady: loaded, ready: Promise.all([loaded, wellReady, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady, shadeReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, garden, gardenGround, houseCollision, houseReady: loaded, ready: Promise.all([loaded, shedReady, wellReady, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady, shadeReady]).then(([house]) => house) };
 }
