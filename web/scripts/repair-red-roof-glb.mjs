@@ -64,6 +64,24 @@ function compatible(a,i,role){
   return true;
 }
 const changes=[];
+// The optimizer removed the optional tangent stream but left its accessor.
+// No tangent bytes exist in this container. Without a normal map, tangents
+// are unnecessary; remove only the dangling optional semantic and accessor.
+const tangentIndex=doc.accessors.length-1;
+const tangent=doc.accessors[tangentIndex];
+if(roles.get(tangentIndex)==='TANGENT' && !views[tangent.bufferView]){
+  assert.ok(doc.materials.every(m=>!m.normalTexture && !m.extensions),'Cannot drop tangents from a normal-mapped material');
+  assert.equal(tangent.type,'VEC4');
+  assert.equal(tangent.count,positionCount);
+  for(const mesh of doc.meshes)for(const p of mesh.primitives){
+    assert.notEqual(p.indices,tangentIndex);
+    for(const [role,index] of Object.entries(p.attributes))if(index===tangentIndex){assert.equal(role,'TANGENT');delete p.attributes[role];}
+    assert.ok(!p.targets?.some(t=>Object.values(t).includes(tangentIndex)));
+  }
+  assert.ok(!doc.animations?.length && !doc.skins?.length);
+  doc.accessors.pop();roles.delete(tangentIndex);
+  changes.push({accessor:tangentIndex,role:'TANGENT',removedDanglingReference:true});
+}
 for(const [i,a] of doc.accessors.entries()){
   const role=roles.get(i);
   assert.ok(role,'unexpected unclassified accessor '+i);
