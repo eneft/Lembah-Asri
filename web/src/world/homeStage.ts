@@ -597,7 +597,7 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
   cameraProxy.visible = false;
   cameraBlockers.push(cameraProxy);
 
-  // The supplied PBR house replaces the previous approved house GLB.
+  // The optimized Red Roof Cottage replaces the previous approved house GLB.
   // Keep the old 3D fallback only until the new asset finishes loading.
   const loaded = !loadApprovedModel ? Promise.resolve(false) : new GLTFLoader()
     .loadAsync('./models/environment/rumah_utama_red_roof.glb').then(async gltf => {
@@ -615,7 +615,7 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
     const center = bounds.getCenter(new THREE.Vector3());
     scene.position.set(HOME.house.x - center.x * scale, -bounds.min.y * scale,
       HOME.house.z - center.z * scale);
-    scene.name = 'Rumah utama - user uploaded PBR';
+    scene.name = 'Rumah utama - Red Roof Cottage';
     scene.userData.sourceFile='rumah_utama_red_roof.glb';
     scene.userData.uvPreserved=true;
     scene.userData.pbrPreserved=false;
@@ -642,9 +642,7 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
     scene.updateMatrixWorld(true);
     // Keep the authored courtyard painting loaded before the visible GLB.
     await courtyardAlbedo;
-    // The old house used a custom MeshBasic ground shader. The new file
-    // already contains its own exterior details and real PBR materials:
-    // leave those intact and use only the existing separate soil underlay.
+    // Preserve the authored exterior geometry and use the existing separate soil underlay.
     fallback.visible = false;
     root.add(scene);
     return true;

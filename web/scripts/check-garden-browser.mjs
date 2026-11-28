@@ -146,14 +146,28 @@ try {
   assert.equal(exported.object.type,'Scene');
   assert.equal(exported.metadata.type,'Object');
   const names=new Set();
-  const walk=o=>{names.add(o.name);for(const child of o.children??[])walk(child);};
+  let exportedHouse;
+  const walk=o=>{
+    names.add(o.name);
+    if(o.name==='Rumah utama - Red Roof Cottage') exportedHouse=o;
+    for(const child of o.children??[])walk(child);
+  };
   walk(exported.object);
   for(const name of ['World painted grass UV terrain',
-    'Rumah utama - Rumah Masa Kecil',
+    'Rumah utama - Red Roof Cottage',
     'Home scene - layered local grove',
     'Shallow stream west of childhood home']){
     assert.ok(names.has(name),'missing exported world object: '+name);
   }
+  assert.equal(exportedHouse?.userData?.sourceFile,'rumah_utama_red_roof.glb');
+  assert.equal(exportedHouse?.userData?.uvPreserved,true);
+  assert.equal(exportedHouse?.userData?.painterlyShader,true);
+  assert.ok(art.has(prefix+'models/environment/rumah_utama_red_roof.glb'),'the replacement GLB was fetched');
+  assert.ok(!names.has('Rumah Masa Kecil - fallback geometry') || (()=>{
+    let visibleFallback=false;
+    const visit=o=>{if(o.name==='Rumah Masa Kecil - fallback geometry' && o.visible!==false) visibleFallback=true;for(const child of o.children??[])visit(child);};
+    visit(exported.object);return !visibleFallback;
+  })(),'fallback house must not remain visible');
   // The actual exported runtime scene must not contain the off-area village.
   for (const name of ['Balai Desa walls', 'Pendopo floor', 'Pasar Desa walls',
     'Puskesmas walls', 'Village plaza handpainted UV surface', 'Village bamboo footbridge',

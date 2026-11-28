@@ -316,42 +316,45 @@ try{
   await shot(-42.25,13.0,.78,'artifacts/creek/02-bridge-upstream.jpg');
   // Inspect the actual replacement, not the safe previous-house fallback.
   await page.waitForFunction(()=>{
-    const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - Rumah Masa Kecil');
-    return !!(home && home.getObjectByName('Pintu_engsel'));
+    const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - Red Roof Cottage');
+    return home?.userData?.sourceFile==='rumah_utama_red_roof.glb';
   },null,{timeout:120000});
   const importedHouse=await page.evaluate(()=>{
-    const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - Rumah Masa Kecil');
-    let triangles=0,meshes=0,uvMeshes=0,normal=false,baseColor=false,emissive=false,matte=true;
+    const home=window.__lembahVisualQA.scene.getObjectByName('Rumah utama - Red Roof Cottage');
+    let triangles=0,meshes=0,uvMeshes=0,painted=true,shadowed=true;
     home.traverse(o=>{
       if(!o.isMesh)return;
       meshes++;
       triangles+=(o.geometry.index?.count??o.geometry.getAttribute('position').count)/3;
       if(o.geometry.getAttribute('uv'))uvMeshes++;
+      shadowed&&=o.castShadow && o.receiveShadow;
       for(const m of Array.isArray(o.material)?o.material:[o.material]){
-        normal||=!!m.normalMap;
-        baseColor||=!!m.map;
-        emissive||=!!m.emissive && m.emissive.getHex()!==0;
-        matte&&=m.isMeshStandardMaterial===true && m.roughness===1 && m.metalness===0;
+        painted&&=!!m.map && m.isMeshLambertMaterial===true &&
+          m.userData.housePainterlyShader==='house-diffuse-painterly-v1';
       }
     });
-    return {sourceFile:home.userData.sourceFile,colliders:home.userData.authoredColliderCount,
-      scale:home.scale.toArray(),triangles,meshes,uvMeshes,normal,baseColor,emissive,matte};
+    return {sourceFile:home.userData.sourceFile,uvPreserved:home.userData.uvPreserved,
+      scale:home.scale.toArray(),triangles,meshes,uvMeshes,painted,shadowed,
+      fallbackVisible:window.__lembahVisualQA.scene.getObjectByName('Rumah Masa Kecil - fallback geometry')?.visible};
   });
-  assert.equal(importedHouse.sourceFile,'Rumah_Masa_Kecil.glb');
-  assert.equal(importedHouse.triangles,24990);
-  assert.equal(importedHouse.meshes,60);
-  assert.equal(importedHouse.colliders,16);
-  assert.ok(importedHouse.uvMeshes>0 && importedHouse.normal && importedHouse.baseColor && importedHouse.emissive && importedHouse.matte);
+  assert.equal(importedHouse.sourceFile,'rumah_utama_red_roof.glb');
+  assert.equal(importedHouse.meshes,1,'optimized replacement must be the imported mesh');
+  assert.ok(Number.isInteger(importedHouse.triangles) && importedHouse.triangles>0);
+  assert.equal(importedHouse.uvMeshes,importedHouse.meshes);
+  assert.equal(importedHouse.uvPreserved,true);
+  assert.ok(importedHouse.painted && importedHouse.shadowed);
+  assert.notEqual(importedHouse.fallbackVisible,true);
   assert.ok(importedHouse.scale[0]>0 && importedHouse.scale.every(s=>s===importedHouse.scale[0]));
-  assert.ok([...assets].some(url=>url.includes('Rumah_Masa_Kecil.glb')));
+  assert.ok([...assets].some(url=>url.includes('rumah_utama_red_roof.glb')));
   const daylight=await page.evaluate(()=>{
     const game=window.__lembahVisualQA;
     const scene=game.scene;
     const hemi=scene.children.find(o=>o.isHemisphereLight);
     const sun=game.sunLight;
     const skyFill=scene.children.find(o=>o.isDirectionalLight&&o!==sun);
-    const house=scene.getObjectByName('Rumah utama - Rumah Masa Kecil');
-    const material=house?.getObjectByName('Genteng_depan')?.material;
+    const house=scene.getObjectByName('Rumah utama - Red Roof Cottage');
+    let material;
+    house?.traverse(o=>{if(o.isMesh && !material) material=Array.isArray(o.material)?o.material[0]:o.material;});
     const shadow=scene.getObjectByName('World painted-terrain real shadows');
     return {
       style:scene.userData.painterlyLightingStyle,
@@ -361,12 +364,9 @@ try{
       sun:sun?.intensity,hemi:hemi?.intensity,fill:skyFill?.intensity,
       fogNear:scene.fog?.near,fogFar:scene.fog?.far,
       envIntensity:scene.environmentIntensity,
-      housePBR:material?.isMeshStandardMaterial===true,
+      houseDiffuse:material?.isMeshLambertMaterial===true,
       houseStyle:material?.userData?.housePainterlyShader,
-      houseMaps:[material?.map,material?.normalMap,
-        material?.roughnessMap,material?.metalnessMap].every(Boolean),
-      roughness:material?.roughness,metalness:material?.metalness,
-      normalScale:material?.normalScale?.x,
+      houseAlbedo:!!material?.map,
       shadowOpacity:shadow?.material?.opacity
     };
   });
@@ -378,9 +378,9 @@ try{
   assert.equal(daylight.envIntensity,.24);
   assert.equal(daylight.fogNear,32);
   assert.equal(daylight.fogFar,60);
-  assert.equal(daylight.housePBR,true);
-  assert.equal(daylight.roughness,1);
-  assert.equal(daylight.metalness,0);
+  assert.equal(daylight.houseDiffuse,true);
+  assert.equal(daylight.houseStyle,'house-diffuse-painterly-v1');
+  assert.equal(daylight.houseAlbedo,true);
   assert.equal(daylight.shadowOpacity,.29);
   // Stage 1: compare the actual materials in the production WebGL scene.
   // Every grass source uses one finish; water is never treated as foliage.
