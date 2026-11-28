@@ -75,10 +75,26 @@ test('tiled-grass workaround does not introduce dark decals or rewrite PBR objec
   assert.ok(stage.root.getObjectByName('Painted foam breaking against mossy river boulders'));
   assert.ok(stage.solids.some(s=>s.label==='Childhood home walls'));
   const gameSource=readFileSync(new URL('../src/world/Game.ts',import.meta.url),'utf8');
-  assert.match(gameSource,/applyMeadowAntiTileShader\(ground\.material\)/);
+  assert.match(gameSource,/applyMeadowAntiTileShader\(ground\.material, isolated\)/);
   const textureSource=readFileSync(new URL('../src/world/terrainMaterials.ts',import.meta.url),'utf8');
   assert.match(textureSource,/binding\.surface === 'grass' && binding\.worldUV/);
   assert.match(textureSource,/MirroredRepeatWrapping/);
   const unpainted=new THREE.MeshBasicMaterial({color:'#fff'});
   assert.throws(()=>applyMeadowAntiTileShader(unpainted));
+});
+
+test('home exterior matches courtyard brush scale, without changing geometry or legacy sampling',()=>{
+  const home=createPaintedTerrainPlane('grass',88,94,-35,-1,0);
+  const uv=Array.from(home.geometry.getAttribute('uv1').array);
+  applyMeadowAntiTileShader(home.material,true);
+  const shader=shaderFor(home.material);
+  assert.deepEqual(home.material.userData.homeCourtyardUVMetres,[26.25,23.79]);
+  assert.match(shader.fragmentShader,/vMapUv\*vec2\(\.133333,\.14709\)/);
+  assert.match(shader.fragmentShader,/paintedMeadow\*vec3\(1\.10,1\.0,\.84\)/);
+  assert.equal((shader.fragmentShader.match(/texture2D\(/g)||[]).length,2);
+  assert.deepEqual(Array.from(home.geometry.getAttribute('uv1').array),uv);
+  const legacy=createPaintedTerrainPlane('grass',160,160,0,0,0);
+  applyMeadowAntiTileShader(legacy.material);
+  assert.equal(legacy.material.userData.homeCourtyardUVMetres,undefined);
+  assert.notEqual(home.material.customProgramCacheKey(),legacy.material.customProgramCacheKey());
 });

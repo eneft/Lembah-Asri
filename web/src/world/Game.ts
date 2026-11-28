@@ -627,7 +627,7 @@ export class Game {
     carveVisualCreek(ground);
     // Break distant 3.5-m repeating grass tile grid globally, using the
     // approved painterly albedo without adding dark overlay planes.
-    applyMeadowAntiTileShader(ground.material);
+    applyMeadowAntiTileShader(ground.material, isolated);
     applyRiversidePaint(ground.material,'meadow');
     this.scene.add(ground);
     // Preserve the painted albedo: a transparent ShadowMaterial layer catches

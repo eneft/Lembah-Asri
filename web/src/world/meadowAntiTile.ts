@@ -50,13 +50,21 @@ const FRAGMENT=[
 ].join('\n');
 
 export function applyMeadowAntiTileShader(
-  material:THREE.MeshBasicMaterial
+  material:THREE.MeshBasicMaterial,
+  matchHomeCourtyard = false
 ):THREE.MeshBasicMaterial{
   if(material.userData.meadowAntiTile)return material;
   if(material.userData.terrainSurface!=='grass' ||
      material.userData.worldUV!==true){
     throw new Error('Anti-tile shader is only for the world-aligned painted meadow');
   }
+  // Match the courtyard's 1248px atlas across 32 x 29m using the existing
+  // 1024px grass-only atlas (about 26.25 x 23.79m per repeat). No dirt is tiled.
+  const fragment = matchHomeCourtyard ? FRAGMENT
+    .replace('vec2 uvFine=vMapUv+waveMeadow;', 'vec2 uvFine=vMapUv*vec2(.133333,.14709)+waveMeadow*.18;')
+    .replace('mix(grassFine,grassBroad,.41)', 'mix(grassFine,grassBroad,.18)')
+    .replace('diffuseColor.rgb*=paintedMeadow;', 'diffuseColor.rgb*=clamp(paintedMeadow*vec3(1.10,1.0,.84),0.,1.);')
+    : FRAGMENT;
   const previous=material.onBeforeCompile;
   material.onBeforeCompile=(shader,renderer)=>{
     previous.call(material,shader,renderer);
@@ -65,11 +73,12 @@ export function applyMeadowAntiTileShader(
         '#include <begin_vertex>\n'+
         'vMeadowWorldXZ=(modelMatrix*vec4(transformed,1.0)).xz;');
     shader.fragmentShader=ensureWarmGrassGLSL('varying vec2 vMeadowWorldXZ;\n'+
-      shader.fragmentShader.replace('#include <map_fragment>',FRAGMENT));
+      shader.fragmentShader.replace('#include <map_fragment>',fragment));
   };
   const oldKey=material.customProgramCacheKey.bind(material);
-  material.customProgramCacheKey=()=>oldKey()+'|'+MEADOW_ANTI_TILE.version;
+  material.customProgramCacheKey=()=>oldKey()+'|'+MEADOW_ANTI_TILE.version+(matchHomeCourtyard?'|home-courtyard-uv-v1':'');
   material.userData.meadowAntiTile=true;
+  if(matchHomeCourtyard) material.userData.homeCourtyardUVMetres=[26.25,23.79];
   material.userData.warmGrassStyle=WARM_GRASS_STYLE.version;
   material.userData.meadowImageSamples=MEADOW_ANTI_TILE.imageSamples;
   material.needsUpdate=true;
