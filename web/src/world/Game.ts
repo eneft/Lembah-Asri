@@ -17,6 +17,7 @@ import { HoeSwing } from './hoeSwing';
 import { reachablePlot, farmKeys, type FarmAction } from './farmPlots';
 import { sculptGardenGround, plantingPlaces, gardenHeightAt, type GardenGround } from './gardenLayout';
 import { createHomeStage, HOME, type SolidCollider } from './homeStage';
+import { HouseStairPhysics, type HouseCollisionMesh } from './houseCollision';
 import { HOME_SCENIC_CAMERA } from './homeScenicCamera';
 import { bridgeWalkHeightAt, makeBridgeWalkCollider, VILLAGE_CROSSING, BRIDGE_WALK, makeVillageBridgeCollider, villageBridgeHeightAt } from './paintedBridge';
 import { installCreekCollision, guardCreekPlayerMovement } from './creekCollision';
@@ -79,6 +80,8 @@ export class Game {
   private cameraObstacles: THREE.Object3D[] = [];
   private homeSolids: SolidCollider[] = [];
   private houseReady: Promise<boolean> = Promise.resolve(false);
+  private homeHouseCollision: {mesh?: HouseCollisionMesh} = {};
+  private houseStairs?: HouseStairPhysics;
   private farm!: HomeFarm | ChapterFarm;
   private gardenGround!: GardenGround;
 
@@ -133,6 +136,10 @@ export class Game {
 
   private onWalkingGround() {
     const p = this.player.translation(), velocity = this.player.linvel();
+    const houseFloor=this.houseStairs?.groundHeight(p.x,p.z,p.y-PLAYER_BODY_GROUND_Y);
+    if(houseFloor!==undefined && houseFloor>=gardenHeightAt(p.x,p.z)-.03){
+      return isPlayerGrounded(p.y-houseFloor,velocity.y);
+    }
     const ground=(x:number,z:number)=>
       Math.max(gardenHeightAt(x,z),bridgeWalkHeightAt(x,z), this.area === 'legacy' ? villageBridgeHeightAt(x,z) : 0, ...this.homeSolids
         .filter(s => /^(COL_Lantai|COL_Anak_tangga_)/.test(s.label)
@@ -317,6 +324,9 @@ export class Game {
     // Paths and the open gate remain physically traversable.
     await game.houseReady;
     const fixedScenery = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    if(game.homeHouseCollision.mesh){
+      game.houseStairs=new HouseStairPhysics(game.world,fixedScenery,game.homeHouseCollision.mesh,RAPIER);
+    }
     for (const solid of game.homeSolids) {
       const [hx,hy,hz] = solid.half;
       const [x,y,z] = solid.center;
@@ -590,6 +600,7 @@ export class Game {
     this.cameraObstacles.push(...home.cameraBlockers);
     this.homeSolids = home.solids;
     this.houseReady = home.houseReady;
+    this.homeHouseCollision = home.houseCollision;
     const size = isolated ? HOME_AREA.maxZ-HOME_AREA.minZ+4 : 160;
     const cx = isolated ? (HOME_AREA.minX+HOME_AREA.maxX)/2 : 0;
     const cz = isolated ? (HOME_AREA.minZ+HOME_AREA.maxZ)/2 : 0;
@@ -820,7 +831,13 @@ export class Game {
         this.previousPhysicsPosition.copy(this.currentPhysicsPosition);
         this.world.timestep=fixedStep;
         const before=this.player.translation();
+        const stepVelocity=this.player.linvel();
+        const assisted=!this.jumpInProgress && this.houseStairs?.assist(this.player,fixedStep);
         this.world.step();
+        if(assisted){
+          const v=this.player.linvel();
+          this.player.setLinvel({x:stepVelocity.x,y:v.y,z:stepVelocity.z},true);
+        }
         const stepped=this.player.translation();
         const bounded = this.area === 'home' ? constrainHomePosition(stepped.x,stepped.z) : stepped;
         const creekSafe=guardCreekPlayerMovement(before,bounded);
@@ -947,5 +964,5 @@ export class Game {
       this.panorama.material.dispose();
       this.panorama.geometry.dispose();
     }
-    this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.world?.free();}
+    this.environmentTarget?.dispose();this.characterBaseColor?.dispose();this.renderer.dispose();if(this.renderer.domElement.parentElement===this.host)this.host.removeChild(this.renderer.domElement);this.houseStairs?.dispose();this.world?.free();}
 }

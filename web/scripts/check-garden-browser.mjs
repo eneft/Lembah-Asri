@@ -171,6 +171,8 @@ try {
   assert.equal(exportedHouse?.userData?.sourceFile,'rumah_utama_red_roof.glb');
   assert.equal(exportedHouse?.userData?.uvPreserved,true);
   assert.equal(exportedHouse?.userData?.painterlyShader,true);
+  assert.equal(exportedHouse?.userData?.houseCollision,'mesh-stairs-v1');
+  assert.ok(exportedHouse.userData.houseCollisionTriangles>0);
   assert.ok(art.has(prefix+'models/environment/rumah_utama_red_roof.glb'),'the replacement GLB was fetched');
   assert.ok(!names.has('Rumah Masa Kecil - fallback geometry') || (()=>{
     let visibleFallback=false;

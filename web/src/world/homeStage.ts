@@ -18,6 +18,7 @@ import { applyRiversidePaint } from './riversidePaint.ts';
 import { applyCreekCourtyardAlbedo } from './shoreCourtyard.ts';
 import { applyWarmCourtyardGrass } from './grassPalette.ts';
 import { createHousePainterlyMaterial } from './housePainterlyMaterial.ts';
+import { makeHouseCollisionMesh, type HouseCollisionMesh } from './houseCollision.ts';
 import { BRIDGE_WALK, BRIDGE_DECK, createPaintedWoodenBridge, loadPaintedBridgeTextures } from './paintedBridge.ts';
 import { loadUserSuppliedWoodenBridge } from './uploadedBridge.ts';
 import { createUVBambooFence, loadBambooFencePBR } from './bambooFence.ts';
@@ -75,6 +76,7 @@ export type HomeStage = {
   garden: GardenSurface;
   gardenGround: GardenGround;
   houseReady: Promise<boolean>;
+  houseCollision: { mesh?: HouseCollisionMesh };
   ready: Promise<boolean>;
 };
 
@@ -574,6 +576,9 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
   const fencePBRReady: Promise<boolean> = loadApprovedModel
     ? loadUploadedHomeFence(root, fenceRuns).then(ok => ok || loadBambooFencePBR()) : Promise.resolve(false);
 
+  // This full box is only the procedural-house fallback. The actual GLB
+  // installs its own triangle collision, keeping the steps and veranda open.
+  const houseCollision: { mesh?: HouseCollisionMesh } = {};
   // Player cannot walk through house walls or the storage structure.
   solids.push({
     label: 'Childhood home walls',
@@ -655,6 +660,14 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
     scene.updateMatrixWorld(true);
     // Keep the authored courtyard painting loaded before the visible GLB.
     await courtyardAlbedo;
+    // Build from the transformed render mesh, with no changes to the GLB.
+    const collision = makeHouseCollisionMesh(scene);
+    const oldBox = solids.findIndex(s=>s.label==='Childhood home walls');
+    if(oldBox<0)throw new Error('Missing fallback house collision');
+    houseCollision.mesh=collision;
+    solids.splice(oldBox,1);
+    scene.userData.houseCollision='mesh-stairs-v1';
+    scene.userData.houseCollisionTriangles=collision.indices.length/3;
     // Preserve the authored exterior geometry and use the existing separate soil underlay.
     fallback.visible = false;
     root.add(scene);
@@ -667,5 +680,5 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
     return false;
   });
 
-  return { root, solids, cameraBlockers, garden, gardenGround, houseReady: loaded, ready: Promise.all([loaded, wellReady, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady, shadeReady]).then(([house]) => house) };
+  return { root, solids, cameraBlockers, garden, gardenGround, houseCollision, houseReady: loaded, ready: Promise.all([loaded, wellReady, orchardReady, rockReady, fencePBRReady, creekArtReady, bridgeArtReady, uploadedBridgeReady, gardenReady, shadeReady]).then(([house]) => house) };
 }
