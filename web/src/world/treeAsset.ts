@@ -86,6 +86,19 @@ function isolateCourtyardBark(map: THREE.Texture): THREE.Texture | undefined {
       }
     }
   }
+  // Work in painted sRGB, before lighting. Pull the ochre wood toward a
+  // weathered brown and compress its painted highlights around midtone.
+  // The orange-to-brown mask leaves green ground plants in the root UVs.
+  for(let i=0;i<data.length;i+=4){
+    if(!data[i+3])continue;
+    const r=data[i],g=data[i+1],b=data[i+2];
+    const wood=THREE.MathUtils.smoothstep(r-g,6,27);
+    const light=.299*r+.587*g+.114*b;
+    const grain=(light-122)*.62;
+    data[i]=r+(136+grain-r)*wood;
+    data[i+1]=g+(111+grain-g)*wood;
+    data[i+2]=b+(87+grain-b)*wood;
+  }
   ctx.putImageData(pixels,0,0);
   const bark=map.clone();
   bark.source=new THREE.Source(canvas);
@@ -358,12 +371,15 @@ export function loadPaintedTreeSource(kind: TreeAssetKind): Promise<THREE.Group>
     const source = gltf.scene;
     source.name = 'Approved UV alpha-cutout 3D ' + kind + ' tree';
     if (kind === 'courtyard') {
+      const prepared = new Set<THREE.Material>();
       // The authored unlit atlas includes its own highlights and leaf mask.
       source.traverse(object => {
         if (!(object instanceof THREE.Mesh)) return;
         object.castShadow = true;
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         for (const material of materials) {
+          if (prepared.has(material)) continue;
+          prepared.add(material);
           material.toneMapped = false;
           if (material instanceof THREE.MeshBasicMaterial && material.map) {
             if (material.name === 'Daun') applyGreenPigment(material);
