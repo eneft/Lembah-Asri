@@ -213,20 +213,50 @@ function addShed(root: THREE.Object3D, loadApprovedModel: boolean): Promise<bool
       if (!(object instanceof THREE.Mesh)) return;
       object.castShadow = true;
       object.receiveShadow = true;
-      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
-        if (material instanceof THREE.MeshStandardMaterial) {
-          if (material.map) {
-            material.map.colorSpace = THREE.SRGBColorSpace;
-            material.map.anisotropy = 4;
-            texturedMeshes++;
-          }
-          // Aged wood and clay should remain matte; keep UV and normal map.
-          material.metalness = 0;
-          material.roughness = 1;
-          material.normalScale.multiplyScalar(0.65);
-          material.needsUpdate = true;
+      const original = Array.isArray(object.material) ? object.material : [object.material];
+      const painted = original.map(material => {
+        if (!(material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshBasicMaterial)) return material;
+        if (material.map) {
+          material.map.colorSpace = THREE.SRGBColorSpace;
+          material.map.anisotropy = 4;
+          texturedMeshes++;
         }
-      }
+        // Match the house's diffuse lighting and painted pigment rather than
+        // applying a global tint to this single-atlas shed (which includes plants).
+        const matched = createHousePainterlyMaterial(material);
+        const compile = matched.onBeforeCompile;
+        const cacheKey = matched.customProgramCacheKey();
+        matched.onBeforeCompile = (shader, renderer) => {
+          compile.call(matched, shader, renderer);
+          shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+            #include <map_fragment>
+            {
+              vec3 c = diffuseColor.rgb;
+              float l = dot(c, vec3(.2126, .7152, .0722));
+              // Warm pigment mask; green leaves, moss, and neutral stone stay
+              // out of the selective grade. Feather edges to preserve the atlas.
+              float warm = smoothstep(.012, .065, c.r - c.g)
+                         * smoothstep(.008, .045, c.g - c.b);
+              float clay = smoothstep(1.65, 2.65, c.r / max(c.g, .018));
+              // Sun-weathered timber: lift dark grain, reduce orange/yellow
+              // chroma, and keep the original painted plank detail.
+              float woodValue = .78 * l + .065;
+              vec3 wood = vec3(woodValue) * vec3(1.18, .98, .77)
+                        + (c - vec3(l)) * .28;
+              // Muted brick/terracotta: retain tile shading but soften the
+              // deep red pigment and high-contrast seams.
+              float clayValue = .84 * l + .026;
+              vec3 terracotta = vec3(clayValue) * vec3(1.25, .91, .76)
+                              + (c - vec3(l)) * .40;
+              diffuseColor.rgb = mix(c, clamp(mix(wood, terracotta, clay), 0., 1.), warm * .88);
+            }
+          `);
+        };
+        matched.customProgramCacheKey = () => cacheKey + '|shed-house-palette-v1';
+        matched.userData.shedPalette = 'weathered-house-timber-clay-v1';
+        return matched;
+      });
+      object.material = Array.isArray(object.material) ? painted : painted[0];
     });
     if (!texturedMeshes) throw new Error('Storage shed has no textured mesh');
     root.add(scene);
