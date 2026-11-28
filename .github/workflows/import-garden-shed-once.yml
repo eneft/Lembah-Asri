@@ -1,0 +1,28 @@
+name: Import garden shed once
+on:
+  push:
+    branches:
+      - asset/garden-tool-shed-optimized
+    paths:
+      - '.github/workflows/import-garden-shed-once.yml'
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=web/public/models/environment/garden_tool_shed_optimized.glb
+          mkdir -p "$(dirname "$target")"
+          curl --fail --location --retry 3 --output "$target" 'https://d2ol7oe51mr4n9.cloudfront.net/user_3KuXgabELoP13yL56g9yyaMqNeN/6ef06b4b-fa41-46f2-b110-b06e28c06068.glb'
+          echo 'c25c55b0f95dde22e9a55109c13cb036bf392e2baeb2e8b9eda579d1dc7e6349  web/public/models/environment/garden_tool_shed_optimized.glb' | sha256sum -c -
+          test "$(wc -c < "$target")" -eq 5195080
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$target"
+          git commit -m "Add audited optimized garden tool shed GLB"
+          git push origin HEAD:refs/heads/asset/garden-tool-shed-optimized
