@@ -286,4 +286,6 @@ test('active Red Roof Cottage GLB has valid chunks and authored textured geometr
   assert.ok(primitives.some(p=>p.attributes?.POSITION!==undefined && p.attributes?.TEXCOORD_0!==undefined));
   assert.ok(doc.materials.some(m=>m.pbrMetallicRoughness?.baseColorTexture));
   for(const view of doc.bufferViews) assert.ok((view.byteOffset??0)+view.byteLength<=doc.buffers[view.buffer].byteLength,'buffer view out of range');
+  for(const [i,a] of doc.accessors.entries()) assert.ok(Number.isInteger(a.bufferView) && doc.bufferViews[a.bufferView], 'invalid accessor bufferView '+i);
+  for(const image of doc.images) assert.ok(doc.bufferViews[image.bufferView], 'invalid image bufferView');
 });
