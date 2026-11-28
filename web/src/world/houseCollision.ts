@@ -84,7 +84,21 @@ export class HouseStairPhysics{
     const dx=v.x*dt,dz=v.z*dt;
     // A small downward component makes the controller recognize ground contact.
     this.controller.computeColliderMovement(shape,{x:dx,y:-.035,z:dz});
-    const m=this.controller.computedMovement();
+    let m=this.controller.computedMovement();
+    // At 60 Hz the requested travel is much shorter than the capsule radius.
+    // A riser can stop that tiny sweep before autostep finds its next tread.
+    // Retry with a capsule-radius lookahead only when forward travel is blocked.
+    const travel=Math.hypot(dx,dz);
+    if(m.y<=.012 && (m.x*dx+m.z*dz)/travel<travel*.8){
+      const lookahead=.32;
+      this.controller.computeColliderMovement(shape,{x:dx/travel*lookahead,y:-.035,z:dz/travel*lookahead});
+      const probe=this.controller.computedMovement();
+      // Accept only a genuine upward, collision-checked stair movement.
+      // Do not accept horizontal shortcuts or a full-height wall.
+      if(probe.y>.012 && probe.y<=HOUSE_STEP_HEIGHT+.025 &&
+         (probe.x*dx+probe.z*dz)/travel>travel*.5 &&
+         Math.hypot(probe.x,probe.z)<=lookahead+.02)m=probe;
+    }
     if(!Number.isFinite(m.x+m.y+m.z)||m.y<=.012||m.y>HOUSE_STEP_HEIGHT+.025||m.x*dx+m.z*dz<=0)return false;
     // Autostep's swept capsule has already checked both the tread and headroom.
     // Apply only this bounded, upward correction, then let the dynamic solver
