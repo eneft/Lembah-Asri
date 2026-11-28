@@ -268,3 +268,22 @@ test('Rumah Masa Kecil is the exact original authored GLB with separate visual a
   assert.ok(doc.materials.some(m=>m.normalTexture?.texCoord===1));
   assert.ok(doc.materials.some(m=>m.emissiveFactor?.some(v=>v>0)));
 });
+
+
+test('active Red Roof Cottage GLB has valid chunks and authored textured geometry', () => {
+  const bytes=readFileSync(new URL('../public/models/environment/rumah_utama_red_roof.glb',import.meta.url));
+  assert.equal(bytes.toString('ascii',0,4),'glTF');
+  assert.equal(bytes.readUInt32LE(4),2);
+  assert.equal(bytes.readUInt32LE(8),bytes.length);
+  const len=bytes.readUInt32LE(12);
+  assert.equal(bytes.readUInt32LE(16),0x4e4f534a);
+  const doc=JSON.parse(bytes.subarray(20,20+len).toString('utf8'));
+  const bin=20+len;
+  assert.equal(bytes.readUInt32LE(bin+4),0x004e4942);
+  assert.equal(bin+8+bytes.readUInt32LE(bin),bytes.length);
+  console.log('Red Roof Cottage GLB',JSON.stringify({meshes:doc.meshes?.length,materials:doc.materials,images:doc.images,extensions:doc.extensionsRequired}));
+  const primitives=doc.meshes.flatMap(m=>m.primitives);
+  assert.ok(primitives.some(p=>p.attributes?.POSITION!==undefined && p.attributes?.TEXCOORD_0!==undefined));
+  assert.ok(doc.materials.some(m=>m.pbrMetallicRoughness?.baseColorTexture));
+  for(const view of doc.bufferViews) assert.ok((view.byteOffset??0)+view.byteLength<=doc.buffers[view.buffer].byteLength,'buffer view out of range');
+});

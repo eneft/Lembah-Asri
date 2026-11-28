@@ -2,7 +2,7 @@ import { applyPaintedPigment } from './paintedPigment.ts';
 import * as THREE from 'three';
 
 /** Non-PBR diffuse shader: authored UV color, soft light, real shadow reception. */
-export function createHousePainterlyMaterial(source: THREE.MeshStandardMaterial): THREE.MeshLambertMaterial {
+export function createHousePainterlyMaterial(source: THREE.MeshStandardMaterial | THREE.MeshBasicMaterial): THREE.MeshLambertMaterial {
   const material = new THREE.MeshLambertMaterial({
     map: source.map, color: source.color.clone(), side: source.side,
     transparent: source.transparent, opacity: source.opacity,

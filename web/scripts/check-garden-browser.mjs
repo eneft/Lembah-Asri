@@ -42,13 +42,20 @@ try {
       }
     });
   });
-  page.on('console', m => { if (m.type() === 'error' && /Shader Error|VALIDATE_STATUS|Could not initialise WebGL|World export failed/i.test(m.text())) { failures.push(m.text()); console.error(m.text()); } });
+  page.on('console', m => { if (/House GLB unavailable/.test(m.text())) console.error(m.text()); if (m.type() === 'error' && /Shader Error|VALIDATE_STATUS|Could not initialise WebGL|World export failed/i.test(m.text())) { failures.push(m.text()); console.error(m.text()); } });
   page.on('response', res => { if (res.ok()) art.add(new URL(res.url()).pathname); });
   await page.route('https://fonts.googleapis.com/**',route=>route.abort());
   const url = 'http://127.0.0.1:' + server.address().port + prefix;
   await page.goto(url, {waitUntil:'domcontentloaded'});
   const ready = page.getByText('3D WORLD READY',{exact:true});
+  const verifyHouse = async () => {
+    const canvas=page.locator('.game-canvas');
+    await page.waitForFunction(()=>['loaded','fallback'].includes(document.querySelector('.game-canvas')?.dataset.houseLoadState));
+    assert.equal(await canvas.getAttribute('data-house-load-state'),'loaded',
+      'Red Roof Cottage loader: '+await canvas.getAttribute('data-house-load-error'));
+  };
   await ready.waitFor({timeout:150_000});
+  await verifyHouse();
   // Check installed geometry, not merely the code or synthetic test output.
   await page.locator('.game-canvas[data-fence-revision="authored-shared-posts-v1"][data-fence-texture-revision="original-authored-glb"]').waitFor({timeout:120_000});
   await mkdir('artifacts/garden',{recursive:true});
@@ -67,6 +74,7 @@ try {
   assert.notEqual(await page.locator('.mobile-jump').evaluate(el=>getComputedStyle(el).display),'none');
   await page.reload({waitUntil:'domcontentloaded'});
   await ready.waitFor({timeout:150_000});
+  await verifyHouse();
   assert.equal(await modeChoice.inputValue(),'tablet','mode must persist across reload');
   assert.equal(await controlMode(),'tablet');
   await modeChoice.selectOption('auto');
@@ -122,6 +130,7 @@ try {
   assert.equal(harvested[0][1].plantedAt,0);
   await page.reload({waitUntil:'domcontentloaded'});
   await ready.waitFor({timeout:150_000});
+  await verifyHouse();
   assert.deepEqual(await readSeeds(),harvested);
   assert.ok(art.has(prefix+'textures/terrain/home_garden_rows.webp'),'the deployed garden painting was fetched');
   // Exercise the real download button on a fully loaded production world.

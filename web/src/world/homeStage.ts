@@ -599,6 +599,7 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
 
   // The optimized Red Roof Cottage replaces the previous approved house GLB.
   // Keep the old 3D fallback only until the new asset finishes loading.
+  root.userData.houseLoadState = loadApprovedModel ? 'loading' : 'skipped';
   const loaded = !loadApprovedModel ? Promise.resolve(false) : new GLTFLoader()
     .loadAsync('./models/environment/rumah_utama_red_roof.glb').then(async gltf => {
     const scene = gltf.scene;
@@ -622,32 +623,47 @@ export function createHomeStage(loadApprovedModel = true, chapter = false, isola
     scene.userData.painterlyShader=true;
     // Use a non-PBR diffuse shader; retain source GLB and authored albedo UVs.
     let houseMeshes=0;
+    let texturedMeshes=0;
     scene.traverse(obj=>{
       if(!(obj instanceof THREE.Mesh))return;
       const materials=Array.isArray(obj.material)?obj.material:[obj.material];
+      if (!obj.geometry.getAttribute('position')) throw new Error('House mesh has no positions: '+obj.name);
+      let textured=false;
       const painted = materials.map(material=>{
-        if (!(material instanceof THREE.MeshStandardMaterial) || !material.map) {
-          throw new Error('Missing Red Roof Cottage albedo');
+        // glTF unlit uses MeshBasicMaterial; ordinary glTF uses MeshStandardMaterial.
+        // Both can carry the same authored UV albedo.
+        if (!(material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshBasicMaterial)) {
+          throw new Error('Unsupported house material '+material.type+' on '+obj.name);
         }
-        material.map.colorSpace = THREE.SRGBColorSpace;
-        material.map.anisotropy = 8;
+        if (material.map) {
+          if (!obj.geometry.getAttribute('uv')) throw new Error('Textured house mesh has no UV: '+obj.name);
+          material.map.colorSpace = THREE.SRGBColorSpace;
+          material.map.anisotropy = 8;
+          textured=true;
+        }
         return createHousePainterlyMaterial(material);
       });
+      if(textured)texturedMeshes++;
       obj.material=Array.isArray(obj.material)?painted:painted[0];
       obj.castShadow=true;
       obj.receiveShadow=true;
       houseMeshes++;
     });
-    if(houseMeshes!==1)throw new Error('Unexpected imported house mesh count');
+    if(houseMeshes===0 || texturedMeshes===0)throw new Error('House has no renderable UV-textured mesh');
+    scene.userData.meshCount=houseMeshes;
+    scene.userData.texturedMeshCount=texturedMeshes;
     scene.updateMatrixWorld(true);
     // Keep the authored courtyard painting loaded before the visible GLB.
     await courtyardAlbedo;
     // Preserve the authored exterior geometry and use the existing separate soil underlay.
     fallback.visible = false;
     root.add(scene);
+    root.userData.houseLoadState='loaded';
     return true;
   }).catch(error => {
-    console.warn('[LembahAsri] House GLB unavailable; keep 3D house fallback', error);
+    root.userData.houseLoadState='fallback';
+    root.userData.houseLoadError=error instanceof Error ? error.message : String(error);
+    console.warn('[LembahAsri] House GLB unavailable; keep 3D house fallback: '+root.userData.houseLoadError, error);
     return false;
   });
 

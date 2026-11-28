@@ -566,6 +566,11 @@ export class Game {
     const finish = villageFinishes(loadWorldTexture);
     const home = createHomeStage(true, chapterMode(), isolated);
     this.host.dataset.fenceRevision = 'loading';
+    this.host.dataset.houseLoadState = 'loading';
+    void home.houseReady.then(ok => {
+      this.host.dataset.houseLoadState = ok ? 'loaded' : 'fallback';
+      this.host.dataset.houseLoadError = home.root.userData.houseLoadError ?? '';
+    });
     this.worldExportAssets.push(home.ready.then(result => {
       const fence=home.root.getObjectByName('Home fence — uploaded GLB');
       this.host.dataset.fenceRevision=fence?.userData.spacingRevision ?? 'fallback';
