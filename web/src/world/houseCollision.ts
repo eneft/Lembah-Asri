@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
-import { PLAYER_BODY_GROUND_Y } from './characterAnimation.ts';
 
 export type HouseCollisionMesh={
   vertices:Float32Array;
@@ -59,7 +58,11 @@ export class HouseStairPhysics{
   readonly collider:RAPIER.Collider;
   private readonly controller:RAPIER.KinematicCharacterController;
   private readonly bounds:THREE.Box3;
-  constructor(private readonly world:RAPIER.World,body:RAPIER.RigidBody,mesh:HouseCollisionMesh,private readonly api:typeof RAPIER){
+  private readonly world:RAPIER.World;
+  private readonly api:typeof RAPIER;
+  constructor(world:RAPIER.World,body:RAPIER.RigidBody,mesh:HouseCollisionMesh,api:typeof RAPIER){
+    this.world=world;
+    this.api=api;
     this.bounds=mesh.bounds.clone().expandByScalar(.65);
     this.collider=world.createCollider(api.ColliderDesc.trimesh(mesh.vertices,mesh.indices,api.TriMeshFlags.FIX_INTERNAL_EDGES).setFriction(.8).setRestitution(0),body);
     this.controller=world.createCharacterController(.012);
