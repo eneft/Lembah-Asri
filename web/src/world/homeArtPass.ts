@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { isHomeGroundDetailAllowed, makeStoneAlbedoAtlas } from './homeGroundDetails.ts';
 
 /**
@@ -33,7 +34,7 @@ export function isFrontFoundationExclusionZone(x: number, z: number): boolean {
 
 const tallPlants: ReadonlyArray<readonly [number, number, number]> = [
   // Make tropical fans supporting details, not oversized flat green umbrellas.
-  [-41.75, -13.12, 1.65], [-25.33, -12.99, 1.38],
+  [-41.75, -13.12, 1.65],
   [-41.35, -7.30, 1.23]
 ];
 
@@ -248,6 +249,64 @@ function makeAtlasRockGeometry(variant: number): THREE.BufferGeometry {
   return geometry;
 }
 
+/** Pseudostem and successive arching blades share the courtyard leaf pigment. */
+function bananaGeometry(): THREE.BufferGeometry {
+  const stem = new THREE.CylinderGeometry(.095, .15, 1.48, 8, 1, true).toNonIndexed();
+  stem.translate(0, .74, 0);
+  const stemColors = new Float32Array(stem.attributes.position.count * 3);
+  for (let i = 0; i < stem.attributes.position.count; i++) {
+    new THREE.Color('#b5a56a').toArray(stemColors, i * 3);
+  }
+  stem.setAttribute('color', new THREE.BufferAttribute(stemColors, 3));
+  const blades = makeBroadLeafGeometry();
+  const pos = blades.attributes.position;
+  const uv = blades.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    const t = (uv.getY(i) - .025) / .95;
+    const reach = 2.25 + .6 * t;
+    pos.setXYZ(i, pos.getX(i) * reach, 1.34 + pos.getY(i) * 1.8 + .35 * t,
+      pos.getZ(i) * reach);
+  }
+  blades.computeVertexNormals();
+  const banana = mergeGeometries([stem, blades])!;
+  stem.dispose();
+  blades.dispose();
+  return banana;
+}
+
+function floweringShrubs(albedo: THREE.DataTexture, foliage: THREE.BufferGeometry) {
+  const group = new THREE.Group();
+  const points = [
+    { x: -39.1, z: -6.1, scale: 1.95, yaw: .7, hue: .45 },
+    { x: -26.05, z: -7.1, scale: 1.60, yaw: 2.4, hue: .38 }
+  ];
+  group.add(createPlantInstances('Flowering shrubs beside porch', points, foliage, albedo, true));
+  const petal = new THREE.SphereGeometry(1, 5, 3);
+  const flowers = new THREE.InstancedMesh(petal,
+    new THREE.MeshLambertMaterial({color: '#d98b85'}), points.length * 5 * 5);
+  flowers.name = 'Pink courtyard blossoms';
+  const pose = new THREE.Object3D();
+  let index = 0;
+  for (const point of points) {
+    const size = point.scale * .72;
+    for (let bloom = 0; bloom < 5; bloom++) {
+      const angle = bloom * 2.4 + point.yaw;
+      const x = point.x + Math.cos(angle) * size * .32;
+      const z = point.z + Math.sin(angle) * size * .32;
+      for (let i = 0; i < 5; i++) {
+        const a = angle + i * Math.PI * 2 / 5;
+        pose.position.set(x + .034 * Math.cos(a), .065 + size * .55, z + .034 * Math.sin(a));
+        pose.scale.set(.042, .022, .033);
+        pose.rotation.y = -a;
+        pose.updateMatrix();
+        flowers.setMatrixAt(index++, pose.matrix);
+      }
+    }
+  }
+  group.add(flowers);
+  return group;
+}
+
 export function createHomeArtPass(): THREE.Group {
   const group = new THREE.Group();
   group.name = 'Lembah Asri hand-painted 3D environment art pass';
@@ -260,6 +319,12 @@ export function createHomeArtPass(): THREE.Group {
     }));
   group.add(createPlantInstances('Natural shrubs around childhood home',
     shrubs, foliage, foliageAlbedo, true));
+
+  group.add(floweringShrubs(foliageAlbedo, foliage));
+  group.add(createPlantInstances('Tall banana clump behind garden side of house', [
+    { x: -25.65, z: -13.55, scale: 1.63, yaw: .38, hue: .25 },
+    { x: -24.85, z: -14.1, scale: 1.06, yaw: 1.32, hue: .65 }
+  ], bananaGeometry(), foliageAlbedo, true));
 
   const low = scatterHomeUndergrowth();
   group.add(createPlantInstances('Natural varied understory meadow',

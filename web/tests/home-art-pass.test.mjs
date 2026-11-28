@@ -56,8 +56,10 @@ test('leaf UV atlas is painted pigment, not a flat vertex tint', () => {
 test('production environment pass is actual instanced 3D foliage and UV-textured stones', () => {
   const group = createHomeArtPass();
   assert.equal(group.name,'Lembah Asri hand-painted 3D environment art pass');
-  assert.equal(group.children.length,7,'3 foliage and 4 stone batches, not dozens of draw calls');
-  assert.ok(group.children.every(o => o instanceof THREE.InstancedMesh));
+  const batches = [];
+  group.traverse(o => { if (o.isMesh) batches.push(o); });
+  assert.equal(batches.length,10,'six foliage and four stone batches');
+  assert.ok(batches.every(o => o instanceof THREE.InstancedMesh));
   const shrubs=group.getObjectByName('Natural shrubs around childhood home');
   const understory=group.getObjectByName('Natural varied understory meadow');
   const palms=group.getObjectByName('Tall tropical foliage behind home');
@@ -65,7 +67,9 @@ test('production environment pass is actual instanced 3D foliage and UV-textured
   assert.ok(shrubs.count>=12);
   assert.ok(shrubs.count<18, 'dense front-foundation shrubs removed');
   assert.equal(understory.count,scatterHomeUndergrowth().length);
-  assert.equal(palms.count,3);
+  assert.equal(palms.count,2);
+  assert.equal(group.getObjectByName('Tall banana clump behind garden side of house').count,2);
+  assert.equal(group.getObjectByName('Pink courtyard blossoms').count,50);
   assert.ok(shrubs.castShadow && palms.castShadow);
   assert.ok(!understory.castShadow,'understory should not tax iPhone shadow passes');
   assert.equal(shrubs.material.toneMapped,false);
