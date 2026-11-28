@@ -37,16 +37,16 @@ export const HOME_WARM_MORNING = Object.freeze({
   version:'home-warm-morning-v1',
   sky:'#c8dfe5',
   sunColor:'#f6d9a6',
-  sunIntensity:1.38,
+  sunIntensity:1.18,
   hemisphereSky:'#e5f0f5',
   hemisphereGround:'#a19479',
-  hemisphereIntensity:1.18,
+  hemisphereIntensity:1.26,
   fillColor:'#fff0d8',
   fillIntensity:.32,
   environmentIntensity:.24,
   exposure:1,
   shadowColor:'#796b53',
-  shadowOpacity:.29,
+  shadowOpacity:.24,
   contactShadowOpacity:.30
 });
 
